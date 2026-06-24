@@ -54,7 +54,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
-from heal_compress.pruning.grouped_conv import grouped_conv_pruning_fn
+from heal_compress.pruning.grouped_conv import grouped_conv_pruning_fn, merge_grouped_conv_groups
 from heal_compress.pruning.pruning_fns import get_pruning_fn
 from heal_compress.utils.io_utils import ensure_dir, save_csv, save_json
 from heal_compress.utils.model_utils import resolve_device
@@ -107,6 +107,90 @@ def mean(vals: list[float]) -> float:
 
 def p50(vals: list[float]) -> float:
     return statistics.median(vals) if vals else 0.0
+
+
+def _delta_pct(base: float, new: float) -> float:
+    if base == 0:
+        return 0.0
+    return (base - new) / base * 100.0
+
+
+def build_eval_comparison(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    by_round: dict[int, dict[str, dict[str, Any]]] = {}
+    for summary in summaries:
+        by_round.setdefault(int(summary["round_id"]), {})[summary["model_type"]] = summary
+    for round_id in sorted(by_round):
+        baseline = by_round[round_id].get("baseline")
+        pruned = by_round[round_id].get("pruned")
+        if not baseline or not pruned:
+            continue
+        row = {
+            "round_id": round_id,
+            "baseline_checkpoint": baseline["checkpoint"],
+            "pruned_checkpoint": pruned["checkpoint"],
+            "baseline_model_size_mb": baseline["model_size_mb"],
+            "pruned_model_size_mb": pruned["model_size_mb"],
+            "actual_prune_ratio": pruned["actual_prune_ratio"],
+        }
+        for key in ("AP_0_03", "AP_0_30", "AP_0_50", "AP_0_70"):
+            row[f"baseline_{key}"] = baseline[key]
+            row[f"pruned_{key}"] = pruned[key]
+            row[f"delta_{key}"] = round(float(pruned[key]) - float(baseline[key]), 6)
+        for key in (
+            "total_time_mean_ms",
+            "total_time_p50_ms",
+            "forward_time_mean_ms",
+            "forward_time_p50_ms",
+            "postprocess_time_mean_ms",
+            "postprocess_time_p50_ms",
+        ):
+            row[f"baseline_{key}"] = baseline[key]
+            row[f"pruned_{key}"] = pruned[key]
+            row[f"speedup_{key}_pct"] = round(_delta_pct(float(baseline[key]), float(pruned[key])), 3)
+            row[f"delta_{key}"] = round(float(pruned[key]) - float(baseline[key]), 3)
+        rows.append(row)
+    return rows
+
+
+def log_eval_comparison(rows: list[dict[str, Any]], logger: logging.Logger) -> None:
+    if not rows:
+        logger.info("No baseline/pruned pair found; eval comparison skipped")
+        return
+    for row in rows:
+        logger.info("Round %d baseline vs pruned AP comparison:", row["round_id"])
+        logger.info(
+            "  AP@0.03 %.6f -> %.6f (delta %.6f) | AP@0.30 %.6f -> %.6f (delta %.6f)",
+            row["baseline_AP_0_03"], row["pruned_AP_0_03"], row["delta_AP_0_03"],
+            row["baseline_AP_0_30"], row["pruned_AP_0_30"], row["delta_AP_0_30"],
+        )
+        logger.info(
+            "  AP@0.50 %.6f -> %.6f (delta %.6f) | AP@0.70 %.6f -> %.6f (delta %.6f)",
+            row["baseline_AP_0_50"], row["pruned_AP_0_50"], row["delta_AP_0_50"],
+            row["baseline_AP_0_70"], row["pruned_AP_0_70"], row["delta_AP_0_70"],
+        )
+        logger.info("Round %d timing comparison:", row["round_id"])
+        logger.info(
+            "  total mean %.3f -> %.3f ms (%+.3f ms, speedup %.3f%%), p50 %.3f -> %.3f ms (speedup %.3f%%)",
+            row["baseline_total_time_mean_ms"], row["pruned_total_time_mean_ms"],
+            row["delta_total_time_mean_ms"], row["speedup_total_time_mean_ms_pct"],
+            row["baseline_total_time_p50_ms"], row["pruned_total_time_p50_ms"],
+            row["speedup_total_time_p50_ms_pct"],
+        )
+        logger.info(
+            "  forward mean %.3f -> %.3f ms (%+.3f ms, speedup %.3f%%), p50 %.3f -> %.3f ms (speedup %.3f%%)",
+            row["baseline_forward_time_mean_ms"], row["pruned_forward_time_mean_ms"],
+            row["delta_forward_time_mean_ms"], row["speedup_forward_time_mean_ms_pct"],
+            row["baseline_forward_time_p50_ms"], row["pruned_forward_time_p50_ms"],
+            row["speedup_forward_time_p50_ms_pct"],
+        )
+        logger.info(
+            "  postprocess mean %.3f -> %.3f ms (%+.3f ms, speedup %.3f%%), p50 %.3f -> %.3f ms (speedup %.3f%%)",
+            row["baseline_postprocess_time_mean_ms"], row["pruned_postprocess_time_mean_ms"],
+            row["delta_postprocess_time_mean_ms"], row["speedup_postprocess_time_mean_ms_pct"],
+            row["baseline_postprocess_time_p50_ms"], row["pruned_postprocess_time_p50_ms"],
+            row["speedup_postprocess_time_p50_ms_pct"],
+        )
 
 
 def resolve_eval_device(gup_id: str | None, legacy_device: str | None) -> torch.device:
@@ -182,6 +266,10 @@ def apply_prune_replay(model: nn.Module, replay: list[dict[str, Any]], logger: l
             continue
         axis = op.get("axis", "")
         direction = op.get("direction", "")
+        if axis == "grouped_merge":
+            factor = int(op.get("merge_factor", 1))
+            merge_grouped_conv_groups(module, factor)
+            continue
         if axis == "grouped_keep":
             before = int(op.get("before", getattr(module, "out_channels", after)))
             groups = int(op.get("groups", getattr(module, "groups", 1)))
@@ -192,6 +280,16 @@ def apply_prune_replay(model: nn.Module, replay: list[dict[str, Any]], logger: l
                 start = gi * before_per
                 keep.extend(range(start, start + after_per))
             fn = grouped_conv_pruning_fn("keep_groups")
+        elif axis == "grouped_remove":
+            before = int(op.get("before", getattr(module, "out_channels", after)))
+            before_groups = int(op.get("before_groups", getattr(module, "groups", 1)))
+            kept_groups = op.get("kept_groups", [])
+            before_per = before // before_groups
+            keep = []
+            for gi in kept_groups:
+                start = int(gi) * before_per
+                keep.extend(range(start, start + before_per))
+            fn = grouped_conv_pruning_fn("remove_groups")
         else:
             keep = list(range(after))
             fn = get_pruning_fn(module, direction)
@@ -361,6 +459,7 @@ def evaluate_one_model(
         summary["forward_time_mean_ms"], summary["forward_time_p50_ms"],
         summary["postprocess_time_mean_ms"], summary["postprocess_time_p50_ms"],
     )
+    logger.info("")
     logger.info(
         "%s round %d AP: AP@0.03=%.6f AP@0.30=%.6f AP@0.50=%.6f AP@0.70=%.6f",
         model_type, round_id,
@@ -423,7 +522,11 @@ def run_eval(args: argparse.Namespace) -> dict[str, Any]:
             del model
     save_csv(summaries, out / "per_round_summary.csv")
     save_json(ap_results, out / "ap_results.json")
-    return {"summaries": summaries, "ap_results": ap_results}
+    comparison_rows = build_eval_comparison(summaries)
+    save_csv(comparison_rows, out / "eval_comparison.csv")
+    save_json(comparison_rows, out / "eval_comparison.json")
+    log_eval_comparison(comparison_rows, logger)
+    return {"summaries": summaries, "ap_results": ap_results, "comparison": comparison_rows}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

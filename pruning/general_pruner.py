@@ -74,6 +74,7 @@ def _group_aligned_keep_indices(
     align: int,
     min_channels: int,
     importance_scores: Optional[Dict[str, Any]] = None,
+    group_conv_align: int = 8,
 ) -> List[int]:
     """Select keep indices for a group, respecting grouped-conv constraints.
 
@@ -85,14 +86,54 @@ def _group_aligned_keep_indices(
     if c <= min_channels:
         return list(range(c))
 
-    # Check if any item is a grouped keep_groups handler -> enforce shared local.
+    # Check if any item is a grouped handler.
     groups_val = 1
+    grouped_mode = ""
     for item in group.items:
-        if getattr(item.pruning_fn, "__name__", "") == "prune_grouped_keep_groups":
+        fn_name = getattr(item.pruning_fn, "__name__", "")
+        if fn_name in ("prune_grouped_keep_groups", "prune_grouped_remove_groups"):
             groups_val = item.module.groups
+            grouped_mode = fn_name
             break
 
     target = _aligned_keep_count(c, prune_ratio, max(align, groups_val), min_channels)
+    if groups_val > 1 and c % groups_val == 0:
+        per = c // groups_val
+        if grouped_mode == "prune_grouped_remove_groups":
+            keep_groups = max(1, round(target / per))
+            if group_conv_align > 1:
+                keep_groups = keep_groups - (keep_groups % group_conv_align)
+                if keep_groups <= 0:
+                    keep_groups = group_conv_align if groups_val >= group_conv_align else groups_val
+            keep_groups = min(groups_val, keep_groups)
+            if per % group_conv_align != 0 or keep_groups >= groups_val:
+                return list(range(c))
+            group_scores = torch.zeros(groups_val, dtype=torch.float32)
+            for item in group.items:
+                if item.direction == "out" and item.reason in ("root_out", "grouped_conv:keep_groups"):
+                    module = item.module
+                    if isinstance(module, nn.Conv2d) and module.weight.shape[0] == c:
+                        root_scores = module.weight.detach().abs().sum(dim=(1, 2, 3)).cpu()
+                        group_scores += root_scores.view(groups_val, per).sum(dim=1)
+            if torch.count_nonzero(group_scores).item() == 0:
+                group_scores = torch.arange(groups_val, dtype=torch.float32)
+            _, kept_group_idx = torch.topk(group_scores, keep_groups, largest=True, sorted=False)
+            kept_groups = sorted(int(v) for v in kept_group_idx.tolist())
+            keep: List[int] = []
+            for gi in kept_groups:
+                keep.extend(range(gi * per, (gi + 1) * per))
+            return keep
+        keep_per = max(1, target // groups_val)
+        if group_conv_align > 1:
+            keep_per = keep_per - (keep_per % group_conv_align)
+            if keep_per <= 0:
+                keep_per = group_conv_align if per >= group_conv_align else per
+        keep_per = min(per, keep_per)
+        target = keep_per * groups_val
+        if per % group_conv_align != 0 and keep_per != per:
+            return list(range(c))
+        if target >= c:
+            return list(range(c))
 
     # Gather importance if available.
     scores: List[torch.Tensor] = []

@@ -362,10 +362,11 @@ class GroupBuilder:
                 if kind == "protected":
                     group.protect(f"grouped_conv_unaligned:{r}")
                     return group
-                fn = grouped_conv_pruning_fn(self.grouped_conv_mode)
+                mode = self.grouped_conv_mode if kind != "depthwise" else "keep_groups"
+                fn = grouped_conv_pruning_fn(mode)
                 group.add_dep(r, module, fn, "out",
                               idxs=list(range(node.out_dim() or 0)),
-                              idx_transform=transform, reason=f"grouped_conv:{kind}")
+                              idx_transform=transform, reason=f"grouped_conv:{mode}")
                 continue
 
             fn = get_pruning_fn(module, "out")

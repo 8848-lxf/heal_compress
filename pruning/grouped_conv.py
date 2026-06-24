@@ -127,6 +127,11 @@ def _prune_grouped_remove_groups(module: nn.Conv2d, keep: List[int]) -> Dict[str
     kept_groups = sorted({idx // out_per for idx in keep})
     if not kept_groups:
         raise ValueError("remove_groups: must keep >=1 group")
+    expected_keep: List[int] = []
+    for gi in kept_groups:
+        expected_keep.extend(range(gi * out_per, (gi + 1) * out_per))
+    if sorted(keep) != expected_keep:
+        raise ValueError("remove_groups requires whole output-group slabs")
     out_keep: List[int] = []
     in_keep: List[int] = []
     for gi in kept_groups:
@@ -166,3 +171,76 @@ def grouped_conv_pruning_fn(mode: str) -> Callable[[nn.Module, List[int]], Dict[
     if mode == "remove_groups":
         return _prune_grouped_remove_groups
     return _prune_grouped_keep_groups
+
+
+def merge_grouped_conv_groups(module: nn.Conv2d, merge_factor: int) -> Dict[str, Any]:
+    """Merge adjacent grouped-conv groups with block-diagonal weights.
+
+    This is a structure-normalization step, not pruning. It preserves the
+    original grouped-conv function by placing each old group into a diagonal
+    block inside the merged group and filling cross-group connections with zero.
+    """
+    if not isinstance(module, nn.Conv2d) or module.groups <= 1:
+        raise ValueError("merge_grouped_conv_groups expects grouped Conv2d")
+    if _is_depthwise(module):
+        raise ValueError("depthwise conv groups are not merge-normalized")
+    if merge_factor <= 1 or module.groups % merge_factor != 0:
+        raise ValueError(f"invalid merge_factor={merge_factor} for groups={module.groups}")
+    old_groups = module.groups
+    new_groups = old_groups // merge_factor
+    if module.in_channels % old_groups != 0 or module.out_channels % old_groups != 0:
+        raise ValueError("grouped conv channels must be divisible by old groups")
+    old_in_per = module.in_channels // old_groups
+    old_out_per = module.out_channels // old_groups
+    new_in_per = old_in_per * merge_factor
+    new_weight = module.weight.data.new_zeros(
+        module.out_channels,
+        new_in_per,
+        *module.weight.shape[2:],
+    )
+    for new_g in range(new_groups):
+        for rel in range(merge_factor):
+            old_g = new_g * merge_factor + rel
+            out_start = old_g * old_out_per
+            out_end = out_start + old_out_per
+            in_start = rel * old_in_per
+            in_end = in_start + old_in_per
+            new_weight[out_start:out_end, in_start:in_end].copy_(
+                module.weight.data[out_start:out_end]
+            )
+    module.weight = nn.Parameter(new_weight.clone())
+    module.groups = new_groups
+    return {
+        "axis": "grouped_merge",
+        "before_in": module.in_channels,
+        "after_in": module.in_channels,
+        "before_out": module.out_channels,
+        "after_out": module.out_channels,
+        "before_groups": old_groups,
+        "after_groups": new_groups,
+        "merge_factor": merge_factor,
+    }
+
+
+def grouped_conv_alignment_merge_factor(module: nn.Conv2d, align: int) -> int | None:
+    """Return a safe group-merge factor that satisfies group/per-group align."""
+    if not isinstance(module, nn.Conv2d) or module.groups <= 1 or _is_depthwise(module):
+        return None
+    if module.in_channels % module.groups != 0 or module.out_channels % module.groups != 0:
+        return None
+    in_per = module.in_channels // module.groups
+    out_per = module.out_channels // module.groups
+    if module.groups % align == 0 and in_per % align == 0 and out_per % align == 0:
+        return None
+    for factor in range(2, module.groups + 1):
+        if module.groups % factor != 0:
+            continue
+        new_groups = module.groups // factor
+        if new_groups % align != 0:
+            continue
+        if (in_per * factor) % align != 0:
+            continue
+        if (out_per * factor) % align != 0:
+            continue
+        return factor
+    return None

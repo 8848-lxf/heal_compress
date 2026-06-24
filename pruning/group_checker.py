@@ -28,6 +28,8 @@ from ..tracer.pruning_group import PruningGroup
 def check_pruning_group(
     group: PruningGroup,
     group_keep: List[int],
+    group_conv_align: int = 8,
+    require_group_aligned: bool = True,
 ) -> Dict[str, Any]:
     """Validate one group + keep set. Returns ``{"legal": bool, "issues": [...]}``.
 
@@ -83,19 +85,104 @@ def check_pruning_group(
                             "issue": "grouped_keep_pattern_mismatch", "layer": item.name,
                             "groups": g,
                         })
+                    if require_group_aligned:
+                        kept_per_group = len(next(iter(patterns))) if patterns else 0
+                        if kept_per_group <= 0 or kept_per_group % group_conv_align != 0:
+                            issues.append({
+                                "issue": "violates_group_inner_channel_align8",
+                                "layer": item.name,
+                                "groups": g,
+                                "kept_per_group": kept_per_group,
+                                "align": group_conv_align,
+                            })
+            if fn_name == "prune_grouped_remove_groups":
+                g = module.groups
+                if module.out_channels % g != 0 or module.in_channels % g != 0:
+                    issues.append({
+                        "issue": "groups_divisibility",
+                        "layer": item.name,
+                        "groups": g,
+                        "new_in": module.in_channels,
+                        "new_out": module.out_channels,
+                    })
+                else:
+                    out_per = module.out_channels // g
+                    in_per = module.in_channels // g
+                    kept_groups = sorted({idx // out_per for idx in local})
+                    expected = []
+                    for gi in kept_groups:
+                        expected.extend(range(gi * out_per, (gi + 1) * out_per))
+                    if sorted(local) != expected:
+                        issues.append({
+                            "issue": "grouped_remove_requires_whole_groups",
+                            "layer": item.name,
+                            "groups": g,
+                        })
+                    after_groups = len(kept_groups)
+                    if require_group_aligned:
+                        if after_groups % group_conv_align != 0:
+                            issues.append({
+                                "issue": "violates_group_count_align8",
+                                "layer": item.name,
+                                "groups_after": after_groups,
+                                "align": group_conv_align,
+                            })
+                        if in_per % group_conv_align != 0 or out_per % group_conv_align != 0:
+                            issues.append({
+                                "issue": "violates_group_inner_channel_align8",
+                                "layer": item.name,
+                                "groups_after": after_groups,
+                                "in_channels_per_group": in_per,
+                                "out_channels_per_group": out_per,
+                                "align": group_conv_align,
+                            })
+                        if g % group_conv_align != 0:
+                            issues.append({
+                                "issue": "violates_group_count_align8",
+                                "layer": item.name,
+                                "groups": g,
+                                "align": group_conv_align,
+                            })
             is_depthwise_out = (
                 isinstance(module, nn.Conv2d)
                 and g > 1 and g == module.in_channels == module.out_channels
                 and item.direction == "out"
             )
             if is_depthwise_out:
-                pass  # in==out==groups all become len(local)
+                if require_group_aligned and len(local) % group_conv_align != 0:
+                    issues.append({
+                        "issue": "violates_depthwise_channel_align8",
+                        "layer": item.name,
+                        "new_channels": len(local),
+                        "align": group_conv_align,
+                    })
             elif g > 0 and fn_name not in ("prune_grouped_remove_groups", "prune_grouped_keep_groups"):
                 if new_out % g != 0 or new_in % g != 0:
                     issues.append({
                         "issue": "groups_divisibility", "layer": item.name,
                         "groups": g, "new_in": new_in, "new_out": new_out,
                     })
+                elif require_group_aligned and g > 1:
+                    in_per = new_in // g
+                    out_per = new_out // g
+                    if g % group_conv_align != 0:
+                        issues.append({
+                            "issue": "violates_group_count_align8",
+                            "layer": item.name,
+                            "groups": g,
+                            "align": group_conv_align,
+                        })
+                    if in_per % group_conv_align != 0 or out_per % group_conv_align != 0:
+                        issues.append({
+                            "issue": "violates_group_inner_channel_align8",
+                            "layer": item.name,
+                            "groups": g,
+                            "new_in": new_in,
+                            "new_out": new_out,
+                            "in_per_group": in_per,
+                            "out_per_group": out_per,
+                            "align": group_conv_align,
+                        })
 
         # ConvTranspose2d weight-shape consistency (out lives on axis 1).
         if isinstance(module, nn.ConvTranspose2d) and item.direction == "out":
@@ -111,7 +198,10 @@ def check_pruning_group(
 
     # Add-branch consistency: every root-out member must end at the same width.
     if group.meta.get("group_type") == "add":
-        root_widths = [w for (_n, w, reason) in out_widths if reason in ("root_out", "grouped_conv:keep_groups", "grouped_conv:depthwise")]
+        root_widths = [
+            w for (_n, w, reason) in out_widths
+            if reason == "root_out" or reason.startswith("grouped_conv:")
+        ]
         if root_widths and len(set(root_widths)) > 1:
             issues.append({
                 "issue": "add_branch_width_mismatch",
@@ -123,7 +213,7 @@ def check_pruning_group(
     if is_cat:
         branch_total = 0
         for item in group.items:
-            if item.reason in ("root_out", "grouped_conv:keep_groups", "grouped_conv:depthwise"):
+            if item.reason == "root_out" or item.reason.startswith("grouped_conv:"):
                 branch_total += len(item.local_keep(group_keep))
         # downstream cat-consumers slice on the full concatenated space
         for item in group.items:
@@ -143,7 +233,11 @@ def check_pruning_group(
     return {"legal": not issues, "issues": issues}
 
 
-def check_model_legality(model: nn.Module) -> Dict[str, Any]:
+def check_model_legality(
+    model: nn.Module,
+    group_conv_align: int = 8,
+    require_group_aligned: bool = True,
+) -> Dict[str, Any]:
     """Whole-model structural sanity scan after surgery."""
     issues: List[Dict[str, Any]] = []
     for name, module in model.named_modules():
@@ -155,6 +249,40 @@ def check_model_legality(model: nn.Module) -> Dict[str, Any]:
                 issues.append({"layer": name, "issue": "invalid_groups",
                                "in": module.in_channels, "out": module.out_channels,
                                "groups": module.groups})
+            elif require_group_aligned and module.groups > 1:
+                in_per = module.in_channels // module.groups
+                out_per = module.out_channels // module.groups
+                is_depthwise = (
+                    isinstance(module, nn.Conv2d)
+                    and module.groups == module.in_channels == module.out_channels
+                )
+                if is_depthwise:
+                    if module.out_channels % group_conv_align != 0:
+                        issues.append({
+                            "layer": name,
+                            "issue": "violates_depthwise_channel_align8",
+                            "channels": module.out_channels,
+                            "align": group_conv_align,
+                        })
+                else:
+                    if module.groups % group_conv_align != 0:
+                        issues.append({
+                            "layer": name,
+                            "issue": "violates_group_count_align8",
+                            "groups": module.groups,
+                            "align": group_conv_align,
+                        })
+                    if in_per % group_conv_align != 0 or out_per % group_conv_align != 0:
+                        issues.append({
+                            "layer": name,
+                            "issue": "violates_group_inner_channel_align8",
+                            "in_channels": module.in_channels,
+                            "out_channels": module.out_channels,
+                            "groups": module.groups,
+                            "in_channels_per_group": in_per,
+                            "out_channels_per_group": out_per,
+                            "align": group_conv_align,
+                        })
             # weight shape vs declared channels
             if isinstance(module, nn.Conv2d):
                 w = module.weight

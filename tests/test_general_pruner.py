@@ -77,6 +77,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
+from heal_compress.pruning.grouped_conv import grouped_conv_alignment_merge_factor, merge_grouped_conv_groups
 from heal_compress.pruning.general_pruner import _group_aligned_keep_indices, prune_model as toy_prune_model
 from heal_compress.pruning.group_checker import check_model_legality, check_pruning_group
 from heal_compress.pruning.propagation import GroupBuilder
@@ -135,16 +136,134 @@ def load_heal_model(args: argparse.Namespace, device: torch.device, logger: logg
     return model, adapter
 
 
-def write_model_structure(model: nn.Module, path: Path) -> None:
+STRUCTURE_ATTRS = (
+    "in_channels",
+    "out_channels",
+    "in_features",
+    "out_features",
+    "num_features",
+    "groups",
+    "normalized_shape",
+)
+
+
+def collect_module_structure(model: nn.Module) -> dict[str, dict[str, Any]]:
+    snapshot: dict[str, dict[str, Any]] = {}
+    for name, module in model.named_modules():
+        if not name:
+            continue
+        attrs = {}
+        for attr in STRUCTURE_ATTRS:
+            if hasattr(module, attr):
+                value = getattr(module, attr)
+                if isinstance(value, torch.Size):
+                    value = tuple(value)
+                attrs[attr] = value
+        params = {pname: tuple(param.shape) for pname, param in module.named_parameters(recurse=False)}
+        buffers = {bname: tuple(buf.shape) for bname, buf in module.named_buffers(recurse=False)}
+        snapshot[name] = {
+            "module_type": module.__class__.__name__,
+            "attrs": attrs,
+            "params": params,
+            "buffers": buffers,
+        }
+    return snapshot
+
+
+def _operation_channel_change(op: dict[str, Any]) -> tuple[int | None, int | None]:
+    before = op.get("before", op.get("before_out", op.get("before_in")))
+    after = op.get("after", op.get("after_out", op.get("after_in")))
+    if before is None or after is None:
+        return None, None
+    return int(before), int(after)
+
+
+def build_structure_changes(
+    before: dict[str, dict[str, Any]],
+    after: dict[str, dict[str, Any]],
+    applied: list[dict[str, Any]],
+) -> tuple[dict[str, str], list[dict[str, Any]]]:
+    op_notes: dict[str, list[str]] = {}
+    op_groups: dict[str, list[str]] = {}
+    for result in applied:
+        group_id = result.get("group_id", "")
+        for op in result.get("operations", []):
+            layer = op.get("layer", "")
+            if not layer:
+                continue
+            before_c, after_c = _operation_channel_change(op)
+            axis = op.get("axis", "")
+            reason = op.get("reason", "")
+            note = ""
+            if before_c is not None and after_c is not None:
+                note = f"{axis}: {before_c} -> {after_c}"
+            elif axis == "attention_metadata":
+                note = (
+                    f"heads: {op.get('before_heads')} -> {op.get('after_heads')}, "
+                    f"inner_dim: {op.get('before_inner_dim')} -> {op.get('after_inner_dim')}"
+                )
+            if axis == "grouped_keep":
+                note = f"{note}, groups unchanged={op.get('groups')}"
+            if reason:
+                note = f"{note} ({reason})" if note else reason
+            if note:
+                op_notes.setdefault(layer, []).append(note)
+            if group_id:
+                op_groups.setdefault(layer, []).append(group_id)
+
+    notes: dict[str, str] = {}
+    rows: list[dict[str, Any]] = []
+    for name, after_info in after.items():
+        before_info = before.get(name)
+        if before_info is None:
+            continue
+        changes: list[str] = []
+        for attr in STRUCTURE_ATTRS:
+            old = before_info["attrs"].get(attr)
+            new = after_info["attrs"].get(attr)
+            if old != new:
+                changes.append(f"{attr}: {old} -> {new}")
+        for pname, new_shape in after_info["params"].items():
+            old_shape = before_info["params"].get(pname)
+            if old_shape != new_shape:
+                changes.append(f"{pname}.shape: {old_shape} -> {new_shape}")
+        for bname, new_shape in after_info["buffers"].items():
+            old_shape = before_info["buffers"].get(bname)
+            if old_shape != new_shape:
+                changes.append(f"{bname}.shape: {old_shape} -> {new_shape}")
+        if name in op_notes:
+            changes.extend(op_notes[name])
+        if not changes:
+            continue
+        note = "; ".join(dict.fromkeys(changes))
+        notes[name] = note
+        rows.append({
+            "layer": name,
+            "module_type": after_info["module_type"],
+            "group_ids": ";".join(dict.fromkeys(op_groups.get(name, []))),
+            "changes": note,
+            "before_attrs": json.dumps(before_info["attrs"], ensure_ascii=False, default=str),
+            "after_attrs": json.dumps(after_info["attrs"], ensure_ascii=False, default=str),
+            "before_params": json.dumps(before_info["params"], ensure_ascii=False, default=str),
+            "after_params": json.dumps(after_info["params"], ensure_ascii=False, default=str),
+        })
+    return notes, rows
+
+
+def write_model_structure(model: nn.Module, path: Path, changes: dict[str, str] | None = None) -> None:
+    changes = changes or {}
     lines = [str(model), "", "Named modules:"]
     for name, module in model.named_modules():
         if not name:
             continue
         attrs = []
-        for attr in ("in_channels", "out_channels", "in_features", "out_features", "num_features", "groups"):
+        for attr in STRUCTURE_ATTRS:
             if hasattr(module, attr):
                 attrs.append(f"{attr}={getattr(module, attr)}")
-        lines.append(f"{name}: {module.__class__.__name__} {' '.join(attrs)}")
+        line = f"{name}: {module.__class__.__name__} {' '.join(attrs)}"
+        if name in changes:
+            line = f"* {line}  # changed: {changes[name]}"
+        lines.append(line)
     save_text("\n".join(lines), path)
 
 
@@ -256,8 +375,36 @@ def group_conv_reports(model: nn.Module, align: int) -> tuple[list[dict[str, Any
     return rows, {"all_group_convs_aligned": not issues, "issues": issues, "align": align}
 
 
-def build_prune_replay(applied: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def normalize_grouped_convs_for_alignment(model: nn.Module, align: int) -> list[dict[str, Any]]:
+    operations: list[dict[str, Any]] = []
+    for name, module in model.named_modules():
+        if not isinstance(module, nn.Conv2d) or module.groups <= 1:
+            continue
+        factor = grouped_conv_alignment_merge_factor(module, align)
+        if factor is None:
+            continue
+        op = merge_grouped_conv_groups(module, factor)
+        op["layer"] = name
+        op["reason"] = "pre_prune_group_alignment_normalization"
+        operations.append(op)
+    return operations
+
+
+def build_prune_replay(applied: list[dict[str, Any]], pre_ops: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     replay = []
+    for op in pre_ops or []:
+        replay.append({
+            "layer": op.get("layer", ""),
+            "direction": "out",
+            "axis": op.get("axis", ""),
+            "before": int(op.get("before_out", op.get("before", 0)) or 0),
+            "after": int(op.get("after_out", op.get("after", 0)) or 0),
+            "groups": int(op.get("after_groups", op.get("groups", 1)) or 1),
+            "before_groups": int(op.get("before_groups", op.get("groups", 1)) or 1),
+            "after_groups": int(op.get("after_groups", op.get("groups", 1)) or 1),
+            "kept_groups": op.get("kept_groups", []),
+            "merge_factor": int(op.get("merge_factor", 1) or 1),
+        })
     for result in applied:
         for op in result.get("operations", []):
             before = op.get("before", op.get("before_out", op.get("before_in")))
@@ -271,8 +418,31 @@ def build_prune_replay(applied: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "before": int(before),
                 "after": int(after),
                 "groups": int(op.get("groups", 1) or 1),
+                "before_groups": int(op.get("before_groups", op.get("groups", 1)) or 1),
+                "after_groups": int(op.get("after_groups", op.get("groups", 1)) or 1),
+                "kept_groups": op.get("kept_groups", []),
             })
     return replay
+
+
+def coupled_channel_stats(groups: list[Any], applied: list[dict[str, Any]]) -> dict[str, Any]:
+    after_by_group: dict[str, int] = {}
+    for result in applied:
+        group_id = result.get("group_id", "")
+        for op in result.get("operations", []):
+            before, after = _operation_channel_change(op)
+            if before is not None and after is not None and after < before:
+                after_by_group[group_id] = after
+                break
+    total_before = sum(int(g.num_channels) for g in groups)
+    total_after = sum(int(after_by_group.get(g.group_id, g.num_channels)) for g in groups)
+    return {
+        "total_coupled_channels_before": total_before,
+        "total_coupled_channels_after": total_after,
+        "pruned_coupled_channels": total_before - total_after,
+        "num_remaining_groups": len(groups) - len(applied),
+        "num_remaining_prunable_groups": sum(1 for g in groups if not g.protected) - len(applied),
+    }
 
 
 def select_keep(group: Any, score: float, args: argparse.Namespace) -> list[int]:
@@ -285,6 +455,7 @@ def select_keep(group: Any, score: float, args: argparse.Namespace) -> list[int]
         align=align,
         min_channels=max(1, min(args.align, group.num_channels)),
         importance_scores=None,
+        group_conv_align=args.group_conv_align,
     )
 
 
@@ -296,8 +467,14 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
         torch.cuda.set_device(device)
     logger.info("Args: %s", json.dumps(vars(args), ensure_ascii=False, default=str))
     model, adapter = load_heal_model(args, device, logger)
-    original_params, original_mb = count_params(model)
+    baseline_params, baseline_mb = count_params(model)
+    structure_before = collect_module_structure(model)
     write_model_structure(model, out / "model_structure_before.txt")
+    pre_prune_ops = normalize_grouped_convs_for_alignment(model, args.group_conv_align)
+    if pre_prune_ops:
+        logger.info("Normalized %d grouped conv layers for group/per-channel alignment", len(pre_prune_ops))
+    original_params, original_mb = baseline_params, baseline_mb
+    normalized_params, normalized_mb = count_params(model)
 
     sample = adapter.build_synthetic_batch(model)
     trace = trace_model(model, sample, forward_fn=adapter.forward_for_task)
@@ -325,13 +502,14 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
 
     prunable = [g for g in groups if not g.protected and g.num_channels > 0]
     prunable.sort(key=lambda g: importance.get(g.group_id, float("inf")))
-    target_num = max(1, int(round(len(prunable) * args.prune_ratio))) if args.prune_ratio > 0 and prunable else 0
+    target_pruned_params = int(round(original_params * args.prune_ratio))
     applied = []
     skipped = []
     pruned_ids: set[str] = set()
     if not args.dry_run:
         for g in prunable:
-            if len(applied) >= target_num:
+            current_params, _ = count_params(model)
+            if original_params - current_params >= target_pruned_params:
                 break
             keep = select_keep(g, importance.get(g.group_id, 0.0), args)
             if len(keep) >= g.num_channels:
@@ -340,12 +518,17 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
             if g.meta.get("group_type", "") in TRANSFORMER_TYPES:
                 check = check_transformer_group(g, keep, min_heads=args.min_heads, head_align=args.head_align, ffn_align=args.ffn_align)
             else:
-                check = check_pruning_group(g, keep)
+                check = check_pruning_group(g, keep, group_conv_align=args.group_conv_align)
             if not check["legal"]:
                 skipped.append({"group_id": g.group_id, "reason": "check_failed", "issues": check["issues"]})
                 continue
             result = g.prune(keep)
             if result.get("applied"):
+                before_params = current_params
+                after_params, _ = count_params(model)
+                result["params_before_group"] = before_params
+                result["params_after_group"] = after_params
+                result["params_removed_by_group"] = before_params - after_params
                 if "ffn" in g.meta.get("group_type", ""):
                     g.meta["ffn_dim_after"] = len(keep)
                 applied.append(result)
@@ -353,7 +536,7 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
             else:
                 skipped.append(result)
 
-    legality = check_model_legality(model)
+    legality = check_model_legality(model, group_conv_align=args.group_conv_align)
     transformer_legality = check_transformer_model_legality(model, protect_hidden=args.protect_transformer_hidden)
     legality_report = {
         "legal": legality["legal"] and transformer_legality["legal"],
@@ -370,7 +553,12 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
         except Exception as exc:
             legality_report.setdefault("forward_issues", []).append({"issue": "forward_sanity_failed", "error": str(exc)})
     save_json(legality_report, out / "legality_check_report.json")
-    write_model_structure(model, out / "model_structure_after.txt")
+    structure_after = collect_module_structure(model)
+    audit_applied = ([{"group_id": "pre_prune_group_alignment", "operations": pre_prune_ops}] if pre_prune_ops else []) + applied
+    structure_notes, structure_change_rows = build_structure_changes(structure_before, structure_after, audit_applied)
+    write_model_structure(model, out / "model_structure_after.txt", changes=structure_notes)
+    save_csv(structure_change_rows, out / "structure_changes.csv")
+    save_json(structure_change_rows, out / "structure_changes.json")
     group_conv_rows, group_conv_report = group_conv_reports(model, args.group_conv_align)
     save_csv(group_conv_rows, out / "group_conv_summary.csv")
     save_json(group_conv_report, out / "group_conv_alignment_report.json")
@@ -378,23 +566,34 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
     save_json(build_transformer_summary(groups, args, pruned_ids), out / "transformer_pruning_summary.json")
     pruned_params, pruned_mb = count_params(model)
     actual_ratio = 1.0 - pruned_params / max(original_params, 1)
+    channel_stats = coupled_channel_stats(groups, applied)
     summary = {
         "checkpoint": args.checkpoint,
         "model_name": "lidar_pyramid",
         "importance_mode": args.importance_mode,
         "target_prune_ratio": args.prune_ratio,
+        "target_prune_ratio_definition": "1 - pruned_params / original_params",
+        "target_pruned_params": target_pruned_params,
         "actual_prune_ratio": actual_ratio,
+        "pre_prune_group_alignment_ops": pre_prune_ops,
         "num_total_groups": len(groups),
         "num_prunable_groups": len(prunable),
         "num_protected_groups": len(groups) - len(prunable),
         "num_pruned_groups": len(applied),
+        "num_remaining_groups": channel_stats["num_remaining_groups"],
+        "num_remaining_prunable_groups": channel_stats["num_remaining_prunable_groups"],
+        "total_coupled_channels_before": channel_stats["total_coupled_channels_before"],
+        "total_coupled_channels_after": channel_stats["total_coupled_channels_after"],
+        "pruned_coupled_channels": channel_stats["pruned_coupled_channels"],
         "num_transformer_groups": len([g for g in groups if g.meta.get("group_type", "") in TRANSFORMER_TYPES]),
         "num_pruned_transformer_groups": len([gid for gid in pruned_ids if gid.startswith("transformer::")]),
         "num_group_conv_layers": len(group_conv_rows),
         "num_residual_groups": len([g for g in groups if g.meta.get("group_type") == "add"]),
         "original_params": original_params,
+        "normalized_params": normalized_params,
         "pruned_params": pruned_params,
         "original_model_size_mb": original_mb,
+        "normalized_model_size_mb": normalized_mb,
         "pruned_model_size_mb": pruned_mb,
         "group_conv_prune_mode": args.group_conv_prune_mode,
         "group_conv_align": args.group_conv_align,
@@ -404,15 +603,54 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
         "skipped": skipped,
     }
     save_json(summary, out / "pruning_summary.json")
-    replay = build_prune_replay(applied)
+    save_json(pre_prune_ops, out / "group_conv_pre_prune_normalization.json")
+    replay = build_prune_replay(applied, pre_ops=pre_prune_ops)
     save_json({"operations": replay}, out / "prune_replay.json")
     if args.dry_run:
         logger.info("Dry run enabled; pruned model checkpoint is not saved")
-    elif forward_ok or args.skip_forward_check or args.allow_save_on_forward_fail:
+    elif legality_report["legal"] and (forward_ok or args.skip_forward_check):
         torch.save({"model": model.state_dict(), "prune_metadata": summary, "prune_replay": replay}, out / "pruned_model.pth")
         logger.info("Saved pruned model to %s", out / "pruned_model.pth")
+    elif args.allow_save_on_forward_fail:
+        torch.save({"model": model.state_dict(), "prune_metadata": summary, "prune_replay": replay}, out / "pruned_model.pth")
+        logger.warning("Saved pruned model despite failed legality/forward check because override is enabled: %s", out / "pruned_model.pth")
     else:
-        logger.error("Forward sanity check failed; pruned_model.pth was not saved. Use --allow-save-on-forward-fail to override.")
+        logger.error(
+            "Legality or forward sanity check failed; pruned_model.pth was not saved. "
+            "Use --allow-save-on-forward-fail to override."
+        )
+    logger.info(
+        "Pruning result: target=%.2f%% actual_param_prune=%.3f%% "
+        "(baseline %d -> pruned %d params, %.3fMB -> %.3fMB; normalized start %d params)",
+        args.prune_ratio * 100.0,
+        actual_ratio * 100.0,
+        original_params,
+        pruned_params,
+        original_mb,
+        pruned_mb,
+        normalized_params,
+    )
+    logger.info(
+        "Coupled groups: total=%d prunable=%d protected=%d pruned=%d remaining_total=%d remaining_prunable=%d",
+        len(groups),
+        len(prunable),
+        len(groups) - len(prunable),
+        len(applied),
+        channel_stats["num_remaining_groups"],
+        channel_stats["num_remaining_prunable_groups"],
+    )
+    logger.info(
+        "Coupled logical channels: before=%d after=%d removed=%d",
+        channel_stats["total_coupled_channels_before"],
+        channel_stats["total_coupled_channels_after"],
+        channel_stats["pruned_coupled_channels"],
+    )
+    logger.info(
+        "Structure check: legal=%s forward_sanity=%s changed_layers=%d",
+        legality_report["legal"],
+        forward_ok,
+        len(structure_change_rows),
+    )
     return summary
 
 
@@ -514,10 +752,10 @@ class TestGeneralPrunerToyCases:
         class GroupedNet(nn.Module):
             def __init__(self):
                 super().__init__()
-                self.pw1 = nn.Conv2d(3, 32, 1)
-                self.grouped = nn.Conv2d(32, 32, 3, padding=1, groups=4)
-                self.bn = nn.BatchNorm2d(32)
-                self.pw2 = nn.Conv2d(32, 16, 1)
+                self.pw1 = nn.Conv2d(3, 128, 1)
+                self.grouped = nn.Conv2d(128, 128, 3, padding=1, groups=8)
+                self.bn = nn.BatchNorm2d(128)
+                self.pw2 = nn.Conv2d(128, 16, 1)
 
             def forward(self, x):
                 return self.pw2(torch.relu(self.bn(self.grouped(self.pw1(x)))))
@@ -527,7 +765,8 @@ class TestGeneralPrunerToyCases:
         _, report = toy_prune_model(m, x, prune_ratio=0.5, align=8, min_channels=8, grouped_conv_mode="keep_groups")
         assert report["legality"]["legal"]
         assert m.pw1.out_channels == m.grouped.in_channels == m.grouped.out_channels
-        assert m.grouped.groups == 4
+        assert m.grouped.groups == 8
+        assert (m.grouped.in_channels // m.grouped.groups) % 8 == 0
         assert m(x).shape[1] > 0
 
     def test_convtranspose(self):

@@ -152,7 +152,7 @@ class ImportanceEstimator:
     ) -> tuple[torch.Tensor | None, bool, str]:
         weight = module.weight
         if direction == "out":
-            axis = 0
+            axis = 1 if isinstance(module, nn.ConvTranspose2d) else 0
             dim_size = int(weight.shape[axis])
         elif direction == "in":
             axis = 0 if isinstance(module, nn.ConvTranspose2d) else 1
@@ -177,7 +177,7 @@ class ImportanceEstimator:
         # before any CUDA index_select can trigger a device-side assert.
         idx = torch.as_tensor(indices, dtype=torch.long, device=weight.device)
         if direction == "out":
-            w = weight.index_select(0, idx)
+            w = weight.index_select(axis, idx)
         else:
             w = weight.index_select(axis, idx)
 
@@ -195,8 +195,9 @@ class ImportanceEstimator:
                 return None, True, ""
             return w.detach().abs().sum(), True, ""
         if direction == "out":
-            g = grad.index_select(0, idx)
-            f = fisher.index_select(0, idx) if fisher is not None else None
+            axis = 1 if isinstance(module, nn.ConvTranspose2d) else 0
+            g = grad.index_select(axis, idx)
+            f = fisher.index_select(axis, idx) if fisher is not None else None
         else:
             axis = 1
             if isinstance(module, nn.ConvTranspose2d):
