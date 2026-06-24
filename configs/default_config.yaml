@@ -1,0 +1,71 @@
+# HEAL Structured Pruning & Mixed-Precision Quantization Search Configuration
+# =============================================================================
+
+# Model & Data
+model:
+  checkpoint: ""                    # Path to HEAL model checkpoint (.pth)
+  config: ""                        # Path to HEAL YAML config
+  modality: null                    # Camera modality name (null = auto-detect)
+  export_script: ""                 # Path to export_dynamic_onnx.py
+
+calibration:
+  npz_dir: ""                       # Directory containing calibration .npz files (with annotations)
+  num_samples: 200                   # Number of calibration samples for gradient computation
+  max_agents: 2                      # Maximum agent count for dummy_input enumeration
+
+# Search Settings
+search:
+  pop_size: 50                       # Population size per generation
+  max_generations: 100               # Maximum number of GA generations
+  elite_size: 5                      # Number of elite candidates to preserve
+  mutation_rate: 0.1                 # Per-variable mutation probability
+  patience: 20                       # Early stopping patience (gens without improvement)
+
+  # Candidate weight bit-widths
+  # FP16: floating-point 16-bit (native TRT)
+  # INT8: integer 8-bit weight-only Q/DQ
+  # INT4: integer 4-bit weight-only (Linear/GEMM only, Conv2d needs plugin)
+  weight_bits: [FP16, INT8, INT4]
+
+  # Constraint thresholds
+  bops_ratio_max: 0.5               # Maximum BOPS retention ratio (0.5 = 50% of original)
+  latency_ms_max: 50.0              # Maximum inference latency target (ms)
+  size_ratio_max: 0.4               # Maximum model size retention ratio
+
+  # Proxy objective weights
+  lambda1: 1.0                       # L_Taylor (task accuracy proxy)
+  lambda2: 0.5                       # L_SQNR (quantization noise proxy)
+  lambda3: 2.0                       # P_BOPS (computational cost penalty)
+  lambda4: 2.0                       # P_latency (inference speed penalty)
+  lambda5: 1.0                       # P_size (model size penalty)
+  lambda6: 10.0                      # P_deploy (deployment feasibility penalty)
+
+  # Minimum retention settings
+  min_channels: 8                    # Minimum channels per layer after pruning
+  min_stage_ratio: 0.25             # Minimum fraction of groups kept per stage
+  channel_alignment: 8               # Channel alignment base for TRT
+
+  # Importance estimation method: l1_norm, l2_norm, first_order_taylor, second_order_fisher
+  importance_method: first_order_taylor
+
+  # Latency LUT file (optional; if absent, uses parameter-based proxy)
+  latency_lut: null
+
+# Distillation & Finetuning
+distillation:
+  epochs: 10                         # Number of finetuning epochs
+  lr: 1.0e-4                        # Learning rate
+  tau: 4.0                          # KL divergence temperature coefficient
+  lambda_bev: 0.5                   # Weight for BEV KL distillation loss
+  batch_size: 2                      # Batch size for finetuning
+
+# Deployment
+deploy:
+  trt_root: ""                       # Path to TensorRT installation root
+  plugin_so: ""                      # Path to libheal_dynamic_trt_plugins.so
+  agent_profile:
+    min: 1                           # Minimum agent count
+    opt: 2                           # Optimal agent count
+    max: 2                           # Maximum agent count
+  quant_granularity: per_channel     # Quantization granularity: per_tensor or per_channel
+  trtexec_path: trtexec              # Path to trtexec binary

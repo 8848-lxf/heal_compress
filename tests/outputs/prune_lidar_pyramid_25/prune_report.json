@@ -1,0 +1,11 @@
+{
+  "prune_ratio_target": 0.25,
+  "prune_ratio_actual_params": 0.2959,
+  "params_before": 5464791,
+  "params_after": 3847655,
+  "size_before_mb": 20.85,
+  "size_after_mb": 14.68,
+  "num_operations": 172,
+  "legality_issues": [],
+  "spec_format": "heal_lidar_pyramid_structured_prune_spec_v1"
+}
