@@ -10,6 +10,11 @@ from .propagation import GroupBuilder
 from .group_checker import check_pruning_group, check_model_legality
 from .pruning_fns import get_pruning_fn, is_prunable_module
 from .grouped_conv import classify_grouped_conv, grouped_conv_pruning_fn
+from .transformer_checker import check_transformer_group, check_transformer_model_legality
+from .transformer_pruning_fns import (
+    prune_transformer_linear_in,
+    prune_transformer_linear_out,
+)
 
 __all__ = [
     "PhysicalPruner",
@@ -24,4 +29,8 @@ __all__ = [
     "is_prunable_module",
     "classify_grouped_conv",
     "grouped_conv_pruning_fn",
+    "check_transformer_group",
+    "check_transformer_model_legality",
+    "prune_transformer_linear_in",
+    "prune_transformer_linear_out",
 ]

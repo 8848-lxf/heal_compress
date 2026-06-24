@@ -64,7 +64,7 @@ class GenericTracer:
         "view", "reshape", "permute", "transpose", "flatten",
         "unsqueeze", "squeeze", "expand", "repeat", "contiguous",
         "split", "chunk",
-        "__add__", "__radd__",
+        "__add__", "__radd__", "__iadd__",
     )
 
     def __init__(
@@ -105,6 +105,18 @@ class GenericTracer:
             if not name:
                 continue
             self._add_module_node(name, module)
+            # Hook leaf modules only. Container modules such as Sequential or a
+            # whole residual block otherwise overwrite the tensor producer of
+            # their last leaf output, hiding the real channel-carrying op from
+            # Add/Cat dependency propagation.
+            if any(module.children()):
+                continue
+            # Shared activation modules (HEAL Bottleneck reuses one in-place
+            # ReLU three times) do not define a channel dimension. Hooking them
+            # under one module name merges unrelated call sites and corrupts
+            # producer tracking around grouped bottlenecks.
+            if isinstance(module, (nn.ReLU, nn.ReLU6, nn.LeakyReLU, nn.GELU, nn.SiLU, nn.ELU)):
+                continue
             self._handles.append(module.register_forward_pre_hook(self._pre_hook(name)))
             self._handles.append(module.register_forward_hook(self._post_hook(name)))
 

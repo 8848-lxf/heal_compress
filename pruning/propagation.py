@@ -103,6 +103,7 @@ class GroupBuilder:
         self._merge_add_branches()
         self._merge_cat_branches()
         self._merge_grouped_conv_producers()
+        self._merge_bottleneck_grouped_conv_triplets()
 
         # bucket roots by union-find root
         buckets: Dict[str, List[str]] = {}
@@ -171,6 +172,34 @@ class GroupBuilder:
                     self._reasons[node.name] = set()
                 if producer in self._parent and node.name in self._parent:
                     self._union(producer, node.name, f"grouped_conv_producer:{node.name}")
+
+    def _merge_bottleneck_grouped_conv_triplets(self) -> None:
+        """Merge ResNeXt/HEAL bottleneck conv1 -> grouped conv2 hidden width.
+
+        HEAL's Bottleneck reuses one ReLU module three times, which makes a
+        purely dynamic upstream walk ambiguous around ``conv2``. The module
+        naming is stable in HEAL/OpenCOOD ResNet blocks, so use it as a safe
+        local rule: only for grouped ``*.conv2`` with sibling ``conv1`` and
+        matching hidden width. ``conv3`` is intentionally not unioned as an
+        output root; it is added later as downstream input.
+        """
+        from torch.nn import Conv2d
+
+        for node in self.graph.nodes.values():
+            if node.op_type != OP_CONV or not node.name.endswith(".conv2"):
+                continue
+            module = self.graph.module_of(node.name)
+            if not isinstance(module, Conv2d) or module.groups <= 1:
+                continue
+            prefix = node.name[:-len(".conv2")]
+            conv1_name = f"{prefix}.conv1"
+            conv1 = self.graph.module_of(conv1_name)
+            if not isinstance(conv1, Conv2d):
+                continue
+            if conv1.out_channels != module.in_channels or module.in_channels != module.out_channels:
+                continue
+            if conv1_name in self._parent and node.name in self._parent:
+                self._union(conv1_name, node.name, f"bottleneck_grouped_hidden:{node.name}")
 
     # -- backward traversal: find producing roots --------------------------- #
     def _upstream_roots(self, node: str, visited: Optional[Set[str]] = None) -> List[str]:
@@ -308,6 +337,9 @@ class GroupBuilder:
         if is_cat and is_add:
             group.protect("mixed_add_cat_reference")
             return group
+        if is_add:
+            group.protect("residual_add_output_protected")
+            return group
 
         # 1. Root output members (+ grouped/depthwise handling).
         for r in members:
@@ -318,6 +350,9 @@ class GroupBuilder:
                 return group
             if node.protected:
                 group.protect(node.protected_reason or f"protected_root:{r}")
+                return group
+            if ".downsample." in r or r.endswith(".downsample.0") or r.endswith(".downsample.1"):
+                group.protect(f"residual_downsample_requires_branch_sync:{r}")
                 return group
 
             transform = self._root_transform(r, is_cat)
@@ -400,15 +435,17 @@ class GroupBuilder:
                 if node.protected and node.is_det_head:
                     # det-head input IS prunable (only its output is fixed)
                     pass
-                # If this conv is a grouped conv that's already a root member of
-                # this group (merged producer), skip it (already handled).
-                if cur in member_set:
-                    continue
                 if node.op_type == OP_CONV and (node.groups or 1) > 1:
+                    if cur in member_set:
+                        queue.extend(d for d, _ in self.graph.outgoing(cur))
+                        continue
                     # grouped (non-depthwise) consumer input cannot be sliced on
                     # in-axis alone; protect the whole group to stay atomic.
                     group.protect(f"grouped_consumer_in:{cur}")
                     return
+                if cur in member_set:
+                    queue.extend(d for d, _ in self.graph.outgoing(cur))
+                    continue
                 fn = get_pruning_fn(module, "in")
                 if fn is None:
                     group.protect(f"no_in_fn:{cur}")

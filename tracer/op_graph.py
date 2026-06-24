@@ -194,7 +194,7 @@ def _classify_tensor_op(op: str, scope: List[str], bev_kw: Tuple[str, ...]) -> s
     scope_low = " ".join(scope).lower()
     if any(k in scope_low or k in low for k in bev_kw):
         return OP_BEV_WARP
-    if op in ("torch.add", "Tensor.__add__", "Tensor.__radd__"):
+    if op in ("torch.add", "Tensor.__add__", "Tensor.__radd__", "Tensor.__iadd__"):
         return OP_ADD
     if op == "torch.cat":
         return OP_CAT

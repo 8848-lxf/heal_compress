@@ -58,9 +58,9 @@ for _p in [str(_HEAL_COMPRESS_ROOT), HEAL_REPO, AUTO_SEARCH]:
         sys.path.insert(0, _p)
 
 # Now we can import
-from utils.model_utils import auto_select_gpu, resolve_device  # heal_compress
-from coop_lidar_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
-from coop_lidar_compress.utils.io import ensure_dir, save_json
+from heal_compress.utils.model_utils import auto_select_gpu, resolve_device
+from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
+from heal_compress.utils.io_utils import ensure_dir, save_json
 
 # ---------------------------------------------------------------------------
 # Constants

@@ -1,12 +1,14 @@
-"""Channel importance estimation for coupled channel groups.
+"""Group-level structured pruning importance.
 
-Supports L1-norm, L2-norm, first-order Taylor, and second-order Fisher
-importance metrics. Importance is aggregated at the group level.
+Importance is computed from each ``PruningGroup`` item using the item's local
+channel indices and pruning direction. This avoids layer-scalar scores and keeps
+CNN, FFN, QKV, fused-QKV and projection-input pruning on the same path.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 import torch
@@ -16,22 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 class ImportanceEstimator:
-    """Estimates per-group channel importance for pruning decisions.
+    """Estimate scalar importance for each ``PruningGroup``.
 
     Supported methods:
-    - 'l1_norm': I_g = sum(|w_i|)
-    - 'l2_norm': I_g = sqrt(sum(w_i^2))
-    - 'first_order_taylor' (default): I_g = sum(|g_i * w_i|)
-    - 'second_order_fisher': I_g = sum(|g_i * w_i|) + 0.5 * sum(h_i * w_i^2)
-
-    For Taylor/Fisher methods, gradients must be computed on calibration data
-    with full annotations (forward + backward pass).
-
-    Args:
-        model: The HEAL model.
-        groups: List of coupled channel groups.
-        method: Importance estimation method name.
-        aggregation: How to aggregate within a group ('mean' or 'sum').
+    ``l1_norm``, ``l2_norm``, ``first_order_taylor``, ``second_order_fisher``.
+    Taylor/Fisher require gradients collected via :meth:`compute_gradients`.
     """
 
     METHODS = ("l1_norm", "l2_norm", "first_order_taylor", "second_order_fisher")
@@ -40,8 +31,10 @@ class ImportanceEstimator:
         self,
         model: nn.Module,
         groups: list[Any],
-        method: str = "first_order_taylor",
-        aggregation: str = "mean",
+        method: str = "l1_norm",
+        aggregation: str = "sum",
+        *,
+        strict_grad: bool = False,
     ):
         if method not in self.METHODS:
             raise ValueError(f"Unknown importance method '{method}'. Must be one of {self.METHODS}")
@@ -49,8 +42,10 @@ class ImportanceEstimator:
         self.groups = groups
         self.method = method
         self.aggregation = aggregation
+        self.strict_grad = bool(strict_grad)
         self._gradients: dict[str, torch.Tensor] = {}
         self._fisher_diag: dict[str, torch.Tensor] = {}
+        self.records: list[dict[str, Any]] = []
 
     def compute_gradients(
         self,
@@ -59,136 +54,204 @@ class ImportanceEstimator:
         loss_fn: Any,
         num_samples: int = 200,
     ) -> None:
-        """Compute parameter gradients on calibration data.
-
-        Runs forward + backward on calibration samples and accumulates
-        gradients (for Taylor) and squared gradients (for Fisher diagonal).
-
-        Args:
-            forward_fn: Callable(model, batch) -> outputs.
-            calibration_data: Iterable of calibration batches.
-            loss_fn: Callable(outputs, batch) -> loss scalar.
-            num_samples: Maximum number of samples to use.
-        """
         self._gradients = {}
         self._fisher_diag = {}
         self.model.eval()
-
         count = 0
         for batch in calibration_data:
             if count >= num_samples:
                 break
-            self.model.zero_grad()
+            self.model.zero_grad(set_to_none=True)
             outputs = forward_fn(self.model, batch)
             loss = loss_fn(outputs, batch)
             loss.backward()
-
             for name, param in self.model.named_parameters():
                 if param.grad is None:
                     continue
                 grad = param.grad.detach()
-                if name not in self._gradients:
-                    self._gradients[name] = torch.zeros_like(param.data)
-                    self._fisher_diag[name] = torch.zeros_like(param.data)
+                self._gradients.setdefault(name, torch.zeros_like(param.data))
+                self._fisher_diag.setdefault(name, torch.zeros_like(param.data))
                 self._gradients[name] += grad
-                self._fisher_diag[name] += grad ** 2
-
+                self._fisher_diag[name] += grad.pow(2)
             count += 1
-
-        # Average
         if count > 0:
             for name in self._gradients:
                 self._gradients[name] /= count
                 self._fisher_diag[name] /= count
-
-        logger.info(
-            f"Computed gradients on {count} samples for "
-            f"{len(self._gradients)} parameters"
-        )
+        logger.info("Computed gradients on %d samples for %d parameters", count, len(self._gradients))
 
     def estimate(self) -> dict[str, float]:
-        """Estimate importance for each coupled channel group.
-
-        Returns:
-            Map of group_id -> importance score.
-        """
-        modules = dict(self.model.named_modules())
         scores: dict[str, float] = {}
-
+        self.records = []
         for group in self.groups:
-            if group.is_protected:
-                scores[group.group_id] = float("inf")
-                continue
-            group_score = self._compute_group_importance(
-                group.source_modules, modules
-            )
-            scores[group.group_id] = group_score
-
+            if getattr(group, "protected", getattr(group, "is_protected", False)):
+                score = float("inf")
+                risk = ""
+            else:
+                score, risk = self._compute_group_importance(group)
+                if risk:
+                    try:
+                        group.protect(risk)
+                    except AttributeError:
+                        pass
+                    score = float("inf")
+            scores[group.group_id] = score
+            rec = self._record(group, score, risk)
+            self.records.append(rec)
         return scores
 
-    def _compute_group_importance(
-        self,
-        layer_names: list[str],
-        modules: dict[str, nn.Module],
-    ) -> float:
-        """Compute importance for a single group by aggregating over its layers.
+    def estimate_with_records(self) -> tuple[dict[str, float], list[dict[str, Any]]]:
+        scores = self.estimate()
+        return scores, self.records
 
-        Args:
-            layer_names: Layer names in the group.
-            modules: Map of name -> module.
-
-        Returns:
-            Aggregated importance score.
-        """
-        values: list[float] = []
-
-        for layer_name in layer_names:
-            module = modules.get(layer_name)
-            if module is None or not hasattr(module, "weight"):
+    def _compute_group_importance(self, group: Any) -> tuple[float, str]:
+        values: list[torch.Tensor] = []
+        missing_grads: list[str] = []
+        risk_reasons: list[str] = []
+        for item in getattr(group, "items", []):
+            module = item.module
+            if not hasattr(module, "weight") or module.weight is None:
                 continue
-            weight = module.weight.detach()
-            importance = self._compute_layer_importance(layer_name, weight)
-            values.append(importance)
-
+            if getattr(item, "idx_transform", None) is None and getattr(item, "idxs", None):
+                reference = list(item.idxs)
+            else:
+                reference = list(range(int(getattr(group, "num_channels", 0))))
+            keep = item.local_keep(reference)
+            if not keep:
+                continue
+            value, missing, risk = self._item_importance(item.name, module, item.direction, keep)
+            if risk:
+                risk_reasons.append(risk)
+                continue
+            if missing:
+                missing_grads.append(item.name)
+            if value is not None:
+                values.append(value)
+        if risk_reasons:
+            group.meta["importance_risk_reasons"] = risk_reasons
+            return float("inf"), "high_risk_protected"
+        if missing_grads and self.strict_grad:
+            raise RuntimeError(f"Missing gradients for group {group.group_id}: {missing_grads}")
         if not values:
-            return 0.0
-        if self.aggregation == "sum":
-            return sum(values)
-        return sum(values) / len(values)
+            return 0.0, ""
+        if self.method == "l2_norm":
+            score_tensor = torch.stack([v.float().pow(2) for v in values]).sum().sqrt()
+        else:
+            score_tensor = torch.stack([v.float() for v in values]).sum()
+        score = float(score_tensor.detach().cpu())
+        if math.isnan(score) or math.isinf(score):
+            return score, "high_risk_protected"
+        return score, ""
 
-    def _compute_layer_importance(
+    def _item_importance(
         self,
         layer_name: str,
-        weight: torch.Tensor,
-    ) -> float:
-        """Compute importance for a single layer.
+        module: nn.Module,
+        direction: str,
+        indices: list[int],
+    ) -> tuple[torch.Tensor | None, bool, str]:
+        weight = module.weight
+        if direction == "out":
+            axis = 0
+            dim_size = int(weight.shape[axis])
+        elif direction == "in":
+            axis = 0 if isinstance(module, nn.ConvTranspose2d) else 1
+            dim_size = int(weight.shape[axis])
+        else:
+            return None, False, ""
 
-        Args:
-            layer_name: Fully qualified layer name (for gradient lookup).
-            weight: The layer's weight tensor.
+        if not indices:
+            return None, False, "empty_importance_indices"
+        min_idx = min(indices)
+        max_idx = max(indices)
+        if min_idx < 0 or max_idx >= dim_size:
+            msg = (
+                f"importance_index_out_of_bounds:{layer_name}:"
+                f"direction={direction}:axis={axis}:dim={dim_size}:"
+                f"min={min_idx}:max={max_idx}:num_indices={len(indices)}"
+            )
+            logger.warning(msg)
+            return None, False, msg
 
-        Returns:
-            Scalar importance score.
-        """
+        # Build the index on CPU first so invalid mappings are caught above
+        # before any CUDA index_select can trigger a device-side assert.
+        idx = torch.as_tensor(indices, dtype=torch.long, device=weight.device)
+        if direction == "out":
+            w = weight.index_select(0, idx)
+        else:
+            w = weight.index_select(axis, idx)
+
         if self.method == "l1_norm":
-            return float(weight.abs().sum().cpu())
-
+            return w.detach().abs().sum(), False, ""
         if self.method == "l2_norm":
-            return float(weight.pow(2).sum().sqrt().cpu())
+            return w.detach().pow(2).sum(), False, ""
 
-        # Find the parameter name for gradient lookup
         param_name = f"{layer_name}.weight"
         grad = self._gradients.get(param_name)
         fisher = self._fisher_diag.get(param_name)
-
+        if grad is None:
+            logger.warning("Missing gradient for %s; falling back to L1 for this item", param_name)
+            if self.strict_grad:
+                return None, True, ""
+            return w.detach().abs().sum(), True, ""
+        if direction == "out":
+            g = grad.index_select(0, idx)
+            f = fisher.index_select(0, idx) if fisher is not None else None
+        else:
+            axis = 1
+            if isinstance(module, nn.ConvTranspose2d):
+                axis = 0
+            g = grad.index_select(axis, idx)
+            f = fisher.index_select(axis, idx) if fisher is not None else None
+        first = (g * w).abs().sum()
         if self.method == "first_order_taylor":
-            if grad is None:
-                return float(weight.abs().sum().cpu())
-            return float((grad * weight).abs().sum().cpu())
+            return first.detach(), False, ""
+        second = 0.5 * (f * w.pow(2)).sum() if f is not None else torch.zeros((), device=w.device)
+        return (first + second).detach(), fisher is None, ""
 
-        if self.method == "second_order_fisher":
-            first = float((grad * weight).abs().sum().cpu()) if grad is not None else 0.0
-            second = float((fisher * weight.pow(2)).sum().cpu()) * 0.5 if fisher is not None else 0.0
-            return first + second
+    def _record(self, group: Any, score: float, risk: str) -> dict[str, Any]:
+        meta = getattr(group, "meta", {}) or {}
+        module_names = ";".join(item.name for item in getattr(group, "items", []))
+        protected = bool(getattr(group, "protected", getattr(group, "is_protected", False)))
+        return {
+            "group_id": getattr(group, "group_id", ""),
+            "group_type": meta.get("group_type", ""),
+            "module_names": module_names,
+            "num_channels": int(getattr(group, "num_channels", 0)),
+            "protected": protected,
+            "protected_reason": getattr(group, "protected_reason", "") or risk,
+            "importance_risk_reasons": ";".join(meta.get("importance_risk_reasons", [])),
+            "importance_score": score,
+            "importance_mode": self.method,
+            "transformer_block_name": meta.get("transformer_block_name", ""),
+            "attention_type": meta.get("attention_type", ""),
+            "qkv_type": meta.get("qkv_type", ""),
+            "head_id": meta.get("head_id", ""),
+            "num_heads_before": meta.get("num_heads_before", ""),
+            "num_heads_after": meta.get("num_heads_after", ""),
+            "head_dim": meta.get("head_dim", ""),
+            "inner_dim_before": meta.get("inner_dim_before", ""),
+            "inner_dim_after": meta.get("inner_dim_after", ""),
+            "ffn_dim_before": meta.get("ffn_dim_before", ""),
+            "ffn_dim_after": meta.get("ffn_dim_after", ""),
+            "hidden_dim": meta.get("hidden_dim", ""),
+        }
 
-        return 0.0
+
+def compute_group_importance(
+    model: nn.Module,
+    groups: list[Any],
+    *,
+    method: str = "l1_norm",
+    forward_fn: Any | None = None,
+    calibration_data: Any | None = None,
+    loss_fn: Any | None = None,
+    num_calib_batches: int = 0,
+    strict_grad: bool = False,
+) -> tuple[dict[str, float], list[dict[str, Any]]]:
+    estimator = ImportanceEstimator(model, groups, method=method, strict_grad=strict_grad)
+    if method in ("first_order_taylor", "second_order_fisher") and calibration_data is not None:
+        if forward_fn is None or loss_fn is None:
+            raise ValueError("Taylor/Fisher importance requires forward_fn and loss_fn")
+        estimator.compute_gradients(forward_fn, calibration_data, loss_fn, num_samples=num_calib_batches)
+    return estimator.estimate_with_records()

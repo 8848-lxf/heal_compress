@@ -1,134 +1,85 @@
 #!/usr/bin/env python3
-"""Minimal end-to-end structured pruning + evaluation closed loop for HEAL LiDAROnly.
-
-Pipeline steps:
-  1. Auto-select GPU (excluding 5/6/7 unless --device specified)
-  2. Load real HEAL model + full validation dataset
-  3. Dynamic forward dependency tracing -> coupled channel groups
-  4. First-order Taylor importance estimation (gradient * weight)
-  5. 25% structured physical channel pruning via model-specific spec
-  6. Structure legality check + real-batch forward sanity check
-  7. Save pruned_model.pth
-  8. Evaluate pruned model on full val set: AP@0.03/0.30/0.50/0.70 + timing
-
-Example commands
-================
-Prune lidar_pyramid 25% and evaluate (auto GPU, exclude 5/6/7):
-  python tests/test_prune_and_eval.py \
-      --model-name lidar_pyramid \
-      --prune-ratio 0.25
-
-Prune lidar_pyramid on a specific GPU:
-  python tests/test_prune_and_eval.py \
-      --model-name lidar_pyramid \
-      --prune-ratio 0.25 \
-      --device cuda:2
-
-Prune with explicit config and checkpoint:
-  python tests/test_prune_and_eval.py \
-      --model-config /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml \
-      --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
-      --prune-ratio 0.25
-
-Prune with more calibration batches:
-  python tests/test_prune_and_eval.py \
-      --model-name lidar_pyramid \
-      --prune-ratio 0.25 \
-      --num-calib-batches 32
-
-Skip evaluation (only prune and save):
-  python tests/test_prune_and_eval.py \
-      --model-name lidar_pyramid \
-      --prune-ratio 0.25 \
-      --skip-eval
 """
+工具名称：test_prune_and_eval.py
+
+作用：
+    加载 HEAL / DAIR-V2X / LiDAROnly / lidar_pyramid 原始模型和剪枝模型，
+    在完整验证集上执行推理评估，用于验证结构化剪枝工具生成的模型是否可运行，
+    并对比剪枝前后的 AP 和推理耗时。
+
+示例命令：
+    cd /home/lixingfeng/UniAD_examine/heal_compress
+
+    python tests/test_prune_and_eval.py \
+        --original-checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+        --pruned-checkpoint tests/outputs/prune_lidar_pyramid_25_l1/pruned_model.pth \
+        --rounds 1 \
+        --gup-id auto \
+        --output-dir tests/outputs/prune_lidar_pyramid_25_l1/eval_full_val
+
+输出：
+    tests/outputs/prune_lidar_pyramid_25_l1/eval_full_val/
+        eval_log.txt
+        baseline_per_frame_latency_round_1.csv
+        pruned_per_frame_latency_round_1.csv
+        per_round_summary.csv
+        ap_results.json
+        eval_config.json
+"""
+
 from __future__ import annotations
 
 import argparse
-import copy
 import gc
 import json
 import logging
-import os
 import statistics
 import sys
 import time
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
+import pytest
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-# ---------------------------------------------------------------------------
-# Path setup
-# ---------------------------------------------------------------------------
 _THIS_DIR = Path(__file__).resolve().parent
-_HEAL_COMPRESS_ROOT = _THIS_DIR.parent
-_UNIAD_EXAMINE = _HEAL_COMPRESS_ROOT.parent
+_ROOT = _THIS_DIR.parent
+_UNIAD = _ROOT.parent
+if str(_UNIAD) not in sys.path:
+    sys.path.insert(0, str(_UNIAD))
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
-HEAL_REPO = str(_UNIAD_EXAMINE / "HEAL")
-AUTO_SEARCH = str(_UNIAD_EXAMINE / "Auto_Search")
+from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
+from heal_compress.pruning.grouped_conv import grouped_conv_pruning_fn
+from heal_compress.pruning.pruning_fns import get_pruning_fn
+from heal_compress.utils.io_utils import ensure_dir, save_csv, save_json
+from heal_compress.utils.model_utils import resolve_device
 
-for _p in [str(_HEAL_COMPRESS_ROOT), HEAL_REPO, AUTO_SEARCH]:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
 
-from utils.model_utils import auto_select_gpu, resolve_device
-from coop_lidar_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
-from coop_lidar_compress.tracing.dynamic_trace import DynamicDependencyTracer
-from coop_lidar_compress.tracing.coupled_groups import CoupledGroupBuilder, CoupledChannelGroup
-from coop_lidar_compress.pruning.lidar_pyramid_structured import (
-    build_lidar_pyramid_prune_spec,
-    apply_lidar_pyramid_prune_spec,
-    check_lidar_pyramid_structural_legality,
-    prune_spec_scope_channel_counts,
-    parameter_count,
-    parameter_size_mb,
-)
-from coop_lidar_compress.utils.io import ensure_dir, save_json, save_yaml
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+DEFAULT_ORIGINAL = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
+DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"
+DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
 IOU_THRESHOLDS = (0.03, 0.30, 0.50, 0.70)
 
-DEFAULT_CONFIGS = {
-    "lidar_pyramid": {
-        "config": "Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml",
-        "checkpoint": "Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
-        "hypes_yaml": "opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_pyramid.yaml",
-    },
-    "lidar_cobevt": {
-        "config": "HEAL/opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_cobevt.yaml",
-        "checkpoint": "Auto_Search/original_models/dairv2s/LiDAROnly/lidar_cobevt/net_epoch_bestval_at19.pth",
-        "hypes_yaml": "opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_cobevt.yaml",
-    },
-    "lidar_attfuse": {
-        "config": "HEAL/opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_attfuse.yaml",
-        "checkpoint": "Auto_Search/original_models/dairv2s/LiDAROnly/lidar_attfuse/net_epoch_bestval_at33.pth",
-        "hypes_yaml": "opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_attfuse.yaml",
-    },
-    "lidar_v2xvit": {
-        "config": "HEAL/opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_v2xvit.yaml",
-        "checkpoint": "Auto_Search/original_models/dairv2s/LiDAROnly/lidar_v2xvit/net_epoch_bestval_at27.pth",
-        "hypes_yaml": "opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_v2xvit.yaml",
-    },
-}
+
+def str2bool(v: str | bool) -> bool:
+    if isinstance(v, bool):
+        return v
+    return str(v).lower() in ("1", "true", "yes", "y", "on")
 
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 def setup_logger(output_dir: Path) -> logging.Logger:
-    logger = logging.getLogger("prune_and_eval")
+    logger = logging.getLogger("prune_eval")
     logger.handlers.clear()
     logger.setLevel(logging.INFO)
     fmt = logging.Formatter("[%(asctime)s] %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S")
     sh = logging.StreamHandler(sys.stdout)
+    fh = logging.FileHandler(output_dir / "eval_log.txt", mode="w", encoding="utf-8")
     sh.setFormatter(fmt)
-    fh = logging.FileHandler(output_dir / "prune_and_eval_log.txt", mode="a", encoding="utf-8")
     fh.setFormatter(fmt)
     logger.addHandler(sh)
     logger.addHandler(fh)
@@ -136,30 +87,46 @@ def setup_logger(output_dir: Path) -> logging.Logger:
     return logger
 
 
-# ---------------------------------------------------------------------------
-# Timing helpers
-# ---------------------------------------------------------------------------
-def timed_call(fn: Callable[[], Any], device: torch.device) -> tuple[Any, float]:
+def count_model_size_mb(model: nn.Module) -> float:
+    return sum(p.numel() * p.element_size() for p in model.parameters()) / (1024 * 1024)
+
+
+def timed_call(fn, device: torch.device) -> tuple[Any, float]:
     if device.type == "cuda":
         torch.cuda.synchronize(device)
     t0 = time.perf_counter()
-    result = fn()
+    out = fn()
     if device.type == "cuda":
         torch.cuda.synchronize(device)
-    return result, (time.perf_counter() - t0) * 1000.0
+    return out, (time.perf_counter() - t0) * 1000.0
 
 
-def maybe_mean(vals: list[float]) -> float:
+def mean(vals: list[float]) -> float:
     return statistics.mean(vals) if vals else 0.0
 
 
-def maybe_median(vals: list[float]) -> float:
+def p50(vals: list[float]) -> float:
     return statistics.median(vals) if vals else 0.0
 
 
-# ---------------------------------------------------------------------------
-# Dataset building
-# ---------------------------------------------------------------------------
+def resolve_eval_device(gup_id: str | None, legacy_device: str | None) -> torch.device:
+    """Resolve GPU selection.
+
+    ``--gup-id`` is intentionally kept with the requested spelling. Values:
+    ``auto`` selects the freest allowed GPU, an integer selects ``cuda:<id>``,
+    and ``cpu`` forces CPU. ``--device`` is accepted as a compatibility alias.
+    """
+    selected = gup_id if gup_id not in (None, "") else legacy_device
+    if selected in (None, "", "auto"):
+        return torch.device(resolve_device("auto"))
+    selected = str(selected)
+    if selected == "cpu" or selected.startswith("cuda"):
+        return torch.device(selected)
+    if selected.isdigit():
+        return torch.device(f"cuda:{selected}")
+    return torch.device(resolve_device(selected))
+
+
 def build_dataset(adapter: HEALLiDARAdapter, model_config: str, batch_size: int = 1, num_workers: int = 4):
     from opencood.data_utils.datasets import build_dataset as heal_build_dataset
     from opencood.hypes_yaml import yaml_utils
@@ -167,598 +134,334 @@ def build_dataset(adapter: HEALLiDARAdapter, model_config: str, batch_size: int 
     hypes = yaml_utils.load_yaml(adapter._resolve_heal_path(model_config))
     hypes = adapter._absolutize_dataset_paths(hypes)
     dataset = heal_build_dataset(hypes, visualize=True, train=False)
-    kwargs = {
-        "batch_size": batch_size,
-        "num_workers": num_workers,
-        "collate_fn": dataset.collate_batch_test,
-        "shuffle": False,
-        "pin_memory": False,
-        "drop_last": False,
-    }
-    if num_workers > 0:
-        kwargs["prefetch_factor"] = 2
-        kwargs["worker_init_fn"] = lambda _: torch.set_num_threads(1)
-    loader = DataLoader(dataset, **kwargs)
-    return hypes, dataset, loader
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=dataset.collate_batch_test,
+        num_workers=num_workers,
+        pin_memory=False,
+        drop_last=False,
+    )
+    return dataset, loader
 
 
-def build_calib_loader(adapter: HEALLiDARAdapter, model_config: str, batch_size: int = 1, num_workers: int = 2):
-    """Build a calibration dataloader (train split with label_dict for loss computation)."""
-    from opencood.data_utils.datasets import build_dataset as heal_build_dataset
-    from opencood.hypes_yaml import yaml_utils
-
-    hypes = yaml_utils.load_yaml(adapter._resolve_heal_path(model_config))
-    hypes = adapter._absolutize_dataset_paths(hypes)
-    dataset = heal_build_dataset(hypes, visualize=False, train=False)
-    kwargs = {
-        "batch_size": batch_size,
-        "num_workers": num_workers,
-        "collate_fn": dataset.collate_batch_train,
-        "shuffle": False,
-        "pin_memory": False,
-        "drop_last": False,
-    }
-    if num_workers > 0:
-        kwargs["prefetch_factor"] = 2
-        kwargs["worker_init_fn"] = lambda _: torch.set_num_threads(1)
-    return DataLoader(dataset, **kwargs)
-
-
-# ---------------------------------------------------------------------------
-# Model loading
-# ---------------------------------------------------------------------------
-def load_model(adapter: HEALLiDARAdapter, model_config: str, checkpoint: str, device: torch.device, logger: logging.Logger):
+def load_model(adapter: HEALLiDARAdapter, config: str, checkpoint: str, device: torch.device, logger: logging.Logger) -> tuple[nn.Module, dict[str, Any]]:
     from opencood.hypes_yaml import yaml_utils
     from opencood.tools import train_utils
 
-    hypes = yaml_utils.load_yaml(adapter._resolve_heal_path(model_config))
-    model = train_utils.create_model(hypes)
-
     ckpt = torch.load(checkpoint, map_location="cpu")
-    if isinstance(ckpt, dict):
-        state = ckpt.get("model", ckpt.get("state_dict", ckpt))
-    else:
-        state = ckpt
+    metadata = ckpt.get("prune_metadata", {}) if isinstance(ckpt, dict) else {}
+    if isinstance(ckpt, dict) and isinstance(ckpt.get("model_object"), nn.Module):
+        model = ckpt["model_object"]
+        return model.to(device).eval(), metadata
+    hypes = yaml_utils.load_yaml(adapter._resolve_heal_path(config))
+    model = train_utils.create_model(hypes)
+    replay = ckpt.get("prune_replay", []) if isinstance(ckpt, dict) else []
+    if replay:
+        apply_prune_replay(model, replay, logger)
+    state = ckpt.get("model", ckpt.get("state_dict", ckpt)) if isinstance(ckpt, dict) else ckpt
     missing, unexpected = model.load_state_dict(state, strict=False)
     if missing:
-        logger.warning("load_state_dict missing keys (%d): %s", len(missing), missing[:10])
+        logger.warning("%s missing keys: %d", checkpoint, len(missing))
     if unexpected:
-        logger.warning("load_state_dict unexpected keys (%d): %s", len(unexpected), unexpected[:10])
-
-    model = model.to(device)
-    model.eval()
-    return model, hypes
+        logger.warning("%s unexpected keys: %d", checkpoint, len(unexpected))
+    return model.to(device).eval(), metadata
 
 
-def count_params(model: nn.Module) -> tuple[int, float]:
-    n = sum(p.numel() for p in model.parameters())
-    mb = sum(p.numel() * p.element_size() for p in model.parameters()) / (1024 * 1024)
-    return n, mb
-
-
-# ---------------------------------------------------------------------------
-# Step 3: Dynamic forward dependency tracing + coupled channel groups
-# (used only for importance computation — pruning uses model-specific spec)
-# ---------------------------------------------------------------------------
-def trace_and_build_groups(
-    model: nn.Module, adapter: HEALLiDARAdapter, device: torch.device, logger: logging.Logger,
-    output_dir: Path,
-) -> tuple[Any, list[CoupledChannelGroup]]:
-    """Run dynamic forward tracing and build coupled channel groups."""
-    logger.info("Step 3: Dynamic forward dependency tracing...")
-    protected = adapter.get_protected_layers(model)
-    logger.info("  Protected layers (%d): %s", len(protected), protected[:10])
-
-    sample_batch = adapter.build_synthetic_batch(model)
-
-    tracer = DynamicDependencyTracer(
-        model, protected_layers=protected, forward_fn=adapter.forward_for_task,
-    )
-    graph = tracer.trace(sample_batch)
-    logger.info("  Traced graph: %d nodes, %d edges", len(graph.nodes), len(graph.edges))
-    if graph.manual_warnings:
-        for w in graph.manual_warnings:
-            logger.warning("  Trace warning: %s", w)
-
-    graph.save(str(output_dir / "dependency_graph.yaml"), str(output_dir / "dependency_graph.json"))
-
-    logger.info("Step 3b: Building coupled channel groups...")
-    builder = CoupledGroupBuilder(graph)
-    groups = builder.build()
-    logger.info("  Built %d coupled channel groups", len(groups))
-
-    CoupledGroupBuilder.save(groups, str(output_dir / "coupled_groups.yaml"))
-
-    for g in groups[:5]:
-        members_str = ", ".join(f"{m.layer_name}({m.role})" for m in g.members[:6])
-        extra = f"...+{len(g.members)-6}" if len(g.members) > 6 else ""
-        logger.info("  Group %s [protected=%s]: %s%s", g.group_id, g.protected, members_str, extra)
-    if len(groups) > 5:
-        logger.info("  ... and %d more groups", len(groups) - 5)
-
-    return graph, groups
-
-
-# ---------------------------------------------------------------------------
-# Step 5: First-order Taylor importance estimation
-# ---------------------------------------------------------------------------
-def compute_importance(
-    model: nn.Module, adapter: HEALLiDARAdapter, model_config: str,
-    groups: list[CoupledChannelGroup],
-    device: torch.device, logger: logging.Logger, output_dir: Path,
-    num_calib_batches: int = 16,
-) -> dict[str, list[float]]:
-    """Compute first-order Taylor importance scores for coupled channel groups."""
-    from coop_lidar_compress.pruning.importance.group_importance import compute_group_importance
-
-    logger.info("Step 5: Computing first-order Taylor importance (calib_batches=%d)...", num_calib_batches)
-
-    calib_loader = build_calib_loader(adapter, model_config, batch_size=1, num_workers=2)
-
-    def loss_fn(outputs, batch):
-        return adapter.compute_task_loss(outputs, batch)
-
-    def forward_fn(m, batch):
-        return adapter.forward_for_task(m, batch)
-
-    result = compute_group_importance(
-        model=model,
-        dataloader=calib_loader,
-        loss_fn=loss_fn,
-        coupled_channel_groups=groups,
-        device=device,
-        num_calib_batches=num_calib_batches,
-        forward_fn=forward_fn,
-        output_dir=str(output_dir / "importance"),
-        logger=logger,
-        importance_mode="first_order_taylor",
-    )
-
-    logger.info("  Importance mode: %s", result.importance_mode)
-    logger.info("  Calibration batches used: %d", result.summary.get("actual_used_calib_batches", 0))
-    logger.info("  Prunable groups: %d", result.summary.get("num_prunable_groups", 0))
-    logger.info("  Protected groups: %d", result.summary.get("num_protected_groups", 0))
-
-    return result.channel_scores
-
-
-# ---------------------------------------------------------------------------
-# Step 6: Model-specific structured physical pruning
-# ---------------------------------------------------------------------------
-def prune_model(
-    model: nn.Module, channel_scores: dict[str, list[float]],
-    prune_ratio: float, logger: logging.Logger, output_dir: Path,
-) -> tuple[nn.Module, dict[str, Any]]:
-    """Apply structured channel pruning using model-specific prune spec.
-
-    Uses build_lidar_pyramid_prune_spec + apply_lidar_pyramid_prune_spec which
-    correctly handles Bottleneck grouped convolutions, residual connections,
-    BasicBlock backbone, deblocks, shrink conv, and detection head inputs.
-    """
-    logger.info("Step 6: Structured pruning (ratio=%.2f) via model-specific spec...", prune_ratio)
-
-    before_params, before_mb = count_params(model)
-
-    # Build pruning spec with Taylor importance if available, else L1 fallback
-    spec = build_lidar_pyramid_prune_spec(
-        model=model,
-        prune_ratio=prune_ratio,
-        align=16,
-        min_channels=16,
-        importance_by_layer=channel_scores if channel_scores else None,
-    )
-    save_json(spec, str(output_dir / "prune_spec.json"))
-
-    # Log spec summary
-    orig_ch, kept_ch = prune_spec_scope_channel_counts(spec)
-    if orig_ch > 0:
-        logger.info("  Spec channel reduction: %d -> %d (%.1f%% removed)",
-                     orig_ch, kept_ch, (1.0 - kept_ch / orig_ch) * 100)
-
-    scopes = spec.get("scopes", [])
-    logger.info("  Pruning scopes: %s", scopes)
-
-    # Log backbone details
-    basic_resnet = spec.get("basic_resnet_backbone")
-    if basic_resnet and basic_resnet.get("stages"):
-        for stage in basic_resnet["stages"]:
-            n_blocks = len(stage.get("blocks", []))
-            prunable = stage.get("output_prunable", False)
-            logger.info("  basic_resnet stage%d: %d blocks, output_prunable=%s",
-                        stage["stage_index"], n_blocks, prunable)
-
-    resnet = spec.get("resnet_backbone")
-    if resnet and resnet.get("stages"):
-        for stage in resnet["stages"]:
-            n_blocks = len(stage.get("blocks", []))
-            prunable = stage.get("output_prunable", False)
-            logger.info("  pyramid_resnet stage%d: %d blocks, output_prunable=%s",
-                        stage["stage_index"], n_blocks, prunable)
-
-    for entry in spec.get("deblocks", []):
-        logger.info("  deblock%d: %d -> %d channels", entry["index"],
-                     entry["original_out_channels"], len(entry["keep_indices"]))
-
-    # Apply the spec (physically modifies model weights in-place)
-    report = apply_lidar_pyramid_prune_spec(model, spec)
-    num_operations = len(report.get("operations", []))
-
-    after_params, after_mb = count_params(model)
-    actual_prune_ratio = 1.0 - (after_params / max(before_params, 1))
-
-    prune_report = {
-        "prune_ratio_target": prune_ratio,
-        "prune_ratio_actual_params": round(actual_prune_ratio, 4),
-        "params_before": before_params,
-        "params_after": after_params,
-        "size_before_mb": round(before_mb, 2),
-        "size_after_mb": round(after_mb, 2),
-        "num_operations": num_operations,
-        "legality_issues": report.get("issues", []),
-        "spec_format": spec.get("format", ""),
-    }
-    save_json(prune_report, str(output_dir / "prune_report.json"))
-
-    logger.info("  Applied %d surgery operations", num_operations)
-    logger.info("  Params: %d -> %d (%.1f%% reduction)", before_params, after_params, actual_prune_ratio * 100)
-    logger.info("  Size: %.2f MB -> %.2f MB", before_mb, after_mb)
-
-    if report.get("issues"):
-        logger.warning("  Legality issues from apply_spec: %d", len(report["issues"]))
-        for issue in report["issues"][:5]:
-            logger.warning("    %s", issue)
-
-    return model, prune_report
-
-
-# ---------------------------------------------------------------------------
-# Step 7: Structure legality check + forward sanity check
-# ---------------------------------------------------------------------------
-def legality_and_sanity_check(
-    model: nn.Module, adapter: HEALLiDARAdapter, device: torch.device,
-    logger: logging.Logger, output_dir: Path,
-) -> dict[str, Any]:
-    """Check structural legality and run forward pass on a real batch."""
-    logger.info("Step 7: Structure legality check...")
-
-    # Use the model-specific legality checker
-    report = check_lidar_pyramid_structural_legality(model)
-    issues = report.get("issues", [])
-
-    if issues:
-        logger.error("  LEGALITY CHECK FAILED: %d issues found", len(issues))
-        for issue in issues[:10]:
-            logger.error("    %s", issue)
-    else:
-        logger.info("  Legality check PASSED: all layer dimensions valid")
-
-    # Forward sanity check with synthetic batch
-    logger.info("Step 7b: Forward sanity check (synthetic batch)...")
-    model.eval()
-    try:
-        sample = adapter.build_synthetic_batch(model)
-        with torch.no_grad():
-            output = adapter.forward_for_task(model, sample)
-        if isinstance(output, dict):
-            output_keys = list(output.keys())
-            has_output = True
+def apply_prune_replay(model: nn.Module, replay: list[dict[str, Any]], logger: logging.Logger) -> None:
+    modules = dict(model.named_modules())
+    for op in replay:
+        layer = op.get("layer", "")
+        module = modules.get(layer)
+        if module is None:
+            logger.warning("prune_replay layer missing: %s", layer)
+            continue
+        after = int(op.get("after", 0))
+        if after <= 0:
+            continue
+        axis = op.get("axis", "")
+        direction = op.get("direction", "")
+        if axis == "grouped_keep":
+            before = int(op.get("before", getattr(module, "out_channels", after)))
+            groups = int(op.get("groups", getattr(module, "groups", 1)))
+            before_per = before // groups
+            after_per = after // groups
+            keep = []
+            for gi in range(groups):
+                start = gi * before_per
+                keep.extend(range(start, start + after_per))
+            fn = grouped_conv_pruning_fn("keep_groups")
         else:
-            output_keys = [str(type(output).__name__)]
-            has_output = output is not None
-        logger.info("  Forward sanity check PASSED: output_keys=%s", output_keys[:5])
-    except Exception as exc:
-        has_output = False
-        output_keys = []
-        logger.error("  Forward sanity check FAILED: %s", exc)
-        issues.append({"layer": "model", "issue": "forward_failed", "error": str(exc)})
-
-    check_result = {
-        "legality_passed": len([i for i in issues if i.get("issue") != "forward_failed"]) == 0,
-        "forward_passed": has_output,
-        "issues": issues,
-        "output_keys": output_keys,
-    }
-    save_json(check_result, str(output_dir / "legality_check.json"))
-    return check_result
+            keep = list(range(after))
+            fn = get_pruning_fn(module, direction)
+        if fn is None:
+            logger.warning("prune_replay no pruning fn: layer=%s direction=%s axis=%s", layer, direction, axis)
+            continue
+        fn(module, keep)
 
 
-# ---------------------------------------------------------------------------
-# Step 8: Save pruned model
-# ---------------------------------------------------------------------------
-def save_pruned_model(
-    model: nn.Module, output_dir: Path, prune_report: dict[str, Any],
+def calculate_tp_fp(det_boxes, det_score, gt_boxes, result_stat, thr: float) -> None:
+    from opencood.utils import eval_utils
+
+    eval_utils.caluclate_tp_fp(det_boxes, det_score, gt_boxes, result_stat, thr)
+
+
+def evaluate_one_model(
+    *,
+    model: nn.Module,
+    checkpoint: str,
+    metadata: dict[str, Any],
+    model_type: str,
+    dataset: Any,
+    loader: Any,
+    device: torch.device,
+    round_id: int,
+    max_frames: int,
+    warmup_frames: int,
     logger: logging.Logger,
-) -> str:
-    """Save pruned model checkpoint."""
-    ckpt_path = str(output_dir / "pruned_model.pth")
-    torch.save({
-        "model": model.state_dict(),
-        "prune_metadata": {
-            "target_prune_ratio": prune_report["prune_ratio_target"],
-            "actual_param_prune_ratio": prune_report["prune_ratio_actual_params"],
-            "params_before": prune_report["params_before"],
-            "params_after": prune_report["params_after"],
-        },
-    }, ckpt_path)
-    size_mb = Path(ckpt_path).stat().st_size / (1024 * 1024)
-    logger.info("Step 8: Pruned model saved to %s (%.2f MB)", ckpt_path, size_mb)
-    return ckpt_path
-
-
-# ---------------------------------------------------------------------------
-# Step 9: Evaluate pruned model on full val set
-# ---------------------------------------------------------------------------
-def calculate_tp_fp_for_threshold(
-    det_boxes, det_score, gt_boxes, result_stat, iou_thresh: float,
-    backend: str, device: torch.device,
-) -> None:
-    gt = 0 if gt_boxes is None else int(gt_boxes.shape[0])
-    if det_boxes is None or det_score is None or int(det_boxes.shape[0]) == 0:
-        result_stat[iou_thresh]["gt"] += gt
-        return
-    if backend == "gpu":
-        _calculate_tp_fp_gpu_bev(det_boxes, det_score, gt_boxes, result_stat, iou_thresh, device)
-    elif backend == "cpu":
-        from opencood.utils import eval_utils
-        eval_utils.caluclate_tp_fp(det_boxes, det_score, gt_boxes, result_stat, iou_thresh)
-
-
-def _calculate_tp_fp_gpu_bev(det_boxes, det_score, gt_boxes, result_stat, iou_thresh, device):
-    from opencood.pcdet_utils.iou3d_nms.iou3d_nms_utils import boxes_iou_bev
-    from opencood.utils import box_utils
-
-    gt = 0 if gt_boxes is None else int(gt_boxes.shape[0])
-    det_boxes = det_boxes.to(device=device, dtype=torch.float32)
-    det_score = det_score.to(device=device, dtype=torch.float32).reshape(-1)
-    order = torch.argsort(det_score, descending=True)
-    det_score = det_score[order]
-    det_boxes = det_boxes[order]
-    result_stat[iou_thresh]["score"] += det_score.detach().cpu().tolist()
-
-    if gt == 0:
-        n = int(det_boxes.shape[0])
-        result_stat[iou_thresh]["fp"] += [1] * n
-        result_stat[iou_thresh]["tp"] += [0] * n
-        result_stat[iou_thresh]["gt"] += 0
-        return
-
-    gt_boxes = gt_boxes.to(device=device, dtype=torch.float32)
-    det7 = box_utils._corners_to_nms_boxes_torch(det_boxes).contiguous()
-    gt7 = box_utils._corners_to_nms_boxes_torch(gt_boxes).contiguous()
-    iou_matrix = boxes_iou_bev(det7, gt7)
-    available = torch.ones((gt,), dtype=torch.bool, device=device)
-    fp, tp = [], []
-    for i in range(iou_matrix.shape[0]):
-        if not available.any():
-            fp.append(1); tp.append(0); continue
-        ious = iou_matrix[i].clone()
-        ious[~available] = -1.0
-        max_iou, gt_idx = torch.max(ious, dim=0)
-        if float(max_iou.item()) < iou_thresh:
-            fp.append(1); tp.append(0)
-        else:
-            fp.append(0); tp.append(1); available[gt_idx] = False
-    result_stat[iou_thresh]["fp"] += fp
-    result_stat[iou_thresh]["tp"] += tp
-    result_stat[iou_thresh]["gt"] += gt
-
-
-def evaluate_pruned(
-    model, dataset, loader, device: torch.device, logger: logging.Logger,
-    ap_iou_backend: str = "gpu", verbose: bool = True,
-) -> dict[str, Any]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     from opencood.tools import train_utils
     from opencood.utils import eval_utils
 
     result_stat = {thr: {"tp": [], "fp": [], "gt": 0, "score": []} for thr in IOU_THRESHOLDS}
-    total_times, forward_times, post_times = [], [], []
+    rows: list[dict[str, Any]] = []
+    total_times: list[float] = []
+    forward_times: list[float] = []
+    post_times: list[float] = []
     total_frames = len(dataset)
     actual = 0
-    skipped = 0
-
+    missing = 0
+    consecutive_failures = 0
+    first_failure = ""
     model.eval()
+    logger.info(
+        "Start %s round %d: checkpoint=%s size=%.3fMB gpu=%s dataset_frames=%d max_frames=%s warmup=%d",
+        model_type,
+        round_id,
+        checkpoint,
+        count_model_size_mb(model),
+        torch.cuda.get_device_name(device) if device.type == "cuda" else "cpu",
+        total_frames,
+        max_frames or "all",
+        warmup_frames,
+    )
     for frame_idx, batch_data in enumerate(loader):
+        if max_frames and actual >= max_frames:
+            break
+        row = {
+            "frame_id": frame_idx,
+            "round_id": round_id,
+            "model_type": model_type,
+            "total_time_ms": 0.0,
+            "forward_time_ms": 0.0,
+            "postprocess_time_ms": 0.0,
+            "data_to_gpu_time_ms": 0.0,
+            "success": False,
+            "skip_reason": "",
+        }
         if batch_data is None:
-            skipped += 1
+            row["skip_reason"] = "empty_batch"
+            rows.append(row)
+            missing += 1
             continue
         try:
-            batch_data = train_utils.to_device(batch_data, device)
+            batch_data, gpu_ms = timed_call(lambda: train_utils.to_device(batch_data, device), device)
             with torch.no_grad():
                 output, fwd_ms = timed_call(lambda: model(batch_data["ego"]), device)
 
-                def _postprocess():
+                def postprocess():
                     od = OrderedDict()
                     od["ego"] = output
                     return dataset.post_process(batch_data, od)
 
-                (pred_box, pred_score, gt_box), post_ms = timed_call(_postprocess, device)
-
-            for thr in IOU_THRESHOLDS:
-                calculate_tp_fp_for_threshold(pred_box, pred_score, gt_box, result_stat, thr, ap_iou_backend, device)
-
-            total_ms = fwd_ms + post_ms
-            total_times.append(total_ms)
-            forward_times.append(fwd_ms)
-            post_times.append(post_ms)
-            actual += 1
-
-            if verbose:
+                (pred_box, pred_score, gt_box), post_ms = timed_call(postprocess, device)
+            if frame_idx >= warmup_frames:
+                for thr in IOU_THRESHOLDS:
+                    calculate_tp_fp(pred_box, pred_score, gt_box, result_stat, thr)
+                total_ms = gpu_ms + fwd_ms + post_ms
+                total_times.append(total_ms)
+                forward_times.append(fwd_ms)
+                post_times.append(post_ms)
+                row.update({
+                    "total_time_ms": round(total_ms, 3),
+                    "forward_time_ms": round(fwd_ms, 3),
+                    "postprocess_time_ms": round(post_ms, 3),
+                    "data_to_gpu_time_ms": round(gpu_ms, 3),
+                    "success": True,
+                })
+                actual += 1
+                consecutive_failures = 0
                 logger.info(
-                    "[%d/%d] total=%.1fms forward=%.1fms postprocess=%.1fms",
-                    frame_idx + 1, total_frames, total_ms, fwd_ms, post_ms,
+                    "%s round %d frame %d total=%.3fms forward=%.3fms postprocess=%.3fms data_to_gpu=%.3fms",
+                    model_type, round_id, frame_idx, total_ms, fwd_ms, post_ms, gpu_ms,
                 )
-
+            else:
+                row["skip_reason"] = "warmup"
+            rows.append(row)
             del output, pred_box, pred_score, gt_box, batch_data
-            if (frame_idx + 1) % 256 == 0:
+            if (frame_idx + 1) % 128 == 0:
                 gc.collect()
                 if device.type == "cuda":
                     torch.cuda.empty_cache()
         except Exception as exc:
-            skipped += 1
-            logger.exception("frame %d skipped: %s", frame_idx, exc)
-
+            err = str(exc)
+            if not first_failure:
+                first_failure = err
+                logger.exception("%s round %d frame %d failed: %s", model_type, round_id, frame_idx, exc)
+            else:
+                logger.error("%s round %d frame %d failed: %s", model_type, round_id, frame_idx, err)
+            row["skip_reason"] = str(exc)
+            rows.append(row)
+            missing += 1
+            consecutive_failures += 1
+            if actual == 0 and consecutive_failures >= 3:
+                logger.error(
+                    "%s round %d aborted after %d consecutive failures before any successful frame. First failure: %s",
+                    model_type, round_id, consecutive_failures, first_failure,
+                )
+                break
     ap = {}
     for thr in IOU_THRESHOLDS:
-        key = f"AP@{thr:.2f}"
         if result_stat[thr]["gt"] > 0 and result_stat[thr]["score"]:
             ap_val, _, _ = eval_utils.calculate_ap(result_stat, thr)
         else:
             ap_val = 0.0
-        ap[key] = round(float(ap_val), 4)
-
-    return {
-        "total_frames": total_frames,
+        ap[f"AP_{str(thr).replace('.', '_')}"] = round(float(ap_val), 6)
+    gpu_id = device.index if device.type == "cuda" else ""
+    gpu_name = torch.cuda.get_device_name(device) if device.type == "cuda" else "cpu"
+    summary = {
+        "round_id": round_id,
+        "model_type": model_type,
+        "checkpoint": checkpoint,
+        "model_size_mb": round(count_model_size_mb(model), 3),
+        "target_prune_ratio": metadata.get("target_prune_ratio", 0.0),
+        "actual_prune_ratio": metadata.get("actual_prune_ratio", metadata.get("actual_param_prune_ratio", 0.0)),
+        "gpu_id": gpu_id,
+        "gpu_name": gpu_name,
+        "dataset_total_frames": total_frames,
         "actual_frames": actual,
-        "skipped_frames": skipped,
-        **ap,
-        "total_time_mean_ms": round(maybe_mean(total_times), 3),
-        "total_time_p50_ms": round(maybe_median(total_times), 3),
-        "forward_time_mean_ms": round(maybe_mean(forward_times), 3),
-        "forward_time_p50_ms": round(maybe_median(forward_times), 3),
-        "postprocess_time_mean_ms": round(maybe_mean(post_times), 3),
-        "postprocess_time_p50_ms": round(maybe_median(post_times), 3),
+        "missing_frames": missing,
+        "total_time_mean_ms": round(mean(total_times), 3),
+        "total_time_p50_ms": round(p50(total_times), 3),
+        "forward_time_mean_ms": round(mean(forward_times), 3),
+        "forward_time_p50_ms": round(p50(forward_times), 3),
+        "postprocess_time_mean_ms": round(mean(post_times), 3),
+        "postprocess_time_p50_ms": round(p50(post_times), 3),
+        "AP_0_03": ap["AP_0_03"],
+        "AP_0_30": ap["AP_0_3"],
+        "AP_0_50": ap["AP_0_5"],
+        "AP_0_70": ap["AP_0_7"],
+        "first_failure": first_failure,
     }
+    logger.info(
+        "%s round %d timing: total mean=%.3fms p50=%.3fms | forward mean=%.3fms p50=%.3fms | postprocess mean=%.3fms p50=%.3fms",
+        model_type, round_id,
+        summary["total_time_mean_ms"], summary["total_time_p50_ms"],
+        summary["forward_time_mean_ms"], summary["forward_time_p50_ms"],
+        summary["postprocess_time_mean_ms"], summary["postprocess_time_p50_ms"],
+    )
+    logger.info(
+        "%s round %d AP: AP@0.03=%.6f AP@0.30=%.6f AP@0.50=%.6f AP@0.70=%.6f",
+        model_type, round_id,
+        summary["AP_0_03"], summary["AP_0_30"], summary["AP_0_50"], summary["AP_0_70"],
+    )
+    return rows, summary
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-def parse_args():
-    p = argparse.ArgumentParser(description="HEAL LiDAROnly structured pruning + evaluation")
-    p.add_argument("--model-name", default="lidar_pyramid")
-    p.add_argument("--model-config", default=None)
-    p.add_argument("--checkpoint", default=None)
-    p.add_argument("--heal-repo", default=HEAL_REPO)
-    p.add_argument("--device", default="auto")
-    p.add_argument("--prune-ratio", type=float, default=0.25)
-    p.add_argument("--num-calib-batches", type=int, default=16)
-    p.add_argument("--ap-iou-backend", choices=["gpu", "cpu"], default="gpu")
-    p.add_argument("--batch-size", type=int, default=1)
-    p.add_argument("--num-workers", type=int, default=4)
-    p.add_argument("--output-dir", default=None)
-    p.add_argument("--skip-eval", action="store_true", help="Skip evaluation after pruning")
-    p.add_argument("--verbose", action="store_true", default=True)
-    p.add_argument("--no-verbose", dest="verbose", action="store_false")
-    return p.parse_args()
-
-
-def main():
-    args = parse_args()
-
-    # Resolve config and checkpoint from presets
-    preset = DEFAULT_CONFIGS.get(args.model_name, {})
-    if args.model_config is None:
-        if "config" not in preset:
-            raise ValueError(f"Unknown model '{args.model_name}'. Provide --model-config explicitly.")
-        args.model_config = str(_UNIAD_EXAMINE / preset["config"])
-    if args.checkpoint is None:
-        if "checkpoint" not in preset:
-            raise ValueError(f"Unknown model '{args.model_name}'. Provide --checkpoint explicitly.")
-        args.checkpoint = str(_UNIAD_EXAMINE / preset["checkpoint"])
-
-    # Output directory
-    if args.output_dir is None:
-        ratio_str = f"{int(args.prune_ratio * 100)}"
-        args.output_dir = str(_THIS_DIR / "outputs" / f"prune_{args.model_name}_{ratio_str}")
-    out_dir = Path(args.output_dir)
-    ensure_dir(str(out_dir))
-
-    logger = setup_logger(out_dir)
-    logger.info("=" * 60)
-    logger.info("HEAL LiDAROnly Structured Pruning Pipeline")
-    logger.info("=" * 60)
-    logger.info("Args: %s", json.dumps(vars(args), ensure_ascii=False, default=str))
-
-    # Step 1: GPU selection
-    device_str = resolve_device(args.device)
-    device = torch.device(device_str)
+def run_eval(args: argparse.Namespace) -> dict[str, Any]:
+    out = ensure_dir(args.output_dir)
+    logger = setup_logger(out)
+    device = resolve_eval_device(args.gup_id, args.device)
     if device.type == "cuda":
         torch.cuda.set_device(device)
-    elif args.ap_iou_backend == "gpu":
-        logger.warning("Device is CPU but --ap-iou-backend=gpu; switching to cpu backend")
-        args.ap_iou_backend = "cpu"
-    logger.info("Step 1: Using device: %s", device)
+    save_json(vars(args), out / "eval_config.json")
+    logger.info("Args: %s", json.dumps(vars(args), ensure_ascii=False, default=str))
+    logger.info("Using device: %s%s", device, f" ({torch.cuda.get_device_name(device)})" if device.type == "cuda" else "")
+    adapter = HEALLiDARAdapter(heal_repo=args.heal_root, config={"model": {"hypes_yaml": args.model_config}})
+    dataset, loader = build_dataset(adapter, args.model_config)
+    summaries: list[dict[str, Any]] = []
+    ap_results: dict[str, Any] = {}
+    for round_id in range(1, args.rounds + 1):
+        if args.eval_original:
+            model, metadata = load_model(adapter, args.model_config, args.original_checkpoint, device, logger)
+            rows, summary = evaluate_one_model(
+                model=model,
+                checkpoint=args.original_checkpoint,
+                metadata=metadata,
+                model_type="baseline",
+                dataset=dataset,
+                loader=loader,
+                device=device,
+                round_id=round_id,
+                max_frames=args.max_frames,
+                warmup_frames=args.warmup_frames,
+                logger=logger,
+            )
+            save_csv(rows, out / f"baseline_per_frame_latency_round_{round_id}.csv")
+            summaries.append(summary)
+            ap_results.setdefault("baseline", []).append({k: summary[k] for k in ("AP_0_03", "AP_0_30", "AP_0_50", "AP_0_70")})
+            del model
+        if args.eval_pruned:
+            model, metadata = load_model(adapter, args.model_config, args.pruned_checkpoint, device, logger)
+            rows, summary = evaluate_one_model(
+                model=model,
+                checkpoint=args.pruned_checkpoint,
+                metadata=metadata,
+                model_type="pruned",
+                dataset=dataset,
+                loader=loader,
+                device=device,
+                round_id=round_id,
+                max_frames=args.max_frames,
+                warmup_frames=args.warmup_frames,
+                logger=logger,
+            )
+            save_csv(rows, out / f"pruned_per_frame_latency_round_{round_id}.csv")
+            summaries.append(summary)
+            ap_results.setdefault("pruned", []).append({k: summary[k] for k in ("AP_0_03", "AP_0_30", "AP_0_50", "AP_0_70")})
+            del model
+    save_csv(summaries, out / "per_round_summary.csv")
+    save_json(ap_results, out / "ap_results.json")
+    return {"summaries": summaries, "ap_results": ap_results}
 
-    # Step 2: Load model and dataset
-    logger.info("Step 2: Loading model and dataset...")
-    adapter_cfg = {
-        "model": {
-            "hypes_yaml": preset.get("hypes_yaml", ""),
-            "heal_repo": args.heal_repo,
-        }
-    }
-    adapter = HEALLiDARAdapter(heal_repo=args.heal_repo, config=adapter_cfg)
-    model, hypes = load_model(adapter, args.model_config, args.checkpoint, device, logger)
-    orig_params, orig_mb = count_params(model)
-    logger.info("  Original model: %d params (%.2f MB)", orig_params, orig_mb)
 
-    # Step 3: Dynamic forward tracing + coupled channel groups
-    # (needed for importance computation, not for pruning itself)
-    graph, groups = trace_and_build_groups(model, adapter, device, logger, out_dir)
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Evaluate original and pruned HEAL lidar_pyramid checkpoints")
+    p.add_argument("--original-checkpoint", default=DEFAULT_ORIGINAL)
+    p.add_argument("--pruned-checkpoint", default=str(_THIS_DIR / "outputs" / "prune_lidar_pyramid_25_l1" / "pruned_model.pth"))
+    p.add_argument("--model-config", default=DEFAULT_CONFIG)
+    p.add_argument("--heal-root", default=DEFAULT_HEAL_ROOT)
+    p.add_argument("--rounds", type=int, default=1)
+    p.add_argument("--gup-id", default=None, help="GPU id, cuda:N, cpu, or auto. Name kept as requested.")
+    p.add_argument("--device", default=None, help="Backward-compatible alias; --gup-id takes precedence.")
+    p.add_argument("--output-dir", default=str(_THIS_DIR / "outputs" / "prune_lidar_pyramid_25_l1" / "eval_full_val"))
+    p.add_argument("--max-frames", type=int, default=0)
+    p.add_argument("--warmup-frames", type=int, default=0)
+    p.add_argument("--eval-original", type=str2bool, default=True)
+    p.add_argument("--eval-pruned", type=str2bool, default=True)
+    args = p.parse_args(argv)
+    if args.gup_id is None and args.device is None:
+        args.gup_id = "auto"
+    return args
 
-    # Step 5: First-order Taylor importance
-    channel_scores = compute_importance(
-        model, adapter, args.model_config, groups,
-        device, logger, out_dir, args.num_calib_batches,
-    )
 
-    # Step 6: Physical pruning using model-specific spec
-    model, prune_report = prune_model(
-        model, channel_scores, args.prune_ratio, logger, out_dir,
-    )
-
-    # Step 7: Legality check + forward sanity check
-    check_result = legality_and_sanity_check(model, adapter, device, logger, out_dir)
-
-    if not check_result["legality_passed"]:
-        logger.error("PIPELINE ABORTED: legality check failed")
-        sys.exit(1)
-    if not check_result["forward_passed"]:
-        logger.error("PIPELINE ABORTED: forward sanity check failed")
-        sys.exit(1)
-
-    # Step 8: Save pruned model
-    ckpt_path = save_pruned_model(model, out_dir, prune_report, logger)
-
-    # Step 9: Evaluate pruned model
-    if not args.skip_eval:
-        logger.info("Step 9: Evaluating pruned model on full val set...")
-        hypes_eval, dataset, loader = build_dataset(adapter, args.model_config, args.batch_size, args.num_workers)
-        logger.info("  Dataset: %d frames", len(dataset))
-
-        eval_summary = evaluate_pruned(model, dataset, loader, device, logger, args.ap_iou_backend, args.verbose)
-        eval_summary["model_name"] = args.model_name
-        eval_summary["checkpoint"] = ckpt_path
-        eval_summary["prune_ratio_target"] = args.prune_ratio
-        eval_summary["prune_ratio_actual_params"] = prune_report["prune_ratio_actual_params"]
-        eval_summary["params_before"] = prune_report["params_before"]
-        eval_summary["params_after"] = prune_report["params_after"]
-        eval_summary["size_before_mb"] = prune_report["size_before_mb"]
-        eval_summary["size_after_mb"] = prune_report["size_after_mb"]
-
-        save_json(eval_summary, str(out_dir / "pruned_eval_summary.json"))
-
-        logger.info("=" * 60)
-        logger.info("PRUNED MODEL EVALUATION RESULTS: %s", args.model_name)
-        logger.info("  Prune ratio: target=%.2f actual=%.4f",
-                     args.prune_ratio, prune_report["prune_ratio_actual_params"])
-        logger.info("  Params: %d -> %d", prune_report["params_before"], prune_report["params_after"])
-        logger.info("  AP@0.03 = %.4f", eval_summary["AP@0.03"])
-        logger.info("  AP@0.30 = %.4f", eval_summary["AP@0.30"])
-        logger.info("  AP@0.50 = %.4f", eval_summary["AP@0.50"])
-        logger.info("  AP@0.70 = %.4f", eval_summary["AP@0.70"])
-        logger.info("  Total:       mean=%.1fms  p50=%.1fms",
-                     eval_summary["total_time_mean_ms"], eval_summary["total_time_p50_ms"])
-        logger.info("  Forward:     mean=%.1fms  p50=%.1fms",
-                     eval_summary["forward_time_mean_ms"], eval_summary["forward_time_p50_ms"])
-        logger.info("  Postprocess: mean=%.1fms  p50=%.1fms",
-                     eval_summary["postprocess_time_mean_ms"], eval_summary["postprocess_time_p50_ms"])
-        logger.info("=" * 60)
-    else:
-        logger.info("Evaluation skipped (--skip-eval)")
-
-    logger.info("Pipeline complete. Output directory: %s", out_dir)
+def test_prune_eval_script_skips_without_artifacts(tmp_path):
+    if not Path(DEFAULT_ORIGINAL).is_file() or not Path(DEFAULT_CONFIG).is_file():
+        pytest.skip("real HEAL checkpoint/config not available")
+    args = parse_args([
+        "--original-checkpoint", DEFAULT_ORIGINAL,
+        "--pruned-checkpoint", DEFAULT_ORIGINAL,
+        "--model-config", DEFAULT_CONFIG,
+        "--max-frames", "1",
+        "--eval-pruned", "false",
+        "--device", "cpu",
+        "--output-dir", str(tmp_path / "eval_smoke"),
+    ])
+    result = run_eval(args)
+    assert "summaries" in result
+    assert (tmp_path / "eval_smoke" / "per_round_summary.csv").is_file()
 
 
 if __name__ == "__main__":
-    main()
+    run_eval(parse_args())

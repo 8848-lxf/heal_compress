@@ -8,6 +8,8 @@ from .coupled_channel_group import CoupledChannelGroupBuilder
 from .generic_tracer import GenericTracer, trace_model
 from .op_graph import OpGraph, OpNode, build_op_graph
 from .pruning_group import GroupItem, PruningGroup, offset_transform, identity_transform
+from .transformer_analyzer import TransformerAnalyzer
+from .transformer_groups import TransformerGroupBuilder, build_transformer_pruning_groups
 
 __all__ = [
     "HealForwardWrapper",
@@ -22,4 +24,7 @@ __all__ = [
     "PruningGroup",
     "offset_transform",
     "identity_transform",
+    "TransformerAnalyzer",
+    "TransformerGroupBuilder",
+    "build_transformer_pruning_groups",
 ]

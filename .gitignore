@@ -2,3 +2,6 @@ tests/outputs/prune_lidar_pyramid_25/pruned_model.pth
 *.pth
 *.ckpt
 *.onnx
+__pycache__/
+*.pyc
+tests/outputs/

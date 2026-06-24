@@ -162,6 +162,21 @@ class PruningGroup:
         if reason:
             self.protected_reason = reason
 
+    @property
+    def is_protected(self) -> bool:
+        """Compatibility alias used by older search/importance code."""
+        return self.protected
+
+    @property
+    def is_prunable(self) -> bool:
+        """Compatibility alias for group-level prunability."""
+        return not self.protected
+
+    @property
+    def source_modules(self) -> list[str]:
+        """Compatibility alias returning member module names."""
+        return [item.name for item in self.items]
+
     def prune(self, group_keep: list[int]) -> dict[str, Any]:
         """Atomically apply the pruning to every item in the group.
 
