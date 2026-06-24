@@ -82,11 +82,11 @@ from heal_compress.pruning.general_pruner import _group_aligned_keep_indices, pr
 from heal_compress.pruning.group_checker import check_model_legality, check_pruning_group
 from heal_compress.pruning.propagation import GroupBuilder
 from heal_compress.pruning.transformer_checker import check_transformer_group, check_transformer_model_legality
-from heal_compress.search.importance import compute_group_importance
+from heal_compress.search.importance import compute_group_importance, compute_layer_channel_importance
 from heal_compress.tracer.generic_tracer import trace_model
 from heal_compress.tracer.op_graph import build_op_graph
 from heal_compress.tracer.transformer_groups import TRANSFORMER_GROUP_TYPES, build_transformer_pruning_groups
-from heal_compress.utils.io_utils import ensure_dir, save_csv, save_json, save_text
+from heal_compress.utils.io_utils import ensure_unique_dir, save_csv, save_json, save_text
 from heal_compress.utils.model_utils import resolve_device
 
 
@@ -94,6 +94,13 @@ DEFAULT_CHECKPOINT = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models
 DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"
 DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
 TRANSFORMER_TYPES = set(TRANSFORMER_GROUP_TYPES)
+DEFAULT_SAFE_PROTECTED_PREFIXES = (
+    "pyramid_backbone.deblocks",
+    "shrink_conv",
+    "cls_head",
+    "reg_head",
+    "dir_head",
+)
 
 
 def str2bool(v: str | bool) -> bool:
@@ -445,7 +452,26 @@ def coupled_channel_stats(groups: list[Any], applied: list[dict[str, Any]]) -> d
     }
 
 
-def select_keep(group: Any, score: float, args: argparse.Namespace) -> list[int]:
+def build_protected_layers(
+    model: nn.Module,
+    *,
+    adapter_protected: list[str],
+    extra_prefixes: list[str] | tuple[str, ...],
+) -> list[str]:
+    protected = set(adapter_protected)
+    prefixes = tuple(p for p in extra_prefixes if p)
+    if prefixes:
+        for name, _module in model.named_modules():
+            if any(name == prefix or name.startswith(f"{prefix}.") for prefix in prefixes):
+                protected.add(name)
+    return sorted(protected)
+
+
+def select_keep(
+    group: Any,
+    args: argparse.Namespace,
+    importance_scores: dict[str, Any] | None = None,
+) -> list[int]:
     if group.meta.get("group_type") == "transformer_head_group":
         return list(group.meta.get("keep_indices", range(group.num_channels)))
     align = args.ffn_align if "ffn" in group.meta.get("group_type", "") else args.align
@@ -454,13 +480,14 @@ def select_keep(group: Any, score: float, args: argparse.Namespace) -> list[int]
         prune_ratio=args.prune_ratio,
         align=align,
         min_channels=max(1, min(args.align, group.num_channels)),
-        importance_scores=None,
+        importance_scores=importance_scores,
         group_conv_align=args.group_conv_align,
     )
 
 
 def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
-    out = ensure_dir(args.output_dir)
+    out = ensure_unique_dir(args.output_dir)
+    args.output_dir = str(out)
     logger = setup_logger(out)
     device = torch.device(resolve_device(args.device))
     if device.type == "cuda":
@@ -478,9 +505,19 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
 
     sample = adapter.build_synthetic_batch(model)
     trace = trace_model(model, sample, forward_fn=adapter.forward_for_task)
-    op_graph = build_op_graph(trace, model, protected_layers=adapter.get_protected_layers(model))
+    protected_layers = build_protected_layers(
+        model,
+        adapter_protected=adapter.get_protected_layers(model),
+        extra_prefixes=args.extra_protected_prefix,
+    )
+    op_graph = build_op_graph(trace, model, protected_layers=protected_layers)
     save_json(op_graph.to_dict(), out / "op_graph.json")
-    cnn_groups = GroupBuilder(op_graph, align=args.align, grouped_conv_mode=args.group_conv_prune_mode).build()
+    cnn_groups = GroupBuilder(
+        op_graph,
+        align=args.align,
+        grouped_conv_mode=args.group_conv_prune_mode,
+        protect_residual_add=args.protect_residual_add,
+    ).build()
     transformer_groups = []
     if args.enable_transformer_pruning:
         transformer_groups, _analysis = build_transformer_pruning_groups(
@@ -496,6 +533,7 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
     save_csv(group_rows(groups), out / "pruning_groups.csv")
 
     importance, importance_records = compute_group_importance(model, groups, method=args.importance_mode)
+    channel_importance = compute_layer_channel_importance(groups, method=args.importance_mode)
     save_csv(importance_records, out / "group_importance.csv")
     save_json(importance_records, out / "group_importance.json")
     save_csv(transformer_rows(groups, importance, args.importance_mode), out / "transformer_groups.csv")
@@ -511,7 +549,7 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
             current_params, _ = count_params(model)
             if original_params - current_params >= target_pruned_params:
                 break
-            keep = select_keep(g, importance.get(g.group_id, 0.0), args)
+            keep = select_keep(g, args, importance_scores=channel_importance)
             if len(keep) >= g.num_channels:
                 skipped.append({"group_id": g.group_id, "reason": "no_channel_reduction", "num_channels": g.num_channels})
                 continue
@@ -674,12 +712,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--head-align", type=int, default=1)
     p.add_argument("--ffn-align", type=int, default=8)
     p.add_argument("--protect-transformer-hidden", type=str2bool, default=True)
+    p.add_argument("--protect-residual-add", type=str2bool, default=False)
     p.add_argument("--device", default="cpu")
     p.add_argument("--output-dir", default=str(_THIS_DIR / "outputs" / "prune_lidar_pyramid_25_l1"))
+    p.add_argument("--protect-neck-and-heads", type=str2bool, default=True)
+    p.add_argument("--extra-protected-prefix", action="append", default=None)
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--skip-forward-check", action="store_true")
     p.add_argument("--allow-save-on-forward-fail", action="store_true")
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    extra = list(args.extra_protected_prefix or [])
+    if args.protect_neck_and_heads:
+        extra = list(DEFAULT_SAFE_PROTECTED_PREFIXES) + extra
+    args.extra_protected_prefix = list(dict.fromkeys(extra))
+    return args
 
 
 class TestGeneralPrunerToyCases:

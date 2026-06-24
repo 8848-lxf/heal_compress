@@ -30,7 +30,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from ..tracer.op_graph import (
     OP_ADD, OP_BN, OP_CAT, OP_CONV, OP_CONVT, OP_DET_HEAD_INPUT,
-    OP_LINEAR, OP_NORM, OP_SPLIT, PARAMETRIC_OPS, PASSTHROUGH_OPS,
+    OP_BEV_WARP, OP_LINEAR, OP_MUL, OP_NORM, OP_SPLIT, PARAMETRIC_OPS, PASSTHROUGH_OPS,
     OpGraph, OpNode,
 )
 from ..tracer.pruning_group import PruningGroup, identity_transform, offset_transform
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 # Ops we are willing to walk *through* when chasing a channel dependency. The
 # channel dimension is assumed preserved across these (true for BN/Norm and the
 # shape-only view/permute/interpolate ops in channel-first layouts).
-_TRANSPARENT = PASSTHROUGH_OPS | {OP_ADD}
+_TRANSPARENT = PASSTHROUGH_OPS | {OP_ADD, OP_MUL}
 
 
 class GroupBuilder:
@@ -52,6 +52,10 @@ class GroupBuilder:
         graph: The operation-level dependency graph.
         align: Hardware channel alignment (used by grouped-conv protection).
         grouped_conv_mode: ``"keep_groups"`` or ``"remove_groups"``.
+        protect_residual_add: If True, keep legacy conservative behavior and
+            protect Add-merged residual output groups. If False, Add nodes are
+            treated as identity dependency propagators so residual branches are
+            pruned synchronously.
     """
 
     def __init__(
@@ -59,10 +63,12 @@ class GroupBuilder:
         graph: OpGraph,
         align: int = 16,
         grouped_conv_mode: str = "keep_groups",
+        protect_residual_add: bool = False,
     ):
         self.graph = graph
         self.align = int(align)
         self.grouped_conv_mode = grouped_conv_mode
+        self.protect_residual_add = bool(protect_residual_add)
         # union-find over root node names (output-channel dims)
         self._parent: Dict[str, str] = {}
         self._reasons: Dict[str, Set[str]] = {}
@@ -213,9 +219,11 @@ class GroupBuilder:
             return []
         if info.op_type in PARAMETRIC_OPS and node not in self._depthwise:
             return [node]
+        if info.op_type == OP_SPLIT and (info.cat_dim if info.cat_dim is not None else 0) == 1:
+            return []
         # depthwise convs and transparent ops forward the channel dim upstream
         out: List[str] = []
-        for src, _idx in self.graph.incoming(node):
+        for src, _idx in self._channel_incoming(node):
             out.extend(self._upstream_roots(src, visited))
         # dedupe preserving order
         seen: Set[str] = set()
@@ -229,9 +237,70 @@ class GroupBuilder:
     def _branch_roots_ordered(self, structural_node: str) -> List[List[str]]:
         """Return, per input branch (ordered by input_index), its upstream roots."""
         branches: List[List[str]] = []
-        for src, _idx in self.graph.incoming(structural_node):
+        for src, _idx in self._channel_incoming(structural_node):
             branches.append(self._upstream_roots(src))
         return branches
+
+    def _channel_axis_size(self, shape: List[int]) -> Optional[int]:
+        if len(shape) >= 4:
+            return int(shape[1])
+        if len(shape) >= 3:
+            return int(shape[0])
+        if len(shape) == 2:
+            return int(shape[0])
+        if len(shape) == 1:
+            return int(shape[0])
+        return None
+
+    def _is_channel_add(self, node: OpNode) -> bool:
+        if node.op_type != OP_ADD:
+            return False
+        if len(self.graph.incoming(node.name)) < 2:
+            return False
+        out_channels = self._channel_axis_size(node.output_shapes[0]) if node.output_shapes else None
+        if out_channels is None or out_channels <= 1:
+            return False
+        input_channels = [
+            self._channel_axis_size(shape)
+            for shape in node.input_shapes
+            if shape
+        ]
+        if len(input_channels) < 2:
+            return False
+        return all(ch == out_channels for ch in input_channels)
+
+    def _channel_incoming(self, node: str) -> List[Tuple[str, int]]:
+        info = self.graph.nodes.get(node)
+        incoming = self.graph.incoming(node)
+        if info is None:
+            return incoming
+        if info.op_type == OP_SPLIT:
+            split_dim = info.cat_dim if info.cat_dim is not None else 0
+            if split_dim == 1:
+                return []
+            return [(src, idx) for src, idx in incoming if idx == 0]
+        if info.op_type == OP_ADD and not self._is_channel_add(info):
+            return []
+        if info.op_type not in (OP_MUL, OP_BEV_WARP):
+            return incoming
+        out_channels = self._channel_axis_size(info.output_shapes[0]) if info.output_shapes else None
+        if out_channels is None:
+            return incoming
+        selected: List[Tuple[str, int]] = []
+        for src, idx in incoming:
+            if idx >= len(info.input_shapes):
+                continue
+            in_channels = self._channel_axis_size(info.input_shapes[idx])
+            if in_channels == out_channels:
+                selected.append((src, idx))
+        return selected or incoming
+
+    def _channel_outgoing(self, node: str) -> List[str]:
+        selected: List[str] = []
+        for dst, idx in self.graph.outgoing(node):
+            if (node, idx) in self._channel_incoming(dst):
+                selected.append(dst)
+        return selected
 
     # -- merge rules -------------------------------------------------------- #
     def _merge_add_branches(self) -> None:
@@ -337,7 +406,7 @@ class GroupBuilder:
         if is_cat and is_add:
             group.protect("mixed_add_cat_reference")
             return group
-        if is_add:
+        if is_add and self.protect_residual_add:
             group.protect("residual_add_output_protected")
             return group
 
@@ -351,7 +420,10 @@ class GroupBuilder:
             if node.protected:
                 group.protect(node.protected_reason or f"protected_root:{r}")
                 return group
-            if ".downsample." in r or r.endswith(".downsample.0") or r.endswith(".downsample.1"):
+            if (
+                self.protect_residual_add
+                and (".downsample." in r or r.endswith(".downsample.0") or r.endswith(".downsample.1"))
+            ):
                 group.protect(f"residual_downsample_requires_branch_sync:{r}")
                 return group
 
@@ -401,7 +473,7 @@ class GroupBuilder:
         """Add BN/Norm consumers (out axis) and parametric .in consumers."""
         transform = self._root_transform(root, is_cat)
         visited: Set[str] = {root}
-        queue: List[str] = [d for d, _ in self.graph.outgoing(root)]
+        queue: List[str] = self._channel_outgoing(root)
         while queue:
             cur = queue.pop(0)
             if cur in visited:
@@ -418,7 +490,7 @@ class GroupBuilder:
                     return
                 group.add_dep(cur, module, fn, "out",
                               idx_transform=transform, reason="conv_bn")
-                queue.extend(d for d, _ in self.graph.outgoing(cur))
+                queue.extend(self._channel_outgoing(cur))
                 continue
             if cur in self._depthwise and module is not None:
                 # Depthwise conv: channel-preserving passthrough. Slice its
@@ -429,23 +501,23 @@ class GroupBuilder:
                     return
                 group.add_dep(cur, module, fn, "out",
                               idx_transform=transform, reason="depthwise_passthrough")
-                queue.extend(d for d, _ in self.graph.outgoing(cur))
+                queue.extend(self._channel_outgoing(cur))
                 continue
             if node.op_type in (OP_CONV, OP_CONVT, OP_LINEAR) and module is not None:
-                # downstream consumer input side
-                if node.protected and node.is_det_head:
-                    # det-head input IS prunable (only its output is fixed)
-                    pass
+                # Downstream consumer input side is prunable even when the
+                # consumer's own output is protected. Protection means "do not
+                # change this node as a root/out dimension", not "freeze its
+                # input width while upstream channels are removed".
                 if node.op_type == OP_CONV and (node.groups or 1) > 1:
                     if cur in member_set:
-                        queue.extend(d for d, _ in self.graph.outgoing(cur))
+                        queue.extend(self._channel_outgoing(cur))
                         continue
                     # grouped (non-depthwise) consumer input cannot be sliced on
                     # in-axis alone; protect the whole group to stay atomic.
                     group.protect(f"grouped_consumer_in:{cur}")
                     return
                 if cur in member_set:
-                    queue.extend(d for d, _ in self.graph.outgoing(cur))
+                    queue.extend(self._channel_outgoing(cur))
                     continue
                 fn = get_pruning_fn(module, "in")
                 if fn is None:
@@ -456,12 +528,16 @@ class GroupBuilder:
                 # stop: consumer defines a new output dim, do not pass through
                 continue
             if node.op_type in _TRANSPARENT:
-                queue.extend(d for d, _ in self.graph.outgoing(cur))
+                queue.extend(self._channel_outgoing(cur))
             elif node.op_type in (OP_CAT, OP_SPLIT):
                 # handled by cat-downstream logic / split unsupported here
                 if node.op_type == OP_SPLIT:
-                    group.protect(f"split_consumer:{cur}")
-                    return
+                    split_dim = node.cat_dim if node.cat_dim is not None else 0
+                    if split_dim == 1:
+                        group.protect(f"split_consumer:{cur}")
+                        return
+                    queue.extend(self._channel_outgoing(cur))
+                    continue
                 # cat: do not traverse further from a branch root; the cat's own
                 # downstream consumers are added separately with identity space.
                 continue
@@ -469,7 +545,7 @@ class GroupBuilder:
     def _add_cat_downstream(self, group: PruningGroup, cat_node: str) -> None:
         """Add parametric consumers of a cat output (input side, identity space)."""
         visited: Set[str] = {cat_node}
-        queue: List[str] = [d for d, _ in self.graph.outgoing(cat_node)]
+        queue: List[str] = self._channel_outgoing(cat_node)
         while queue:
             cur = queue.pop(0)
             if cur in visited:
@@ -497,7 +573,7 @@ class GroupBuilder:
                     if fn is not None:
                         group.add_dep(cur, module, fn, "out",
                                       idx_transform=identity_transform, reason="cat_bn")
-                queue.extend(d for d, _ in self.graph.outgoing(cur))
+                queue.extend(self._channel_outgoing(cur))
                 continue
             if node.op_type in _TRANSPARENT:
-                queue.extend(d for d, _ in self.graph.outgoing(cur))
+                queue.extend(self._channel_outgoing(cur))

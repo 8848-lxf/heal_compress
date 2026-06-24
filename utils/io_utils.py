@@ -24,6 +24,32 @@ def ensure_dir(path: str | os.PathLike[str]) -> Path:
     return out
 
 
+def ensure_unique_dir(path: str | os.PathLike[str]) -> Path:
+    """Create a run directory without overwriting a previous run.
+
+    If ``path`` does not exist, or exists but is empty, it is returned. If it
+    already contains files, ``_<NNN>`` is appended before creating a new
+    directory.
+    """
+    requested = Path(path)
+    if not requested.exists():
+        requested.mkdir(parents=True, exist_ok=False)
+        return requested
+    if requested.is_dir() and not any(requested.iterdir()):
+        return requested
+    if not requested.is_dir():
+        raise NotADirectoryError(f"output path exists and is not a directory: {requested}")
+
+    parent = requested.parent
+    stem = requested.name
+    for idx in range(1, 10000):
+        candidate = parent / f"{stem}_{idx:03d}"
+        if not candidate.exists():
+            candidate.mkdir(parents=True, exist_ok=False)
+            return candidate
+    raise RuntimeError(f"could not allocate a unique output directory for {requested}")
+
+
 def load_yaml(path: str | os.PathLike[str]) -> dict[str, Any]:
     """Load a YAML file and return its contents as a dict.
 

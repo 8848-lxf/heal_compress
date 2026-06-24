@@ -16,6 +16,7 @@ require the HEAL export module, so it works for arbitrary ``nn.Module`` forwards
 from __future__ import annotations
 
 import logging
+import weakref
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
@@ -53,18 +54,27 @@ class GenericTracer:
         ("torch.cat", torch, "cat"),
         ("torch.stack", torch, "stack"),
         ("torch.add", torch, "add"),
+        ("torch.relu", torch, "relu"),
+        ("torch.sigmoid", torch, "sigmoid"),
+        ("torch.softmax", torch, "softmax"),
+        ("torch.where", torch, "where"),
+        ("torch.sum", torch, "sum"),
+        ("torch.mean", torch, "mean"),
         ("torch.split", torch, "split"),
         ("torch.chunk", torch, "chunk"),
+        ("torch.tensor_split", torch, "tensor_split"),
         ("torch.bmm", torch, "bmm"),
         ("torch.matmul", torch, "matmul"),
+        ("F.relu", F, "relu"),
         ("F.interpolate", F, "interpolate"),
         ("F.grid_sample", F, "grid_sample"),
     )
     TENSOR_METHODS: Tuple[str, ...] = (
         "view", "reshape", "permute", "transpose", "flatten",
         "unsqueeze", "squeeze", "expand", "repeat", "contiguous",
+        "sum", "mean", "__getitem__",
         "split", "chunk",
-        "__add__", "__radd__", "__iadd__",
+        "__add__", "__radd__", "__iadd__", "__mul__", "__rmul__",
     )
 
     def __init__(
@@ -76,7 +86,7 @@ class GenericTracer:
         self.forward_fn = forward_fn
         self.nodes: Dict[str, Dict[str, Any]] = {}
         self.edges: List[Dict[str, Any]] = []
-        self.tensor_producers: Dict[int, str] = {}
+        self.tensor_producers: Dict[int, Tuple[weakref.ReferenceType[torch.Tensor], str]] = {}
         self.module_stack: List[str] = []
         self._op_index = 0
         self._handles: List[Any] = []
@@ -144,7 +154,7 @@ class GenericTracer:
     def _pre_hook(self, name: str) -> Callable:
         def hook(_m: nn.Module, inputs: tuple) -> None:
             for idx, tensor in enumerate(_iter_tensors(inputs)):
-                producer = self.tensor_producers.get(id(tensor))
+                producer = self._producer_of(tensor)
                 if producer:
                     self._add_edge(producer, name, idx, "module_input")
             self.module_stack.append(name)
@@ -153,7 +163,7 @@ class GenericTracer:
     def _post_hook(self, name: str) -> Callable:
         def hook(_m: nn.Module, _inp: tuple, output: Any) -> None:
             for tensor in _iter_tensors(output):
-                self.tensor_producers[id(tensor)] = name
+                self._set_producer(tensor, name)
             if self.module_stack and self.module_stack[-1] == name:
                 self.module_stack.pop()
             elif name in self.module_stack:
@@ -221,16 +231,41 @@ class GenericTracer:
                 dim = dim + input_tensors[0].dim()
             meta["cat_dim"] = int(dim)
             meta["num_inputs"] = len(input_tensors)
+        elif op_name in ("torch.split", "Tensor.split", "torch.chunk", "Tensor.chunk", "torch.tensor_split"):
+            dim = kwargs.get("dim", -1)
+            if op_name in ("torch.split", "Tensor.split"):
+                dim = kwargs.get("dim", args[2] if len(args) > 2 else 0)
+            elif op_name in ("torch.chunk", "Tensor.chunk"):
+                dim = kwargs.get("dim", args[2] if len(args) > 2 else 0)
+            elif op_name == "torch.tensor_split":
+                dim = kwargs.get("dim", args[2] if len(args) > 2 else 0)
+            if isinstance(dim, int) and dim < 0 and input_tensors:
+                dim = dim + input_tensors[0].dim()
+            meta["cat_dim"] = int(dim)
+            meta["num_inputs"] = len(input_tensors)
         self.nodes[node_name] = meta
         for idx, tensor in enumerate(input_tensors):
-            producer = self.tensor_producers.get(id(tensor))
+            producer = self._producer_of(tensor)
             if producer:
                 self._add_edge(producer, node_name, idx, "tensor_op_input")
         for tensor in outputs:
-            self.tensor_producers[id(tensor)] = node_name
+            self._set_producer(tensor, node_name)
 
     def _add_edge(self, src: str, dst: str, input_index: int, kind: str) -> None:
         self.edges.append({"src": src, "dst": dst, "input_index": input_index, "kind": kind})
+
+    def _producer_of(self, tensor: torch.Tensor) -> Optional[str]:
+        rec = self.tensor_producers.get(id(tensor))
+        if rec is None:
+            return None
+        ref, producer = rec
+        if ref() is tensor:
+            return producer
+        self.tensor_producers.pop(id(tensor), None)
+        return None
+
+    def _set_producer(self, tensor: torch.Tensor, producer: str) -> None:
+        self.tensor_producers[id(tensor)] = (weakref.ref(tensor), producer)
 
 
 def trace_model(

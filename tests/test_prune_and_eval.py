@@ -56,7 +56,7 @@ if str(_ROOT) not in sys.path:
 from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
 from heal_compress.pruning.grouped_conv import grouped_conv_pruning_fn, merge_grouped_conv_groups
 from heal_compress.pruning.pruning_fns import get_pruning_fn
-from heal_compress.utils.io_utils import ensure_dir, save_csv, save_json
+from heal_compress.utils.io_utils import ensure_unique_dir, save_csv, save_json
 from heal_compress.utils.model_utils import resolve_device
 
 
@@ -469,7 +469,8 @@ def evaluate_one_model(
 
 
 def run_eval(args: argparse.Namespace) -> dict[str, Any]:
-    out = ensure_dir(args.output_dir)
+    out = ensure_unique_dir(args.output_dir)
+    args.output_dir = str(out)
     logger = setup_logger(out)
     device = resolve_eval_device(args.gup_id, args.device)
     if device.type == "cuda":

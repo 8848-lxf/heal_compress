@@ -96,7 +96,7 @@ def _group_aligned_keep_indices(
             grouped_mode = fn_name
             break
 
-    target = _aligned_keep_count(c, prune_ratio, max(align, groups_val), min_channels)
+    target = _aligned_keep_count(c, prune_ratio, align, min_channels)
     if groups_val > 1 and c % groups_val == 0:
         per = c // groups_val
         if grouped_mode == "prune_grouped_remove_groups":
@@ -109,10 +109,18 @@ def _group_aligned_keep_indices(
             if per % group_conv_align != 0 or keep_groups >= groups_val:
                 return list(range(c))
             group_scores = torch.zeros(groups_val, dtype=torch.float32)
+            if importance_scores:
+                for item in group.items:
+                    if item.direction == "out" and item.name in importance_scores:
+                        raw = importance_scores[item.name]
+                        if isinstance(raw, (list, tuple)):
+                            raw = torch.as_tensor(raw, dtype=torch.float32)
+                        if torch.is_tensor(raw) and int(raw.numel()) == c:
+                            group_scores += raw.detach().float().cpu().view(groups_val, per).sum(dim=1)
             for item in group.items:
-                if item.direction == "out" and item.reason in ("root_out", "grouped_conv:keep_groups"):
+                if item.direction == "out" and item.reason in ("root_out", "grouped_conv:keep_groups", "grouped_conv:remove_groups"):
                     module = item.module
-                    if isinstance(module, nn.Conv2d) and module.weight.shape[0] == c:
+                    if torch.count_nonzero(group_scores).item() == 0 and isinstance(module, nn.Conv2d) and module.weight.shape[0] == c:
                         root_scores = module.weight.detach().abs().sum(dim=(1, 2, 3)).cpu()
                         group_scores += root_scores.view(groups_val, per).sum(dim=1)
             if torch.count_nonzero(group_scores).item() == 0:
@@ -152,7 +160,7 @@ def _group_aligned_keep_indices(
         # Fallback: uniform or L1 from first root module.
         agg = torch.arange(c, dtype=torch.float32)
         for item in group.items:
-            if item.direction == "out" and item.reason in ("root_out", "grouped_conv:keep_groups"):
+            if item.direction == "out" and item.reason in ("root_out", "grouped_conv:keep_groups", "grouped_conv:remove_groups"):
                 module = item.module
                 if isinstance(module, nn.Conv2d):
                     agg = module.weight.detach().abs().sum(dim=(1, 2, 3)).cpu()
@@ -196,6 +204,7 @@ class GeneralPruner:
         min_channels: int = 8,
         grouped_conv_mode: str = "keep_groups",
         protected_layers: Optional[List[str]] = None,
+        protect_residual_add: bool = False,
     ):
         self.model = model
         self.prune_ratio = float(prune_ratio)
@@ -203,6 +212,7 @@ class GeneralPruner:
         self.min_channels = int(min_channels)
         self.grouped_conv_mode = grouped_conv_mode
         self.protected_layers = protected_layers or []
+        self.protect_residual_add = bool(protect_residual_add)
         self.groups: List[PruningGroup] = []
         self.report: Dict[str, Any] = {}
 
@@ -216,7 +226,12 @@ class GeneralPruner:
         trace = trace_model(self.model, sample_input, forward_fn=forward_fn)
         op_graph = build_op_graph(trace, self.model, protected_layers=self.protected_layers)
         logger.info("Building pruning groups...")
-        builder = GroupBuilder(op_graph, align=self.align, grouped_conv_mode=self.grouped_conv_mode)
+        builder = GroupBuilder(
+            op_graph,
+            align=self.align,
+            grouped_conv_mode=self.grouped_conv_mode,
+            protect_residual_add=self.protect_residual_add,
+        )
         self.groups = builder.build()
         return self.groups
 
@@ -292,6 +307,7 @@ def prune_model(
     min_channels: int = 8,
     grouped_conv_mode: str = "keep_groups",
     protected_layers: Optional[List[str]] = None,
+    protect_residual_add: bool = False,
     forward_fn: Optional[Callable[[nn.Module, Any], Any]] = None,
 ) -> tuple[nn.Module, Dict[str, Any]]:
     """One-shot general channel pruning (trace → build → prune).
@@ -306,6 +322,8 @@ def prune_model(
         min_channels: Minimum channels per dimension.
         grouped_conv_mode: ``"keep_groups"`` or ``"remove_groups"``.
         protected_layers: Explicit protected layer names.
+        protect_residual_add: If True, protect residual Add output groups
+            instead of pruning all Add-coupled branches synchronously.
         forward_fn: Custom forward callable ``(model, sample) -> output``.
 
     Returns:
@@ -318,6 +336,7 @@ def prune_model(
         min_channels=min_channels,
         grouped_conv_mode=grouped_conv_mode,
         protected_layers=protected_layers,
+        protect_residual_add=protect_residual_add,
     )
     pruner.trace_and_build_groups(sample_input, forward_fn=forward_fn)
     report = pruner.prune(importance_scores=importance_scores)

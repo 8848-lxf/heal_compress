@@ -35,6 +35,7 @@ OP_CONVT = "ConvTranspose2d"
 OP_NORM = "Norm"            # LayerNorm / GroupNorm
 OP_ATTENTION = "Attention"  # MultiheadAttention
 OP_ADD = "Add"
+OP_MUL = "Mul"
 OP_CAT = "Cat"
 OP_SPLIT = "Split"
 OP_VIEW = "View"
@@ -47,9 +48,9 @@ OP_OTHER = "Other"
 # Ops that *define* a channel dimension on their output (group roots).
 PARAMETRIC_OPS = {OP_CONV, OP_LINEAR, OP_CONVT, OP_ATTENTION}
 # Ops that preserve the channel dimension and forward a cut transparently.
-PASSTHROUGH_OPS = {OP_BN, OP_NORM, OP_VIEW, OP_PERMUTE, OP_INTERPOLATE, OP_OTHER}
+PASSTHROUGH_OPS = {OP_BN, OP_NORM, OP_VIEW, OP_PERMUTE, OP_INTERPOLATE, OP_BEV_WARP, OP_OTHER}
 # Ops that have non-trivial channel-index semantics handled by propagation.
-STRUCTURAL_OPS = {OP_ADD, OP_CAT, OP_SPLIT}
+STRUCTURAL_OPS = {OP_ADD, OP_MUL, OP_CAT, OP_SPLIT}
 
 # Default name substrings that flag a detection-head module (output protected,
 # input prunable). Override via build_op_graph(..., det_head_keywords=...).
@@ -196,12 +197,17 @@ def _classify_tensor_op(op: str, scope: List[str], bev_kw: Tuple[str, ...]) -> s
         return OP_BEV_WARP
     if op in ("torch.add", "Tensor.__add__", "Tensor.__radd__", "Tensor.__iadd__"):
         return OP_ADD
+    if op in ("Tensor.__mul__", "Tensor.__rmul__", "torch.mul"):
+        return OP_MUL
     if op == "torch.cat":
         return OP_CAT
-    if op in ("torch.split", "Tensor.split", "Tensor.chunk", "torch.chunk"):
+    if op in ("torch.split", "Tensor.split", "Tensor.chunk", "torch.chunk", "torch.tensor_split"):
         return OP_SPLIT
     if op in ("Tensor.view", "Tensor.reshape", "Tensor.flatten", "Tensor.squeeze",
-              "Tensor.unsqueeze", "Tensor.expand", "Tensor.repeat", "Tensor.contiguous"):
+              "Tensor.unsqueeze", "Tensor.expand", "Tensor.repeat", "Tensor.contiguous",
+              "Tensor.__getitem__", "torch.stack", "Tensor.sum", "torch.sum",
+              "Tensor.mean", "torch.mean", "torch.sigmoid", "torch.softmax",
+              "torch.where", "torch.relu", "F.relu"):
         return OP_VIEW
     if op in ("Tensor.permute", "Tensor.transpose"):
         return OP_PERMUTE

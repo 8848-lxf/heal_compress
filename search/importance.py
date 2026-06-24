@@ -256,3 +256,40 @@ def compute_group_importance(
             raise ValueError("Taylor/Fisher importance requires forward_fn and loss_fn")
         estimator.compute_gradients(forward_fn, calibration_data, loss_fn, num_samples=num_calib_batches)
     return estimator.estimate_with_records()
+
+
+def compute_layer_channel_importance(
+    groups: list[Any],
+    *,
+    method: str = "l1_norm",
+) -> dict[str, torch.Tensor]:
+    """Compute per-layer channel scores for group keep-index selection.
+
+    The group-level score ranks which group to prune. This helper keeps the
+    channel-level scores needed to decide which channels inside a selected group
+    should survive.
+    """
+    if method not in ("l1_norm", "l2_norm"):
+        return {}
+    scores: dict[str, torch.Tensor] = {}
+    for group in groups:
+        if getattr(group, "protected", getattr(group, "is_protected", False)):
+            continue
+        for item in getattr(group, "items", []):
+            module = item.module
+            if not hasattr(module, "weight") or module.weight is None:
+                continue
+            weight = module.weight.detach()
+            if item.direction == "out":
+                axis = 1 if isinstance(module, nn.ConvTranspose2d) else 0
+            elif item.direction == "in":
+                axis = 0 if isinstance(module, nn.ConvTranspose2d) else 1
+            else:
+                continue
+            reduce_dims = tuple(dim for dim in range(weight.dim()) if dim != axis)
+            if method == "l2_norm":
+                value = weight.pow(2).sum(dim=reduce_dims).sqrt().float().cpu()
+            else:
+                value = weight.abs().sum(dim=reduce_dims).float().cpu()
+            scores[item.name] = value
+    return scores
