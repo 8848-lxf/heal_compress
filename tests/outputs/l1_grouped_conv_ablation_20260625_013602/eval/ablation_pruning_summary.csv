@@ -1,0 +1,8 @@
+model_name,target_prune_ratio,actual_prune_ratio,params_removed_ratio,coupled_channels_removed,target_unreachable,unreachable_reason,structure_legal,forward_sanity_check
+baseline_original,0.0,0.0,0.0,,False,,True,True
+shared_local_mean_p25,0.25,0.2669862397299366,0.2669862397299366,1960,False,,True,True
+shared_local_mean_p50,0.5,0.3012770296247377,0.3012770296247377,2216,True,"target prune ratio was not reached under keep_groups grouped-conv constraints, 8-aligned per-group channel floors, residual-add protection, and disabled remove_groups",True,True
+shared_local_mean_p75,0.75,0.3012770296247377,0.3012770296247377,2216,True,"target prune ratio was not reached under keep_groups grouped-conv constraints, 8-aligned per-group channel floors, residual-add protection, and disabled remove_groups",True,True
+independent_group_topk_p25,0.25,0.2669862397299366,0.2669862397299366,1960,False,,True,True
+independent_group_topk_p50,0.5,0.3012770296247377,0.3012770296247377,2216,True,"target prune ratio was not reached under keep_groups grouped-conv constraints, 8-aligned per-group channel floors, residual-add protection, and disabled remove_groups",True,True
+independent_group_topk_p75,0.75,0.3012770296247377,0.3012770296247377,2216,True,"target prune ratio was not reached under keep_groups grouped-conv constraints, 8-aligned per-group channel floors, residual-add protection, and disabled remove_groups",True,True

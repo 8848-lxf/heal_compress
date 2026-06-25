@@ -95,6 +95,45 @@ def check_pruning_group(
                                 "kept_per_group": kept_per_group,
                                 "align": group_conv_align,
                             })
+            if fn_name == "prune_grouped_independent_topk":
+                new_in = new_out = len(local)
+                g = module.groups
+                if module.out_channels % g != 0 or module.in_channels % g != 0:
+                    issues.append({
+                        "issue": "groups_divisibility",
+                        "layer": item.name,
+                        "groups": g,
+                        "new_in": new_in,
+                        "new_out": new_out,
+                    })
+                else:
+                    per = module.out_channels // g
+                    counts = []
+                    for gi in range(g):
+                        start = gi * per
+                        counts.append(len([idx for idx in local if start <= idx < start + per]))
+                    if len(set(counts)) > 1:
+                        issues.append({
+                            "issue": "grouped_independent_keep_count_mismatch",
+                            "layer": item.name,
+                            "groups": g,
+                            "per_group_counts": counts,
+                        })
+                    kept_per_group = counts[0] if counts else 0
+                    if kept_per_group <= 0:
+                        issues.append({
+                            "issue": "channel_emptied",
+                            "layer": item.name,
+                            "direction": item.direction,
+                        })
+                    if require_group_aligned and kept_per_group % group_conv_align != 0:
+                        issues.append({
+                            "issue": "violates_group_inner_channel_align8",
+                            "layer": item.name,
+                            "groups": g,
+                            "kept_per_group": kept_per_group,
+                            "align": group_conv_align,
+                        })
             if fn_name == "prune_grouped_remove_groups":
                 g = module.groups
                 if module.out_channels % g != 0 or module.in_channels % g != 0:
@@ -156,7 +195,11 @@ def check_pruning_group(
                         "new_channels": len(local),
                         "align": group_conv_align,
                     })
-            elif g > 0 and fn_name not in ("prune_grouped_remove_groups", "prune_grouped_keep_groups"):
+            elif g > 0 and fn_name not in (
+                "prune_grouped_remove_groups",
+                "prune_grouped_keep_groups",
+                "prune_grouped_independent_topk",
+            ):
                 if new_out % g != 0 or new_in % g != 0:
                     issues.append({
                         "issue": "groups_divisibility", "layer": item.name,

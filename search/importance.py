@@ -14,6 +14,8 @@ from typing import Any
 import torch
 import torch.nn as nn
 
+from ..pruning.units import AtomicPruneUnit, item_key
+
 logger = logging.getLogger(__name__)
 
 
@@ -256,6 +258,215 @@ def compute_group_importance(
             raise ValueError("Taylor/Fisher importance requires forward_fn and loss_fn")
         estimator.compute_gradients(forward_fn, calibration_data, loss_fn, num_samples=num_calib_batches)
     return estimator.estimate_with_records()
+
+
+def _select_by_axis(weight: torch.Tensor, axis: int, indices: list[int]) -> torch.Tensor:
+    idx = torch.as_tensor(indices, dtype=torch.long, device=weight.device)
+    return weight.index_select(axis, idx)
+
+
+def _weight_importance_value(
+    weight: torch.Tensor,
+    *,
+    method: str,
+    grad: torch.Tensor | None = None,
+    fisher: torch.Tensor | None = None,
+) -> torch.Tensor:
+    if method == "l1_norm":
+        return weight.detach().abs().sum()
+    if method == "l2_norm":
+        return weight.detach().pow(2).sum().sqrt()
+    if grad is None:
+        return torch.full((), float("inf"), dtype=weight.dtype, device=weight.device)
+    first = (grad * weight).abs().sum()
+    if method == "first_order_taylor":
+        return first.detach()
+    if fisher is None:
+        return torch.full((), float("inf"), dtype=weight.dtype, device=weight.device)
+    second = 0.5 * (fisher * weight.pow(2)).sum()
+    return (first + second).detach()
+
+
+def _item_local_importance(
+    item: Any,
+    local_indices: list[int],
+    *,
+    method: str,
+) -> tuple[float, str]:
+    module = item.module
+    if not local_indices:
+        return 0.0, ""
+
+    # BatchNorm / LayerNorm have direct per-channel affine vectors.
+    if isinstance(module, (nn.modules.batchnorm._BatchNorm, nn.LayerNorm)):
+        values: list[torch.Tensor] = []
+        for attr in ("weight", "bias"):
+            param = getattr(module, attr, None)
+            if param is None:
+                continue
+            if max(local_indices) >= int(param.shape[0]) or min(local_indices) < 0:
+                return float("inf"), "importance_index_out_of_bounds"
+            idx = torch.as_tensor(local_indices, dtype=torch.long, device=param.device)
+            selected = param.index_select(0, idx)
+            grad = param.grad.index_select(0, idx) if param.grad is not None else None
+            fisher = grad.pow(2) if grad is not None else None
+            values.append(_weight_importance_value(selected, method=method, grad=grad, fisher=fisher))
+        if not values:
+            return 0.0, ""
+        value = torch.stack([v.float() for v in values]).sum()
+        return float(value.detach().cpu()), ""
+
+    if not hasattr(module, "weight") or module.weight is None:
+        return 0.0, ""
+
+    weight = module.weight
+    grad = weight.grad
+    fisher = grad.pow(2) if grad is not None else None
+
+    if isinstance(module, nn.Conv2d) and module.groups > 1 and item.direction == "in":
+        if module.in_channels % module.groups != 0 or module.out_channels % module.groups != 0:
+            return float("inf"), "grouped_conv_divisibility"
+        in_per = module.in_channels // module.groups
+        out_per = module.out_channels // module.groups
+        pieces: list[torch.Tensor] = []
+        grad_pieces: list[torch.Tensor] = []
+        fisher_pieces: list[torch.Tensor] = []
+        for abs_idx in local_indices:
+            if abs_idx < 0 or abs_idx >= module.in_channels:
+                return float("inf"), "importance_index_out_of_bounds"
+            group_id = abs_idx // in_per
+            local = abs_idx % in_per
+            row_start = group_id * out_per
+            row_end = row_start + out_per
+            pieces.append(weight[row_start:row_end, local:local + 1])
+            if grad is not None:
+                grad_pieces.append(grad[row_start:row_end, local:local + 1])
+            if fisher is not None:
+                fisher_pieces.append(fisher[row_start:row_end, local:local + 1])
+        selected = torch.cat([p.reshape(-1) for p in pieces])
+        selected_grad = torch.cat([p.reshape(-1) for p in grad_pieces]) if grad_pieces else None
+        selected_fisher = torch.cat([p.reshape(-1) for p in fisher_pieces]) if fisher_pieces else None
+        value = _weight_importance_value(selected, method=method, grad=selected_grad, fisher=selected_fisher)
+        return float(value.detach().cpu()), ""
+
+    if item.direction == "out":
+        axis = 1 if isinstance(module, nn.ConvTranspose2d) else 0
+        dim_size = int(weight.shape[axis])
+    elif item.direction == "in":
+        axis = 0 if isinstance(module, nn.ConvTranspose2d) else 1
+        dim_size = int(weight.shape[axis])
+    else:
+        return 0.0, ""
+
+    if min(local_indices) < 0 or max(local_indices) >= dim_size:
+        return float("inf"), "importance_index_out_of_bounds"
+
+    selected = _select_by_axis(weight, axis, local_indices)
+    selected_grad = _select_by_axis(grad, axis, local_indices) if grad is not None else None
+    selected_fisher = _select_by_axis(fisher, axis, local_indices) if fisher is not None else None
+    value = _weight_importance_value(selected, method=method, grad=selected_grad, fisher=selected_fisher)
+
+    if item.direction == "out" and hasattr(module, "bias") and module.bias is not None:
+        bias = module.bias
+        if max(local_indices) < int(bias.shape[0]):
+            bias_sel = bias.index_select(0, torch.as_tensor(local_indices, dtype=torch.long, device=bias.device))
+            bias_grad = bias.grad.index_select(0, torch.as_tensor(local_indices, dtype=torch.long, device=bias.device)) if bias.grad is not None else None
+            value = value + _weight_importance_value(bias_sel, method=method, grad=bias_grad)
+
+    return float(value.detach().cpu()), ""
+
+
+def compute_scope_channel_importance(
+    scope: Any,
+    *,
+    method: str = "l1_norm",
+    importance_reduction: str = "sum",
+    group_reduction: str = "sum",
+    channel_group_reduction: str = "sum",
+) -> tuple[torch.Tensor, dict[str, Any]]:
+    """Compute scope-level per-root-channel importance.
+
+    The result shape is ``[scope.num_channels]`` and each element corresponds to
+    one ``CoupledChannelUnit`` rooted at that index. Contributions are gathered
+    from every mapped ``GroupItem`` in the dependency scope.
+    """
+    if method not in ImportanceEstimator.METHODS:
+        raise ValueError(f"Unknown importance method '{method}'. Must be one of {ImportanceEstimator.METHODS}")
+    channels = int(getattr(scope, "num_channels", 0))
+    scores = torch.zeros(channels, dtype=torch.float32)
+    source_items: list[str] = []
+    invalid_roots: dict[int, list[str]] = {}
+    missing_grad_items: list[str] = []
+
+    for item in getattr(scope, "items", []):
+        contributed = False
+        key = item_key(item)
+        if method in ("first_order_taylor", "second_order_fisher"):
+            module = item.module
+            if hasattr(module, "weight") and module.weight is not None and module.weight.grad is None:
+                missing_grad_items.append(key)
+        for root_idx in range(channels):
+            local = sorted(int(v) for v in item.local_keep([root_idx]))
+            if not local:
+                continue
+            value, risk = _item_local_importance(item, local, method=method)
+            if risk or math.isnan(value) or math.isinf(value):
+                invalid_roots.setdefault(root_idx, []).append(risk or "invalid_importance")
+                scores[root_idx] = float("inf")
+                continue
+            if not math.isinf(float(scores[root_idx])):
+                scores[root_idx] += float(value)
+            contributed = True
+        if contributed:
+            source_items.append(key)
+
+    record = {
+        "scope_id": getattr(scope, "group_id", ""),
+        "num_channels": channels,
+        "importance_mode": method,
+        "importance_shape": [channels],
+        "importance_source_items": source_items,
+        "importance_reduction": importance_reduction,
+        "group_reduction": group_reduction,
+        "channel_group_reduction": channel_group_reduction,
+        "invalid_root_indices": {str(k): v for k, v in invalid_roots.items()},
+        "missing_grad_items": missing_grad_items,
+    }
+    return scores, record
+
+
+def compute_scope_channel_importance_map(
+    groups: list[Any],
+    *,
+    method: str = "l1_norm",
+) -> tuple[dict[str, torch.Tensor], list[dict[str, Any]]]:
+    scope_scores: dict[str, torch.Tensor] = {}
+    records: list[dict[str, Any]] = []
+    for group in groups:
+        score, record = compute_scope_channel_importance(group, method=method)
+        scope_scores[getattr(group, "group_id", "")] = score
+        records.append(record)
+    return scope_scores, records
+
+
+def compute_candidate_importance(
+    candidate: AtomicPruneUnit,
+    coupled_units_by_id: dict[str, Any],
+    *,
+    reduction: str = "sum",
+) -> float:
+    values = [
+        float(coupled_units_by_id[unit_id].importance)
+        for unit_id in candidate.source_coupled_units
+        if unit_id in coupled_units_by_id and coupled_units_by_id[unit_id].importance is not None
+    ]
+    if not values:
+        return 0.0
+    if reduction == "mean":
+        return float(sum(values) / len(values))
+    if reduction == "max":
+        return float(max(values))
+    return float(sum(values))
 
 
 def compute_layer_channel_importance(

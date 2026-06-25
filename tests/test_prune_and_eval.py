@@ -242,6 +242,8 @@ def load_model(adapter: HEALLiDARAdapter, config: str, checkpoint: str, device: 
     hypes = yaml_utils.load_yaml(adapter._resolve_heal_path(config))
     model = train_utils.create_model(hypes)
     replay = ckpt.get("prune_replay", []) if isinstance(ckpt, dict) else []
+    if isinstance(ckpt, dict):
+        replay = _hydrate_grouped_independent_replay(replay, ckpt.get("prune_metadata", {}))
     if replay:
         apply_prune_replay(model, replay, logger)
     state = ckpt.get("model", ckpt.get("state_dict", ckpt)) if isinstance(ckpt, dict) else ckpt
@@ -251,6 +253,27 @@ def load_model(adapter: HEALLiDARAdapter, config: str, checkpoint: str, device: 
     if unexpected:
         logger.warning("%s unexpected keys: %d", checkpoint, len(unexpected))
     return model.to(device).eval(), metadata
+
+
+def _hydrate_grouped_independent_replay(replay: list[dict[str, Any]], metadata: dict[str, Any]) -> list[dict[str, Any]]:
+    """Backfill group_keep_map for older checkpoints saved before replay stored it."""
+    if not replay or not isinstance(metadata, dict):
+        return replay
+    by_layer: dict[str, dict[str, Any]] = {}
+    for group_result in metadata.get("applied", []) or []:
+        for op in group_result.get("operations", []) or []:
+            if op.get("axis") == "grouped_independent_keep" and op.get("group_keep_map"):
+                by_layer[str(op.get("layer", ""))] = op
+    hydrated: list[dict[str, Any]] = []
+    for op in replay:
+        new_op = dict(op)
+        if new_op.get("axis") == "grouped_independent_keep" and not new_op.get("group_keep_map"):
+            source = by_layer.get(str(new_op.get("layer", "")), {})
+            if source.get("group_keep_map"):
+                new_op["group_keep_map"] = source["group_keep_map"]
+                new_op["per_group_after"] = source.get("per_group_after", new_op.get("per_group_after", 0))
+        hydrated.append(new_op)
+    return hydrated
 
 
 def apply_prune_replay(model: nn.Module, replay: list[dict[str, Any]], logger: logging.Logger) -> None:
@@ -290,6 +313,18 @@ def apply_prune_replay(model: nn.Module, replay: list[dict[str, Any]], logger: l
                 start = int(gi) * before_per
                 keep.extend(range(start, start + before_per))
             fn = grouped_conv_pruning_fn("remove_groups")
+        elif axis == "grouped_independent_keep":
+            before = int(op.get("before", getattr(module, "out_channels", after)))
+            groups = int(op.get("groups", getattr(module, "groups", 1)))
+            group_keep_map = op.get("group_keep_map", {})
+            if not group_keep_map:
+                raise ValueError(f"grouped_independent_keep replay missing group_keep_map for {layer}")
+            before_per = before // groups
+            keep = []
+            for group_id in range(groups):
+                local_keep = group_keep_map.get(str(group_id), group_keep_map.get(group_id, []))
+                keep.extend(group_id * before_per + int(local_idx) for local_idx in local_keep)
+            fn = grouped_conv_pruning_fn("independent_group_topk")
         else:
             keep = list(range(after))
             fn = get_pruning_fn(module, direction)
@@ -344,14 +379,24 @@ def evaluate_one_model(
         max_frames or "all",
         warmup_frames,
     )
-    for frame_idx, batch_data in enumerate(loader):
+    iterator = iter(loader)
+    frame_idx = -1
+    while True:
         if max_frames and actual >= max_frames:
             break
+        load_t0 = time.perf_counter()
+        try:
+            batch_data = next(iterator)
+        except StopIteration:
+            break
+        data_loading_ms = (time.perf_counter() - load_t0) * 1000.0
+        frame_idx += 1
         row = {
             "frame_id": frame_idx,
             "round_id": round_id,
             "model_type": model_type,
             "total_time_ms": 0.0,
+            "data_loading_time_ms": 0.0,
             "forward_time_ms": 0.0,
             "postprocess_time_ms": 0.0,
             "data_to_gpu_time_ms": 0.0,
@@ -377,12 +422,13 @@ def evaluate_one_model(
             if frame_idx >= warmup_frames:
                 for thr in IOU_THRESHOLDS:
                     calculate_tp_fp(pred_box, pred_score, gt_box, result_stat, thr)
-                total_ms = gpu_ms + fwd_ms + post_ms
+                total_ms = data_loading_ms + gpu_ms + fwd_ms + post_ms
                 total_times.append(total_ms)
                 forward_times.append(fwd_ms)
                 post_times.append(post_ms)
                 row.update({
                     "total_time_ms": round(total_ms, 3),
+                    "data_loading_time_ms": round(data_loading_ms, 3),
                     "forward_time_ms": round(fwd_ms, 3),
                     "postprocess_time_ms": round(post_ms, 3),
                     "data_to_gpu_time_ms": round(gpu_ms, 3),

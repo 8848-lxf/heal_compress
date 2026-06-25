@@ -1,0 +1,334 @@
+"""Fine-grained pruning units built from dependency scopes.
+
+The existing :class:`PruningGroup` remains the dependency recipe: it defines a
+reference channel space plus item-local index transforms. The dataclasses here
+materialize TP-style concrete search units on top of that recipe.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import asdict, dataclass, field
+from typing import Any, Iterable, Mapping, Sequence
+
+import torch
+import torch.nn as nn
+
+from ..tracer.pruning_group import GroupItem, PruningGroup
+
+
+@dataclass
+class CoupledChannelUnit:
+    unit_id: str
+    scope_id: str
+    root_idx: int
+    group_id_in_grouped_conv: int | None = None
+    local_idx_in_group: int | None = None
+    local_indices_by_item: dict[str, list[int]] = field(default_factory=dict)
+    item_modules: list[str] = field(default_factory=list)
+    item_directions: list[str] = field(default_factory=list)
+    importance: float | None = None
+    importance_mode: str | None = None
+    params_removed: int = 0
+    flops_removed: float | None = None
+    protected: bool = False
+    protected_reason: str | None = None
+    constraints: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class AtomicPruneUnit:
+    candidate_id: str
+    scope_id: str
+    candidate_type: str
+    source_coupled_units: list[str] = field(default_factory=list)
+    ref_indices: list[int] = field(default_factory=list)
+    local_indices_by_item: dict[str, list[int]] = field(default_factory=dict)
+    importance: float | None = None
+    importance_mode: str | None = None
+    params_removed: int = 0
+    flops_removed: float | None = None
+    protected: bool = False
+    protected_reason: str | None = None
+    constraints: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ConcreteCoupledPruningGroup:
+    concrete_group_id: str
+    scope_id: str
+    prune_indices: list[int]
+    keep_indices: list[int]
+    items: list[GroupItem]
+    local_prune_indices_by_item: dict[str, list[int]] = field(default_factory=dict)
+    local_keep_indices_by_item: dict[str, list[int]] = field(default_factory=dict)
+    source_coupled_units: list[str] = field(default_factory=list)
+    source_atomic_units: list[str] = field(default_factory=list)
+    importance_sum: float = 0.0
+    params_removed: int = 0
+    protected: bool = False
+    protected_reason: str | None = None
+    check_group_passed: bool = False
+
+
+def item_key(item: GroupItem) -> str:
+    return f"{item.name}:{item.direction}"
+
+
+def _scope_id(scope: Any) -> str:
+    return str(getattr(scope, "group_id", getattr(scope, "scope_id", "")))
+
+
+def _is_grouped_conv(module: Any) -> bool:
+    return isinstance(module, nn.Conv2d) and int(getattr(module, "groups", 1)) > 1
+
+
+def grouped_conv_info(scope: PruningGroup) -> dict[str, Any]:
+    for item in scope.items:
+        module = item.module
+        if not _is_grouped_conv(module):
+            continue
+        groups = int(module.groups)
+        channels = int(getattr(scope, "num_channels", 0))
+        if channels <= 0 or channels % groups != 0:
+            per_group = None
+        else:
+            per_group = channels // groups
+        return {
+            "has_grouped_conv": True,
+            "module_name": item.name,
+            "module": module,
+            "groups": groups,
+            "per_group": per_group,
+            "fn_name": getattr(item.pruning_fn, "__name__", ""),
+        }
+    return {"has_grouped_conv": False}
+
+
+def scope_constraints(scope: PruningGroup) -> dict[str, Any]:
+    meta = getattr(scope, "meta", {}) or {}
+    gt = str(meta.get("group_type", ""))
+    grouped = grouped_conv_info(scope)
+    return {
+        "has_grouped_conv": bool(grouped.get("has_grouped_conv", False)),
+        "grouped_conv_module": grouped.get("module_name"),
+        "groups": grouped.get("groups"),
+        "per_group": grouped.get("per_group"),
+        "has_residual": gt == "add",
+        "has_concat": gt == "cat",
+        "has_transformer": gt.startswith("transformer") or "mha" in gt or "ffn" in gt,
+        "group_type": gt,
+    }
+
+
+def _importance_at(values: Sequence[float] | torch.Tensor | None, idx: int) -> float | None:
+    if values is None:
+        return None
+    if torch.is_tensor(values):
+        value = float(values.detach().float().cpu()[idx])
+    else:
+        value = float(values[idx])
+    return value
+
+
+def expand_coupled_channel_units(
+    scope: PruningGroup,
+    scope_importance: Sequence[float] | torch.Tensor | None = None,
+    *,
+    importance_mode: str | None = None,
+) -> list[CoupledChannelUnit]:
+    """Expand one dependency scope into one unit per root channel index."""
+
+    sid = _scope_id(scope)
+    constraints = scope_constraints(scope)
+    grouped = grouped_conv_info(scope)
+    groups = grouped.get("groups")
+    per_group = grouped.get("per_group")
+    units: list[CoupledChannelUnit] = []
+    for root_idx in range(int(scope.num_channels)):
+        local_by_item: dict[str, list[int]] = {}
+        item_modules: list[str] = []
+        item_directions: list[str] = []
+        for item in scope.items:
+            local = sorted(int(v) for v in item.local_keep([root_idx]))
+            if local:
+                local_by_item[item_key(item)] = local
+                item_modules.append(item.name)
+                item_directions.append(item.direction)
+        importance = _importance_at(scope_importance, root_idx)
+        protected = bool(scope.protected)
+        protected_reason = scope.protected_reason or None
+        if importance is not None and not math.isfinite(importance):
+            protected = True
+            protected_reason = protected_reason or "invalid_importance"
+        group_id: int | None = None
+        local_idx: int | None = None
+        if groups and per_group:
+            group_id = root_idx // int(per_group)
+            local_idx = root_idx % int(per_group)
+        units.append(
+            CoupledChannelUnit(
+                unit_id=f"{sid}::idx{root_idx}",
+                scope_id=sid,
+                root_idx=root_idx,
+                group_id_in_grouped_conv=group_id,
+                local_idx_in_group=local_idx,
+                local_indices_by_item=local_by_item,
+                item_modules=item_modules,
+                item_directions=item_directions,
+                importance=importance,
+                importance_mode=importance_mode,
+                protected=protected,
+                protected_reason=protected_reason,
+                constraints=dict(constraints),
+                metadata={
+                    "group_type": (scope.meta or {}).get("group_type", ""),
+                    "num_scope_items": len(scope.items),
+                },
+            )
+        )
+    return units
+
+
+def instantiate_concrete_pruning_group(
+    scope: PruningGroup,
+    prune_indices: Iterable[int],
+    *,
+    coupled_units: Sequence[CoupledChannelUnit] | Mapping[str, CoupledChannelUnit] | None = None,
+    atomic_units: Sequence[AtomicPruneUnit] | None = None,
+    check_group_passed: bool = False,
+) -> ConcreteCoupledPruningGroup:
+    sid = _scope_id(scope)
+    prune = sorted({int(idx) for idx in prune_indices if 0 <= int(idx) < int(scope.num_channels)})
+    prune_set = set(prune)
+    keep = [idx for idx in range(int(scope.num_channels)) if idx not in prune_set]
+    local_prune = {item_key(item): item.local_keep(prune) for item in scope.items}
+    local_keep = {item_key(item): item.local_keep(keep) for item in scope.items}
+
+    if isinstance(coupled_units, Mapping):
+        unit_list = list(coupled_units.values())
+    else:
+        unit_list = list(coupled_units or [])
+    source_units = [u.unit_id for u in unit_list if int(u.root_idx) in prune_set]
+    importance_sum = sum(float(u.importance or 0.0) for u in unit_list if int(u.root_idx) in prune_set)
+    selected_atomic = list(atomic_units or [])
+    source_atomic = [u.candidate_id for u in selected_atomic]
+    params_removed = sum(int(u.params_removed or 0) for u in selected_atomic)
+
+    return ConcreteCoupledPruningGroup(
+        concrete_group_id=f"{sid}::prune{len(prune)}",
+        scope_id=sid,
+        prune_indices=prune,
+        keep_indices=keep,
+        items=list(scope.items),
+        local_prune_indices_by_item=local_prune,
+        local_keep_indices_by_item=local_keep,
+        source_coupled_units=source_units,
+        source_atomic_units=source_atomic,
+        importance_sum=float(importance_sum),
+        params_removed=params_removed,
+        protected=bool(scope.protected),
+        protected_reason=scope.protected_reason or None,
+        check_group_passed=bool(check_group_passed),
+    )
+
+
+def _jsonable(value: Any) -> Any:
+    if torch.is_tensor(value):
+        return value.detach().cpu().tolist()
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    return value
+
+
+def dataclass_to_json_dict(obj: Any) -> dict[str, Any]:
+    data = asdict(obj)
+    data.pop("items", None)
+    return _jsonable(data)
+
+
+def dependency_scope_rows(scopes: Sequence[PruningGroup]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for scope in scopes:
+        constraints = scope_constraints(scope)
+        rows.append(
+            {
+                "scope_id": _scope_id(scope),
+                "root_module": scope.items[0].name if scope.items else "",
+                "num_channels": int(scope.num_channels),
+                "group_type": (scope.meta or {}).get("group_type", ""),
+                "num_items": len(scope.items),
+                "item_modules": ";".join(item.name for item in scope.items),
+                "has_grouped_conv": constraints["has_grouped_conv"],
+                "has_residual": constraints["has_residual"],
+                "has_concat": constraints["has_concat"],
+                "has_transformer": constraints["has_transformer"],
+                "protected": bool(scope.protected),
+                "protected_reason": scope.protected_reason,
+            }
+        )
+    return rows
+
+
+def coupled_channel_unit_rows(units: Sequence[CoupledChannelUnit]) -> list[dict[str, Any]]:
+    fields = [
+        "unit_id",
+        "scope_id",
+        "root_idx",
+        "group_id_in_grouped_conv",
+        "local_idx_in_group",
+        "local_indices_by_item",
+        "importance",
+        "importance_mode",
+        "params_removed",
+        "protected",
+        "protected_reason",
+        "constraints",
+        "metadata",
+    ]
+    return [{field: _jsonable(getattr(unit, field)) for field in fields} for unit in units]
+
+
+def atomic_prune_unit_rows(units: Sequence[AtomicPruneUnit]) -> list[dict[str, Any]]:
+    fields = [
+        "candidate_id",
+        "scope_id",
+        "candidate_type",
+        "source_coupled_units",
+        "ref_indices",
+        "importance",
+        "importance_mode",
+        "params_removed",
+        "protected",
+        "protected_reason",
+        "constraints",
+        "metadata",
+    ]
+    return [{field: _jsonable(getattr(unit, field)) for field in fields} for unit in units]
+
+
+def concrete_pruning_group_rows(groups: Sequence[ConcreteCoupledPruningGroup]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for group in groups:
+        rows.append(
+            {
+                "concrete_group_id": group.concrete_group_id,
+                "scope_id": group.scope_id,
+                "source_coupled_units": _jsonable(group.source_coupled_units),
+                "source_atomic_units": _jsonable(group.source_atomic_units),
+                "prune_indices": _jsonable(group.prune_indices),
+                "keep_indices": _jsonable(group.keep_indices),
+                "num_pruned_indices": len(group.prune_indices),
+                "num_kept_indices": len(group.keep_indices),
+                "importance_sum": group.importance_sum,
+                "params_removed": group.params_removed,
+                "protected": group.protected,
+                "protected_reason": group.protected_reason,
+                "check_group_passed": group.check_group_passed,
+            }
+        )
+    return rows

@@ -14,3 +14,40 @@ __pycache__/
 *.pt
 *.ckpt
 *.onnx
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Large model / deployment artifacts
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.engine
+*.plan
+*.trt
+
+# Experiment outputs: ignore all by default
+tests/outputs/*
+
+# Keep this evaluation output for this branch
+!tests/outputs/l1_grouped_conv_ablation_20260625_013602/
+!tests/outputs/l1_grouped_conv_ablation_20260625_013602/eval/
+!tests/outputs/l1_grouped_conv_ablation_20260625_013602/eval/**
+
+# Quant deploy outputs
+tests/quant_deploy/outputs/
+
+# Large model / deployment artifacts
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.engine
+*.plan
+*.trt
+
+# Python cache
+__pycache__/
+*.pyc

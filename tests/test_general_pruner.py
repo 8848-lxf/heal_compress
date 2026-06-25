@@ -16,24 +16,49 @@
     importance mode:
         l1_norm
 
-示例命令：
+示例命令 1：TP-style shared local mean
     cd /home/lixingfeng/UniAD_examine/heal_compress
 
     python tests/test_general_pruner.py \
         --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
         --prune-ratio 0.25 \
         --importance-mode l1_norm \
-        --align 16 \
+        --selection-mode local_scope \
+        --group-conv-selection-mode shared_local_mean \
         --group-conv-align 8 \
         --group-conv-prune-mode keep_groups \
-        --enable-transformer-pruning true \
-        --enable-native-mha-pruning false \
-        --head-prune-mode whole_head \
-        --min-heads 1 \
-        --ffn-align 8 \
-        --protect-transformer-hidden true \
+        --align 16 \
+        --protect-residual-add true \
         --device cuda:0 \
-        --output-dir tests/outputs/prune_lidar_pyramid_25_l1
+        --output-dir tests/outputs/prune_lidar_pyramid_25_l1_shared_local
+
+示例命令 2：global coupled channel
+    python tests/test_general_pruner.py \
+        --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+        --prune-ratio 0.25 \
+        --importance-mode l1_norm \
+        --selection-mode global_coupled_channel \
+        --group-conv-selection-mode shared_local_mean \
+        --group-conv-align 8 \
+        --group-conv-prune-mode keep_groups \
+        --align 16 \
+        --protect-residual-add true \
+        --device cuda:0 \
+        --output-dir tests/outputs/prune_lidar_pyramid_25_l1_global_coupled
+
+示例命令 3：independent group top-k
+    python tests/test_general_pruner.py \
+        --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+        --prune-ratio 0.25 \
+        --importance-mode l1_norm \
+        --selection-mode constrained_global \
+        --group-conv-selection-mode independent_group_topk \
+        --group-conv-align 8 \
+        --group-conv-prune-mode keep_groups \
+        --align 16 \
+        --protect-residual-add true \
+        --device cuda:0 \
+        --output-dir tests/outputs/prune_lidar_pyramid_25_l1_independent_group_topk
 
 输出：
     tests/outputs/prune_lidar_pyramid_25_l1/
@@ -42,6 +67,17 @@
         op_graph.json
         pruning_groups.json
         pruning_groups.csv
+        dependency_scopes.json
+        dependency_scopes.csv
+        coupled_channel_units.json
+        coupled_channel_units.csv
+        atomic_prune_units.json
+        atomic_prune_units.csv
+        concrete_pruning_groups.json
+        concrete_pruning_groups.csv
+        grouped_conv_selection_report.json
+        grouped_conv_selection_report.csv
+        selection_summary.json
         group_importance.csv
         group_importance.json
         group_conv_summary.csv
@@ -77,12 +113,24 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
-from heal_compress.pruning.grouped_conv import grouped_conv_alignment_merge_factor, merge_grouped_conv_groups
+from heal_compress.pruning.grouped_conv import grouped_conv_alignment_merge_factor, grouped_conv_pruning_fn, merge_grouped_conv_groups
 from heal_compress.pruning.general_pruner import _group_aligned_keep_indices, prune_model as toy_prune_model
 from heal_compress.pruning.group_checker import check_model_legality, check_pruning_group
 from heal_compress.pruning.propagation import GroupBuilder
+from heal_compress.pruning.selection import SelectionConfig, build_pruning_plan
 from heal_compress.pruning.transformer_checker import check_transformer_group, check_transformer_model_legality
-from heal_compress.search.importance import compute_group_importance, compute_layer_channel_importance
+from heal_compress.pruning.units import (
+    atomic_prune_unit_rows,
+    concrete_pruning_group_rows,
+    coupled_channel_unit_rows,
+    dataclass_to_json_dict,
+    dependency_scope_rows,
+)
+from heal_compress.search.importance import (
+    compute_group_importance,
+    compute_layer_channel_importance,
+    compute_scope_channel_importance_map,
+)
 from heal_compress.tracer.generic_tracer import trace_model
 from heal_compress.tracer.op_graph import build_op_graph
 from heal_compress.tracer.transformer_groups import TRANSFORMER_GROUP_TYPES, build_transformer_pruning_groups
@@ -428,6 +476,8 @@ def build_prune_replay(applied: list[dict[str, Any]], pre_ops: list[dict[str, An
                 "before_groups": int(op.get("before_groups", op.get("groups", 1)) or 1),
                 "after_groups": int(op.get("after_groups", op.get("groups", 1)) or 1),
                 "kept_groups": op.get("kept_groups", []),
+                "group_keep_map": op.get("group_keep_map", {}),
+                "per_group_after": int(op.get("per_group_after", 0) or 0),
             })
     return replay
 
@@ -485,6 +535,68 @@ def select_keep(
     )
 
 
+def configure_grouped_conv_pruning_fns(groups: list[Any], args: argparse.Namespace) -> list[dict[str, Any]]:
+    """Set grouped-conv physical handlers from the new selection mode."""
+    mode = args.group_conv_selection_mode
+    if mode == "remove_groups" and not args.allow_remove_groups:
+        mode = "keep_groups"
+    if mode not in ("independent_group_topk", "remove_groups"):
+        mode = "keep_groups"
+    operations: list[dict[str, Any]] = []
+    for group in groups:
+        for item in getattr(group, "items", []):
+            module = getattr(item, "module", None)
+            if not isinstance(module, nn.Conv2d) or module.groups <= 1:
+                continue
+            old_name = getattr(item.pruning_fn, "__name__", "")
+            item.pruning_fn = grouped_conv_pruning_fn(mode)
+            item.reason = f"grouped_conv:{mode}"
+            operations.append({
+                "scope_id": group.group_id,
+                "module_name": item.name,
+                "old_pruning_fn": old_name,
+                "new_pruning_fn": getattr(item.pruning_fn, "__name__", ""),
+                "group_conv_selection_mode": args.group_conv_selection_mode,
+                "allow_remove_groups": args.allow_remove_groups,
+            })
+    return operations
+
+
+def build_selection_summary(
+    *,
+    args: argparse.Namespace,
+    groups: list[Any],
+    plan: Any,
+    target_prune_ratio: float,
+    actual_prune_ratio: float,
+    legality_report: dict[str, Any],
+    forward_ok: bool,
+) -> dict[str, Any]:
+    grouped_reports = list(getattr(plan, "grouped_conv_reports", []))
+    return {
+        "selection_mode": args.selection_mode,
+        "group_conv_selection_mode": args.group_conv_selection_mode,
+        "num_dependency_scopes": len(groups),
+        "num_coupled_channel_units": len(plan.coupled_units),
+        "num_atomic_prune_units": len(plan.atomic_units),
+        "num_protected_coupled_channel_units": sum(1 for unit in plan.coupled_units if unit.protected),
+        "num_protected_atomic_units": sum(1 for unit in plan.atomic_units if unit.protected),
+        "num_selected_coupled_channel_units": len(plan.selected_coupled_unit_ids),
+        "num_selected_atomic_units": len(plan.selected_atomic_units),
+        "num_concrete_pruning_groups": len(plan.concrete_groups),
+        "target_prune_ratio": target_prune_ratio,
+        "actual_prune_ratio": actual_prune_ratio,
+        "grouped_conv_num_scopes": len(grouped_reports),
+        "grouped_conv_shared_local_mean_used": sum(1 for r in grouped_reports if r.get("group_conv_selection_mode") == "shared_local_mean"),
+        "grouped_conv_independent_topk_used": sum(1 for r in grouped_reports if r.get("group_conv_selection_mode") == "independent_group_topk"),
+        "grouped_conv_remove_groups_used": sum(1 for r in grouped_reports if r.get("group_conv_selection_mode") == "remove_groups"),
+        "num_grouped_conv_align_violations": sum(1 for r in grouped_reports if not r.get("per_group_kept_count_align8", True)),
+        "num_residual_protected": sum(1 for g in groups if g.meta.get("group_type") == "add" and g.protected),
+        "structure_legal": bool(legality_report.get("legal", False)),
+        "forward_sanity_check": bool(forward_ok),
+    }
+
+
 def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
     out = ensure_unique_dir(args.output_dir)
     args.output_dir = str(out)
@@ -529,50 +641,97 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
             protect_hidden=args.protect_transformer_hidden,
         )
     groups = cnn_groups + transformer_groups
+    grouped_fn_ops = configure_grouped_conv_pruning_fns(groups, args)
     save_json([g.summary() | {"meta": g.meta} for g in groups], out / "pruning_groups.json")
     save_csv(group_rows(groups), out / "pruning_groups.csv")
+    save_json(dependency_scope_rows(groups), out / "dependency_scopes.json")
+    save_csv(dependency_scope_rows(groups), out / "dependency_scopes.csv")
 
     importance, importance_records = compute_group_importance(model, groups, method=args.importance_mode)
     channel_importance = compute_layer_channel_importance(groups, method=args.importance_mode)
+    scope_channel_importance, scope_importance_records = compute_scope_channel_importance_map(
+        groups,
+        method=args.importance_mode,
+    )
     save_csv(importance_records, out / "group_importance.csv")
     save_json(importance_records, out / "group_importance.json")
+    save_csv(scope_importance_records, out / "scope_channel_importance.csv")
+    save_json(
+        [
+            record | {"importance": scope_channel_importance.get(record["scope_id"], torch.empty(0)).tolist()}
+            for record in scope_importance_records
+        ],
+        out / "scope_channel_importance.json",
+    )
     save_csv(transformer_rows(groups, importance, args.importance_mode), out / "transformer_groups.csv")
 
+    selection_cfg = SelectionConfig(
+        prune_ratio=args.prune_ratio,
+        selection_mode=args.selection_mode,
+        group_conv_selection_mode=args.group_conv_selection_mode,
+        align=args.align,
+        group_conv_align=args.group_conv_align,
+        group_conv_prune_mode=args.group_conv_prune_mode,
+        allow_remove_groups=args.allow_remove_groups,
+        min_groups_after_prune=args.min_groups_after_prune,
+        groups_align=args.groups_align,
+        min_channels=max(1, min(args.align, 8)),
+        importance_mode=args.importance_mode,
+    )
+    plan = build_pruning_plan(groups, scope_channel_importance, selection_cfg)
+    save_json([dataclass_to_json_dict(unit) for unit in plan.coupled_units], out / "coupled_channel_units.json")
+    save_csv(coupled_channel_unit_rows(plan.coupled_units), out / "coupled_channel_units.csv")
+    save_json([dataclass_to_json_dict(unit) for unit in plan.atomic_units], out / "atomic_prune_units.json")
+    save_csv(atomic_prune_unit_rows(plan.atomic_units), out / "atomic_prune_units.csv")
+    save_json(plan.grouped_conv_reports, out / "grouped_conv_selection_report.json")
+    save_csv(plan.grouped_conv_reports, out / "grouped_conv_selection_report.csv")
+
     prunable = [g for g in groups if not g.protected and g.num_channels > 0]
-    prunable.sort(key=lambda g: importance.get(g.group_id, float("inf")))
     target_pruned_params = int(round(original_params * args.prune_ratio))
     applied = []
     skipped = []
     pruned_ids: set[str] = set()
-    if not args.dry_run:
-        for g in prunable:
-            current_params, _ = count_params(model)
-            if original_params - current_params >= target_pruned_params:
-                break
-            keep = select_keep(g, args, importance_scores=channel_importance)
-            if len(keep) >= g.num_channels:
-                skipped.append({"group_id": g.group_id, "reason": "no_channel_reduction", "num_channels": g.num_channels})
-                continue
-            if g.meta.get("group_type", "") in TRANSFORMER_TYPES:
-                check = check_transformer_group(g, keep, min_heads=args.min_heads, head_align=args.head_align, ffn_align=args.ffn_align)
-            else:
-                check = check_pruning_group(g, keep, group_conv_align=args.group_conv_align)
-            if not check["legal"]:
-                skipped.append({"group_id": g.group_id, "reason": "check_failed", "issues": check["issues"]})
-                continue
-            result = g.prune(keep)
-            if result.get("applied"):
-                before_params = current_params
-                after_params, _ = count_params(model)
-                result["params_before_group"] = before_params
-                result["params_after_group"] = after_params
-                result["params_removed_by_group"] = before_params - after_params
-                if "ffn" in g.meta.get("group_type", ""):
-                    g.meta["ffn_dim_after"] = len(keep)
-                applied.append(result)
-                pruned_ids.add(g.group_id)
-            else:
-                skipped.append(result)
+    scope_by_id = {g.group_id: g for g in groups}
+    for concrete in plan.concrete_groups:
+        g = scope_by_id.get(concrete.scope_id)
+        if g is None:
+            skipped.append({"group_id": concrete.scope_id, "reason": "missing_scope"})
+            continue
+        keep = concrete.keep_indices
+        if len(keep) >= g.num_channels:
+            skipped.append({"group_id": g.group_id, "reason": "no_channel_reduction", "num_channels": g.num_channels})
+            continue
+        if g.meta.get("group_type", "") in TRANSFORMER_TYPES:
+            check = check_transformer_group(g, keep, min_heads=args.min_heads, head_align=args.head_align, ffn_align=args.ffn_align)
+        else:
+            check = check_pruning_group(g, keep, group_conv_align=args.group_conv_align)
+        concrete.check_group_passed = bool(check["legal"])
+        if not check["legal"]:
+            skipped.append({"group_id": g.group_id, "reason": "check_failed", "issues": check["issues"]})
+            continue
+        if args.dry_run:
+            continue
+        current_params, _ = count_params(model)
+        result = g.prune(keep)
+        if result.get("applied"):
+            before_params = current_params
+            after_params, _ = count_params(model)
+            result["params_before_group"] = before_params
+            result["params_after_group"] = after_params
+            result["params_removed_by_group"] = before_params - after_params
+            result["source_concrete_group"] = concrete.concrete_group_id
+            result["source_atomic_units"] = concrete.source_atomic_units
+            result["source_coupled_units"] = concrete.source_coupled_units
+            result["prune_indices"] = concrete.prune_indices
+            result["keep_indices"] = concrete.keep_indices
+            if "ffn" in g.meta.get("group_type", ""):
+                g.meta["ffn_dim_after"] = len(keep)
+            applied.append(result)
+            pruned_ids.add(g.group_id)
+        else:
+            skipped.append(result)
+    save_json([dataclass_to_json_dict(group) for group in plan.concrete_groups], out / "concrete_pruning_groups.json")
+    save_csv(concrete_pruning_group_rows(plan.concrete_groups), out / "concrete_pruning_groups.csv")
 
     legality = check_model_legality(model, group_conv_align=args.group_conv_align)
     transformer_legality = check_transformer_model_legality(model, protect_hidden=args.protect_transformer_hidden)
@@ -591,6 +750,14 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
         except Exception as exc:
             legality_report.setdefault("forward_issues", []).append({"issue": "forward_sanity_failed", "error": str(exc)})
     save_json(legality_report, out / "legality_check_report.json")
+    save_json(
+        {
+            "forward_sanity_check": forward_ok,
+            "skipped": bool(args.skip_forward_check),
+            "issues": legality_report.get("forward_issues", []),
+        },
+        out / "forward_sanity_report.json",
+    )
     structure_after = collect_module_structure(model)
     audit_applied = ([{"group_id": "pre_prune_group_alignment", "operations": pre_prune_ops}] if pre_prune_ops else []) + applied
     structure_notes, structure_change_rows = build_structure_changes(structure_before, structure_after, audit_applied)
@@ -605,10 +772,21 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
     pruned_params, pruned_mb = count_params(model)
     actual_ratio = 1.0 - pruned_params / max(original_params, 1)
     channel_stats = coupled_channel_stats(groups, applied)
+    selection_summary = build_selection_summary(
+        args=args,
+        groups=groups,
+        plan=plan,
+        target_prune_ratio=args.prune_ratio,
+        actual_prune_ratio=actual_ratio,
+        legality_report=legality_report,
+        forward_ok=forward_ok,
+    )
+    save_json(selection_summary, out / "selection_summary.json")
     summary = {
         "checkpoint": args.checkpoint,
         "model_name": "lidar_pyramid",
         "importance_mode": args.importance_mode,
+        "selection_mode": args.selection_mode,
         "target_prune_ratio": args.prune_ratio,
         "target_prune_ratio_definition": "1 - pruned_params / original_params",
         "target_pruned_params": target_pruned_params,
@@ -634,7 +812,13 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
         "normalized_model_size_mb": normalized_mb,
         "pruned_model_size_mb": pruned_mb,
         "group_conv_prune_mode": args.group_conv_prune_mode,
+        "group_conv_selection_mode": args.group_conv_selection_mode,
         "group_conv_align": args.group_conv_align,
+        "groups_align": args.groups_align,
+        "allow_remove_groups": args.allow_remove_groups,
+        "min_groups_after_prune": args.min_groups_after_prune,
+        "grouped_conv_pruning_fn_updates": grouped_fn_ops,
+        "selection_summary": selection_summary,
         "structure_legal": legality_report["legal"],
         "forward_sanity_check": forward_ok,
         "applied": applied,
@@ -699,10 +883,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--heal-root", default=DEFAULT_HEAL_ROOT)
     p.add_argument("--prune-ratio", type=float, default=0.25)
     p.add_argument("--importance-mode", choices=["l1_norm", "l2_norm", "first_order_taylor", "second_order_fisher"], default="l1_norm")
+    p.add_argument("--selection-mode", default="local_scope", choices=["local_scope", "global_coupled_channel", "constrained_global"])
     p.add_argument("--num-calib-batches", type=int, default=0)
     p.add_argument("--align", type=int, default=16)
     p.add_argument("--group-conv-align", type=int, default=8)
     p.add_argument("--group-conv-prune-mode", default="keep_groups", choices=["keep_groups", "remove_groups"])
+    p.add_argument("--group-conv-selection-mode", default="shared_local_mean", choices=["shared_local_mean", "independent_group_topk", "remove_groups"])
+    p.add_argument("--allow-remove-groups", type=str2bool, default=False)
+    p.add_argument("--min-groups-after-prune", type=int, default=8)
+    p.add_argument("--groups-align", type=int, default=8)
     p.add_argument("--enable-transformer-pruning", type=str2bool, default=True)
     p.add_argument("--enable-native-mha-pruning", type=str2bool, default=False)
     p.add_argument("--transformer-prune-heads", type=str2bool, default=True)
@@ -712,7 +901,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--head-align", type=int, default=1)
     p.add_argument("--ffn-align", type=int, default=8)
     p.add_argument("--protect-transformer-hidden", type=str2bool, default=True)
-    p.add_argument("--protect-residual-add", type=str2bool, default=False)
+    p.add_argument("--protect-residual-add", type=str2bool, default=True)
     p.add_argument("--device", default="cpu")
     p.add_argument("--output-dir", default=str(_THIS_DIR / "outputs" / "prune_lidar_pyramid_25_l1"))
     p.add_argument("--protect-neck-and-heads", type=str2bool, default=True)

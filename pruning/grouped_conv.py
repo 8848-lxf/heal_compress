@@ -111,6 +111,67 @@ def _prune_grouped_keep_groups(module: nn.Conv2d, keep: List[int]) -> Dict[str, 
     }
 
 
+def _group_local_keep_map(keep: List[int], channels: int, groups: int) -> Dict[int, List[int]]:
+    if channels % groups != 0:
+        raise ValueError(f"grouped conv channels {channels} not divisible by groups {groups}")
+    per = channels // groups
+    keep_map: Dict[int, List[int]] = {}
+    for gi in range(groups):
+        start = gi * per
+        keep_map[gi] = sorted(idx - start for idx in keep if start <= idx < start + per)
+    return keep_map
+
+
+def _prune_grouped_independent_topk(module: nn.Conv2d, keep: List[int]) -> Dict[str, Any]:
+    """Slice a grouped conv with an independent local keep map per group.
+
+    ``groups`` remains unchanged. Each group must keep the same number of local
+    channels, but the local positions may differ by group. The handler repacks
+    each retained group into a contiguous output block and a contiguous
+    within-group input block.
+    """
+    if module.in_channels != module.out_channels:
+        raise ValueError(
+            "independent_group_topk currently requires in_channels == out_channels "
+            f"(in={module.in_channels}, out={module.out_channels})"
+        )
+    g = module.groups
+    before_in, before_out = module.in_channels, module.out_channels
+    per = module.out_channels // g
+    keep_map = _group_local_keep_map(keep, module.out_channels, g)
+    counts = {len(v) for v in keep_map.values()}
+    if len(counts) != 1:
+        raise ValueError("independent_group_topk requires the same kept count in every group")
+    keep_per = counts.pop()
+    if keep_per <= 0:
+        raise ValueError("independent_group_topk: each group must retain >=1 channel")
+
+    new_weight = module.weight.data.new_empty(g * keep_per, keep_per, *module.weight.shape[2:])
+    for gi in range(g):
+        local = keep_map[gi]
+        out_abs = [gi * per + idx for idx in local]
+        out_idx = _index(out_abs, module.weight.device)
+        in_idx = _index(local, module.weight.device)
+        block = module.weight.data.index_select(0, out_idx).index_select(1, in_idx)
+        new_weight[gi * keep_per:(gi + 1) * keep_per].copy_(block)
+    module.weight = nn.Parameter(new_weight.clone())
+    if module.bias is not None:
+        out_keep = [gi * per + idx for gi in range(g) for idx in keep_map[gi]]
+        module.bias = nn.Parameter(module.bias.data.index_select(0, _index(out_keep, module.bias.device)).clone())
+    module.in_channels = len(keep)
+    module.out_channels = len(keep)
+    return {
+        "axis": "grouped_independent_keep",
+        "before_in": before_in,
+        "after_in": module.in_channels,
+        "before_out": before_out,
+        "after_out": module.out_channels,
+        "groups": module.groups,
+        "per_group_after": keep_per,
+        "group_keep_map": keep_map,
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Handler B: remove whole groups
 # --------------------------------------------------------------------------- #
@@ -162,6 +223,8 @@ def _grouped_supports(module: nn.Module) -> bool:
 
 _prune_grouped_keep_groups.__name__ = "prune_grouped_keep_groups"
 _prune_grouped_keep_groups.supports = _grouped_supports  # type: ignore[attr-defined]
+_prune_grouped_independent_topk.__name__ = "prune_grouped_independent_topk"
+_prune_grouped_independent_topk.supports = _grouped_supports  # type: ignore[attr-defined]
 _prune_grouped_remove_groups.__name__ = "prune_grouped_remove_groups"
 _prune_grouped_remove_groups.supports = _grouped_supports  # type: ignore[attr-defined]
 
@@ -170,6 +233,8 @@ def grouped_conv_pruning_fn(mode: str) -> Callable[[nn.Module, List[int]], Dict[
     """Return the grouped-conv pruning_fn for ``mode``."""
     if mode == "remove_groups":
         return _prune_grouped_remove_groups
+    if mode == "independent_group_topk":
+        return _prune_grouped_independent_topk
     return _prune_grouped_keep_groups
 
 
