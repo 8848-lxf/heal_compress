@@ -1,0 +1,4 @@
+frame_id,round_id,model_type,total_time_ms,forward_time_ms,postprocess_time_ms,data_to_gpu_time_ms,success,skip_reason
+0,1,pruned,0.0,0.0,0.0,0.0,False,The size of tensor a (64) must match the size of tensor b (48) at non-singleton dimension 1
+1,1,pruned,0.0,0.0,0.0,0.0,False,The size of tensor a (64) must match the size of tensor b (48) at non-singleton dimension 1
+2,1,pruned,0.0,0.0,0.0,0.0,False,The size of tensor a (64) must match the size of tensor b (48) at non-singleton dimension 1

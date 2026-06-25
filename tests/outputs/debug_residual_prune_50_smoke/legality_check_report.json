@@ -1,0 +1,17 @@
+{
+  "legal": true,
+  "cnn_legality": {
+    "legal": true,
+    "issues": []
+  },
+  "transformer_legality": {
+    "legal": true,
+    "issues": []
+  },
+  "forward_issues": [
+    {
+      "issue": "forward_sanity_failed",
+      "error": "Given groups=1, weight of size [128, 64, 1, 1], expected input[2, 32, 128, 256] to have 64 channels, but got 32 channels instead"
+    }
+  ]
+}

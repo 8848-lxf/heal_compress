@@ -1,0 +1,11 @@
+{
+  "legal": true,
+  "cnn_legality": {
+    "legal": true,
+    "issues": []
+  },
+  "transformer_legality": {
+    "legal": true,
+    "issues": []
+  }
+}

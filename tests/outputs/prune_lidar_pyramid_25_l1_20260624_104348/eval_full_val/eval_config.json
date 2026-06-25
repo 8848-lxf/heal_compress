@@ -1,0 +1,14 @@
+{
+  "original_checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+  "pruned_checkpoint": "tests/outputs/prune_lidar_pyramid_25_l1_20260624_104348/pruned_model.pth",
+  "model_config": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml",
+  "heal_root": "/home/lixingfeng/UniAD_examine/HEAL",
+  "rounds": 1,
+  "gup_id": "auto",
+  "device": null,
+  "output_dir": "tests/outputs/prune_lidar_pyramid_25_l1_20260624_104348/eval_full_val",
+  "max_frames": 0,
+  "warmup_frames": 0,
+  "eval_original": true,
+  "eval_pruned": true
+}

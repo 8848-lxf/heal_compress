@@ -1,0 +1,1386 @@
+[
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer0.2.conv3",
+    "num_channels": 64,
+    "protected": true,
+    "protected_reason": "residual_add_output_protected",
+    "group_type": "add",
+    "items": [],
+    "meta": {
+      "group_type": "add",
+      "reasons": [
+        "add:op::00013::Tensor.__add__",
+        "add:op::00022::Tensor.__iadd__",
+        "add:op::00023::Tensor.__iadd__",
+        "add:op::00024::Tensor.__iadd__"
+      ],
+      "cat_node": null,
+      "roots": [
+        "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+        "pyramid_backbone.resnet.layer0.0.conv3",
+        "pyramid_backbone.resnet.layer0.1.conv3",
+        "pyramid_backbone.resnet.layer0.2.conv3"
+      ]
+    }
+  },
+  {
+    "group_id": "group::backbone_m1.resnet.layer0.0.conv1",
+    "num_channels": 64,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "backbone_m1.resnet.layer0.0.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "backbone_m1.resnet.layer0.0.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "backbone_m1.resnet.layer0.0.conv2",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "backbone_m1.resnet.layer0.0.conv1"
+      ]
+    }
+  },
+  {
+    "group_id": "group::backbone_m1.resnet.layer0.2.conv2",
+    "num_channels": 64,
+    "protected": true,
+    "protected_reason": "residual_add_output_protected",
+    "group_type": "add",
+    "items": [],
+    "meta": {
+      "group_type": "add",
+      "reasons": [
+        "add:op::00018::Tensor.__iadd__",
+        "add:op::00019::Tensor.__iadd__",
+        "add:op::00020::Tensor.__iadd__"
+      ],
+      "cat_node": null,
+      "roots": [
+        "backbone_m1.resnet.layer0.0.conv2",
+        "backbone_m1.resnet.layer0.0.downsample.0",
+        "backbone_m1.resnet.layer0.1.conv2",
+        "backbone_m1.resnet.layer0.2.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::backbone_m1.resnet.layer0.1.conv1",
+    "num_channels": 64,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "backbone_m1.resnet.layer0.1.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "backbone_m1.resnet.layer0.1.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "backbone_m1.resnet.layer0.1.conv2",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "backbone_m1.resnet.layer0.1.conv1"
+      ]
+    }
+  },
+  {
+    "group_id": "group::backbone_m1.resnet.layer0.2.conv1",
+    "num_channels": 64,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "backbone_m1.resnet.layer0.2.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "backbone_m1.resnet.layer0.2.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "backbone_m1.resnet.layer0.2.conv2",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "backbone_m1.resnet.layer0.2.conv1"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer0.0.conv1",
+    "num_channels": 128,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer0.0.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.0.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.0.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.0.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.0.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer0.0.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer0.0.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer0.0.conv1",
+        "pyramid_backbone.resnet.layer0.0.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer0.1.conv1",
+    "num_channels": 128,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer0.1.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.1.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.1.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.1.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.1.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer0.1.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer0.1.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer0.1.conv1",
+        "pyramid_backbone.resnet.layer0.1.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer0.2.conv1",
+    "num_channels": 128,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer0.2.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.2.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.2.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.2.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer0.2.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer0.2.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer0.2.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer0.2.conv1",
+        "pyramid_backbone.resnet.layer0.2.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer1.0.conv1",
+    "num_channels": 256,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer1.0.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.0.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.0.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.0.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.0.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer1.0.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer1.0.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer1.0.conv1",
+        "pyramid_backbone.resnet.layer1.0.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer1.4.conv3",
+    "num_channels": 128,
+    "protected": true,
+    "protected_reason": "residual_add_output_protected",
+    "group_type": "add",
+    "items": [],
+    "meta": {
+      "group_type": "add",
+      "reasons": [
+        "add:op::00025::Tensor.__iadd__",
+        "add:op::00026::Tensor.__iadd__",
+        "add:op::00027::Tensor.__iadd__",
+        "add:op::00028::Tensor.__iadd__",
+        "add:op::00029::Tensor.__iadd__"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer1.0.conv3",
+        "pyramid_backbone.resnet.layer1.0.downsample.0",
+        "pyramid_backbone.resnet.layer1.1.conv3",
+        "pyramid_backbone.resnet.layer1.2.conv3",
+        "pyramid_backbone.resnet.layer1.3.conv3",
+        "pyramid_backbone.resnet.layer1.4.conv3"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer1.1.conv1",
+    "num_channels": 256,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer1.1.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.1.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.1.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.1.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.1.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer1.1.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer1.1.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer1.1.conv1",
+        "pyramid_backbone.resnet.layer1.1.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer1.2.conv1",
+    "num_channels": 256,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer1.2.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.2.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.2.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.2.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.2.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer1.2.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer1.2.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer1.2.conv1",
+        "pyramid_backbone.resnet.layer1.2.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer1.3.conv1",
+    "num_channels": 256,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer1.3.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.3.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.3.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.3.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.3.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer1.3.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer1.3.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer1.3.conv1",
+        "pyramid_backbone.resnet.layer1.3.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer1.4.conv1",
+    "num_channels": 256,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer1.4.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.4.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.4.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.4.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer1.4.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer1.4.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer1.4.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer1.4.conv1",
+        "pyramid_backbone.resnet.layer1.4.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer2.0.conv1",
+    "num_channels": 512,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer2.0.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.0.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.0.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.0.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.0.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer2.0.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer2.0.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer2.0.conv1",
+        "pyramid_backbone.resnet.layer2.0.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer2.7.conv3",
+    "num_channels": 256,
+    "protected": true,
+    "protected_reason": "residual_add_output_protected",
+    "group_type": "add",
+    "items": [],
+    "meta": {
+      "group_type": "add",
+      "reasons": [
+        "add:op::00030::Tensor.__iadd__",
+        "add:op::00031::Tensor.__iadd__",
+        "add:op::00032::Tensor.__iadd__",
+        "add:op::00033::Tensor.__iadd__",
+        "add:op::00034::Tensor.__iadd__",
+        "add:op::00035::Tensor.__iadd__",
+        "add:op::00036::Tensor.__iadd__",
+        "add:op::00037::Tensor.__iadd__",
+        "add:op::00038::Tensor.__add__"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer2.0.conv3",
+        "pyramid_backbone.resnet.layer2.0.downsample.0",
+        "pyramid_backbone.resnet.layer2.1.conv3",
+        "pyramid_backbone.resnet.layer2.2.conv3",
+        "pyramid_backbone.resnet.layer2.3.conv3",
+        "pyramid_backbone.resnet.layer2.4.conv3",
+        "pyramid_backbone.resnet.layer2.5.conv3",
+        "pyramid_backbone.resnet.layer2.6.conv3",
+        "pyramid_backbone.resnet.layer2.7.conv3"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer2.1.conv1",
+    "num_channels": 512,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer2.1.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.1.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.1.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.1.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.1.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer2.1.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer2.1.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer2.1.conv1",
+        "pyramid_backbone.resnet.layer2.1.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer2.2.conv1",
+    "num_channels": 512,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer2.2.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.2.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.2.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.2.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.2.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer2.2.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer2.2.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer2.2.conv1",
+        "pyramid_backbone.resnet.layer2.2.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer2.3.conv1",
+    "num_channels": 512,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer2.3.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.3.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.3.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.3.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.3.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer2.3.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer2.3.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer2.3.conv1",
+        "pyramid_backbone.resnet.layer2.3.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer2.4.conv1",
+    "num_channels": 512,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer2.4.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.4.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.4.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.4.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.4.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer2.4.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer2.4.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer2.4.conv1",
+        "pyramid_backbone.resnet.layer2.4.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer2.5.conv1",
+    "num_channels": 512,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer2.5.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.5.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.5.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.5.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.5.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer2.5.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer2.5.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer2.5.conv1",
+        "pyramid_backbone.resnet.layer2.5.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer2.6.conv1",
+    "num_channels": 512,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer2.6.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.6.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.6.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.6.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.6.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer2.6.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer2.6.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer2.6.conv1",
+        "pyramid_backbone.resnet.layer2.6.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.resnet.layer2.7.conv1",
+    "num_channels": 512,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.resnet.layer2.7.conv1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.7.conv2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_grouped_remove_groups",
+        "reason": "grouped_conv:remove_groups"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.7.bn1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.7.bn2",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.resnet.layer2.7.conv3",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [
+        "bottleneck_grouped_hidden:pyramid_backbone.resnet.layer2.7.conv2",
+        "grouped_conv_producer:pyramid_backbone.resnet.layer2.7.conv2"
+      ],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.resnet.layer2.7.conv1",
+        "pyramid_backbone.resnet.layer2.7.conv2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.deblocks.0.0",
+    "num_channels": 384,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "cat",
+    "items": [
+      {
+        "name": "pyramid_backbone.deblocks.0.0",
+        "type": "ConvTranspose2d",
+        "direction": "out",
+        "pruning_fn": "prune_convtranspose_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.deblocks.1.0",
+        "type": "ConvTranspose2d",
+        "direction": "out",
+        "pruning_fn": "prune_convtranspose_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.deblocks.2.0",
+        "type": "ConvTranspose2d",
+        "direction": "out",
+        "pruning_fn": "prune_convtranspose_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "pyramid_backbone.deblocks.0.1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.deblocks.1.1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "pyramid_backbone.deblocks.2.1",
+        "type": "BatchNorm2d",
+        "direction": "out",
+        "pruning_fn": "prune_bn",
+        "reason": "conv_bn"
+      },
+      {
+        "name": "shrink_conv.layers.0.double_conv.0",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "cat_downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "cat",
+      "reasons": [
+        "cat:op::00050::torch.cat"
+      ],
+      "cat_node": "op::00050::torch.cat",
+      "roots": [
+        "pyramid_backbone.deblocks.0.0",
+        "pyramid_backbone.deblocks.1.0",
+        "pyramid_backbone.deblocks.2.0"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.single_head_0",
+    "num_channels": 1,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.single_head_0",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.single_head_0"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.single_head_1",
+    "num_channels": 1,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.single_head_1",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.single_head_1"
+      ]
+    }
+  },
+  {
+    "group_id": "group::pyramid_backbone.single_head_2",
+    "num_channels": 1,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "pyramid_backbone.single_head_2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "pyramid_backbone.single_head_2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::shrink_conv.layers.0.double_conv.0",
+    "num_channels": 256,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "shrink_conv.layers.0.double_conv.0",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "shrink_conv.layers.0.double_conv.2",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "shrink_conv.layers.0.double_conv.0"
+      ]
+    }
+  },
+  {
+    "group_id": "group::shrink_conv.layers.0.double_conv.2",
+    "num_channels": 256,
+    "protected": false,
+    "protected_reason": "",
+    "group_type": "plain",
+    "items": [
+      {
+        "name": "shrink_conv.layers.0.double_conv.2",
+        "type": "Conv2d",
+        "direction": "out",
+        "pruning_fn": "prune_conv_out",
+        "reason": "root_out"
+      },
+      {
+        "name": "cls_head",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      },
+      {
+        "name": "reg_head",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      },
+      {
+        "name": "dir_head",
+        "type": "Conv2d",
+        "direction": "in",
+        "pruning_fn": "prune_conv_in",
+        "reason": "downstream_in"
+      }
+    ],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "shrink_conv.layers.0.double_conv.2"
+      ]
+    }
+  },
+  {
+    "group_id": "group::cls_head",
+    "num_channels": 2,
+    "protected": true,
+    "protected_reason": "det_head_output",
+    "group_type": "plain",
+    "items": [],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "cls_head"
+      ]
+    }
+  },
+  {
+    "group_id": "group::reg_head",
+    "num_channels": 14,
+    "protected": true,
+    "protected_reason": "det_head_output",
+    "group_type": "plain",
+    "items": [],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "reg_head"
+      ]
+    }
+  },
+  {
+    "group_id": "group::dir_head",
+    "num_channels": 4,
+    "protected": true,
+    "protected_reason": "det_head_output",
+    "group_type": "plain",
+    "items": [],
+    "meta": {
+      "group_type": "plain",
+      "reasons": [],
+      "cat_node": null,
+      "roots": [
+        "dir_head"
+      ]
+    }
+  }
+]
