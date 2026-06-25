@@ -5,3 +5,14 @@ tests/outputs/prune_lidar_pyramid_25/pruned_model.pth
 __pycache__/
 *.pyc
 tests/outputs/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Experiment outputs and model artifacts
+tests/outputs/
+*.pth
+*.pt
+*.ckpt
+*.onnx
