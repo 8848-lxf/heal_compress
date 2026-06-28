@@ -1,0 +1,97 @@
+{
+  "dynamic_agent_dim_onnx_semantics": {
+    "semantics_erased_in_onnx": false,
+    "valid_for_multi_agent_deployment": true,
+    "failure_reason": null
+  },
+  "ort_fp32_ap_report": {
+    "backend": "onnxruntime_fp32",
+    "backend_label": "ONNXRuntime FP32",
+    "success": true,
+    "num_frames": 50,
+    "actual_frames": 50,
+    "skipped_frames": 0,
+    "AP@0.30": 0.872,
+    "AP@0.50": 0.8533,
+    "AP@0.70": 0.7462,
+    "mAP": 0.8238,
+    "forward_mean_ms": 29.316251426935196,
+    "forward_p50_ms": 19.048133864998817,
+    "forward_p90_ms": 27.025217190384865,
+    "postprocess_mean_ms": 8.10898669064045,
+    "postprocess_p50_ms": 8.538538590073586,
+    "total_mean_ms": 37.425238117575645,
+    "total_p50_ms": 27.294808998703957,
+    "error": null
+  },
+  "five_way_ap_table": [
+    {
+      "backend_key": "pytorch_original",
+      "backend": "PyTorch original",
+      "AP@0.30": 0.8721,
+      "AP@0.50": 0.8534,
+      "AP@0.70": 0.7462,
+      "mAP": 0.8239,
+      "mAP_drop_vs_PyTorch": 0.0,
+      "actual_frames": 50,
+      "success": true
+    },
+    {
+      "backend_key": "pytorch_export_wrapper",
+      "backend": "PyTorch export wrapper",
+      "AP@0.30": 0.8721,
+      "AP@0.50": 0.8534,
+      "AP@0.70": 0.7462,
+      "mAP": 0.8239,
+      "mAP_drop_vs_PyTorch": 0.0,
+      "actual_frames": 50,
+      "success": true
+    },
+    {
+      "backend_key": "onnxruntime_fp32",
+      "backend": "ONNXRuntime FP32",
+      "AP@0.30": 0.872,
+      "AP@0.50": 0.8533,
+      "AP@0.70": 0.7462,
+      "mAP": 0.8238,
+      "mAP_drop_vs_PyTorch": 0.0001,
+      "actual_frames": 50,
+      "success": true
+    },
+    {
+      "backend_key": "tensorrt_fp32",
+      "backend": "TensorRT FP32",
+      "AP@0.30": 0.8721,
+      "AP@0.50": 0.8534,
+      "AP@0.70": 0.7462,
+      "mAP": 0.8239,
+      "mAP_drop_vs_PyTorch": 0.0,
+      "actual_frames": 50,
+      "success": true
+    },
+    {
+      "backend_key": "tensorrt_fp16",
+      "backend": "TensorRT FP16",
+      "AP@0.30": 0.8735,
+      "AP@0.50": 0.8535,
+      "AP@0.70": 0.7334,
+      "mAP": 0.8201,
+      "mAP_drop_vs_PyTorch": 0.0038,
+      "actual_frames": 50,
+      "success": true
+    }
+  ],
+  "precision_drop_branch": {
+    "pytorch_map": 0.8239,
+    "onnxruntime_fp32_map": 0.8238,
+    "tensorrt_fp32_map": 0.8239,
+    "tolerance": 0.03,
+    "onnxruntime_fp32_close_to_pytorch": true,
+    "tensorrt_fp32_close_to_pytorch": true,
+    "suspected_area": "AP is aligned across PyTorch, ONNXRuntime, and TensorRT FP32"
+  },
+  "per_frame_ap_and_error_report": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/debug/per_frame_ap_and_error_report.json",
+  "postprocess_stage_diff_top5": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/debug/postprocess_stage_diff_top5.json",
+  "output_layout_report": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/debug/output_layout_report.json",
+  "trt_precision_equivalence_bug_open": false
+}

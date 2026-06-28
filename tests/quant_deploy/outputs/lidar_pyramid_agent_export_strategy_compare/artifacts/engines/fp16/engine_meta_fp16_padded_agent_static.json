@@ -1,0 +1,67 @@
+{
+  "precision": "fp16",
+  "implemented": true,
+  "build_success": true,
+  "benchmark_success": false,
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/artifacts/engines/fp16/lidar_pyramid_padded_agent_static_fp16.engine",
+  "engine_size_MB": 47.331607818603516,
+  "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/artifacts/engines/fp16/layerinfo_fp16.json",
+  "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/logs/build/build_fp16.log",
+  "error": null,
+  "env_report": {
+    "python_executable": "/home/lixingfeng/anaconda3/envs/modelopt/bin/python",
+    "conda_prefix": "/home/lixingfeng/anaconda3/envs/modelopt",
+    "TRT_ROOT": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+    "LD_LIBRARY_PATH": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib64:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/torch/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cublas/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cudnn/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cufft/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/curand/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusolver/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusparse/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/nccl/lib:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:",
+    "CUDA_VISIBLE_DEVICES": "3",
+    "torch_available": true,
+    "torch_version": "2.4.0+cu118",
+    "cuda_available": true,
+    "cuda_device_count": 1,
+    "gpu_names": [
+      "NVIDIA GeForce RTX 4090"
+    ],
+    "tensorrt_available": true,
+    "tensorrt_version": "10.9.0.34",
+    "modelopt_available": false,
+    "modelopt_error": "ModuleNotFoundError(\"No module named 'modelopt'\")",
+    "modelopt_version": null,
+    "trtexec": {
+      "trtexec_found": true,
+      "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+      "checked_paths": [
+        "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+      ],
+      "suggestion": null
+    },
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+  },
+  "trtexec": {
+    "trtexec_found": true,
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+    "checked_paths": [
+      "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+    ],
+    "suggestion": null
+  },
+  "command": [
+    "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "--onnx=tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/artifacts/onnx/fp32/lidar_pyramid_padded_agent_static_fp32_dynamic.onnx",
+    "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/artifacts/engines/fp16/lidar_pyramid_padded_agent_static_fp16.engine",
+    "--profilingVerbosity=detailed",
+    "--dumpLayerInfo",
+    "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/artifacts/engines/fp16/layerinfo_fp16.json",
+    "--verbose",
+    "--minShapes=voxel_features:1x32x4,voxel_coords:1x4,voxel_num_points:1,valid_agent_mask:1x2,pairwise_t_matrix:1x1x1x4x4",
+    "--optShapes=voxel_features:20646x32x4,voxel_coords:20646x4,voxel_num_points:20646,valid_agent_mask:1x2,pairwise_t_matrix:1x2x2x4x4",
+    "--maxShapes=voxel_features:140000x32x4,voxel_coords:140000x4,voxel_num_points:140000,valid_agent_mask:1x2,pairwise_t_matrix:1x2x2x4x4",
+    "--fp16",
+    "--skipInference"
+  ],
+  "returncode": 0,
+  "unsupported_ops": [],
+  "failed_nodes": [],
+  "strict_fp16": null
+}

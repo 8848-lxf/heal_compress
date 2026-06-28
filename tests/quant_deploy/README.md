@@ -14,7 +14,7 @@ No ONNX, TensorRT engine, benchmark, calibration, evaluation, log, or summary ou
 
 - `fp32`: TensorRT baseline from the exported FP32 ONNX. Uses `--noTF32` by default.
 - `fp16`: TensorRT practical FP16 from the exported FP32 ONNX. Uses `--fp16`; no Q/DQ or calibration.
-- `int8`: CLI and directory interface are reserved. Q/DQ insertion and calibration are not implemented in this stage.
+- `int8`: TensorRT native `--int8` build from the exported FP32 ONNX. This path intentionally does not use ModelOpt, explicit Q/DQ insertion, or custom plugins.
 
 `--strict_fp16` optionally attempts an additional strict FP16 build with TensorRT precision constraints. A strict build failure is recorded separately and does not change the practical FP16 result.
 
@@ -108,26 +108,39 @@ After export, `debug/special_ops_report.json` records every `Squeeze` node and w
 Squeeze_without_axes: 0
 ```
 
-## Fixed Pyramid Export Forward
+## Pyramid Export Forward Modes
 
 The original HEAL pyramid fusion path uses Python list operations in `regroup`, `forward_collab`, and multiscale feature decoding. PyTorch ONNX export can lower those paths to `SequenceEmpty`, `SequenceInsert`, and `SequenceAt`, which TensorRT does not accept for this deployment graph.
 
-The default export-only fix is:
+Supported export modes are:
 
 ```text
 --pyramid_forward_export_mode fixed_static
+--pyramid_forward_export_mode dynamic_agent_dim
+--pyramid_forward_export_mode padded_agent_static
 ```
 
-This reuses the fixed-forward idea from:
+`fixed_static` reuses the fixed-forward idea from:
 
 ```text
 /home/lixingfeng/UniAD_examine/HEAL/prune_model/pyramid-trt/export_dynamic_onnx.py
 ```
 
-but keeps only the LiDAR path. It statically expands the 3 pyramid levels, avoids list/dict/Sequence outputs, and returns a fixed Tensor tuple. It does not modify HEAL/OpenCOOD source and does not affect PyTorch evaluation. Numerical comparison with the original model outputs is written to:
+but keeps only the LiDAR path. It statically expands the 3 pyramid levels, avoids list/dict/Sequence outputs, and returns a fixed Tensor tuple. It does not modify HEAL/OpenCOOD source and does not affect PyTorch evaluation.
+
+Important: `fixed_static` is an ONNX/TensorRT export-specialized wrapper, not a general ONNX representation of HEAL's original dynamic Python forward. In the old multi-agent export, `record_len` can be reduced to a keepalive path instead of driving regroup/fusion, so `fixed_static` is only a single-agent / `record_len=1` validation baseline and must not be used as the final multi-agent deployment graph.
+
+For multi-agent deployment, use one of the agent-aware export wrappers:
+
+- `dynamic_agent_dim`: deployment batch is 1 and the active CAV count is represented by the first feature dimension and `pairwise_t_matrix[:, N, N]`.
+- `padded_agent_static`: pads to a fixed `--max_cav` and feeds `valid_agent_mask` into the ONNX graph so invalid agents are masked during feature zeroing and fusion. First-stage validated setting is `--max_cav 2`.
+
+Current recommendation is `padded_agent_static` because it preserves multi-agent semantics explicitly and was faster than `dynamic_agent_dim` in real 50-frame TensorRT FP32/FP16 evaluation.
+
+Numerical comparison with the original model outputs is written to:
 
 ```text
-debug/fixed_pyramid_forward_report.json
+debug/wrapper_equivalence_<mode>.json
 ```
 
 Expected ONNX result:
@@ -139,6 +152,8 @@ SequenceAt: 0
 ```
 
 ## One-Key Run
+
+Single-agent / `record_len=1` compatibility baseline:
 
 ```bash
 python tests/quant_deploy/run_lidar_pyramid_deploy.py \
@@ -171,7 +186,20 @@ python tests/quant_deploy/run_lidar_pyramid_deploy.py \
   --trt_root /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118 \
   --bev_warp_export_mode exportable_grid \
   --pillar_vfe_export_fix explicit_squeeze \
-  --pyramid_forward_export_mode fixed_static
+  --pyramid_forward_export_mode padded_agent_static \
+  --max_cav 2
+```
+
+Compare both multi-agent export strategies from existing or newly generated runs with:
+
+```bash
+python tests/quant_deploy/compare_lidar_pyramid_agent_export_strategies.py \
+  --output_dir tests/quant_deploy/outputs \
+  --run_name lidar_pyramid_agent_export_strategy_compare \
+  --dynamic_agent_root tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke \
+  --padded_agent_root tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke \
+  --num_frames 50 \
+  --max_cav 2
 ```
 
 ## Separate Steps
@@ -186,12 +214,14 @@ python tests/quant_deploy/export_lidar_pyramid_onnx.py \
   --opset 17 \
   --bev_warp_export_mode exportable_grid \
   --pillar_vfe_export_fix explicit_squeeze \
-  --pyramid_forward_export_mode fixed_static
+  --pyramid_forward_export_mode padded_agent_static \
+  --max_cav 2
 
 python tests/quant_deploy/build_lidar_pyramid_trt_engine.py \
-  --onnx_path tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp/artifacts/onnx/fp32/lidar_pyramid_fp32_dynamic.onnx \
+  --onnx_path tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp/artifacts/onnx/fp32/lidar_pyramid_padded_agent_static_fp32_dynamic.onnx \
   --output_root tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp \
   --precision fp16 \
+  --engine_name_prefix lidar_pyramid_padded_agent_static \
   --trt_root /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
 
 python tests/quant_deploy/benchmark_lidar_pyramid_trt_engine.py \
@@ -227,27 +257,41 @@ summary/
 debug/
 ```
 
-`summary/summary_all.json` and `summary/summary_all.md` record the directory map, export status, build status, benchmark status, latency metrics, special ONNX ops, and failure reasons.
+`summary/summary_all.json` and `summary/summary_all.md` record the directory map, export status, build status, benchmark status, latency metrics, deployment equivalence metrics, special ONNX ops, and failure reasons.
+
+Deployment equivalence reports are written to:
+
+```text
+evaluation/wrapper_equivalence.json
+evaluation/trt_output_equivalence.json
+evaluation/five_way_ap_report_<mode>.json
+evaluation/ort_fp32_ap_report_<mode>.json
+evaluation/trt_fp32_ap_report_<mode>.json
+evaluation/trt_fp16_ap_report_<mode>.json
+debug/wrapper_equivalence_debug.json
+debug/trt_output_equivalence_debug.json
+debug/<mode>_onnx_semantics_report.json
+```
+
+The wrapper report compares original PyTorch `lidar_pyramid` forward against the export wrapper over `--num_frames` samples and groups errors by `record_len` / agent count. The TRT report compares the PyTorch export wrapper outputs against ONNXRuntime FP32 when available, TensorRT FP32, and TensorRT FP16 for `cls_preds`, `reg_preds`, and `dir_preds`. The semantics report verifies that `record_len` is not a zero keepalive-only path and that `pairwise_t_matrix` or `valid_agent_mask` actually enters fusion.
 
 ## INT8 Entry Points
 
-The reserved INT8 parameters are:
+The INT8 parameters are:
 
 ```text
 --calib_dir
 --calib_num_frames
 --calib_cache
 --qdq_onnx_path
---int8_mode qdq
+--int8_mode native_trt
 --allow_fp16_fallback
 ```
 
-The future INT8 path should be:
+The current INT8 path is:
 
 ```text
-FP32 ONNX -> calibration data -> explicit ONNX Q/DQ -> TensorRT INT8 engine -> benchmark/evaluation
+FP32 ONNX -> TensorRT native --int8 engine -> benchmark/evaluation
 ```
 
-INT8 Q/DQ should be based on the successfully exported FP32 ONNX and then use ModelOpt for explicit Q/DQ quantization. Do not start ModelOpt INT8 from an FP16 ONNX.
-
-Calibration outputs should go only under `calibration/`; Q/DQ ONNX should go under `artifacts/onnx/qdq_int8/`.
+Do not introduce ModelOpt, explicit Q/DQ ONNX rewriting, or custom TensorRT plugins for this path. If a future TensorRT version requires an external calibration cache for this graph, write calibration artifacts only under `calibration/`.

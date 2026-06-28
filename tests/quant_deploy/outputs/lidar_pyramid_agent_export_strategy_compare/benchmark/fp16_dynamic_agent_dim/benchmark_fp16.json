@@ -1,0 +1,20 @@
+{
+  "precision": "fp16",
+  "pyramid_forward_export_mode": "dynamic_agent_dim",
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/engines/fp16/lidar_pyramid_dynamic_agent_dim_fp16.engine",
+  "num_frames": 50,
+  "warmup_frames": null,
+  "actual_frames": 50,
+  "forward_mean_ms": 393.98946043103933,
+  "forward_p50_ms": 375.01353584229946,
+  "forward_p90_ms": 468.35714392364025,
+  "forward_p95_ms": null,
+  "forward_min_ms": null,
+  "forward_max_ms": null,
+  "fps": 2.666570415262343,
+  "engine_size_MB": 14.369815826416016,
+  "latency_scope": "engine_forward_on_real_samples",
+  "source_report": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/evaluation/five_way_ap_report_dynamic_agent_dim.json",
+  "success": true,
+  "error": null
+}

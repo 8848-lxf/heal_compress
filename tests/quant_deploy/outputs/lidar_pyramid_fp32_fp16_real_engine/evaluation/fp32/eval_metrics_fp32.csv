@@ -1,0 +1,2 @@
+precision,success,engine_path,num_frames,actual_frames,skipped_frames,ap_0_3,ap_0_5,ap_0_7,map,forward_mean_ms,forward_p50_ms,forward_p90_ms,postprocess_mean_ms,postprocess_p50_ms,total_mean_ms,total_p50_ms,output_names
+fp32,True,tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp32/lidar_pyramid_fp32.engine,50,50,0,0.5294,0.5058,0.4492,0.4948,185.422803722322,172.43032157421112,217.7167683839798,13.402678370475769,9.97862033545971,198.82548209279776,185.81165932118893,"['cls_preds', 'reg_preds', 'dir_preds']"

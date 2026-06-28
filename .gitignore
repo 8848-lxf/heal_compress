@@ -37,7 +37,6 @@ tests/outputs/*
 !tests/outputs/l1_grouped_conv_ablation_20260625_013602/eval/**
 
 # Quant deploy outputs
-tests/quant_deploy/outputs/
 
 # Large model / deployment artifacts
 *.pth
@@ -51,3 +50,11 @@ tests/quant_deploy/outputs/
 # Python cache
 __pycache__/
 *.pyc
+
+# Keep all quant deploy files for full quant deploy test branch
+!tests/quant_deploy/
+!tests/quant_deploy/**
+!tests/quant_deploy/outputs/
+!tests/quant_deploy/outputs/**
+!tests/quant_deploy/plugins/
+!tests/quant_deploy/plugins/**

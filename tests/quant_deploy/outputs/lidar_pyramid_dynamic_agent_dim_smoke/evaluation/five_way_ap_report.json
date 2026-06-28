@@ -1,0 +1,5 @@
+{
+  "success": false,
+  "error": "[ONNXRuntimeError] : 1 : FAIL : Node (MatMulBnFusion_Gemm) Op (Gemm) [ShapeInferenceError] First input does not have rank 2",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/evaluate_lidar_pyramid_ort_ap.py\", line 545, in run_five_way_evaluation\n    ort_session = ort.InferenceSession(str(onnx_path), providers=providers)\n  File \"/home/lixingfeng/anaconda3/envs/univ2x-opt/lib/python3.9/site-packages/onnxruntime/capi/onnxruntime_inference_collection.py\", line 419, in __init__\n    self._create_inference_session(providers, provider_options, disabled_optimizers)\n  File \"/home/lixingfeng/anaconda3/envs/univ2x-opt/lib/python3.9/site-packages/onnxruntime/capi/onnxruntime_inference_collection.py\", line 483, in _create_inference_session\n    sess.initialize_session(providers, provider_options, disabled_optimizers)\nonnxruntime.capi.onnxruntime_pybind11_state.Fail: [ONNXRuntimeError] : 1 : FAIL : Node (MatMulBnFusion_Gemm) Op (Gemm) [ShapeInferenceError] First input does not have rank 2\n"
+}

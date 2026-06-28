@@ -10,7 +10,6 @@ if __package__ is None or __package__ == "":
 
 from quant_deploy_utils import (
     DEFAULT_TRT_ROOT,
-    INT8_NOT_IMPLEMENTED_MESSAGE,
     build_trtexec_command,
     collect_env_report,
     ensure_quant_deploy_run_dirs,
@@ -40,29 +39,32 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--calib_num_frames", type=int, default=0)
     parser.add_argument("--calib_cache", default=None)
     parser.add_argument("--qdq_onnx_path", default=None)
-    parser.add_argument("--int8_mode", default="qdq", choices=["qdq"])
+    parser.add_argument("--int8_mode", default="native_trt", choices=["native_trt", "qdq"])
     parser.add_argument("--allow_fp16_fallback", action="store_true")
+    parser.add_argument("--engine_name_prefix", default="lidar_pyramid")
+    parser.add_argument("--no_skip_inference", action="store_true")
+    parser.add_argument("--static_plugin", action="append", default=[], help="TensorRT plugin library to load with --staticPlugins. May be repeated.")
     return parser.parse_args(argv)
 
 
-def _engine_name(precision: str) -> str:
+def _engine_name(precision: str, prefix: str = "lidar_pyramid") -> str:
     if precision == "int8":
-        return "lidar_pyramid_int8_qdq.engine"
-    return f"lidar_pyramid_{precision}.engine"
+        return f"{prefix}_int8.engine"
+    return f"{prefix}_{precision}.engine"
 
 
 def build_engine(args: argparse.Namespace) -> dict[str, Any]:
     dirs = ensure_quant_deploy_run_dirs(args.output_root)
     precision = args.precision.lower()
     engine_dir = dirs[f"engine_{precision}"]
-    engine_path = engine_dir / _engine_name(precision)
+    engine_path = engine_dir / _engine_name(precision, getattr(args, "engine_name_prefix", "lidar_pyramid"))
     layerinfo_path = engine_dir / f"layerinfo_{precision}.json"
     log_path = dirs["logs_build"] / f"build_{precision}.log"
     meta_path = engine_dir / f"engine_meta_{precision}.json"
     summary_path = dirs["summary"] / f"summary_{precision}.json"
     result: dict[str, Any] = {
         "precision": precision,
-        "implemented": precision in {"fp32", "fp16"},
+        "implemented": precision in {"fp32", "fp16", "int8"},
         "build_success": False,
         "benchmark_success": False,
         "engine_path": str(engine_path),
@@ -74,13 +76,6 @@ def build_engine(args: argparse.Namespace) -> dict[str, Any]:
     env_report = collect_env_report(trt_root=getattr(args, "trt_root", None), explicit_trtexec=getattr(args, "trtexec_path", None))
     save_json(env_report, dirs["debug"] / "env_report.json")
     result["env_report"] = env_report
-
-    if precision == "int8":
-        log_path.write_text(INT8_NOT_IMPLEMENTED_MESSAGE + "\n", encoding="utf-8")
-        result.update({"implemented": False, "error": INT8_NOT_IMPLEMENTED_MESSAGE})
-        save_json(result, meta_path)
-        save_json(result, summary_path)
-        return result
 
     profile_shapes = load_profile_shapes(dirs, args.profile_shapes_json)
     save_json(profile_shapes or {}, dirs["configs"] / "profile_shapes.json")
@@ -103,6 +98,10 @@ def build_engine(args: argparse.Namespace) -> dict[str, Any]:
             profile_shapes=profile_shapes,
             trtexec_path=trtexec_report["trtexec_path"],
             no_tf32=no_tf32,
+            calib_cache=args.calib_cache,
+            int8_mode=args.int8_mode,
+            skip_inference=not bool(getattr(args, "no_skip_inference", False)),
+            static_plugins=list(getattr(args, "static_plugin", []) or []),
         )
     except Exception as exc:
         result["error"] = str(exc)
@@ -144,6 +143,8 @@ def build_engine(args: argparse.Namespace) -> dict[str, Any]:
             profile_shapes=profile_shapes,
             trtexec_path=trtexec_report["trtexec_path"],
             strict_fp16=True,
+            skip_inference=not bool(getattr(args, "no_skip_inference", False)),
+            static_plugins=list(getattr(args, "static_plugin", []) or []),
         )
         strict_command_result = run_command(strict_cmd, strict_log_path, timeout=args.timeout)
         strict_result = {
@@ -167,7 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     result = build_engine(args)
     if not result["build_success"]:
         print(result.get("error") or "TensorRT build failed", file=sys.stderr)
-        return 2 if result["precision"] != "int8" else 0
+        return 2
     print(result["engine_path"])
     return 0
 

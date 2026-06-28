@@ -1,0 +1,27 @@
+{
+  "input_shapes": {
+    "voxel_features": [
+      20646,
+      32,
+      4
+    ],
+    "voxel_coords": [
+      20646,
+      4
+    ],
+    "voxel_num_points": [
+      20646
+    ],
+    "valid_agent_mask": [
+      1,
+      2
+    ],
+    "pairwise_t_matrix": [
+      1,
+      2,
+      2,
+      4,
+      4
+    ]
+  }
+}

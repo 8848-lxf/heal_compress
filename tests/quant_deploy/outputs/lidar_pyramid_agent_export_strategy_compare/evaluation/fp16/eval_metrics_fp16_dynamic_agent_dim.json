@@ -1,0 +1,25 @@
+{
+  "precision": "fp16",
+  "success": true,
+  "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/engines/fp16/lidar_pyramid_dynamic_agent_dim_fp16.engine",
+  "num_frames": 50,
+  "actual_frames": 50,
+  "skipped_frames": 0,
+  "ap_0_3": 0.8722,
+  "ap_0_5": 0.8523,
+  "ap_0_7": 0.7311,
+  "map": 0.8185,
+  "forward_mean_ms": 367.9511820152402,
+  "forward_p50_ms": 346.33095748722553,
+  "forward_p90_ms": 436.68292835354805,
+  "postprocess_mean_ms": 55.221825540065765,
+  "postprocess_p50_ms": 55.62444217503071,
+  "total_mean_ms": 423.17300755530596,
+  "total_p50_ms": 412.545558065176,
+  "output_names": [
+    "cls_preds",
+    "reg_preds",
+    "dir_preds"
+  ],
+  "pyramid_forward_export_mode": "dynamic_agent_dim"
+}

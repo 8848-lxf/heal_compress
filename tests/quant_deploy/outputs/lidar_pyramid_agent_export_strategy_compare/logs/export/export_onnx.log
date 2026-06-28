@@ -1,0 +1,24 @@
+hypes_yaml=/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml
+checkpoint=/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth
+device=cuda:0
+bev_warp_export_mode=exportable_grid
+pillar_vfe_export_fix=explicit_squeeze
+pyramid_forward_export_mode=dynamic_agent_dim_fixed_k_scatter_plugin
+Align corners:  False
+=========Those modules have trainable component=========
+encoder_m1
+backbone_m1
+pyramid_backbone
+shrink_conv
+cls_head
+reg_head
+dir_head
+
+=========Those modules have untrainable component=========
+
+
+/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/shapely/set_operations.py:133: RuntimeWarning: invalid value encountered in intersection
+  return lib.intersection(a, b, **kwargs)
+bev_warp_patch={'patched': True, 'mode': 'exportable_grid'}
+pillar_vfe_patch={'patched': True, 'mode': 'explicit_squeeze'}
+plugin_checker_patch={'patched': True}

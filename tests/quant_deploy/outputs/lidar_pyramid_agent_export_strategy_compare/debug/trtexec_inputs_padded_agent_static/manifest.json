@@ -1,0 +1,43 @@
+{
+  "mode": "padded_agent_static",
+  "inputs": {
+    "voxel_features": {
+      "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_inputs_padded_agent_static/voxel_features.raw",
+      "shape": [
+        8578,
+        32,
+        4
+      ]
+    },
+    "voxel_coords": {
+      "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_inputs_padded_agent_static/voxel_coords.raw",
+      "shape": [
+        8578,
+        4
+      ]
+    },
+    "voxel_num_points": {
+      "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_inputs_padded_agent_static/voxel_num_points.raw",
+      "shape": [
+        8578
+      ]
+    },
+    "valid_agent_mask": {
+      "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_inputs_padded_agent_static/valid_agent_mask.raw",
+      "shape": [
+        1,
+        2
+      ]
+    },
+    "pairwise_t_matrix": {
+      "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_inputs_padded_agent_static/pairwise_t_matrix.raw",
+      "shape": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ]
+    }
+  }
+}

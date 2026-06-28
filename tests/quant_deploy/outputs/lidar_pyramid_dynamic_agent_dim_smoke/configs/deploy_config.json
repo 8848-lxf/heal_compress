@@ -1,0 +1,43 @@
+{
+  "hypes_yaml": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml",
+  "checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+  "opset": 17,
+  "max_cav": 2,
+  "dynamic_axes": {
+    "voxel_features": {
+      "0": "num_voxels"
+    },
+    "voxel_coords": {
+      "0": "num_voxels"
+    },
+    "voxel_num_points": {
+      "0": "num_voxels"
+    },
+    "pairwise_t_matrix": {
+      "0": "batch",
+      "1": "num_agents",
+      "2": "num_agents"
+    },
+    "cls_preds": {
+      "0": "batch"
+    },
+    "reg_preds": {
+      "0": "batch"
+    },
+    "dir_preds": {
+      "0": "batch"
+    }
+  },
+  "export_boundary": "full_model",
+  "sample_source": "real_validation_or_test_sample_record_len_2",
+  "bev_warp_export_mode": "exportable_grid",
+  "pillar_vfe_export_fix": "explicit_squeeze",
+  "pyramid_forward_export_mode": "dynamic_agent_dim",
+  "export_forward_mode": "dynamic_agent_dim",
+  "is_export_specialized_wrapper": true,
+  "is_original_forward": false,
+  "num_pyramid_scales": 3,
+  "fixed_pyramid_wrapper_source": null,
+  "export_wrapper_source": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/exportable_lidar_pyramid_dynamic_agent.py",
+  "valid_for_multi_agent_deployment": true
+}

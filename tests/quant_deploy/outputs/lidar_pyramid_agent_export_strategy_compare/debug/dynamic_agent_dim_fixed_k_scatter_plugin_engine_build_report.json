@@ -1,0 +1,3459 @@
+{
+  "dynamic_agent_dim_single_engine_supported": false,
+  "dynamic_agent_dim_per_N_engine_required": true,
+  "selected_test_plan": "per-N fixed engines routed by record_len",
+  "onnx_exports": {
+    "N1": {
+      "success": true,
+      "canonical_onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+      "fixed_N": 1,
+      "fixed_K": 24064,
+      "skipped_existing": true
+    },
+    "N2": {
+      "success": true,
+      "canonical_onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+      "fixed_N": 2,
+      "fixed_K": 24064,
+      "skipped_existing": true
+    }
+  },
+  "engines": {
+    "fp32": {
+      "N1": [
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp32.engine",
+          "precision": "fp32",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 0,
+            "min_voxels": 1,
+            "opt_voxels": 9728,
+            "max_voxels": 9728,
+            "num_frames": 16,
+            "voxel_count_min": 8101,
+            "voxel_count_max": 9594
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 1,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                9728,
+                32,
+                4
+              ],
+              "opt": [
+                9728,
+                32,
+                4
+              ],
+              "max": [
+                9728,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                9728,
+                4
+              ],
+              "opt": [
+                9728,
+                4
+              ],
+              "max": [
+                9728,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                9728,
+                32,
+                4
+              ],
+              "opt": [
+                9728,
+                32,
+                4
+              ],
+              "max": [
+                9728,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                9728,
+                4
+              ],
+              "opt": [
+                9728,
+                4
+              ],
+              "max": [
+                9728,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp32.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp32.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp32.json",
+            "--verbose",
+            "--minShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:9728",
+            "--optShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:9728",
+            "--maxShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:9728",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--noTF32",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:36:41] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 30.22897720336914,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp32.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.engine",
+          "precision": "fp32",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 1,
+            "min_voxels": 9729,
+            "opt_voxels": 23040,
+            "max_voxels": 23040,
+            "num_frames": 87,
+            "voxel_count_min": 19966,
+            "voxel_count_max": 23008
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 1,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                23040,
+                32,
+                4
+              ],
+              "opt": [
+                23040,
+                32,
+                4
+              ],
+              "max": [
+                23040,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23040,
+                4
+              ],
+              "opt": [
+                23040,
+                4
+              ],
+              "max": [
+                23040,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                23040,
+                32,
+                4
+              ],
+              "opt": [
+                23040,
+                32,
+                4
+              ],
+              "max": [
+                23040,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23040,
+                4
+              ],
+              "opt": [
+                23040,
+                4
+              ],
+              "max": [
+                23040,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.json",
+            "--verbose",
+            "--minShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23040",
+            "--optShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23040",
+            "--maxShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23040",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--noTF32",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:37:16] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 29.735027313232422,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp32.engine",
+          "precision": "fp32",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 2,
+            "min_voxels": 23041,
+            "opt_voxels": 23552,
+            "max_voxels": 23552,
+            "num_frames": 42,
+            "voxel_count_min": 23041,
+            "voxel_count_max": 23535
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 1,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                23552,
+                32,
+                4
+              ],
+              "opt": [
+                23552,
+                32,
+                4
+              ],
+              "max": [
+                23552,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23552,
+                4
+              ],
+              "opt": [
+                23552,
+                4
+              ],
+              "max": [
+                23552,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                23552,
+                32,
+                4
+              ],
+              "opt": [
+                23552,
+                32,
+                4
+              ],
+              "max": [
+                23552,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23552,
+                4
+              ],
+              "opt": [
+                23552,
+                4
+              ],
+              "max": [
+                23552,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp32.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp32.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp32.json",
+            "--verbose",
+            "--minShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23552",
+            "--optShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23552",
+            "--maxShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23552",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--noTF32",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:37:48] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 30.220577239990234,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp32.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp32.engine",
+          "precision": "fp32",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 3,
+            "min_voxels": 23553,
+            "opt_voxels": 24064,
+            "max_voxels": 24064,
+            "num_frames": 30,
+            "voxel_count_min": 23567,
+            "voxel_count_max": 24040
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 1,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                24064,
+                32,
+                4
+              ],
+              "opt": [
+                24064,
+                32,
+                4
+              ],
+              "max": [
+                24064,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                24064,
+                4
+              ],
+              "opt": [
+                24064,
+                4
+              ],
+              "max": [
+                24064,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                24064,
+                32,
+                4
+              ],
+              "opt": [
+                24064,
+                32,
+                4
+              ],
+              "max": [
+                24064,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                24064,
+                4
+              ],
+              "opt": [
+                24064,
+                4
+              ],
+              "max": [
+                24064,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp32.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp32.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp32.json",
+            "--verbose",
+            "--minShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:24064",
+            "--optShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:24064",
+            "--maxShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:24064",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--noTF32",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:38:27] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 29.759571075439453,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp32.json"
+        }
+      ],
+      "N2": [
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp32.engine",
+          "precision": "fp32",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 0,
+            "min_voxels": 1,
+            "opt_voxels": 9728,
+            "max_voxels": 9728,
+            "num_frames": 16,
+            "voxel_count_min": 8101,
+            "voxel_count_max": 9594
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 2,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                9728,
+                32,
+                4
+              ],
+              "opt": [
+                9728,
+                32,
+                4
+              ],
+              "max": [
+                9728,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                9728,
+                4
+              ],
+              "opt": [
+                9728,
+                4
+              ],
+              "max": [
+                9728,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                9728,
+                32,
+                4
+              ],
+              "opt": [
+                9728,
+                32,
+                4
+              ],
+              "max": [
+                9728,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                9728,
+                4
+              ],
+              "opt": [
+                9728,
+                4
+              ],
+              "max": [
+                9728,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp32.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp32.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp32.json",
+            "--verbose",
+            "--minShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:9728",
+            "--optShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:9728",
+            "--maxShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:9728",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--noTF32",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:47:29] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 29.77963638305664,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp32.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp32.engine",
+          "precision": "fp32",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 1,
+            "min_voxels": 9729,
+            "opt_voxels": 23040,
+            "max_voxels": 23040,
+            "num_frames": 87,
+            "voxel_count_min": 19966,
+            "voxel_count_max": 23008
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 2,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                23040,
+                32,
+                4
+              ],
+              "opt": [
+                23040,
+                32,
+                4
+              ],
+              "max": [
+                23040,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23040,
+                4
+              ],
+              "opt": [
+                23040,
+                4
+              ],
+              "max": [
+                23040,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                23040,
+                32,
+                4
+              ],
+              "opt": [
+                23040,
+                32,
+                4
+              ],
+              "max": [
+                23040,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23040,
+                4
+              ],
+              "opt": [
+                23040,
+                4
+              ],
+              "max": [
+                23040,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp32.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp32.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp32.json",
+            "--verbose",
+            "--minShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23040",
+            "--optShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23040",
+            "--maxShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23040",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--noTF32",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:48:19] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 29.22067642211914,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp32.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp32.engine",
+          "precision": "fp32",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 2,
+            "min_voxels": 23041,
+            "opt_voxels": 23552,
+            "max_voxels": 23552,
+            "num_frames": 42,
+            "voxel_count_min": 23041,
+            "voxel_count_max": 23535
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 2,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                23552,
+                32,
+                4
+              ],
+              "opt": [
+                23552,
+                32,
+                4
+              ],
+              "max": [
+                23552,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23552,
+                4
+              ],
+              "opt": [
+                23552,
+                4
+              ],
+              "max": [
+                23552,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                23552,
+                32,
+                4
+              ],
+              "opt": [
+                23552,
+                32,
+                4
+              ],
+              "max": [
+                23552,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23552,
+                4
+              ],
+              "opt": [
+                23552,
+                4
+              ],
+              "max": [
+                23552,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp32.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp32.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp32.json",
+            "--verbose",
+            "--minShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23552",
+            "--optShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23552",
+            "--maxShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23552",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--noTF32",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:49:08] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 30.005916595458984,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp32.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp32.engine",
+          "precision": "fp32",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 3,
+            "min_voxels": 23553,
+            "opt_voxels": 24064,
+            "max_voxels": 24064,
+            "num_frames": 30,
+            "voxel_count_min": 23567,
+            "voxel_count_max": 24040
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 2,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                24064,
+                32,
+                4
+              ],
+              "opt": [
+                24064,
+                32,
+                4
+              ],
+              "max": [
+                24064,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                24064,
+                4
+              ],
+              "opt": [
+                24064,
+                4
+              ],
+              "max": [
+                24064,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                24064,
+                32,
+                4
+              ],
+              "opt": [
+                24064,
+                32,
+                4
+              ],
+              "max": [
+                24064,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                24064,
+                4
+              ],
+              "opt": [
+                24064,
+                4
+              ],
+              "max": [
+                24064,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp32.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp32.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp32.json",
+            "--verbose",
+            "--minShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:24064",
+            "--optShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:24064",
+            "--maxShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:24064",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--noTF32",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:49:58] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 29.588123321533203,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp32.json"
+        }
+      ]
+    },
+    "fp16": {
+      "N1": [
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp16.engine",
+          "precision": "fp16",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 0,
+            "min_voxels": 1,
+            "opt_voxels": 9728,
+            "max_voxels": 9728,
+            "num_frames": 16,
+            "voxel_count_min": 8101,
+            "voxel_count_max": 9594
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 1,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                9728,
+                32,
+                4
+              ],
+              "opt": [
+                9728,
+                32,
+                4
+              ],
+              "max": [
+                9728,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                9728,
+                4
+              ],
+              "opt": [
+                9728,
+                4
+              ],
+              "max": [
+                9728,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                9728,
+                32,
+                4
+              ],
+              "opt": [
+                9728,
+                32,
+                4
+              ],
+              "max": [
+                9728,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                9728,
+                4
+              ],
+              "opt": [
+                9728,
+                4
+              ],
+              "max": [
+                9728,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp16.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp16.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp16.json",
+            "--verbose",
+            "--minShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:9728",
+            "--optShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:9728",
+            "--maxShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:9728",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--fp16",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:39:19] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 17.533329010009766,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp16.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp16.engine",
+          "precision": "fp16",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 1,
+            "min_voxels": 9729,
+            "opt_voxels": 23040,
+            "max_voxels": 23040,
+            "num_frames": 87,
+            "voxel_count_min": 19966,
+            "voxel_count_max": 23008
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 1,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                23040,
+                32,
+                4
+              ],
+              "opt": [
+                23040,
+                32,
+                4
+              ],
+              "max": [
+                23040,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23040,
+                4
+              ],
+              "opt": [
+                23040,
+                4
+              ],
+              "max": [
+                23040,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                23040,
+                32,
+                4
+              ],
+              "opt": [
+                23040,
+                32,
+                4
+              ],
+              "max": [
+                23040,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23040,
+                4
+              ],
+              "opt": [
+                23040,
+                4
+              ],
+              "max": [
+                23040,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp16.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp16.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp16.json",
+            "--verbose",
+            "--minShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23040",
+            "--optShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23040",
+            "--maxShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23040",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--fp16",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:41:23] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 22.34743881225586,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp16.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp16.engine",
+          "precision": "fp16",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 2,
+            "min_voxels": 23041,
+            "opt_voxels": 23552,
+            "max_voxels": 23552,
+            "num_frames": 42,
+            "voxel_count_min": 23041,
+            "voxel_count_max": 23535
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 1,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                23552,
+                32,
+                4
+              ],
+              "opt": [
+                23552,
+                32,
+                4
+              ],
+              "max": [
+                23552,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23552,
+                4
+              ],
+              "opt": [
+                23552,
+                4
+              ],
+              "max": [
+                23552,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                23552,
+                32,
+                4
+              ],
+              "opt": [
+                23552,
+                32,
+                4
+              ],
+              "max": [
+                23552,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23552,
+                4
+              ],
+              "opt": [
+                23552,
+                4
+              ],
+              "max": [
+                23552,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp16.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp16.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp16.json",
+            "--verbose",
+            "--minShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23552",
+            "--optShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23552",
+            "--maxShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23552",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--fp16",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:43:21] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 22.670207977294922,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp16.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp16.engine",
+          "precision": "fp16",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 3,
+            "min_voxels": 23553,
+            "opt_voxels": 24064,
+            "max_voxels": 24064,
+            "num_frames": 30,
+            "voxel_count_min": 23567,
+            "voxel_count_max": 24040
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 1,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                24064,
+                32,
+                4
+              ],
+              "opt": [
+                24064,
+                32,
+                4
+              ],
+              "max": [
+                24064,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                24064,
+                4
+              ],
+              "opt": [
+                24064,
+                4
+              ],
+              "max": [
+                24064,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                24064,
+                32,
+                4
+              ],
+              "opt": [
+                24064,
+                32,
+                4
+              ],
+              "max": [
+                24064,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                24064,
+                4
+              ],
+              "opt": [
+                24064,
+                4
+              ],
+              "max": [
+                24064,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                1,
+                1,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp16.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp16.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp16.json",
+            "--verbose",
+            "--minShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:24064",
+            "--optShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:24064",
+            "--maxShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:24064",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--fp16",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:45:24] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 22.624492645263672,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp16.json"
+        }
+      ],
+      "N2": [
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp16.engine",
+          "precision": "fp16",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 0,
+            "min_voxels": 1,
+            "opt_voxels": 9728,
+            "max_voxels": 9728,
+            "num_frames": 16,
+            "voxel_count_min": 8101,
+            "voxel_count_max": 9594
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 2,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                9728,
+                32,
+                4
+              ],
+              "opt": [
+                9728,
+                32,
+                4
+              ],
+              "max": [
+                9728,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                9728,
+                4
+              ],
+              "opt": [
+                9728,
+                4
+              ],
+              "max": [
+                9728,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                9728,
+                32,
+                4
+              ],
+              "opt": [
+                9728,
+                32,
+                4
+              ],
+              "max": [
+                9728,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                9728,
+                4
+              ],
+              "opt": [
+                9728,
+                4
+              ],
+              "max": [
+                9728,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                9728
+              ],
+              "opt": [
+                9728
+              ],
+              "max": [
+                9728
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp16.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp16.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp16.json",
+            "--verbose",
+            "--minShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:9728",
+            "--optShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:9728",
+            "--maxShapes=voxel_features:9728x32x4,voxel_coords:9728x4,voxel_num_points:9728,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:9728",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--fp16",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:50:50] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 18.056949615478516,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp16.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp16.engine",
+          "precision": "fp16",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 1,
+            "min_voxels": 9729,
+            "opt_voxels": 23040,
+            "max_voxels": 23040,
+            "num_frames": 87,
+            "voxel_count_min": 19966,
+            "voxel_count_max": 23008
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 2,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                23040,
+                32,
+                4
+              ],
+              "opt": [
+                23040,
+                32,
+                4
+              ],
+              "max": [
+                23040,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23040,
+                4
+              ],
+              "opt": [
+                23040,
+                4
+              ],
+              "max": [
+                23040,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                23040,
+                32,
+                4
+              ],
+              "opt": [
+                23040,
+                32,
+                4
+              ],
+              "max": [
+                23040,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23040,
+                4
+              ],
+              "opt": [
+                23040,
+                4
+              ],
+              "max": [
+                23040,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23040
+              ],
+              "opt": [
+                23040
+              ],
+              "max": [
+                23040
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp16.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp16.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp16.json",
+            "--verbose",
+            "--minShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23040",
+            "--optShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23040",
+            "--maxShapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23040",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--fp16",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:52:41] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 22.506145477294922,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp16.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp16.engine",
+          "precision": "fp16",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 2,
+            "min_voxels": 23041,
+            "opt_voxels": 23552,
+            "max_voxels": 23552,
+            "num_frames": 42,
+            "voxel_count_min": 23041,
+            "voxel_count_max": 23535
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 2,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                23552,
+                32,
+                4
+              ],
+              "opt": [
+                23552,
+                32,
+                4
+              ],
+              "max": [
+                23552,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23552,
+                4
+              ],
+              "opt": [
+                23552,
+                4
+              ],
+              "max": [
+                23552,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                23552,
+                32,
+                4
+              ],
+              "opt": [
+                23552,
+                32,
+                4
+              ],
+              "max": [
+                23552,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                23552,
+                4
+              ],
+              "opt": [
+                23552,
+                4
+              ],
+              "max": [
+                23552,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                23552
+              ],
+              "opt": [
+                23552
+              ],
+              "max": [
+                23552
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp16.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp16.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp16.json",
+            "--verbose",
+            "--minShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23552",
+            "--optShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23552",
+            "--maxShapes=voxel_features:23552x32x4,voxel_coords:23552x4,voxel_num_points:23552,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:23552",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--fp16",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:54:33] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 23.458362579345703,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp16.json"
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp16.engine",
+          "precision": "fp16",
+          "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "fixed_K_bucket": {
+            "bucket_id": 3,
+            "min_voxels": 23553,
+            "opt_voxels": 24064,
+            "max_voxels": 24064,
+            "num_frames": 30,
+            "voxel_count_min": 23567,
+            "voxel_count_max": 24040
+          },
+          "agent_export_mode": "dynamic_agent_dim_fixed_k_scatter_plugin_per_N",
+          "max_cav": null,
+          "dynamic_N": true,
+          "fixed_N": 2,
+          "input_shapes": {
+            "voxel_features": {
+              "min": [
+                24064,
+                32,
+                4
+              ],
+              "opt": [
+                24064,
+                32,
+                4
+              ],
+              "max": [
+                24064,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                24064,
+                4
+              ],
+              "opt": [
+                24064,
+                4
+              ],
+              "max": [
+                24064,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            }
+          },
+          "optimization_profiles": {
+            "voxel_features": {
+              "min": [
+                24064,
+                32,
+                4
+              ],
+              "opt": [
+                24064,
+                32,
+                4
+              ],
+              "max": [
+                24064,
+                32,
+                4
+              ]
+            },
+            "voxel_coords": {
+              "min": [
+                24064,
+                4
+              ],
+              "opt": [
+                24064,
+                4
+              ],
+              "max": [
+                24064,
+                4
+              ]
+            },
+            "voxel_num_points": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            },
+            "pairwise_t_matrix": {
+              "min": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "opt": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "max": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ]
+            },
+            "valid_voxel_mask": {
+              "min": [
+                24064
+              ],
+              "opt": [
+                24064
+              ],
+              "max": [
+                24064
+              ]
+            }
+          },
+          "whether_PointPillarScatterTRT_layer_exists": true,
+          "whether_valid_voxel_mask_is_engine_input": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp16.log",
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp16.engine",
+            "--profilingVerbosity=detailed",
+            "--dumpLayerInfo",
+            "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp16.json",
+            "--verbose",
+            "--minShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:24064",
+            "--optShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:24064",
+            "--maxShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:24064",
+            "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--fp16",
+            "--skipInference"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [
+            {
+              "line": "[06/28/2026-03:55:43] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+              "op": "PointPillarScatterTRT."
+            }
+          ],
+          "failed_nodes": [],
+          "engine_size_MB": 23.494647979736328,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp16.json"
+        }
+      ]
+    }
+  }
+}

@@ -25,8 +25,8 @@ DEFAULT_HYPES_YAML = Path(
 DEFAULT_HEAL_REPO = Path("/home/lixingfeng/UniAD_examine/HEAL")
 DEFAULT_TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
 INT8_NOT_IMPLEMENTED_MESSAGE = (
-    "INT8 deployment is not implemented yet. The current implementation supports "
-    "fp32/fp16 engine build and reserves the INT8 Q/DQ interface for future extension."
+    "INT8 native TensorRT build is enabled with --int8. ModelOpt, explicit Q/DQ, "
+    "and custom plugins are intentionally not used in this deployment path."
 )
 
 
@@ -304,11 +304,11 @@ def build_trtexec_command(
     qdq_onnx_path: str | os.PathLike[str] | None = None,
     int8_mode: str = "qdq",
     allow_fp16_fallback: bool = False,
+    skip_inference: bool = False,
+    static_plugins: list[str | os.PathLike[str]] | None = None,
 ) -> list[str]:
     precision = precision.lower()
-    if precision == "int8":
-        raise NotImplementedError(INT8_NOT_IMPLEMENTED_MESSAGE)
-    if precision not in ("fp32", "fp16"):
+    if precision not in ("fp32", "fp16", "int8"):
         raise ValueError(f"unsupported precision '{precision}'")
 
     cmd = [
@@ -321,6 +321,8 @@ def build_trtexec_command(
         "--verbose",
     ]
     cmd.extend(_shape_profile_args(profile_shapes))
+    for plugin_path in static_plugins or []:
+        cmd.append(f"--staticPlugins={plugin_path}")
     if precision == "fp32":
         if no_tf32:
             cmd.append("--noTF32")
@@ -328,6 +330,12 @@ def build_trtexec_command(
         cmd.append("--fp16")
         if strict_fp16:
             cmd.extend(["--precisionConstraints=obey", "--layerPrecisions=*:fp16", "--layerOutputTypes=*:fp16"])
+    elif precision == "int8":
+        cmd.append("--int8")
+        if calib_cache:
+            cmd.append(f"--calib={calib_cache}")
+    if skip_inference:
+        cmd.append("--skipInference")
     return cmd
 
 
@@ -617,6 +625,19 @@ def markdown_summary(summary: dict[str, Any]) -> str:
         f"- opset: {export.get('opset')}",
         f"- error: {export.get('error')}",
         "",
+        "## Deployment Equivalence",
+        "",
+        f"- export_forward_mode: {summary.get('export_forward_mode')}",
+        f"- is_export_specialized_wrapper: {summary.get('is_export_specialized_wrapper')}",
+        f"- is_original_forward: {summary.get('is_original_forward')}",
+        f"- num_pyramid_scales: {summary.get('num_pyramid_scales')}",
+        f"- sequence_ops_removed: {summary.get('sequence_ops_removed')}",
+        f"- wrapper_equivalence_num_frames: {summary.get('wrapper_equivalence_num_frames')}",
+        f"- wrapper_equivalence_max_abs_error: {_fmt(summary.get('wrapper_equivalence_max_abs_error'))}",
+        f"- wrapper_equivalence_mean_abs_error: {_fmt(summary.get('wrapper_equivalence_mean_abs_error'))}",
+        f"- trt_fp32_vs_pytorch_error: {summary.get('trt_fp32_vs_pytorch_error')}",
+        f"- trt_fp16_vs_pytorch_error: {summary.get('trt_fp16_vs_pytorch_error')}",
+        "",
         "## Precision Results",
         "",
         "precision | implemented | build | benchmark | engine size MB | p50 ms | p90 ms | p95 ms | FPS | speedup vs FP32 | error",
@@ -640,6 +661,75 @@ def markdown_summary(summary: dict[str, Any]) -> str:
                 ]
             )
         )
+    fixed_eval = summary.get("fixed_trt_eval_summary") or {}
+    if fixed_eval:
+        lines.extend(
+            [
+                "",
+                "## Fixed TRT Evaluation",
+                "",
+                f"- previous_trt_ap_zero_invalidated: {summary.get('previous_trt_ap_zero_invalidated')}",
+                f"- invalid_reason: {summary.get('invalid_reason')}",
+                f"- trt_dtype_binding_mismatch_found: {summary.get('trt_dtype_binding_mismatch_found')}",
+                f"- trt_dtype_binding_mismatched_inputs: {summary.get('trt_dtype_binding_mismatched_inputs')}",
+                f"- plugin_needed: {summary.get('plugin_needed')}",
+                "",
+                "engine | AP@0.30 | AP@0.50 | AP@0.70 | mAP | forward p50 ms | speedup vs PyTorch | mean AP drop",
+                "--- | --- | --- | --- | --- | --- | --- | ---",
+            ]
+        )
+        for key in ("pytorch", "fp32", "fp16"):
+            item = fixed_eval.get(key) or {}
+            if not item:
+                continue
+            lines.append(
+                " | ".join(
+                    [
+                        str(item.get("engine") or key),
+                        _fmt(item.get("AP@0.30")),
+                        _fmt(item.get("AP@0.50")),
+                        _fmt(item.get("AP@0.70")),
+                        _fmt(item.get("map")),
+                        _fmt(item.get("forward_p50_ms")),
+                        _fmt(item.get("speedup_vs_pytorch")),
+                        _fmt(item.get("mean_ap_drop_vs_pytorch")),
+                    ]
+                )
+            )
+    five_way_ap = summary.get("five_way_ap_table") or []
+    if five_way_ap:
+        lines.extend(
+            [
+                "",
+                "## Five-Way AP Comparison",
+                "",
+                "backend | AP@0.30 | AP@0.50 | AP@0.70 | mAP | mAP drop vs PyTorch | actual frames",
+                "--- | --- | --- | --- | --- | --- | ---",
+            ]
+        )
+        for item in five_way_ap:
+            lines.append(
+                " | ".join(
+                    [
+                        str(item.get("backend")),
+                        _fmt(item.get("AP@0.30")),
+                        _fmt(item.get("AP@0.50")),
+                        _fmt(item.get("AP@0.70")),
+                        _fmt(item.get("mAP")),
+                        _fmt(item.get("mAP_drop_vs_PyTorch")),
+                        _fmt(item.get("actual_frames")),
+                    ]
+                )
+            )
+        branch = summary.get("precision_drop_branch") or {}
+        lines.extend(
+            [
+                "",
+                f"- onnxruntime_fp32_close_to_pytorch: {branch.get('onnxruntime_fp32_close_to_pytorch')}",
+                f"- tensorrt_fp32_close_to_pytorch: {branch.get('tensorrt_fp32_close_to_pytorch')}",
+                f"- suspected_area: {branch.get('suspected_area')}",
+            ]
+        )
     special = summary.get("detected_special_ops") or {}
     lines.extend([
         "",
@@ -655,9 +745,24 @@ def markdown_summary(summary: dict[str, Any]) -> str:
         "",
         "## Evaluation",
         "",
-        "- evaluation_status: not_run",
-        "- reason: current stage only benchmarks TensorRT engine forward latency",
-        "",
+    ])
+    if fixed_eval:
+        lines.extend(
+            [
+                "- evaluation_status: rerun_after_dtype_fix",
+                "- latency_scope: engine_forward_only for TensorRT p50/p90/p95/FPS",
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "- evaluation_status: not_run",
+                "- reason: current stage only benchmarks TensorRT engine forward latency",
+                "",
+            ]
+        )
+    lines.extend([
         "## Output Directories",
         "",
     ])

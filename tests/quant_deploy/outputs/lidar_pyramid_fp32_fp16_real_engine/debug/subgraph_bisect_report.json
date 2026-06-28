@@ -1,0 +1,539 @@
+{
+  "onnx_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/onnx/fp32/lidar_pyramid_fp32_dynamic.onnx",
+  "augmented_onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/subgraph_bisect_augmented.onnx",
+  "build_report": {
+    "success": true,
+    "returncode": 0,
+    "command": [
+      "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/subgraph_bisect_augmented.onnx",
+      "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/subgraph_bisect_fp32.engine",
+      "--profilingVerbosity=detailed",
+      "--dumpLayerInfo",
+      "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/subgraph_bisect_layerinfo.json",
+      "--verbose",
+      "--noTF32",
+      "--minShapes=voxel_features:1x32x4,voxel_coords:1x4,voxel_num_points:1,record_len:1,pairwise_t_matrix:1x2x2x4x4",
+      "--optShapes=voxel_features:8578x32x4,voxel_coords:8578x4,voxel_num_points:8578,record_len:1,pairwise_t_matrix:1x2x2x4x4",
+      "--maxShapes=voxel_features:140000x32x4,voxel_coords:140000x4,voxel_num_points:140000,record_len:1,pairwise_t_matrix:1x2x2x4x4"
+    ],
+    "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/build_subgraph_bisect_fp32.log",
+    "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/subgraph_bisect_fp32.engine",
+    "error": null
+  },
+  "io_mapping_bug_found": false,
+  "io_report_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/trt_io_binding_report.json",
+  "output_name_mapping_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/configs/output_name_mapping.json",
+  "input_hashes": {
+    "voxel_features": "a4e864319ee616a6bccd8b1bdb953ce68d6cbe568bf78c6849a25d85add0e489",
+    "voxel_coords": "38124f2296234768807c530e58256877e1e765569a97b984659b8d772e133ae9",
+    "voxel_num_points": "b23ee6cb1e95380342b211ba551dd5e9e7ee68a9f0ca7aee49396b6019528656",
+    "record_len": "96d4915936ea48bac483e8cbceb480ec84f1636040a6a801fd03664ff2f1b4c2",
+    "pairwise_t_matrix": "6dd2981c965d6a986e52e50a4a32e42ae57c0e1c423d2ae8bfddc306530633d9"
+  },
+  "selected_outputs": [
+    {
+      "alias": "pillar_features",
+      "tensor_name": "/encoder_m1/pillar_vfe/Squeeze_output_0",
+      "stage": "PillarVFE"
+    },
+    {
+      "alias": "spatial_features",
+      "tensor_name": "/encoder_m1/scatter/Reshape_1_output_0",
+      "stage": "PointPillarScatter"
+    },
+    {
+      "alias": "feat0",
+      "tensor_name": "/layer0/layer0.2/relu_4/Relu_output_0",
+      "stage": "BEV backbone / pyramid backbone"
+    },
+    {
+      "alias": "feat1",
+      "tensor_name": "/layer1/layer1.4/relu_2/Relu_output_0",
+      "stage": "BEV backbone / pyramid backbone"
+    },
+    {
+      "alias": "feat2",
+      "tensor_name": "/layer2/layer2.7/relu_2/Relu_output_0",
+      "stage": "BEV backbone / pyramid backbone"
+    },
+    {
+      "alias": "warp0_feature",
+      "tensor_name": "/GridSample_output_0",
+      "stage": "GridSample/BEV warp"
+    },
+    {
+      "alias": "warp0_score",
+      "tensor_name": "/GridSample_1_output_0",
+      "stage": "GridSample/BEV warp"
+    },
+    {
+      "alias": "warp1_feature",
+      "tensor_name": "/GridSample_2_output_0",
+      "stage": "GridSample/BEV warp"
+    },
+    {
+      "alias": "warp1_score",
+      "tensor_name": "/GridSample_3_output_0",
+      "stage": "GridSample/BEV warp"
+    },
+    {
+      "alias": "warp2_feature",
+      "tensor_name": "/GridSample_4_output_0",
+      "stage": "GridSample/BEV warp"
+    },
+    {
+      "alias": "warp2_score",
+      "tensor_name": "/GridSample_5_output_0",
+      "stage": "GridSample/BEV warp"
+    },
+    {
+      "alias": "fused0",
+      "tensor_name": "/ReduceSum_output_0",
+      "stage": "Pyramid fusion"
+    },
+    {
+      "alias": "fused1",
+      "tensor_name": "/ReduceSum_1_output_0",
+      "stage": "Pyramid fusion"
+    },
+    {
+      "alias": "fused2",
+      "tensor_name": "/ReduceSum_2_output_0",
+      "stage": "Pyramid fusion"
+    },
+    {
+      "alias": "pyramid_decoded",
+      "tensor_name": "/Concat_9_output_0",
+      "stage": "Pyramid fusion"
+    },
+    {
+      "alias": "shrink_conv",
+      "tensor_name": "/shrink_conv/layers.0/double_conv/double_conv.3/Relu_output_0",
+      "stage": "shrink_conv"
+    },
+    {
+      "alias": "cls_head",
+      "tensor_name": "cls_preds",
+      "stage": "heads"
+    },
+    {
+      "alias": "reg_head",
+      "tensor_name": "reg_preds",
+      "stage": "heads"
+    },
+    {
+      "alias": "dir_head",
+      "tensor_name": "dir_preds",
+      "stage": "heads"
+    }
+  ],
+  "comparisons": [
+    {
+      "alias": "pillar_features",
+      "tensor_name": "/encoder_m1/pillar_vfe/Squeeze_output_0",
+      "stage": "PillarVFE",
+      "same_shape": true,
+      "reference_shape": [
+        8578,
+        64
+      ],
+      "candidate_shape": [
+        8578,
+        64
+      ],
+      "max_abs_error": 0.00010538101196289062,
+      "mean_abs_error": 3.736114422281389e-07,
+      "relative_error": 2.902470614777888e-07
+    },
+    {
+      "alias": "spatial_features",
+      "tensor_name": "/encoder_m1/scatter/Reshape_1_output_0",
+      "stage": "PointPillarScatter",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        64,
+        256,
+        512
+      ],
+      "candidate_shape": [
+        1,
+        64,
+        256,
+        512
+      ],
+      "max_abs_error": 0.00010538101196289062,
+      "mean_abs_error": 2.4450969249301124e-08,
+      "relative_error": 2.902468787307584e-07
+    },
+    {
+      "alias": "feat0",
+      "tensor_name": "/layer0/layer0.2/relu_4/Relu_output_0",
+      "stage": "BEV backbone / pyramid backbone",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        64,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        64,
+        128,
+        256
+      ],
+      "max_abs_error": 0.015960693359375,
+      "mean_abs_error": 0.0004292621451895684,
+      "relative_error": 0.000325464233103024
+    },
+    {
+      "alias": "feat1",
+      "tensor_name": "/layer1/layer1.4/relu_2/Relu_output_0",
+      "stage": "BEV backbone / pyramid backbone",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        128,
+        64,
+        128
+      ],
+      "candidate_shape": [
+        1,
+        128,
+        64,
+        128
+      ],
+      "max_abs_error": 0.013926982879638672,
+      "mean_abs_error": 0.0005527169560082257,
+      "relative_error": 0.000553239091968222
+    },
+    {
+      "alias": "feat2",
+      "tensor_name": "/layer2/layer2.7/relu_2/Relu_output_0",
+      "stage": "BEV backbone / pyramid backbone",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        256,
+        32,
+        64
+      ],
+      "candidate_shape": [
+        1,
+        256,
+        32,
+        64
+      ],
+      "max_abs_error": 0.007877498865127563,
+      "mean_abs_error": 0.00012729848094750196,
+      "relative_error": 0.000499171701432956
+    },
+    {
+      "alias": "warp0_feature",
+      "tensor_name": "/GridSample_output_0",
+      "stage": "GridSample/BEV warp",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        64,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        64,
+        128,
+        256
+      ],
+      "max_abs_error": 35.50494384765625,
+      "mean_abs_error": 0.9797629117965698,
+      "relative_error": 0.7428509321963046
+    },
+    {
+      "alias": "warp0_score",
+      "tensor_name": "/GridSample_1_output_0",
+      "stage": "GridSample/BEV warp",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        1,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        1,
+        128,
+        256
+      ],
+      "max_abs_error": 0.9688190817832947,
+      "mean_abs_error": 0.007456159219145775,
+      "relative_error": 0.5998197691432726
+    },
+    {
+      "alias": "warp1_feature",
+      "tensor_name": "/GridSample_2_output_0",
+      "stage": "GridSample/BEV warp",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        128,
+        64,
+        128
+      ],
+      "candidate_shape": [
+        1,
+        128,
+        64,
+        128
+      ],
+      "max_abs_error": 20.95284652709961,
+      "mean_abs_error": 0.9221351146697998,
+      "relative_error": 0.9230062294385988
+    },
+    {
+      "alias": "warp1_score",
+      "tensor_name": "/GridSample_3_output_0",
+      "stage": "GridSample/BEV warp",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        1,
+        64,
+        128
+      ],
+      "candidate_shape": [
+        1,
+        1,
+        64,
+        128
+      ],
+      "max_abs_error": 0.9491249322891235,
+      "mean_abs_error": 0.01411344762891531,
+      "relative_error": 0.8034510617036374
+    },
+    {
+      "alias": "warp2_feature",
+      "tensor_name": "/GridSample_4_output_0",
+      "stage": "GridSample/BEV warp",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        256,
+        32,
+        64
+      ],
+      "candidate_shape": [
+        1,
+        256,
+        32,
+        64
+      ],
+      "max_abs_error": 10.585896492004395,
+      "mean_abs_error": 0.23147793114185333,
+      "relative_error": 0.9076874434967638
+    },
+    {
+      "alias": "warp2_score",
+      "tensor_name": "/GridSample_5_output_0",
+      "stage": "GridSample/BEV warp",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        1,
+        32,
+        64
+      ],
+      "candidate_shape": [
+        1,
+        1,
+        32,
+        64
+      ],
+      "max_abs_error": 0.9146984815597534,
+      "mean_abs_error": 0.02876945212483406,
+      "relative_error": 0.9416768726743837
+    },
+    {
+      "alias": "fused0",
+      "tensor_name": "/ReduceSum_output_0",
+      "stage": "Pyramid fusion",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        64,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        64,
+        128,
+        256
+      ],
+      "max_abs_error": 35.50494384765625,
+      "mean_abs_error": 0.9797629117965698,
+      "relative_error": 0.7428509321963046
+    },
+    {
+      "alias": "fused1",
+      "tensor_name": "/ReduceSum_1_output_0",
+      "stage": "Pyramid fusion",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        128,
+        64,
+        128
+      ],
+      "candidate_shape": [
+        1,
+        128,
+        64,
+        128
+      ],
+      "max_abs_error": 20.95284652709961,
+      "mean_abs_error": 0.9221351146697998,
+      "relative_error": 0.9230062294385988
+    },
+    {
+      "alias": "fused2",
+      "tensor_name": "/ReduceSum_2_output_0",
+      "stage": "Pyramid fusion",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        256,
+        32,
+        64
+      ],
+      "candidate_shape": [
+        1,
+        256,
+        32,
+        64
+      ],
+      "max_abs_error": 10.585896492004395,
+      "mean_abs_error": 0.23147793114185333,
+      "relative_error": 0.9076874434967638
+    },
+    {
+      "alias": "pyramid_decoded",
+      "tensor_name": "/Concat_9_output_0",
+      "stage": "Pyramid fusion",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        384,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        384,
+        128,
+        256
+      ],
+      "max_abs_error": 11.254776000976562,
+      "mean_abs_error": 0.17014621198177338,
+      "relative_error": 0.9944232684711922
+    },
+    {
+      "alias": "shrink_conv",
+      "tensor_name": "/shrink_conv/layers.0/double_conv/double_conv.3/Relu_output_0",
+      "stage": "shrink_conv",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        256,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        256,
+        128,
+        256
+      ],
+      "max_abs_error": 16.894895553588867,
+      "mean_abs_error": 0.13810209929943085,
+      "relative_error": 0.49333241706122793
+    },
+    {
+      "alias": "cls_head",
+      "tensor_name": "cls_preds",
+      "stage": "heads",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        2,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        2,
+        128,
+        256
+      ],
+      "max_abs_error": 9.951384544372559,
+      "mean_abs_error": 1.425754427909851,
+      "relative_error": 0.2600257614780895
+    },
+    {
+      "alias": "reg_head",
+      "tensor_name": "reg_preds",
+      "stage": "heads",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        14,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        14,
+        128,
+        256
+      ],
+      "max_abs_error": 1.826436996459961,
+      "mean_abs_error": 0.1496237814426422,
+      "relative_error": 1.0051116029131881
+    },
+    {
+      "alias": "dir_head",
+      "tensor_name": "dir_preds",
+      "stage": "heads",
+      "same_shape": true,
+      "reference_shape": [
+        1,
+        4,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        4,
+        128,
+        256
+      ],
+      "max_abs_error": 7.007551193237305,
+      "mean_abs_error": 0.5363883972167969,
+      "relative_error": 1.0648829127494797
+    }
+  ],
+  "first_mismatch_stage": "BEV backbone / pyramid backbone",
+  "threshold": 0.001,
+  "plugin_assessment": {
+    "plugin_needed": false,
+    "plugin_needed_reason": null,
+    "need_bevwarp_plugin": false,
+    "need_bevpool_plugin": false,
+    "need_inverse_plugin": false,
+    "need_pointpillar_scatter_plugin": false,
+    "recommended_plugin": null
+  }
+}

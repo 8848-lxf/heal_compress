@@ -11,14 +11,19 @@ if __package__ is None or __package__ == "":
 
 from benchmark_lidar_pyramid_trt_engine import benchmark_engine
 from build_lidar_pyramid_trt_engine import build_engine
+from deployment_equivalence import (
+    make_deploy_equivalence_summary_fields,
+    run_trt_output_equivalence,
+    run_wrapper_equivalence,
+)
 from export_lidar_pyramid_onnx import export_lidar_pyramid_onnx
+from evaluate_lidar_pyramid_trt_ap import evaluate_engine
 from quant_deploy_utils import (
     DEFAULT_CHECKPOINT,
     DEFAULT_HEAL_REPO,
     DEFAULT_HYPES_YAML,
     DEFAULT_OUTPUT_DIR,
     DEFAULT_TRT_ROOT,
-    INT8_NOT_IMPLEMENTED_MESSAGE,
     collect_env_report,
     create_quant_deploy_run_dirs,
     detect_special_ops_in_onnx,
@@ -56,26 +61,46 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--calib_num_frames", type=int, default=0)
     parser.add_argument("--calib_cache", default=None)
     parser.add_argument("--qdq_onnx_path", default=None)
-    parser.add_argument("--int8_mode", default="qdq", choices=["qdq"])
+    parser.add_argument("--int8_mode", default="native_trt", choices=["native_trt", "qdq"])
     parser.add_argument("--allow_fp16_fallback", action="store_true")
     parser.add_argument("--allow_synthetic_fallback", action="store_true")
     parser.add_argument("--bev_warp_export_mode", default="exportable_grid", choices=["original", "exportable_grid"])
     parser.add_argument("--pillar_vfe_export_fix", default="explicit_squeeze", choices=["none", "explicit_squeeze"])
-    parser.add_argument("--pyramid_forward_export_mode", default="fixed_static", choices=["original", "fixed_static"])
+    parser.add_argument("--pyramid_forward_export_mode", default="fixed_static", choices=["original", "fixed_static", "dynamic_agent_dim", "padded_agent_static"])
     return parser.parse_args(argv)
 
 
-def _precision_summary_from_files(dirs: dict[str, Path], precision: str) -> dict[str, Any]:
+def _onnx_filename_for_mode(mode: str) -> str:
+    if mode == "dynamic_agent_dim":
+        return "lidar_pyramid_dynamic_agent_dim_fp32_dynamic.onnx"
+    if mode == "padded_agent_static":
+        return "lidar_pyramid_padded_agent_static_fp32_dynamic.onnx"
+    if mode == "original":
+        return "lidar_pyramid_original_fp32_dynamic.onnx"
+    return "lidar_pyramid_fp32_dynamic.onnx"
+
+
+def _engine_prefix_for_mode(mode: str) -> str:
+    if mode in {"dynamic_agent_dim", "padded_agent_static"}:
+        return f"lidar_pyramid_{mode}"
+    return "lidar_pyramid"
+
+
+def _engine_path_for_mode(dirs: dict[str, Path], precision: str, mode: str) -> Path:
+    return dirs[f"engine_{precision}"] / f"{_engine_prefix_for_mode(mode)}_{precision}.engine"
+
+
+def _precision_summary_from_files(dirs: dict[str, Path], precision: str, export_mode: str = "fixed_static") -> dict[str, Any]:
     item = read_json(dirs["summary"] / f"summary_{precision}.json", default={}) or {}
-    benchmark = read_json(dirs[f"benchmark_{precision}"] / f"benchmark_{precision}.json", default={}) or {}
-    engine_name = "lidar_pyramid_int8_qdq.engine" if precision == "int8" else f"lidar_pyramid_{precision}.engine"
-    engine_path = dirs[f"engine_{precision}"] / engine_name
+    benchmark_dir = dirs["benchmark"] / f"{precision}_{export_mode}" if export_mode in {"dynamic_agent_dim", "padded_agent_static"} else dirs[f"benchmark_{precision}"]
+    benchmark = read_json(benchmark_dir / f"benchmark_{precision}.json", default={}) or {}
+    engine_path = _engine_path_for_mode(dirs, precision, export_mode)
     build_success = bool(item.get("build_success", False))
     error = item.get("error")
     if build_success:
         error = benchmark.get("error") or error
     return {
-        "implemented": precision in {"fp32", "fp16"},
+        "implemented": precision in {"fp32", "fp16", "int8"},
         "build_success": build_success,
         "benchmark_success": bool(benchmark.get("success", item.get("benchmark_success", False))),
         "engine_path": str(engine_path) if engine_path.exists() else item.get("engine_path"),
@@ -93,7 +118,7 @@ def _write_skip_precision(dirs: dict[str, Path], precision: str, error: str) -> 
     log_path = dirs["logs_build"] / f"build_{precision}.log"
     log_path.write_text(error + "\n", encoding="utf-8")
     summary = {
-        "implemented": precision in {"fp32", "fp16"},
+        "implemented": precision in {"fp32", "fp16", "int8"},
         "build_success": False,
         "benchmark_success": False,
         "engine_path": None,
@@ -170,7 +195,7 @@ def run_pipeline(args: argparse.Namespace) -> dict[str, Any]:
         dirs["configs"] / "run_config.json",
     )
     save_json({"precisions": precisions, "strict_fp16": args.strict_fp16, "no_tf32": bool(args.no_tf32 and not args.allow_tf32)}, dirs["configs"] / "precision_config.json")
-    save_json({"int8_qdq": "reserved", "calib_dir": args.calib_dir, "calib_num_frames": args.calib_num_frames}, dirs["configs"] / "deploy_config.json")
+    save_json({"int8_mode": "native_trt", "calib_dir": args.calib_dir, "calib_num_frames": args.calib_num_frames}, dirs["configs"] / "deploy_config.json")
     save_json({"status": "reserved_not_generated"}, dirs["calibration"] / "dataset_manifest.json")
     for precision in ("fp32", "fp16", "int8"):
         eval_payload = {
@@ -208,31 +233,9 @@ def run_pipeline(args: argparse.Namespace) -> dict[str, Any]:
         pyramid_forward_export_mode=args.pyramid_forward_export_mode,
     )
     export_result = export_lidar_pyramid_onnx(export_args)
-    onnx_path = dirs["onnx_fp32"] / "lidar_pyramid_fp32_dynamic.onnx"
+    onnx_path = Path(export_result.get("onnx_path") or (dirs["onnx_fp32"] / _onnx_filename_for_mode(args.pyramid_forward_export_mode)))
 
     for precision in precisions:
-        if precision == "int8":
-            build_args = SimpleNamespace(
-                onnx_path=str(onnx_path),
-                output_root=str(dirs["output_root"]),
-                precision="int8",
-                profile_shapes_json=None,
-                trt_root=args.trt_root,
-                trtexec_path=args.trtexec_path,
-                timeout=args.timeout,
-                no_tf32=args.no_tf32,
-                allow_tf32=args.allow_tf32,
-                strict_fp16=args.strict_fp16,
-                calib_dir=args.calib_dir,
-                calib_num_frames=args.calib_num_frames,
-                calib_cache=args.calib_cache,
-                qdq_onnx_path=args.qdq_onnx_path,
-                int8_mode=args.int8_mode,
-                allow_fp16_fallback=args.allow_fp16_fallback,
-            )
-            build_engine(build_args)
-            benchmark_engine(SimpleNamespace(output_root=str(dirs["output_root"]), precision="int8", engine_path=None, num_frames=args.num_frames, warmup_frames=args.warmup_frames, device=args.device, trt_root=args.trt_root, trtexec_path=args.trtexec_path, timeout=args.timeout))
-            continue
         if not export_result["success"]:
             skip_error = f"skipped because ONNX export failed: {export_result.get('error')}"
             _write_skip_precision(dirs, precision, skip_error)
@@ -255,6 +258,7 @@ def run_pipeline(args: argparse.Namespace) -> dict[str, Any]:
             qdq_onnx_path=args.qdq_onnx_path,
             int8_mode=args.int8_mode,
             allow_fp16_fallback=args.allow_fp16_fallback,
+            engine_name_prefix=_engine_prefix_for_mode(args.pyramid_forward_export_mode),
         )
         build_result = build_engine(build_args)
         benchmark_engine(
@@ -268,21 +272,73 @@ def run_pipeline(args: argparse.Namespace) -> dict[str, Any]:
                 trt_root=args.trt_root,
                 trtexec_path=args.trtexec_path,
                 timeout=args.timeout,
+                benchmark_dir_name=f"{precision}_{args.pyramid_forward_export_mode}" if args.pyramid_forward_export_mode in {"dynamic_agent_dim", "padded_agent_static"} else None,
             )
         )
+        if build_result.get("build_success"):
+            evaluate_engine(
+                SimpleNamespace(
+                    output_root=str(dirs["output_root"]),
+                    precision=precision,
+                    engine_path=build_result.get("engine_path"),
+                    hypes_yaml=args.hypes_yaml,
+                    checkpoint=args.checkpoint,
+                    heal_repo=args.heal_repo,
+                    device=args.device,
+                    num_frames=args.num_frames,
+                    num_workers=0,
+                    ap_iou_backend="gpu",
+                    pyramid_forward_export_mode=args.pyramid_forward_export_mode,
+                    max_cav=args.max_cav,
+                )
+            )
 
-    precision_items = {precision: _precision_summary_from_files(dirs, precision) for precision in precisions}
+    precision_items = {precision: _precision_summary_from_files(dirs, precision, args.pyramid_forward_export_mode) for precision in precisions}
     fp32_p50 = precision_items.get("fp32", {}).get("forward_p50_ms")
     if fp32_p50:
         for precision, item in precision_items.items():
             p50 = item.get("forward_p50_ms")
             item["speedup_vs_fp32"] = float(fp32_p50) / float(p50) if p50 else None
             save_json(item, dirs["summary"] / f"summary_{precision}.json")
-    if "int8" in precision_items:
-        precision_items["int8"]["implemented"] = False
-        precision_items["int8"]["error"] = precision_items["int8"].get("error") or INT8_NOT_IMPLEMENTED_MESSAGE
-
     special_ops = detect_special_ops_in_onnx(onnx_path) if onnx_path.exists() else read_json(dirs["debug"] / "special_ops_report.json", default={})
+    wrapper_equivalence = None
+    trt_equivalence = None
+    if export_result["success"] and args.pyramid_forward_export_mode in {"fixed_static", "dynamic_agent_dim", "padded_agent_static"}:
+        wrapper_equivalence = run_wrapper_equivalence(
+            SimpleNamespace(
+                output_root=str(dirs["output_root"]),
+                hypes_yaml=args.hypes_yaml,
+                checkpoint=args.checkpoint,
+                heal_repo=args.heal_repo,
+                device=args.device,
+                num_frames=args.num_frames,
+                max_cav=args.max_cav,
+                pyramid_forward_export_mode=args.pyramid_forward_export_mode,
+            )
+        )
+        trt_equivalence = run_trt_output_equivalence(
+            SimpleNamespace(
+                output_root=str(dirs["output_root"]),
+                hypes_yaml=args.hypes_yaml,
+                checkpoint=args.checkpoint,
+                heal_repo=args.heal_repo,
+                device=args.device,
+                max_cav=args.max_cav,
+                allow_synthetic_fallback=args.allow_synthetic_fallback,
+                onnx_path=str(onnx_path),
+                fp32_engine_path=str(_engine_path_for_mode(dirs, "fp32", args.pyramid_forward_export_mode)),
+                fp16_engine_path=str(_engine_path_for_mode(dirs, "fp16", args.pyramid_forward_export_mode)),
+                pyramid_forward_export_mode=args.pyramid_forward_export_mode,
+            )
+        )
+    num_pyramid_scales = export_result.get("num_pyramid_scales")
+    deploy_equivalence_fields = make_deploy_equivalence_summary_fields(
+        export_forward_mode=args.pyramid_forward_export_mode,
+        num_pyramid_scales=num_pyramid_scales,
+        wrapper_report=wrapper_equivalence,
+        trt_report=trt_equivalence,
+        special_ops=special_ops,
+    )
     summary = {
         "model": "lidar_pyramid",
         "checkpoint": args.checkpoint,
@@ -291,8 +347,11 @@ def run_pipeline(args: argparse.Namespace) -> dict[str, Any]:
         "dirs": dirs_for_summary(dirs),
         "onnx_path": str(onnx_path) if onnx_path.exists() else None,
         "pyramid_forward_export_mode": args.pyramid_forward_export_mode,
+        **deploy_equivalence_fields,
         "fixed_pyramid_wrapper_source": export_result.get("fixed_pyramid_wrapper_source"),
         "fixed_pyramid_forward_report": export_result.get("fixed_pyramid_forward_report"),
+        "wrapper_equivalence": wrapper_equivalence,
+        "trt_output_equivalence": trt_equivalence,
         "onnx_export": {
             "success": bool(export_result["success"]),
             "error": export_result.get("error"),
@@ -300,6 +359,10 @@ def run_pipeline(args: argparse.Namespace) -> dict[str, Any]:
             "opset": args.opset,
         },
         "precisions": precision_items,
+        "evaluation_metrics": {
+            precision: read_json(dirs[f"evaluation_{precision}"] / f"eval_metrics_{precision}.json", default={})
+            for precision in precisions
+        },
         "detected_special_ops": special_ops or {"GridSample": [], "AffineGrid": [], "Scatter": [], "Inverse": [], "unsupported_ops": []},
         "env_report": env_report,
         "bev_warp_export_mode": args.bev_warp_export_mode,

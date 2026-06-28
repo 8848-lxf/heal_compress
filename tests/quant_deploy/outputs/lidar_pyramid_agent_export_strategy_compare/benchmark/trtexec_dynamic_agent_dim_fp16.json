@@ -1,0 +1,152 @@
+{
+  "scheme": "dynamic_agent_dim",
+  "precision": "fp16",
+  "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/engines/fp16/lidar_pyramid_dynamic_agent_dim_fp16.engine",
+  "engine_size_MB": 14.369815826416016,
+  "profile_shapes": {
+    "voxel_features": {
+      "min": [
+        1,
+        32,
+        4
+      ],
+      "opt": [
+        20646,
+        32,
+        4
+      ],
+      "max": [
+        140000,
+        32,
+        4
+      ]
+    },
+    "voxel_coords": {
+      "min": [
+        1,
+        4
+      ],
+      "opt": [
+        20646,
+        4
+      ],
+      "max": [
+        140000,
+        4
+      ]
+    },
+    "voxel_num_points": {
+      "min": [
+        1
+      ],
+      "opt": [
+        20646
+      ],
+      "max": [
+        140000
+      ]
+    },
+    "pairwise_t_matrix": {
+      "min": [
+        1,
+        1,
+        1,
+        4,
+        4
+      ],
+      "opt": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "max": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ]
+    }
+  },
+  "input_shapes": {
+    "voxel_features": [
+      8578,
+      32,
+      4
+    ],
+    "voxel_coords": [
+      8578,
+      4
+    ],
+    "voxel_num_points": [
+      8578
+    ],
+    "pairwise_t_matrix": [
+      1,
+      1,
+      1,
+      4,
+      4
+    ]
+  },
+  "trtexec": {
+    "trtexec_found": true,
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+    "checked_paths": [
+      "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+    ],
+    "suggestion": null
+  },
+  "success": true,
+  "error": null,
+  "throughput_qps": 440.975,
+  "total_host_latency_min_ms": 1.68652,
+  "total_host_latency_mean_ms": 2.65122,
+  "total_host_latency_p50_ms": 2.1759,
+  "total_host_latency_p90_ms": 4.12866,
+  "total_host_latency_p95_ms": 4.18018,
+  "enqueue_min_ms": 0.335327,
+  "enqueue_mean_ms": 0.570194,
+  "enqueue_p50_ms": 0.540161,
+  "enqueue_p90_ms": 0.737793,
+  "enqueue_p95_ms": 0.885986,
+  "h2d_min_ms": 0.194458,
+  "h2d_mean_ms": 0.278068,
+  "h2d_p50_ms": 0.204346,
+  "h2d_p90_ms": 0.219116,
+  "h2d_p95_ms": 0.60083,
+  "gpu_compute_min_ms": 1.37732,
+  "gpu_compute_mean_ms": 2.26038,
+  "gpu_compute_p50_ms": 1.79456,
+  "gpu_compute_p90_ms": 3.76929,
+  "gpu_compute_p95_ms": 3.83789,
+  "d2h_min_ms": 0.106171,
+  "d2h_mean_ms": 0.112769,
+  "d2h_p50_ms": 0.112305,
+  "d2h_p90_ms": 0.114258,
+  "d2h_p95_ms": 0.115479,
+  "forward_p50_ms": 1.79456,
+  "command": [
+    "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "--loadEngine=tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/engines/fp16/lidar_pyramid_dynamic_agent_dim_fp16.engine",
+    "--shapes=voxel_features:8578x32x4,voxel_coords:8578x4,voxel_num_points:8578,pairwise_t_matrix:1x1x1x4x4",
+    "--loadInputs=voxel_features:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_inputs_dynamic_agent_dim/voxel_features.raw,voxel_coords:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_inputs_dynamic_agent_dim/voxel_coords.raw,voxel_num_points:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_inputs_dynamic_agent_dim/voxel_num_points.raw,pairwise_t_matrix:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_inputs_dynamic_agent_dim/pairwise_t_matrix.raw",
+    "--warmUp=200",
+    "--iterations=50",
+    "--duration=3",
+    "--avgRuns=1",
+    "--percentile=50,90,95",
+    "--useSpinWait",
+    "--verbose"
+  ],
+  "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/benchmark/trtexec_dynamic_agent_dim_fp16.log",
+  "latency_min_ms": 1.68652,
+  "latency_mean_ms": 2.65122,
+  "latency_p50_ms": 2.1759,
+  "latency_p90_ms": 4.12866,
+  "latency_p95_ms": 4.18018,
+  "total_host_latency_source": "trtexec Latency line"
+}

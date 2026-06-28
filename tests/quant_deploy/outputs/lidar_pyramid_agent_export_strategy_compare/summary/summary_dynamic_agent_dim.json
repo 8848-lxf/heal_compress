@@ -1,0 +1,4930 @@
+{
+  "mode": "dynamic_agent_dim",
+  "source_output_root": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke",
+  "onnx_export_success": true,
+  "onnx_preserves_multi_agent_semantics": true,
+  "semantics": {
+    "onnx_path": "tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_fp32_dynamic.onnx",
+    "pyramid_forward_export_mode": "dynamic_agent_dim",
+    "graph_inputs": [
+      {
+        "name": "voxel_features",
+        "dtype": "FLOAT",
+        "shape": [
+          "num_voxels",
+          32,
+          4
+        ],
+        "dynamic_axes": {
+          "0": "num_voxels"
+        }
+      },
+      {
+        "name": "voxel_coords",
+        "dtype": "INT32",
+        "shape": [
+          "num_voxels",
+          4
+        ],
+        "dynamic_axes": {
+          "0": "num_voxels"
+        }
+      },
+      {
+        "name": "voxel_num_points",
+        "dtype": "INT32",
+        "shape": [
+          "num_voxels"
+        ],
+        "dynamic_axes": {
+          "0": "num_voxels"
+        }
+      },
+      {
+        "name": "pairwise_t_matrix",
+        "dtype": "DOUBLE",
+        "shape": [
+          "batch",
+          "num_agents",
+          "num_agents",
+          4,
+          4
+        ],
+        "dynamic_axes": {
+          "0": "batch",
+          "1": "num_agents",
+          "2": "num_agents"
+        }
+      }
+    ],
+    "semantics_erased_in_onnx": false,
+    "valid_for_multi_agent_deployment": true,
+    "agent_dim_enters_fusion": true,
+    "pairwise_dynamic_n_enters_warp": true,
+    "valid_agent_mask_enters_fusion": false,
+    "record_len_keepalive_only": false,
+    "failure_reason": null,
+    "record_len_downstream_consumers": [],
+    "pairwise_t_matrix_downstream_consumers": [
+      {
+        "name": "/Shape",
+        "op_type": "Shape",
+        "inputs": [
+          "pairwise_t_matrix"
+        ],
+        "outputs": [
+          "/Shape_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 0
+      },
+      {
+        "name": "/Gather_2",
+        "op_type": "Gather",
+        "inputs": [
+          "pairwise_t_matrix",
+          "onnx::Gather_719"
+        ],
+        "outputs": [
+          "/Gather_2_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 3\ntype: INT\n"
+        },
+        "depth_order": 1
+      },
+      {
+        "name": "/Gather",
+        "op_type": "Gather",
+        "inputs": [
+          "/Shape_output_0",
+          "/Constant_output_0"
+        ],
+        "outputs": [
+          "/Gather_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 2
+      },
+      {
+        "name": "/Gather_3",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_2_output_0",
+          "onnx::Gather_721"
+        ],
+        "outputs": [
+          "/Gather_3_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 4\ntype: INT\n"
+        },
+        "depth_order": 3
+      },
+      {
+        "name": "/Mul_2",
+        "op_type": "Mul",
+        "inputs": [
+          "/Gather_output_0",
+          "/Constant_3_output_0"
+        ],
+        "outputs": [
+          "/Mul_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 4
+      },
+      {
+        "name": "/Unsqueeze_2",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_output_0",
+          "onnx::Unsqueeze_685"
+        ],
+        "outputs": [
+          "/Unsqueeze_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 5
+      },
+      {
+        "name": "/Gather_4",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_3_output_0",
+          "/pillar_vfe/Constant_output_0"
+        ],
+        "outputs": [
+          "/Gather_4_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 3\ntype: INT\n"
+        },
+        "depth_order": 6
+      },
+      {
+        "name": "/Gather_8",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_3_output_0",
+          "/pillar_vfe/Constant_1_output_0"
+        ],
+        "outputs": [
+          "/Gather_8_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 3\ntype: INT\n"
+        },
+        "depth_order": 7
+      },
+      {
+        "name": "/Mul_3",
+        "op_type": "Mul",
+        "inputs": [
+          "/Mul_2_output_0",
+          "/Constant_4_output_0"
+        ],
+        "outputs": [
+          "/Mul_3_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 8
+      },
+      {
+        "name": "/Concat_2",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_2_output_0",
+          "/Constant_10_output_0",
+          "/Constant_11_output_0",
+          "/Constant_12_output_0"
+        ],
+        "outputs": [
+          "/Concat_2_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 9
+      },
+      {
+        "name": "/Gather_5",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_4_output_0",
+          "/pillar_vfe/Constant_output_0"
+        ],
+        "outputs": [
+          "/Gather_5_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 3\ntype: INT\n"
+        },
+        "depth_order": 10
+      },
+      {
+        "name": "/Gather_6",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_4_output_0",
+          "/pillar_vfe/Constant_1_output_0"
+        ],
+        "outputs": [
+          "/Gather_6_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 3\ntype: INT\n"
+        },
+        "depth_order": 11
+      },
+      {
+        "name": "/Gather_7",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_4_output_0",
+          "/pillar_vfe/Constant_2_output_0"
+        ],
+        "outputs": [
+          "/Gather_7_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 3\ntype: INT\n"
+        },
+        "depth_order": 12
+      },
+      {
+        "name": "/Gather_9",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_8_output_0",
+          "/pillar_vfe/Constant_output_0"
+        ],
+        "outputs": [
+          "/Gather_9_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 3\ntype: INT\n"
+        },
+        "depth_order": 13
+      },
+      {
+        "name": "/Gather_10",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_8_output_0",
+          "/pillar_vfe/Constant_1_output_0"
+        ],
+        "outputs": [
+          "/Gather_10_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 3\ntype: INT\n"
+        },
+        "depth_order": 14
+      },
+      {
+        "name": "/Gather_11",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_8_output_0",
+          "/pillar_vfe/Constant_2_output_0"
+        ],
+        "outputs": [
+          "/Gather_11_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 3\ntype: INT\n"
+        },
+        "depth_order": 15
+      },
+      {
+        "name": "/Unsqueeze",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Mul_3_output_0",
+          "onnx::Unsqueeze_666"
+        ],
+        "outputs": [
+          "/Unsqueeze_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 16
+      },
+      {
+        "name": "/Reshape_1",
+        "op_type": "Reshape",
+        "inputs": [
+          "/ScatterND_output_0",
+          "/Concat_2_output_0"
+        ],
+        "outputs": [
+          "/Reshape_1_output_0"
+        ],
+        "attributes": {
+          "allowzero": "name: \"allowzero\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 17
+      },
+      {
+        "name": "/Unsqueeze_3",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_5_output_0",
+          "/Constant_17_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_3_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 18
+      },
+      {
+        "name": "/Mul_4",
+        "op_type": "Mul",
+        "inputs": [
+          "/Gather_6_output_0",
+          "/Constant_13_output_0"
+        ],
+        "outputs": [
+          "/Mul_4_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 19
+      },
+      {
+        "name": "/Div_1",
+        "op_type": "Div",
+        "inputs": [
+          "/Gather_7_output_0",
+          "/Constant_15_output_0"
+        ],
+        "outputs": [
+          "/Div_1_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 20
+      },
+      {
+        "name": "/Mul_6",
+        "op_type": "Mul",
+        "inputs": [
+          "/Gather_9_output_0",
+          "/Constant_20_output_0"
+        ],
+        "outputs": [
+          "/Mul_6_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 21
+      },
+      {
+        "name": "/Unsqueeze_7",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_10_output_0",
+          "/Constant_25_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_7_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 22
+      },
+      {
+        "name": "/Div_3",
+        "op_type": "Div",
+        "inputs": [
+          "/Gather_11_output_0",
+          "/Constant_22_output_0"
+        ],
+        "outputs": [
+          "/Div_3_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 23
+      },
+      {
+        "name": "/Concat",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_output_0",
+          "/Constant_5_output_0"
+        ],
+        "outputs": [
+          "/Concat_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 24
+      },
+      {
+        "name": "/Transpose",
+        "op_type": "Transpose",
+        "inputs": [
+          "/Reshape_1_output_0"
+        ],
+        "outputs": [
+          "/Transpose_output_0"
+        ],
+        "attributes": {
+          "perm": "name: \"perm\"\nints: 0\nints: 3\nints: 1\nints: 2\ntype: INTS\n"
+        },
+        "depth_order": 25
+      },
+      {
+        "name": "/Concat_3",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_3_output_0",
+          "/Unsqueeze_4_output_0",
+          "/Unsqueeze_5_output_0"
+        ],
+        "outputs": [
+          "/Concat_3_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: -1\ntype: INT\n"
+        },
+        "depth_order": 26
+      },
+      {
+        "name": "/Div",
+        "op_type": "Div",
+        "inputs": [
+          "/Mul_4_output_0",
+          "/Constant_14_output_0"
+        ],
+        "outputs": [
+          "/Div_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 27
+      },
+      {
+        "name": "/Mul_5",
+        "op_type": "Mul",
+        "inputs": [
+          "/Div_1_output_0",
+          "/Constant_16_output_0"
+        ],
+        "outputs": [
+          "/Mul_5_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 28
+      },
+      {
+        "name": "/Div_2",
+        "op_type": "Div",
+        "inputs": [
+          "/Mul_6_output_0",
+          "/Constant_21_output_0"
+        ],
+        "outputs": [
+          "/Div_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 29
+      },
+      {
+        "name": "/Concat_4",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_6_output_0",
+          "/Unsqueeze_7_output_0",
+          "/Unsqueeze_8_output_0"
+        ],
+        "outputs": [
+          "/Concat_4_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: -1\ntype: INT\n"
+        },
+        "depth_order": 30
+      },
+      {
+        "name": "/Mul_7",
+        "op_type": "Mul",
+        "inputs": [
+          "/Div_3_output_0",
+          "/Constant_23_output_0"
+        ],
+        "outputs": [
+          "/Mul_7_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 31
+      },
+      {
+        "name": "/ConstantOfShape",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Concat_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 1\n  raw_data: \"\\000\\000\\000\\000\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 32
+      },
+      {
+        "name": "/layer0/layer0.0/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/Transpose_output_0",
+          "onnx::Conv_1139",
+          "onnx::Conv_1140"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 2\nints: 2\ntype: INTS\n"
+        },
+        "depth_order": 33
+      },
+      {
+        "name": "/layer0/layer0.0/downsample/downsample.0/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/Transpose_output_0",
+          "onnx::Conv_1145",
+          "onnx::Conv_1146"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/downsample/downsample.0/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 2\nints: 2\ntype: INTS\n"
+        },
+        "depth_order": 34
+      },
+      {
+        "name": "/Unsqueeze_9",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Concat_3_output_0",
+          "/Constant_27_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_9_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 35
+      },
+      {
+        "name": "/Unsqueeze_4",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Div_output_0",
+          "/Constant_18_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_4_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 36
+      },
+      {
+        "name": "/Unsqueeze_5",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Mul_5_output_0",
+          "/Constant_19_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_5_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 37
+      },
+      {
+        "name": "/Unsqueeze_6",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Div_2_output_0",
+          "/Constant_24_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_6_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 38
+      },
+      {
+        "name": "/Unsqueeze_10",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Concat_4_output_0",
+          "/Constant_28_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_10_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 39
+      },
+      {
+        "name": "/Unsqueeze_8",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Mul_7_output_0",
+          "/Constant_26_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_8_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 40
+      },
+      {
+        "name": "/Shape_2",
+        "op_type": "Shape",
+        "inputs": [
+          "/ConstantOfShape_output_0"
+        ],
+        "outputs": [
+          "/Shape_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 41
+      },
+      {
+        "name": "/ScatterND",
+        "op_type": "ScatterND",
+        "inputs": [
+          "/ConstantOfShape_output_0",
+          "/Unsqueeze_1_output_0",
+          "/Reshape_output_0"
+        ],
+        "outputs": [
+          "/ScatterND_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 42
+      },
+      {
+        "name": "/layer0/layer0.0/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.0/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 43
+      },
+      {
+        "name": "/layer0/layer0.0/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer0/layer0.0/conv2/Conv_output_0",
+          "/layer0/layer0.0/downsample/downsample.0/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 44
+      },
+      {
+        "name": "/Concat_5",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_9_output_0",
+          "/Unsqueeze_10_output_0"
+        ],
+        "outputs": [
+          "/Concat_5_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: -2\ntype: INT\n"
+        },
+        "depth_order": 45
+      },
+      {
+        "name": "/Slice",
+        "op_type": "Slice",
+        "inputs": [
+          "/Shape_2_output_0",
+          "/Constant_8_output_0",
+          "/Constant_9_output_0",
+          "/Constant_7_output_0"
+        ],
+        "outputs": [
+          "/Slice_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 46
+      },
+      {
+        "name": "/layer0/layer0.0/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.0/relu/Relu_output_0",
+          "onnx::Conv_1142",
+          "onnx::Conv_1143"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 47
+      },
+      {
+        "name": "/layer0/layer0.0/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.0/Add_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 48
+      },
+      {
+        "name": "/Gather_13",
+        "op_type": "Gather",
+        "inputs": [
+          "/Concat_5_output_0",
+          "/pillar_vfe/Constant_output_0"
+        ],
+        "outputs": [
+          "/Gather_13_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 49
+      },
+      {
+        "name": "/Concat_1",
+        "op_type": "Concat",
+        "inputs": [
+          "/Shape_1_output_0",
+          "/Slice_output_0"
+        ],
+        "outputs": [
+          "/Concat_1_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 50
+      },
+      {
+        "name": "/layer0/layer0.1/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.0/relu_1/Relu_output_0",
+          "onnx::Conv_1148",
+          "onnx::Conv_1149"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 51
+      },
+      {
+        "name": "/layer0/layer0.1/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer0/layer0.1/conv2/Conv_output_0",
+          "/layer0/layer0.0/relu_1/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 52
+      },
+      {
+        "name": "/Gather_14",
+        "op_type": "Gather",
+        "inputs": [
+          "/Gather_13_output_0",
+          "/pillar_vfe/Constant_output_0"
+        ],
+        "outputs": [
+          "/Gather_14_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 53
+      },
+      {
+        "name": "/Reshape",
+        "op_type": "Reshape",
+        "inputs": [
+          "/pillar_vfe/Squeeze_output_0",
+          "/Concat_1_output_0"
+        ],
+        "outputs": [
+          "/Reshape_output_0"
+        ],
+        "attributes": {
+          "allowzero": "name: \"allowzero\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 54
+      },
+      {
+        "name": "/layer0/layer0.1/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.1/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 55
+      },
+      {
+        "name": "/layer0/layer0.1/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.1/Add_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 56
+      },
+      {
+        "name": "/Slice_1",
+        "op_type": "Slice",
+        "inputs": [
+          "/Gather_14_output_0",
+          "/Constant_31_output_0",
+          "/Unsqueeze_11_output_0",
+          "/Constant_33_output_0",
+          "/Constant_34_output_0"
+        ],
+        "outputs": [
+          "/Slice_1_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 57
+      },
+      {
+        "name": "/Slice_2",
+        "op_type": "Slice",
+        "inputs": [
+          "/Gather_14_output_0",
+          "/Constant_47_output_0",
+          "/Unsqueeze_14_output_0",
+          "/Constant_49_output_0",
+          "/Constant_50_output_0"
+        ],
+        "outputs": [
+          "/Slice_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 58
+      },
+      {
+        "name": "/Slice_3",
+        "op_type": "Slice",
+        "inputs": [
+          "/Gather_14_output_0",
+          "/Constant_63_output_0",
+          "/Unsqueeze_17_output_0",
+          "/Constant_65_output_0",
+          "/Constant_66_output_0"
+        ],
+        "outputs": [
+          "/Slice_3_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 59
+      },
+      {
+        "name": "/layer0/layer0.1/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.1/relu/Relu_output_0",
+          "onnx::Conv_1151",
+          "onnx::Conv_1152"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 60
+      },
+      {
+        "name": "/layer0/layer0.2/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.1/relu_1/Relu_output_0",
+          "onnx::Conv_1154",
+          "onnx::Conv_1155"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 61
+      },
+      {
+        "name": "/layer0/layer0.2/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer0/layer0.2/conv2/Conv_output_0",
+          "/layer0/layer0.1/relu_1/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 62
+      },
+      {
+        "name": "/Shape_4",
+        "op_type": "Shape",
+        "inputs": [
+          "/Slice_1_output_0"
+        ],
+        "outputs": [
+          "/Shape_4_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 63
+      },
+      {
+        "name": "/Transpose_1",
+        "op_type": "Transpose",
+        "inputs": [
+          "/Slice_1_output_0"
+        ],
+        "outputs": [
+          "/Transpose_1_output_0"
+        ],
+        "attributes": {
+          "perm": "name: \"perm\"\nints: 0\nints: 2\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 64
+      },
+      {
+        "name": "/Shape_9",
+        "op_type": "Shape",
+        "inputs": [
+          "/Slice_2_output_0"
+        ],
+        "outputs": [
+          "/Shape_9_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 65
+      },
+      {
+        "name": "/Transpose_2",
+        "op_type": "Transpose",
+        "inputs": [
+          "/Slice_2_output_0"
+        ],
+        "outputs": [
+          "/Transpose_2_output_0"
+        ],
+        "attributes": {
+          "perm": "name: \"perm\"\nints: 0\nints: 2\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 66
+      },
+      {
+        "name": "/Shape_14",
+        "op_type": "Shape",
+        "inputs": [
+          "/Slice_3_output_0"
+        ],
+        "outputs": [
+          "/Shape_14_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 67
+      },
+      {
+        "name": "/Transpose_3",
+        "op_type": "Transpose",
+        "inputs": [
+          "/Slice_3_output_0"
+        ],
+        "outputs": [
+          "/Transpose_3_output_0"
+        ],
+        "attributes": {
+          "perm": "name: \"perm\"\nints: 0\nints: 2\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 68
+      },
+      {
+        "name": "/layer0/layer0.2/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.2/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 69
+      },
+      {
+        "name": "/layer0/layer0.2/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.2/Add_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 70
+      },
+      {
+        "name": "/Gather_15",
+        "op_type": "Gather",
+        "inputs": [
+          "/Shape_4_output_0",
+          "/Constant_35_output_0"
+        ],
+        "outputs": [
+          "/Gather_15_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 71
+      },
+      {
+        "name": "/MatMul",
+        "op_type": "MatMul",
+        "inputs": [
+          "/Expand_output_0",
+          "/Transpose_1_output_0"
+        ],
+        "outputs": [
+          "/MatMul_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 72
+      },
+      {
+        "name": "/Gather_17",
+        "op_type": "Gather",
+        "inputs": [
+          "/Shape_9_output_0",
+          "/Constant_51_output_0"
+        ],
+        "outputs": [
+          "/Gather_17_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 73
+      },
+      {
+        "name": "/MatMul_1",
+        "op_type": "MatMul",
+        "inputs": [
+          "/Expand_1_output_0",
+          "/Transpose_2_output_0"
+        ],
+        "outputs": [
+          "/MatMul_1_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 74
+      },
+      {
+        "name": "/Gather_19",
+        "op_type": "Gather",
+        "inputs": [
+          "/Shape_14_output_0",
+          "/Constant_67_output_0"
+        ],
+        "outputs": [
+          "/Gather_19_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 75
+      },
+      {
+        "name": "/MatMul_2",
+        "op_type": "MatMul",
+        "inputs": [
+          "/Expand_2_output_0",
+          "/Transpose_3_output_0"
+        ],
+        "outputs": [
+          "/MatMul_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 76
+      },
+      {
+        "name": "/layer0/layer0.2/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.2/relu/Relu_output_0",
+          "onnx::Conv_1157",
+          "onnx::Conv_1158"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 77
+      },
+      {
+        "name": "/layer0/layer0.0/conv1_1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.2/relu_1/Relu_output_0",
+          "onnx::Conv_1160",
+          "onnx::Conv_1161"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/conv1_1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 78
+      },
+      {
+        "name": "/layer0/layer0.0_1/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer0/layer0.0/conv3/Conv_output_0",
+          "/layer0/layer0.2/relu_1/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.0_1/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 79
+      },
+      {
+        "name": "/Unsqueeze_12",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_15_output_0",
+          "/Constant_36_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_12_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 80
+      },
+      {
+        "name": "/Unsqueeze_13",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_15_output_0",
+          "onnx::Unsqueeze_973"
+        ],
+        "outputs": [
+          "/Unsqueeze_13_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 81
+      },
+      {
+        "name": "/Reshape_3",
+        "op_type": "Reshape",
+        "inputs": [
+          "/MatMul_output_0",
+          "/Concat_7_output_0"
+        ],
+        "outputs": [
+          "/Reshape_3_output_0"
+        ],
+        "attributes": {
+          "allowzero": "name: \"allowzero\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 82
+      },
+      {
+        "name": "/Unsqueeze_15",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_17_output_0",
+          "/Constant_52_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_15_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 83
+      },
+      {
+        "name": "/Unsqueeze_16",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_17_output_0",
+          "onnx::Unsqueeze_1035"
+        ],
+        "outputs": [
+          "/Unsqueeze_16_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 84
+      },
+      {
+        "name": "/Reshape_5",
+        "op_type": "Reshape",
+        "inputs": [
+          "/MatMul_1_output_0",
+          "/Concat_9_output_0"
+        ],
+        "outputs": [
+          "/Reshape_5_output_0"
+        ],
+        "attributes": {
+          "allowzero": "name: \"allowzero\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 85
+      },
+      {
+        "name": "/Unsqueeze_18",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_19_output_0",
+          "/Constant_68_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_18_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 86
+      },
+      {
+        "name": "/Unsqueeze_19",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_19_output_0",
+          "onnx::Unsqueeze_1096"
+        ],
+        "outputs": [
+          "/Unsqueeze_19_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 87
+      },
+      {
+        "name": "/Reshape_7",
+        "op_type": "Reshape",
+        "inputs": [
+          "/MatMul_2_output_0",
+          "/Concat_11_output_0"
+        ],
+        "outputs": [
+          "/Reshape_7_output_0"
+        ],
+        "attributes": {
+          "allowzero": "name: \"allowzero\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 88
+      },
+      {
+        "name": "/layer0/layer0.0/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.0/conv1_1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 89
+      },
+      {
+        "name": "/layer0/layer0.0/relu_4/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.0_1/Add_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/relu_4/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 90
+      },
+      {
+        "name": "/Concat_6",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_12_output_0",
+          "/Constant_37_output_0",
+          "/Constant_38_output_0"
+        ],
+        "outputs": [
+          "/Concat_6_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 91
+      },
+      {
+        "name": "/Concat_7",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_13_output_0",
+          "/Constant_41_output_0",
+          "/Constant_42_output_0",
+          "/Constant_43_output_0"
+        ],
+        "outputs": [
+          "/Concat_7_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 92
+      },
+      {
+        "name": "/Cast_3",
+        "op_type": "Cast",
+        "inputs": [
+          "/Reshape_3_output_0"
+        ],
+        "outputs": [
+          "/Cast_3_output_0"
+        ],
+        "attributes": {
+          "to": "name: \"to\"\ni: 1\ntype: INT\n"
+        },
+        "depth_order": 93
+      },
+      {
+        "name": "/Concat_8",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_15_output_0",
+          "/Constant_53_output_0",
+          "/Constant_54_output_0"
+        ],
+        "outputs": [
+          "/Concat_8_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 94
+      },
+      {
+        "name": "/Concat_9",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_16_output_0",
+          "/Constant_57_output_0",
+          "/Constant_58_output_0",
+          "/Constant_59_output_0"
+        ],
+        "outputs": [
+          "/Concat_9_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 95
+      },
+      {
+        "name": "/Cast_4",
+        "op_type": "Cast",
+        "inputs": [
+          "/Reshape_5_output_0"
+        ],
+        "outputs": [
+          "/Cast_4_output_0"
+        ],
+        "attributes": {
+          "to": "name: \"to\"\ni: 1\ntype: INT\n"
+        },
+        "depth_order": 96
+      },
+      {
+        "name": "/Concat_10",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_18_output_0",
+          "/Constant_69_output_0",
+          "/Constant_70_output_0"
+        ],
+        "outputs": [
+          "/Concat_10_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 97
+      },
+      {
+        "name": "/Concat_11",
+        "op_type": "Concat",
+        "inputs": [
+          "/Unsqueeze_19_output_0",
+          "/Constant_73_output_0",
+          "/Constant_74_output_0",
+          "/Constant_75_output_0"
+        ],
+        "outputs": [
+          "/Concat_11_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 98
+      },
+      {
+        "name": "/Cast_5",
+        "op_type": "Cast",
+        "inputs": [
+          "/Reshape_7_output_0"
+        ],
+        "outputs": [
+          "/Cast_5_output_0"
+        ],
+        "attributes": {
+          "to": "name: \"to\"\ni: 1\ntype: INT\n"
+        },
+        "depth_order": 99
+      },
+      {
+        "name": "/layer0/layer0.0/conv2_1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.0/relu_2/Relu_output_0",
+          "onnx::Conv_1163",
+          "onnx::Conv_1164"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/conv2_1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 100
+      },
+      {
+        "name": "/layer0/layer0.1/conv1_1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.0/relu_4/Relu_output_0",
+          "onnx::Conv_1169",
+          "onnx::Conv_1170"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/conv1_1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 101
+      },
+      {
+        "name": "/layer0/layer0.1_1/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer0/layer0.1/conv3/Conv_output_0",
+          "/layer0/layer0.0/relu_4/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.1_1/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 102
+      },
+      {
+        "name": "/Reshape_2",
+        "op_type": "Reshape",
+        "inputs": [
+          "/Concat_6_output_0",
+          "/Constant_39_output_0"
+        ],
+        "outputs": [
+          "/Reshape_2_output_0"
+        ],
+        "attributes": {
+          "allowzero": "name: \"allowzero\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 103
+      },
+      {
+        "name": "/GridSample",
+        "op_type": "GridSample",
+        "inputs": [
+          "/layer0/layer0.2/relu_4/Relu_output_0",
+          "/Cast_3_output_0"
+        ],
+        "outputs": [
+          "/GridSample_output_0"
+        ],
+        "attributes": {
+          "align_corners": "name: \"align_corners\"\ni: 0\ntype: INT\n",
+          "mode": "name: \"mode\"\ns: \"bilinear\"\ntype: STRING\n",
+          "padding_mode": "name: \"padding_mode\"\ns: \"zeros\"\ntype: STRING\n"
+        },
+        "depth_order": 104
+      },
+      {
+        "name": "/GridSample_1",
+        "op_type": "GridSample",
+        "inputs": [
+          "/Add_2_output_0",
+          "/Cast_3_output_0"
+        ],
+        "outputs": [
+          "/GridSample_1_output_0"
+        ],
+        "attributes": {
+          "align_corners": "name: \"align_corners\"\ni: 0\ntype: INT\n",
+          "mode": "name: \"mode\"\ns: \"bilinear\"\ntype: STRING\n",
+          "padding_mode": "name: \"padding_mode\"\ns: \"zeros\"\ntype: STRING\n"
+        },
+        "depth_order": 105
+      },
+      {
+        "name": "/Reshape_4",
+        "op_type": "Reshape",
+        "inputs": [
+          "/Concat_8_output_0",
+          "/Constant_55_output_0"
+        ],
+        "outputs": [
+          "/Reshape_4_output_0"
+        ],
+        "attributes": {
+          "allowzero": "name: \"allowzero\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 106
+      },
+      {
+        "name": "/GridSample_2",
+        "op_type": "GridSample",
+        "inputs": [
+          "/layer1/layer1.4/relu_2/Relu_output_0",
+          "/Cast_4_output_0"
+        ],
+        "outputs": [
+          "/GridSample_2_output_0"
+        ],
+        "attributes": {
+          "align_corners": "name: \"align_corners\"\ni: 0\ntype: INT\n",
+          "mode": "name: \"mode\"\ns: \"bilinear\"\ntype: STRING\n",
+          "padding_mode": "name: \"padding_mode\"\ns: \"zeros\"\ntype: STRING\n"
+        },
+        "depth_order": 107
+      },
+      {
+        "name": "/GridSample_3",
+        "op_type": "GridSample",
+        "inputs": [
+          "/Add_3_output_0",
+          "/Cast_4_output_0"
+        ],
+        "outputs": [
+          "/GridSample_3_output_0"
+        ],
+        "attributes": {
+          "align_corners": "name: \"align_corners\"\ni: 0\ntype: INT\n",
+          "mode": "name: \"mode\"\ns: \"bilinear\"\ntype: STRING\n",
+          "padding_mode": "name: \"padding_mode\"\ns: \"zeros\"\ntype: STRING\n"
+        },
+        "depth_order": 108
+      },
+      {
+        "name": "/Reshape_6",
+        "op_type": "Reshape",
+        "inputs": [
+          "/Concat_10_output_0",
+          "/Constant_71_output_0"
+        ],
+        "outputs": [
+          "/Reshape_6_output_0"
+        ],
+        "attributes": {
+          "allowzero": "name: \"allowzero\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 109
+      },
+      {
+        "name": "/GridSample_4",
+        "op_type": "GridSample",
+        "inputs": [
+          "/layer2/layer2.7/relu_2/Relu_output_0",
+          "/Cast_5_output_0"
+        ],
+        "outputs": [
+          "/GridSample_4_output_0"
+        ],
+        "attributes": {
+          "align_corners": "name: \"align_corners\"\ni: 0\ntype: INT\n",
+          "mode": "name: \"mode\"\ns: \"bilinear\"\ntype: STRING\n",
+          "padding_mode": "name: \"padding_mode\"\ns: \"zeros\"\ntype: STRING\n"
+        },
+        "depth_order": 110
+      },
+      {
+        "name": "/GridSample_5",
+        "op_type": "GridSample",
+        "inputs": [
+          "/Add_4_output_0",
+          "/Cast_5_output_0"
+        ],
+        "outputs": [
+          "/GridSample_5_output_0"
+        ],
+        "attributes": {
+          "align_corners": "name: \"align_corners\"\ni: 0\ntype: INT\n",
+          "mode": "name: \"mode\"\ns: \"bilinear\"\ntype: STRING\n",
+          "padding_mode": "name: \"padding_mode\"\ns: \"zeros\"\ntype: STRING\n"
+        },
+        "depth_order": 111
+      },
+      {
+        "name": "/layer0/layer0.0/relu_3/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.0/conv2_1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/relu_3/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 112
+      },
+      {
+        "name": "/layer0/layer0.1/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.1/conv1_1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 113
+      },
+      {
+        "name": "/layer0/layer0.1/relu_4/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.1_1/Add_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/relu_4/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 114
+      },
+      {
+        "name": "/Shape_5",
+        "op_type": "Shape",
+        "inputs": [
+          "/Reshape_2_output_0"
+        ],
+        "outputs": [
+          "/Shape_5_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 115
+      },
+      {
+        "name": "/Equal",
+        "op_type": "Equal",
+        "inputs": [
+          "/Reshape_2_output_0",
+          "/Mul_8_output_0"
+        ],
+        "outputs": [
+          "/Equal_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 116
+      },
+      {
+        "name": "/Where",
+        "op_type": "Where",
+        "inputs": [
+          "/Equal_output_0",
+          "/ConstantOfShape_1_output_0",
+          "/Reshape_2_output_0"
+        ],
+        "outputs": [
+          "/Where_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 117
+      },
+      {
+        "name": "/Mul_9",
+        "op_type": "Mul",
+        "inputs": [
+          "/GridSample_output_0",
+          "/Where_2_output_0"
+        ],
+        "outputs": [
+          "/Mul_9_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 118
+      },
+      {
+        "name": "/Equal_1",
+        "op_type": "Equal",
+        "inputs": [
+          "/GridSample_1_output_0",
+          "/Constant_44_output_0"
+        ],
+        "outputs": [
+          "/Equal_1_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 119
+      },
+      {
+        "name": "/Shape_6",
+        "op_type": "Shape",
+        "inputs": [
+          "/GridSample_1_output_0"
+        ],
+        "outputs": [
+          "/Shape_6_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 120
+      },
+      {
+        "name": "/Where_1",
+        "op_type": "Where",
+        "inputs": [
+          "/Equal_1_output_0",
+          "/ConstantOfShape_2_output_0",
+          "/GridSample_1_output_0"
+        ],
+        "outputs": [
+          "/Where_1_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 121
+      },
+      {
+        "name": "/Shape_10",
+        "op_type": "Shape",
+        "inputs": [
+          "/Reshape_4_output_0"
+        ],
+        "outputs": [
+          "/Shape_10_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 122
+      },
+      {
+        "name": "/Equal_2",
+        "op_type": "Equal",
+        "inputs": [
+          "/Reshape_4_output_0",
+          "/Mul_10_output_0"
+        ],
+        "outputs": [
+          "/Equal_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 123
+      },
+      {
+        "name": "/Where_3",
+        "op_type": "Where",
+        "inputs": [
+          "/Equal_2_output_0",
+          "/ConstantOfShape_4_output_0",
+          "/Reshape_4_output_0"
+        ],
+        "outputs": [
+          "/Where_3_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 124
+      },
+      {
+        "name": "/Mul_11",
+        "op_type": "Mul",
+        "inputs": [
+          "/GridSample_2_output_0",
+          "/Where_5_output_0"
+        ],
+        "outputs": [
+          "/Mul_11_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 125
+      },
+      {
+        "name": "/Equal_3",
+        "op_type": "Equal",
+        "inputs": [
+          "/GridSample_3_output_0",
+          "/Constant_60_output_0"
+        ],
+        "outputs": [
+          "/Equal_3_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 126
+      },
+      {
+        "name": "/Shape_11",
+        "op_type": "Shape",
+        "inputs": [
+          "/GridSample_3_output_0"
+        ],
+        "outputs": [
+          "/Shape_11_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 127
+      },
+      {
+        "name": "/Where_4",
+        "op_type": "Where",
+        "inputs": [
+          "/Equal_3_output_0",
+          "/ConstantOfShape_5_output_0",
+          "/GridSample_3_output_0"
+        ],
+        "outputs": [
+          "/Where_4_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 128
+      },
+      {
+        "name": "/Shape_15",
+        "op_type": "Shape",
+        "inputs": [
+          "/Reshape_6_output_0"
+        ],
+        "outputs": [
+          "/Shape_15_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 129
+      },
+      {
+        "name": "/Equal_4",
+        "op_type": "Equal",
+        "inputs": [
+          "/Reshape_6_output_0",
+          "/Mul_12_output_0"
+        ],
+        "outputs": [
+          "/Equal_4_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 130
+      },
+      {
+        "name": "/Where_6",
+        "op_type": "Where",
+        "inputs": [
+          "/Equal_4_output_0",
+          "/ConstantOfShape_7_output_0",
+          "/Reshape_6_output_0"
+        ],
+        "outputs": [
+          "/Where_6_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 131
+      },
+      {
+        "name": "/Mul_13",
+        "op_type": "Mul",
+        "inputs": [
+          "/GridSample_4_output_0",
+          "/Where_8_output_0"
+        ],
+        "outputs": [
+          "/Mul_13_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 132
+      },
+      {
+        "name": "/Equal_5",
+        "op_type": "Equal",
+        "inputs": [
+          "/GridSample_5_output_0",
+          "/Constant_76_output_0"
+        ],
+        "outputs": [
+          "/Equal_5_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 133
+      },
+      {
+        "name": "/Shape_16",
+        "op_type": "Shape",
+        "inputs": [
+          "/GridSample_5_output_0"
+        ],
+        "outputs": [
+          "/Shape_16_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 134
+      },
+      {
+        "name": "/Where_7",
+        "op_type": "Where",
+        "inputs": [
+          "/Equal_5_output_0",
+          "/ConstantOfShape_8_output_0",
+          "/GridSample_5_output_0"
+        ],
+        "outputs": [
+          "/Where_7_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 135
+      },
+      {
+        "name": "/layer0/layer0.0/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.0/relu_3/Relu_output_0",
+          "onnx::Conv_1166",
+          "onnx::Conv_1167"
+        ],
+        "outputs": [
+          "/layer0/layer0.0/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 136
+      },
+      {
+        "name": "/layer0/layer0.1/conv2_1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.1/relu_2/Relu_output_0",
+          "onnx::Conv_1172",
+          "onnx::Conv_1173"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/conv2_1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 137
+      },
+      {
+        "name": "/layer0/layer0.2/conv1_1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.1/relu_4/Relu_output_0",
+          "onnx::Conv_1178",
+          "onnx::Conv_1179"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/conv1_1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 138
+      },
+      {
+        "name": "/layer0/layer0.2_1/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer0/layer0.2/conv3/Conv_output_0",
+          "/layer0/layer0.1/relu_4/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.2_1/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 139
+      },
+      {
+        "name": "/ConstantOfShape_1",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Shape_5_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_1_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 7\n  raw_data: \"\\001\\000\\000\\000\\000\\000\\000\\000\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 140
+      },
+      {
+        "name": "/Expand",
+        "op_type": "Expand",
+        "inputs": [
+          "onnx::Expand_950",
+          "/Where_output_0"
+        ],
+        "outputs": [
+          "/Expand_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 141
+      },
+      {
+        "name": "/ReduceSum",
+        "op_type": "ReduceSum",
+        "inputs": [
+          "/Mul_9_output_0",
+          "onnx::ReduceSum_997"
+        ],
+        "outputs": [
+          "/ReduceSum_output_0"
+        ],
+        "attributes": {
+          "keepdims": "name: \"keepdims\"\ni: 1\ntype: INT\n"
+        },
+        "depth_order": 142
+      },
+      {
+        "name": "/ConstantOfShape_2",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Shape_6_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_2_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 1\n  raw_data: \"\\354x\\255\\340\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 143
+      },
+      {
+        "name": "/Softmax",
+        "op_type": "Softmax",
+        "inputs": [
+          "/Where_1_output_0"
+        ],
+        "outputs": [
+          "/Softmax_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 144
+      },
+      {
+        "name": "/ConstantOfShape_4",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Shape_10_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_4_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 7\n  raw_data: \"\\001\\000\\000\\000\\000\\000\\000\\000\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 145
+      },
+      {
+        "name": "/Expand_1",
+        "op_type": "Expand",
+        "inputs": [
+          "onnx::Expand_1013",
+          "/Where_3_output_0"
+        ],
+        "outputs": [
+          "/Expand_1_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 146
+      },
+      {
+        "name": "/ReduceSum_1",
+        "op_type": "ReduceSum",
+        "inputs": [
+          "/Mul_11_output_0",
+          "onnx::ReduceSum_997"
+        ],
+        "outputs": [
+          "/ReduceSum_1_output_0"
+        ],
+        "attributes": {
+          "keepdims": "name: \"keepdims\"\ni: 1\ntype: INT\n"
+        },
+        "depth_order": 147
+      },
+      {
+        "name": "/ConstantOfShape_5",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Shape_11_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_5_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 1\n  raw_data: \"\\354x\\255\\340\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 148
+      },
+      {
+        "name": "/Softmax_1",
+        "op_type": "Softmax",
+        "inputs": [
+          "/Where_4_output_0"
+        ],
+        "outputs": [
+          "/Softmax_1_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 149
+      },
+      {
+        "name": "/ConstantOfShape_7",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Shape_15_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_7_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 7\n  raw_data: \"\\001\\000\\000\\000\\000\\000\\000\\000\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 150
+      },
+      {
+        "name": "/Expand_2",
+        "op_type": "Expand",
+        "inputs": [
+          "onnx::Expand_1074",
+          "/Where_6_output_0"
+        ],
+        "outputs": [
+          "/Expand_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 151
+      },
+      {
+        "name": "/ReduceSum_2",
+        "op_type": "ReduceSum",
+        "inputs": [
+          "/Mul_13_output_0",
+          "onnx::ReduceSum_997"
+        ],
+        "outputs": [
+          "/ReduceSum_2_output_0"
+        ],
+        "attributes": {
+          "keepdims": "name: \"keepdims\"\ni: 1\ntype: INT\n"
+        },
+        "depth_order": 152
+      },
+      {
+        "name": "/ConstantOfShape_8",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Shape_16_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_8_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 1\n  raw_data: \"\\354x\\255\\340\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 153
+      },
+      {
+        "name": "/Softmax_2",
+        "op_type": "Softmax",
+        "inputs": [
+          "/Where_7_output_0"
+        ],
+        "outputs": [
+          "/Softmax_2_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 154
+      },
+      {
+        "name": "/layer0/layer0.1/relu_3/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.1/conv2_1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/relu_3/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 155
+      },
+      {
+        "name": "/layer0/layer0.2/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.2/conv1_1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 156
+      },
+      {
+        "name": "/layer0/layer0.2/relu_4/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.2_1/Add_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/relu_4/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 157
+      },
+      {
+        "name": "/Mul_8",
+        "op_type": "Mul",
+        "inputs": [
+          "/ConstantOfShape_1_output_0",
+          "/Constant_40_output_0"
+        ],
+        "outputs": [
+          "/Mul_8_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 158
+      },
+      {
+        "name": "/deblocks.0/deblocks.0.0/ConvTranspose",
+        "op_type": "ConvTranspose",
+        "inputs": [
+          "/ReduceSum_output_0",
+          "model.pyramid_backbone.deblocks.0.0.weight"
+        ],
+        "outputs": [
+          "/deblocks.0/deblocks.0.0/ConvTranspose_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 159
+      },
+      {
+        "name": "/IsNaN",
+        "op_type": "IsNaN",
+        "inputs": [
+          "/Softmax_output_0"
+        ],
+        "outputs": [
+          "/IsNaN_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 160
+      },
+      {
+        "name": "/Shape_7",
+        "op_type": "Shape",
+        "inputs": [
+          "/Softmax_output_0"
+        ],
+        "outputs": [
+          "/Shape_7_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 161
+      },
+      {
+        "name": "/Where_2",
+        "op_type": "Where",
+        "inputs": [
+          "/IsNaN_output_0",
+          "/ConstantOfShape_3_output_0",
+          "/Softmax_output_0"
+        ],
+        "outputs": [
+          "/Where_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 162
+      },
+      {
+        "name": "/Mul_10",
+        "op_type": "Mul",
+        "inputs": [
+          "/ConstantOfShape_4_output_0",
+          "/Constant_56_output_0"
+        ],
+        "outputs": [
+          "/Mul_10_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 163
+      },
+      {
+        "name": "/deblocks.1/deblocks.1.0/ConvTranspose",
+        "op_type": "ConvTranspose",
+        "inputs": [
+          "/ReduceSum_1_output_0",
+          "model.pyramid_backbone.deblocks.1.0.weight"
+        ],
+        "outputs": [
+          "/deblocks.1/deblocks.1.0/ConvTranspose_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 2\nints: 2\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 2\nints: 2\ntype: INTS\n"
+        },
+        "depth_order": 164
+      },
+      {
+        "name": "/IsNaN_1",
+        "op_type": "IsNaN",
+        "inputs": [
+          "/Softmax_1_output_0"
+        ],
+        "outputs": [
+          "/IsNaN_1_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 165
+      },
+      {
+        "name": "/Shape_12",
+        "op_type": "Shape",
+        "inputs": [
+          "/Softmax_1_output_0"
+        ],
+        "outputs": [
+          "/Shape_12_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 166
+      },
+      {
+        "name": "/Where_5",
+        "op_type": "Where",
+        "inputs": [
+          "/IsNaN_1_output_0",
+          "/ConstantOfShape_6_output_0",
+          "/Softmax_1_output_0"
+        ],
+        "outputs": [
+          "/Where_5_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 167
+      },
+      {
+        "name": "/Mul_12",
+        "op_type": "Mul",
+        "inputs": [
+          "/ConstantOfShape_7_output_0",
+          "/Constant_72_output_0"
+        ],
+        "outputs": [
+          "/Mul_12_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 168
+      },
+      {
+        "name": "/deblocks.2/deblocks.2.0/ConvTranspose",
+        "op_type": "ConvTranspose",
+        "inputs": [
+          "/ReduceSum_2_output_0",
+          "model.pyramid_backbone.deblocks.2.0.weight"
+        ],
+        "outputs": [
+          "/deblocks.2/deblocks.2.0/ConvTranspose_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 4\nints: 4\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 4\nints: 4\ntype: INTS\n"
+        },
+        "depth_order": 169
+      },
+      {
+        "name": "/IsNaN_2",
+        "op_type": "IsNaN",
+        "inputs": [
+          "/Softmax_2_output_0"
+        ],
+        "outputs": [
+          "/IsNaN_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 170
+      },
+      {
+        "name": "/Shape_17",
+        "op_type": "Shape",
+        "inputs": [
+          "/Softmax_2_output_0"
+        ],
+        "outputs": [
+          "/Shape_17_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 171
+      },
+      {
+        "name": "/Where_8",
+        "op_type": "Where",
+        "inputs": [
+          "/IsNaN_2_output_0",
+          "/ConstantOfShape_9_output_0",
+          "/Softmax_2_output_0"
+        ],
+        "outputs": [
+          "/Where_8_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 172
+      },
+      {
+        "name": "/layer0/layer0.1/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.1/relu_3/Relu_output_0",
+          "onnx::Conv_1175",
+          "onnx::Conv_1176"
+        ],
+        "outputs": [
+          "/layer0/layer0.1/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 173
+      },
+      {
+        "name": "/layer0/layer0.2/conv2_1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.2/relu_2/Relu_output_0",
+          "onnx::Conv_1181",
+          "onnx::Conv_1182"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/conv2_1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 174
+      },
+      {
+        "name": "/layer1/layer1.0/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.2/relu_4/Relu_output_0",
+          "onnx::Conv_1187",
+          "onnx::Conv_1188"
+        ],
+        "outputs": [
+          "/layer1/layer1.0/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 175
+      },
+      {
+        "name": "/layer1/layer1.0/downsample/downsample.0/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.2/relu_4/Relu_output_0",
+          "onnx::Conv_1196",
+          "onnx::Conv_1197"
+        ],
+        "outputs": [
+          "/layer1/layer1.0/downsample/downsample.0/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 2\nints: 2\ntype: INTS\n"
+        },
+        "depth_order": 176
+      },
+      {
+        "name": "/single_head_0/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.2/relu_4/Relu_output_0",
+          "model.pyramid_backbone.single_head_0.weight",
+          "model.pyramid_backbone.single_head_0.bias"
+        ],
+        "outputs": [
+          "/single_head_0/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 177
+      },
+      {
+        "name": "/Shape_3",
+        "op_type": "Shape",
+        "inputs": [
+          "/layer0/layer0.2/relu_4/Relu_output_0"
+        ],
+        "outputs": [
+          "/Shape_3_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 178
+      },
+      {
+        "name": "/deblocks.0/deblocks.0.1/BatchNormalization",
+        "op_type": "BatchNormalization",
+        "inputs": [
+          "/deblocks.0/deblocks.0.0/ConvTranspose_output_0",
+          "model.pyramid_backbone.deblocks.0.1.weight",
+          "model.pyramid_backbone.deblocks.0.1.bias",
+          "model.pyramid_backbone.deblocks.0.1.running_mean",
+          "model.pyramid_backbone.deblocks.0.1.running_var"
+        ],
+        "outputs": [
+          "/deblocks.0/deblocks.0.1/BatchNormalization_output_0"
+        ],
+        "attributes": {
+          "epsilon": "name: \"epsilon\"\nf: 0.001\ntype: FLOAT\n",
+          "momentum": "name: \"momentum\"\nf: 0.99\ntype: FLOAT\n",
+          "training_mode": "name: \"training_mode\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 179
+      },
+      {
+        "name": "/ConstantOfShape_3",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Shape_7_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_3_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 1\n  raw_data: \"\\000\\000\\000\\000\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 180
+      },
+      {
+        "name": "/deblocks.1/deblocks.1.1/BatchNormalization",
+        "op_type": "BatchNormalization",
+        "inputs": [
+          "/deblocks.1/deblocks.1.0/ConvTranspose_output_0",
+          "model.pyramid_backbone.deblocks.1.1.weight",
+          "model.pyramid_backbone.deblocks.1.1.bias",
+          "model.pyramid_backbone.deblocks.1.1.running_mean",
+          "model.pyramid_backbone.deblocks.1.1.running_var"
+        ],
+        "outputs": [
+          "/deblocks.1/deblocks.1.1/BatchNormalization_output_0"
+        ],
+        "attributes": {
+          "epsilon": "name: \"epsilon\"\nf: 0.001\ntype: FLOAT\n",
+          "momentum": "name: \"momentum\"\nf: 0.99\ntype: FLOAT\n",
+          "training_mode": "name: \"training_mode\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 181
+      },
+      {
+        "name": "/ConstantOfShape_6",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Shape_12_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_6_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 1\n  raw_data: \"\\000\\000\\000\\000\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 182
+      },
+      {
+        "name": "/deblocks.2/deblocks.2.1/BatchNormalization",
+        "op_type": "BatchNormalization",
+        "inputs": [
+          "/deblocks.2/deblocks.2.0/ConvTranspose_output_0",
+          "model.pyramid_backbone.deblocks.2.1.weight",
+          "model.pyramid_backbone.deblocks.2.1.bias",
+          "model.pyramid_backbone.deblocks.2.1.running_mean",
+          "model.pyramid_backbone.deblocks.2.1.running_var"
+        ],
+        "outputs": [
+          "/deblocks.2/deblocks.2.1/BatchNormalization_output_0"
+        ],
+        "attributes": {
+          "epsilon": "name: \"epsilon\"\nf: 0.001\ntype: FLOAT\n",
+          "momentum": "name: \"momentum\"\nf: 0.99\ntype: FLOAT\n",
+          "training_mode": "name: \"training_mode\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 183
+      },
+      {
+        "name": "/ConstantOfShape_9",
+        "op_type": "ConstantOfShape",
+        "inputs": [
+          "/Shape_17_output_0"
+        ],
+        "outputs": [
+          "/ConstantOfShape_9_output_0"
+        ],
+        "attributes": {
+          "value": "name: \"value\"\nt {\n  dims: 1\n  data_type: 1\n  raw_data: \"\\000\\000\\000\\000\"\n}\ntype: TENSOR\n"
+        },
+        "depth_order": 184
+      },
+      {
+        "name": "/layer0/layer0.2/relu_3/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer0/layer0.2/conv2_1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/relu_3/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 185
+      },
+      {
+        "name": "/layer1/layer1.0/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.0/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.0/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 186
+      },
+      {
+        "name": "/layer1/layer1.0/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer1/layer1.0/conv3/Conv_output_0",
+          "/layer1/layer1.0/downsample/downsample.0/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.0/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 187
+      },
+      {
+        "name": "/Sigmoid",
+        "op_type": "Sigmoid",
+        "inputs": [
+          "/single_head_0/Conv_output_0"
+        ],
+        "outputs": [
+          "/Sigmoid_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 188
+      },
+      {
+        "name": "/Gather_12",
+        "op_type": "Gather",
+        "inputs": [
+          "/Shape_3_output_0",
+          "/Constant_30_output_0"
+        ],
+        "outputs": [
+          "/Gather_12_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 189
+      },
+      {
+        "name": "/deblocks.0/deblocks.0.2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/deblocks.0/deblocks.0.1/BatchNormalization_output_0"
+        ],
+        "outputs": [
+          "/deblocks.0/deblocks.0.2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 190
+      },
+      {
+        "name": "/deblocks.1/deblocks.1.2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/deblocks.1/deblocks.1.1/BatchNormalization_output_0"
+        ],
+        "outputs": [
+          "/deblocks.1/deblocks.1.2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 191
+      },
+      {
+        "name": "/deblocks.2/deblocks.2.2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/deblocks.2/deblocks.2.1/BatchNormalization_output_0"
+        ],
+        "outputs": [
+          "/deblocks.2/deblocks.2.2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 192
+      },
+      {
+        "name": "/layer0/layer0.2/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer0/layer0.2/relu_3/Relu_output_0",
+          "onnx::Conv_1184",
+          "onnx::Conv_1185"
+        ],
+        "outputs": [
+          "/layer0/layer0.2/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 193
+      },
+      {
+        "name": "/layer1/layer1.0/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.0/relu/Relu_output_0",
+          "onnx::Conv_1190",
+          "onnx::Conv_1191"
+        ],
+        "outputs": [
+          "/layer1/layer1.0/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 2\nints: 2\ntype: INTS\n"
+        },
+        "depth_order": 194
+      },
+      {
+        "name": "/layer1/layer1.0/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.0/Add_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.0/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 195
+      },
+      {
+        "name": "/Add_2",
+        "op_type": "Add",
+        "inputs": [
+          "/Sigmoid_output_0",
+          "/Constant_29_output_0"
+        ],
+        "outputs": [
+          "/Add_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 196
+      },
+      {
+        "name": "/Unsqueeze_11",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_12_output_0",
+          "/Constant_32_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_11_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 197
+      },
+      {
+        "name": "/Concat_12",
+        "op_type": "Concat",
+        "inputs": [
+          "/deblocks.0/deblocks.0.2/Relu_output_0",
+          "/deblocks.1/deblocks.1.2/Relu_output_0",
+          "/deblocks.2/deblocks.2.2/Relu_output_0"
+        ],
+        "outputs": [
+          "/Concat_12_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 1\ntype: INT\n"
+        },
+        "depth_order": 198
+      },
+      {
+        "name": "/layer1/layer1.0/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.0/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.0/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 199
+      },
+      {
+        "name": "/layer1/layer1.1/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.0/relu_2/Relu_output_0",
+          "onnx::Conv_1199",
+          "onnx::Conv_1200"
+        ],
+        "outputs": [
+          "/layer1/layer1.1/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 200
+      },
+      {
+        "name": "/layer1/layer1.1/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer1/layer1.1/conv3/Conv_output_0",
+          "/layer1/layer1.0/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.1/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 201
+      },
+      {
+        "name": "/shrink_conv/layers.0/double_conv/double_conv.0/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/Concat_12_output_0",
+          "model.shrink_conv.layers.0.double_conv.0.weight",
+          "model.shrink_conv.layers.0.double_conv.0.bias"
+        ],
+        "outputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.0/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 202
+      },
+      {
+        "name": "/layer1/layer1.0/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.0/relu_1/Relu_output_0",
+          "onnx::Conv_1193",
+          "onnx::Conv_1194"
+        ],
+        "outputs": [
+          "/layer1/layer1.0/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 203
+      },
+      {
+        "name": "/layer1/layer1.1/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.1/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.1/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 204
+      },
+      {
+        "name": "/layer1/layer1.1/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.1/Add_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.1/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 205
+      },
+      {
+        "name": "/shrink_conv/layers.0/double_conv/double_conv.1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.0/Conv_output_0"
+        ],
+        "outputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 206
+      },
+      {
+        "name": "/layer1/layer1.1/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.1/relu/Relu_output_0",
+          "onnx::Conv_1202",
+          "onnx::Conv_1203"
+        ],
+        "outputs": [
+          "/layer1/layer1.1/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 207
+      },
+      {
+        "name": "/layer1/layer1.2/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.1/relu_2/Relu_output_0",
+          "onnx::Conv_1208",
+          "onnx::Conv_1209"
+        ],
+        "outputs": [
+          "/layer1/layer1.2/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 208
+      },
+      {
+        "name": "/layer1/layer1.2/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer1/layer1.2/conv3/Conv_output_0",
+          "/layer1/layer1.1/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.2/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 209
+      },
+      {
+        "name": "/shrink_conv/layers.0/double_conv/double_conv.2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.1/Relu_output_0",
+          "model.shrink_conv.layers.0.double_conv.2.weight",
+          "model.shrink_conv.layers.0.double_conv.2.bias"
+        ],
+        "outputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 210
+      },
+      {
+        "name": "/layer1/layer1.1/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.1/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.1/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 211
+      },
+      {
+        "name": "/layer1/layer1.2/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.2/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.2/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 212
+      },
+      {
+        "name": "/layer1/layer1.2/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.2/Add_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.2/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 213
+      },
+      {
+        "name": "/shrink_conv/layers.0/double_conv/double_conv.3/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.2/Conv_output_0"
+        ],
+        "outputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.3/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 214
+      },
+      {
+        "name": "/layer1/layer1.1/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.1/relu_1/Relu_output_0",
+          "onnx::Conv_1205",
+          "onnx::Conv_1206"
+        ],
+        "outputs": [
+          "/layer1/layer1.1/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 215
+      },
+      {
+        "name": "/layer1/layer1.2/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.2/relu/Relu_output_0",
+          "onnx::Conv_1211",
+          "onnx::Conv_1212"
+        ],
+        "outputs": [
+          "/layer1/layer1.2/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 216
+      },
+      {
+        "name": "/layer1/layer1.3/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.2/relu_2/Relu_output_0",
+          "onnx::Conv_1217",
+          "onnx::Conv_1218"
+        ],
+        "outputs": [
+          "/layer1/layer1.3/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 217
+      },
+      {
+        "name": "/layer1/layer1.3/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer1/layer1.3/conv3/Conv_output_0",
+          "/layer1/layer1.2/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.3/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 218
+      },
+      {
+        "name": "/cls_head/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.3/Relu_output_0",
+          "model.cls_head.weight",
+          "model.cls_head.bias"
+        ],
+        "outputs": [
+          "cls_preds"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 219
+      },
+      {
+        "name": "/reg_head/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.3/Relu_output_0",
+          "model.reg_head.weight",
+          "model.reg_head.bias"
+        ],
+        "outputs": [
+          "reg_preds"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 220
+      },
+      {
+        "name": "/dir_head/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/shrink_conv/layers.0/double_conv/double_conv.3/Relu_output_0",
+          "model.dir_head.weight",
+          "model.dir_head.bias"
+        ],
+        "outputs": [
+          "dir_preds"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 221
+      },
+      {
+        "name": "/layer1/layer1.2/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.2/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.2/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 222
+      },
+      {
+        "name": "/layer1/layer1.3/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.3/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.3/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 223
+      },
+      {
+        "name": "/layer1/layer1.3/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.3/Add_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.3/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 224
+      },
+      {
+        "name": "/layer1/layer1.2/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.2/relu_1/Relu_output_0",
+          "onnx::Conv_1214",
+          "onnx::Conv_1215"
+        ],
+        "outputs": [
+          "/layer1/layer1.2/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 225
+      },
+      {
+        "name": "/layer1/layer1.3/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.3/relu/Relu_output_0",
+          "onnx::Conv_1220",
+          "onnx::Conv_1221"
+        ],
+        "outputs": [
+          "/layer1/layer1.3/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 226
+      },
+      {
+        "name": "/layer1/layer1.4/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.3/relu_2/Relu_output_0",
+          "onnx::Conv_1226",
+          "onnx::Conv_1227"
+        ],
+        "outputs": [
+          "/layer1/layer1.4/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 227
+      },
+      {
+        "name": "/layer1/layer1.4/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer1/layer1.4/conv3/Conv_output_0",
+          "/layer1/layer1.3/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.4/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 228
+      },
+      {
+        "name": "/layer1/layer1.3/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.3/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.3/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 229
+      },
+      {
+        "name": "/layer1/layer1.4/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.4/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.4/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 230
+      },
+      {
+        "name": "/layer1/layer1.4/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.4/Add_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.4/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 231
+      },
+      {
+        "name": "/layer1/layer1.3/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.3/relu_1/Relu_output_0",
+          "onnx::Conv_1223",
+          "onnx::Conv_1224"
+        ],
+        "outputs": [
+          "/layer1/layer1.3/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 232
+      },
+      {
+        "name": "/layer1/layer1.4/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.4/relu/Relu_output_0",
+          "onnx::Conv_1229",
+          "onnx::Conv_1230"
+        ],
+        "outputs": [
+          "/layer1/layer1.4/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 233
+      },
+      {
+        "name": "/layer2/layer2.0/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.4/relu_2/Relu_output_0",
+          "onnx::Conv_1235",
+          "onnx::Conv_1236"
+        ],
+        "outputs": [
+          "/layer2/layer2.0/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 234
+      },
+      {
+        "name": "/layer2/layer2.0/downsample/downsample.0/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.4/relu_2/Relu_output_0",
+          "onnx::Conv_1244",
+          "onnx::Conv_1245"
+        ],
+        "outputs": [
+          "/layer2/layer2.0/downsample/downsample.0/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 2\nints: 2\ntype: INTS\n"
+        },
+        "depth_order": 235
+      },
+      {
+        "name": "/single_head_1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.4/relu_2/Relu_output_0",
+          "model.pyramid_backbone.single_head_1.weight",
+          "model.pyramid_backbone.single_head_1.bias"
+        ],
+        "outputs": [
+          "/single_head_1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 236
+      },
+      {
+        "name": "/Shape_8",
+        "op_type": "Shape",
+        "inputs": [
+          "/layer1/layer1.4/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/Shape_8_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 237
+      },
+      {
+        "name": "/layer1/layer1.4/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer1/layer1.4/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer1/layer1.4/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 238
+      },
+      {
+        "name": "/layer2/layer2.0/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.0/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.0/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 239
+      },
+      {
+        "name": "/layer2/layer2.0/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer2/layer2.0/conv3/Conv_output_0",
+          "/layer2/layer2.0/downsample/downsample.0/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.0/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 240
+      },
+      {
+        "name": "/Sigmoid_1",
+        "op_type": "Sigmoid",
+        "inputs": [
+          "/single_head_1/Conv_output_0"
+        ],
+        "outputs": [
+          "/Sigmoid_1_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 241
+      },
+      {
+        "name": "/Gather_16",
+        "op_type": "Gather",
+        "inputs": [
+          "/Shape_8_output_0",
+          "/Constant_46_output_0"
+        ],
+        "outputs": [
+          "/Gather_16_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 242
+      },
+      {
+        "name": "/layer1/layer1.4/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer1/layer1.4/relu_1/Relu_output_0",
+          "onnx::Conv_1232",
+          "onnx::Conv_1233"
+        ],
+        "outputs": [
+          "/layer1/layer1.4/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 243
+      },
+      {
+        "name": "/layer2/layer2.0/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.0/relu/Relu_output_0",
+          "onnx::Conv_1238",
+          "onnx::Conv_1239"
+        ],
+        "outputs": [
+          "/layer2/layer2.0/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 2\nints: 2\ntype: INTS\n"
+        },
+        "depth_order": 244
+      },
+      {
+        "name": "/layer2/layer2.0/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.0/Add_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.0/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 245
+      },
+      {
+        "name": "/Add_3",
+        "op_type": "Add",
+        "inputs": [
+          "/Sigmoid_1_output_0",
+          "/Constant_45_output_0"
+        ],
+        "outputs": [
+          "/Add_3_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 246
+      },
+      {
+        "name": "/Unsqueeze_14",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_16_output_0",
+          "/Constant_48_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_14_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 247
+      },
+      {
+        "name": "/layer2/layer2.0/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.0/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.0/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 248
+      },
+      {
+        "name": "/layer2/layer2.1/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.0/relu_2/Relu_output_0",
+          "onnx::Conv_1247",
+          "onnx::Conv_1248"
+        ],
+        "outputs": [
+          "/layer2/layer2.1/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 249
+      },
+      {
+        "name": "/layer2/layer2.1/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer2/layer2.1/conv3/Conv_output_0",
+          "/layer2/layer2.0/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.1/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 250
+      },
+      {
+        "name": "/layer2/layer2.0/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.0/relu_1/Relu_output_0",
+          "onnx::Conv_1241",
+          "onnx::Conv_1242"
+        ],
+        "outputs": [
+          "/layer2/layer2.0/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 251
+      },
+      {
+        "name": "/layer2/layer2.1/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.1/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.1/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 252
+      },
+      {
+        "name": "/layer2/layer2.1/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.1/Add_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.1/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 253
+      },
+      {
+        "name": "/layer2/layer2.1/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.1/relu/Relu_output_0",
+          "onnx::Conv_1250",
+          "onnx::Conv_1251"
+        ],
+        "outputs": [
+          "/layer2/layer2.1/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 254
+      },
+      {
+        "name": "/layer2/layer2.2/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.1/relu_2/Relu_output_0",
+          "onnx::Conv_1256",
+          "onnx::Conv_1257"
+        ],
+        "outputs": [
+          "/layer2/layer2.2/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 255
+      },
+      {
+        "name": "/layer2/layer2.2/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer2/layer2.2/conv3/Conv_output_0",
+          "/layer2/layer2.1/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.2/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 256
+      },
+      {
+        "name": "/layer2/layer2.1/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.1/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.1/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 257
+      },
+      {
+        "name": "/layer2/layer2.2/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.2/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.2/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 258
+      },
+      {
+        "name": "/layer2/layer2.2/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.2/Add_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.2/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 259
+      },
+      {
+        "name": "/layer2/layer2.1/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.1/relu_1/Relu_output_0",
+          "onnx::Conv_1253",
+          "onnx::Conv_1254"
+        ],
+        "outputs": [
+          "/layer2/layer2.1/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 260
+      },
+      {
+        "name": "/layer2/layer2.2/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.2/relu/Relu_output_0",
+          "onnx::Conv_1259",
+          "onnx::Conv_1260"
+        ],
+        "outputs": [
+          "/layer2/layer2.2/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 261
+      },
+      {
+        "name": "/layer2/layer2.3/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.2/relu_2/Relu_output_0",
+          "onnx::Conv_1265",
+          "onnx::Conv_1266"
+        ],
+        "outputs": [
+          "/layer2/layer2.3/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 262
+      },
+      {
+        "name": "/layer2/layer2.3/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer2/layer2.3/conv3/Conv_output_0",
+          "/layer2/layer2.2/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.3/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 263
+      },
+      {
+        "name": "/layer2/layer2.2/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.2/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.2/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 264
+      },
+      {
+        "name": "/layer2/layer2.3/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.3/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.3/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 265
+      },
+      {
+        "name": "/layer2/layer2.3/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.3/Add_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.3/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 266
+      },
+      {
+        "name": "/layer2/layer2.2/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.2/relu_1/Relu_output_0",
+          "onnx::Conv_1262",
+          "onnx::Conv_1263"
+        ],
+        "outputs": [
+          "/layer2/layer2.2/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 267
+      },
+      {
+        "name": "/layer2/layer2.3/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.3/relu/Relu_output_0",
+          "onnx::Conv_1268",
+          "onnx::Conv_1269"
+        ],
+        "outputs": [
+          "/layer2/layer2.3/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 268
+      },
+      {
+        "name": "/layer2/layer2.4/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.3/relu_2/Relu_output_0",
+          "onnx::Conv_1274",
+          "onnx::Conv_1275"
+        ],
+        "outputs": [
+          "/layer2/layer2.4/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 269
+      },
+      {
+        "name": "/layer2/layer2.4/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer2/layer2.4/conv3/Conv_output_0",
+          "/layer2/layer2.3/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.4/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 270
+      },
+      {
+        "name": "/layer2/layer2.3/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.3/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.3/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 271
+      },
+      {
+        "name": "/layer2/layer2.4/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.4/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.4/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 272
+      },
+      {
+        "name": "/layer2/layer2.4/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.4/Add_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.4/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 273
+      },
+      {
+        "name": "/layer2/layer2.3/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.3/relu_1/Relu_output_0",
+          "onnx::Conv_1271",
+          "onnx::Conv_1272"
+        ],
+        "outputs": [
+          "/layer2/layer2.3/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 274
+      },
+      {
+        "name": "/layer2/layer2.4/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.4/relu/Relu_output_0",
+          "onnx::Conv_1277",
+          "onnx::Conv_1278"
+        ],
+        "outputs": [
+          "/layer2/layer2.4/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 275
+      },
+      {
+        "name": "/layer2/layer2.5/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.4/relu_2/Relu_output_0",
+          "onnx::Conv_1283",
+          "onnx::Conv_1284"
+        ],
+        "outputs": [
+          "/layer2/layer2.5/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 276
+      },
+      {
+        "name": "/layer2/layer2.5/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer2/layer2.5/conv3/Conv_output_0",
+          "/layer2/layer2.4/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.5/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 277
+      },
+      {
+        "name": "/layer2/layer2.4/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.4/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.4/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 278
+      },
+      {
+        "name": "/layer2/layer2.5/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.5/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.5/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 279
+      },
+      {
+        "name": "/layer2/layer2.5/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.5/Add_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.5/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 280
+      },
+      {
+        "name": "/layer2/layer2.4/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.4/relu_1/Relu_output_0",
+          "onnx::Conv_1280",
+          "onnx::Conv_1281"
+        ],
+        "outputs": [
+          "/layer2/layer2.4/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 281
+      },
+      {
+        "name": "/layer2/layer2.5/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.5/relu/Relu_output_0",
+          "onnx::Conv_1286",
+          "onnx::Conv_1287"
+        ],
+        "outputs": [
+          "/layer2/layer2.5/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 282
+      },
+      {
+        "name": "/layer2/layer2.6/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.5/relu_2/Relu_output_0",
+          "onnx::Conv_1292",
+          "onnx::Conv_1293"
+        ],
+        "outputs": [
+          "/layer2/layer2.6/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 283
+      },
+      {
+        "name": "/layer2/layer2.6/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer2/layer2.6/conv3/Conv_output_0",
+          "/layer2/layer2.5/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.6/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 284
+      },
+      {
+        "name": "/layer2/layer2.5/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.5/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.5/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 285
+      },
+      {
+        "name": "/layer2/layer2.6/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.6/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.6/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 286
+      },
+      {
+        "name": "/layer2/layer2.6/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.6/Add_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.6/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 287
+      },
+      {
+        "name": "/layer2/layer2.5/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.5/relu_1/Relu_output_0",
+          "onnx::Conv_1289",
+          "onnx::Conv_1290"
+        ],
+        "outputs": [
+          "/layer2/layer2.5/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 288
+      },
+      {
+        "name": "/layer2/layer2.6/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.6/relu/Relu_output_0",
+          "onnx::Conv_1295",
+          "onnx::Conv_1296"
+        ],
+        "outputs": [
+          "/layer2/layer2.6/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 289
+      },
+      {
+        "name": "/layer2/layer2.7/conv1/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.6/relu_2/Relu_output_0",
+          "onnx::Conv_1301",
+          "onnx::Conv_1302"
+        ],
+        "outputs": [
+          "/layer2/layer2.7/conv1/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 290
+      },
+      {
+        "name": "/layer2/layer2.7/Add",
+        "op_type": "Add",
+        "inputs": [
+          "/layer2/layer2.7/conv3/Conv_output_0",
+          "/layer2/layer2.6/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.7/Add_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 291
+      },
+      {
+        "name": "/layer2/layer2.6/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.6/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.6/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 292
+      },
+      {
+        "name": "/layer2/layer2.7/relu/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.7/conv1/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.7/relu/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 293
+      },
+      {
+        "name": "/layer2/layer2.7/relu_2/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.7/Add_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.7/relu_2/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 294
+      },
+      {
+        "name": "/layer2/layer2.6/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.6/relu_1/Relu_output_0",
+          "onnx::Conv_1298",
+          "onnx::Conv_1299"
+        ],
+        "outputs": [
+          "/layer2/layer2.6/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 295
+      },
+      {
+        "name": "/layer2/layer2.7/conv2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.7/relu/Relu_output_0",
+          "onnx::Conv_1304",
+          "onnx::Conv_1305"
+        ],
+        "outputs": [
+          "/layer2/layer2.7/conv2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 32\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 3\nints: 3\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 1\nints: 1\nints: 1\nints: 1\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 296
+      },
+      {
+        "name": "/single_head_2/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.7/relu_2/Relu_output_0",
+          "model.pyramid_backbone.single_head_2.weight",
+          "model.pyramid_backbone.single_head_2.bias"
+        ],
+        "outputs": [
+          "/single_head_2/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 297
+      },
+      {
+        "name": "/Shape_13",
+        "op_type": "Shape",
+        "inputs": [
+          "/layer2/layer2.7/relu_2/Relu_output_0"
+        ],
+        "outputs": [
+          "/Shape_13_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 298
+      },
+      {
+        "name": "/layer2/layer2.7/relu_1/Relu",
+        "op_type": "Relu",
+        "inputs": [
+          "/layer2/layer2.7/conv2/Conv_output_0"
+        ],
+        "outputs": [
+          "/layer2/layer2.7/relu_1/Relu_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 299
+      },
+      {
+        "name": "/Sigmoid_2",
+        "op_type": "Sigmoid",
+        "inputs": [
+          "/single_head_2/Conv_output_0"
+        ],
+        "outputs": [
+          "/Sigmoid_2_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 300
+      },
+      {
+        "name": "/Gather_18",
+        "op_type": "Gather",
+        "inputs": [
+          "/Shape_13_output_0",
+          "/Constant_62_output_0"
+        ],
+        "outputs": [
+          "/Gather_18_output_0"
+        ],
+        "attributes": {
+          "axis": "name: \"axis\"\ni: 0\ntype: INT\n"
+        },
+        "depth_order": 301
+      },
+      {
+        "name": "/layer2/layer2.7/conv3/Conv",
+        "op_type": "Conv",
+        "inputs": [
+          "/layer2/layer2.7/relu_1/Relu_output_0",
+          "onnx::Conv_1307",
+          "onnx::Conv_1308"
+        ],
+        "outputs": [
+          "/layer2/layer2.7/conv3/Conv_output_0"
+        ],
+        "attributes": {
+          "dilations": "name: \"dilations\"\nints: 1\nints: 1\ntype: INTS\n",
+          "group": "name: \"group\"\ni: 1\ntype: INT\n",
+          "kernel_shape": "name: \"kernel_shape\"\nints: 1\nints: 1\ntype: INTS\n",
+          "pads": "name: \"pads\"\nints: 0\nints: 0\nints: 0\nints: 0\ntype: INTS\n",
+          "strides": "name: \"strides\"\nints: 1\nints: 1\ntype: INTS\n"
+        },
+        "depth_order": 302
+      },
+      {
+        "name": "/Add_4",
+        "op_type": "Add",
+        "inputs": [
+          "/Sigmoid_2_output_0",
+          "/Constant_61_output_0"
+        ],
+        "outputs": [
+          "/Add_4_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 303
+      },
+      {
+        "name": "/Unsqueeze_17",
+        "op_type": "Unsqueeze",
+        "inputs": [
+          "/Gather_18_output_0",
+          "/Constant_64_output_0"
+        ],
+        "outputs": [
+          "/Unsqueeze_17_output_0"
+        ],
+        "attributes": {},
+        "depth_order": 304
+      }
+    ]
+  },
+  "wrapper_equivalence": {
+    "num_frames": 50,
+    "output_names": [
+      "cls_preds",
+      "reg_preds",
+      "dir_preds"
+    ],
+    "outputs": {
+      "cls_preds": {
+        "max_abs_error": 0.0,
+        "mean_abs_error": 0.0,
+        "relative_error": 0.0,
+        "numel": 3276800,
+        "shape_mismatches": []
+      },
+      "reg_preds": {
+        "max_abs_error": 0.0,
+        "mean_abs_error": 0.0,
+        "relative_error": 0.0,
+        "numel": 22937600,
+        "shape_mismatches": []
+      },
+      "dir_preds": {
+        "max_abs_error": 0.0,
+        "mean_abs_error": 0.0,
+        "relative_error": 0.0,
+        "numel": 6553600,
+        "shape_mismatches": []
+      }
+    },
+    "by_record_len": {
+      "1": {
+        "record_len": 1,
+        "agent_count": 1,
+        "num_frames": 14,
+        "outputs": {
+          "cls_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 917504,
+            "shape_mismatches": []
+          },
+          "reg_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 6422528,
+            "shape_mismatches": []
+          },
+          "dir_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 1835008,
+            "shape_mismatches": []
+          }
+        }
+      },
+      "2": {
+        "record_len": 2,
+        "agent_count": 2,
+        "num_frames": 36,
+        "outputs": {
+          "cls_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 2359296,
+            "shape_mismatches": []
+          },
+          "reg_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 16515072,
+            "shape_mismatches": []
+          },
+          "dir_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 4718592,
+            "shape_mismatches": []
+          }
+        }
+      }
+    },
+    "success": true,
+    "comparison": "original_pytorch_forward_vs_dynamic_agent_dim_wrapper",
+    "device": "cuda:0",
+    "pyramid_forward_export_mode": "dynamic_agent_dim"
+  },
+  "five_way": {
+    "success": true,
+    "onnx_path": "tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_fp32_dynamic.onnx",
+    "fp32_engine_path": "tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/engines/fp32/lidar_pyramid_dynamic_agent_dim_fp32.engine",
+    "fp16_engine_path": "tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/engines/fp16/lidar_pyramid_dynamic_agent_dim_fp16.engine",
+    "num_frames": 50,
+    "actual_frames": 50,
+    "skipped_frames": 0,
+    "reports": {
+      "pytorch_original": {
+        "backend": "pytorch_original",
+        "backend_label": "PyTorch original",
+        "success": true,
+        "num_frames": 50,
+        "actual_frames": 50,
+        "skipped_frames": 0,
+        "AP@0.30": 0.8721,
+        "AP@0.50": 0.8534,
+        "AP@0.70": 0.7462,
+        "mAP": 0.8239,
+        "forward_mean_ms": 32.62121755629778,
+        "forward_p50_ms": 19.14939284324646,
+        "forward_p90_ms": 25.37889964878559,
+        "postprocess_mean_ms": 19.38783995807171,
+        "postprocess_p50_ms": 8.7061058729887,
+        "total_mean_ms": 52.00905751436949,
+        "total_p50_ms": 28.45863252878189,
+        "error": null
+      },
+      "pytorch_export_wrapper": {
+        "backend": "pytorch_export_wrapper",
+        "backend_label": "PyTorch export wrapper",
+        "success": true,
+        "num_frames": 50,
+        "actual_frames": 50,
+        "skipped_frames": 0,
+        "AP@0.30": 0.8721,
+        "AP@0.50": 0.8534,
+        "AP@0.70": 0.7462,
+        "mAP": 0.8239,
+        "forward_mean_ms": 15.501844137907028,
+        "forward_p50_ms": 15.812624245882034,
+        "forward_p90_ms": 18.027685582637787,
+        "postprocess_mean_ms": 8.182959109544754,
+        "postprocess_p50_ms": 7.158048450946808,
+        "total_mean_ms": 23.684803247451782,
+        "total_p50_ms": 22.28371612727642,
+        "error": null
+      },
+      "onnxruntime_fp32": {
+        "backend": "onnxruntime_fp32",
+        "backend_label": "ONNXRuntime FP32",
+        "success": true,
+        "num_frames": 50,
+        "actual_frames": 50,
+        "skipped_frames": 0,
+        "AP@0.30": 0.872,
+        "AP@0.50": 0.8533,
+        "AP@0.70": 0.7462,
+        "mAP": 0.8238,
+        "forward_mean_ms": 29.316251426935196,
+        "forward_p50_ms": 19.048133864998817,
+        "forward_p90_ms": 27.025217190384865,
+        "postprocess_mean_ms": 8.10898669064045,
+        "postprocess_p50_ms": 8.538538590073586,
+        "total_mean_ms": 37.425238117575645,
+        "total_p50_ms": 27.294808998703957,
+        "error": null
+      },
+      "tensorrt_fp32": {
+        "backend": "tensorrt_fp32",
+        "backend_label": "TensorRT FP32",
+        "success": true,
+        "num_frames": 50,
+        "actual_frames": 50,
+        "skipped_frames": 0,
+        "AP@0.30": 0.8721,
+        "AP@0.50": 0.8534,
+        "AP@0.70": 0.7462,
+        "mAP": 0.8239,
+        "forward_mean_ms": 405.37094183266163,
+        "forward_p50_ms": 401.97812393307686,
+        "forward_p90_ms": 488.73768001794815,
+        "postprocess_mean_ms": 7.537727393209934,
+        "postprocess_p50_ms": 7.3339808732271194,
+        "total_mean_ms": 412.90866922587156,
+        "total_p50_ms": 408.07552076876163,
+        "error": null
+      },
+      "tensorrt_fp16": {
+        "backend": "tensorrt_fp16",
+        "backend_label": "TensorRT FP16",
+        "success": true,
+        "num_frames": 50,
+        "actual_frames": 50,
+        "skipped_frames": 0,
+        "AP@0.30": 0.8735,
+        "AP@0.50": 0.8535,
+        "AP@0.70": 0.7334,
+        "mAP": 0.8201,
+        "forward_mean_ms": 393.98946043103933,
+        "forward_p50_ms": 375.01353584229946,
+        "forward_p90_ms": 468.35714392364025,
+        "postprocess_mean_ms": 8.383453376591206,
+        "postprocess_p50_ms": 8.644159883260727,
+        "total_mean_ms": 402.37291380763054,
+        "total_p50_ms": 381.29033520817757,
+        "error": null
+      }
+    },
+    "five_way_ap_table": [
+      {
+        "backend_key": "pytorch_original",
+        "backend": "PyTorch original",
+        "AP@0.30": 0.8721,
+        "AP@0.50": 0.8534,
+        "AP@0.70": 0.7462,
+        "mAP": 0.8239,
+        "mAP_drop_vs_PyTorch": 0.0,
+        "actual_frames": 50,
+        "success": true
+      },
+      {
+        "backend_key": "pytorch_export_wrapper",
+        "backend": "PyTorch export wrapper",
+        "AP@0.30": 0.8721,
+        "AP@0.50": 0.8534,
+        "AP@0.70": 0.7462,
+        "mAP": 0.8239,
+        "mAP_drop_vs_PyTorch": 0.0,
+        "actual_frames": 50,
+        "success": true
+      },
+      {
+        "backend_key": "onnxruntime_fp32",
+        "backend": "ONNXRuntime FP32",
+        "AP@0.30": 0.872,
+        "AP@0.50": 0.8533,
+        "AP@0.70": 0.7462,
+        "mAP": 0.8238,
+        "mAP_drop_vs_PyTorch": 0.0001,
+        "actual_frames": 50,
+        "success": true
+      },
+      {
+        "backend_key": "tensorrt_fp32",
+        "backend": "TensorRT FP32",
+        "AP@0.30": 0.8721,
+        "AP@0.50": 0.8534,
+        "AP@0.70": 0.7462,
+        "mAP": 0.8239,
+        "mAP_drop_vs_PyTorch": 0.0,
+        "actual_frames": 50,
+        "success": true
+      },
+      {
+        "backend_key": "tensorrt_fp16",
+        "backend": "TensorRT FP16",
+        "AP@0.30": 0.8735,
+        "AP@0.50": 0.8535,
+        "AP@0.70": 0.7334,
+        "mAP": 0.8201,
+        "mAP_drop_vs_PyTorch": 0.0038,
+        "actual_frames": 50,
+        "success": true
+      }
+    ],
+    "branch_classification": {
+      "pytorch_map": 0.8239,
+      "onnxruntime_fp32_map": 0.8238,
+      "tensorrt_fp32_map": 0.8239,
+      "tolerance": 0.03,
+      "onnxruntime_fp32_close_to_pytorch": true,
+      "tensorrt_fp32_close_to_pytorch": true,
+      "suspected_area": "AP is aligned across PyTorch, ONNXRuntime, and TensorRT FP32"
+    },
+    "pyramid_forward_export_mode": "dynamic_agent_dim",
+    "onnxruntime_session_mode": "default"
+  },
+  "fp32_benchmark": {
+    "precision": "fp32",
+    "pyramid_forward_export_mode": "dynamic_agent_dim",
+    "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/engines/fp32/lidar_pyramid_dynamic_agent_dim_fp32.engine",
+    "num_frames": 50,
+    "warmup_frames": null,
+    "actual_frames": 50,
+    "forward_mean_ms": 405.37094183266163,
+    "forward_p50_ms": 401.97812393307686,
+    "forward_p90_ms": 488.73768001794815,
+    "forward_p95_ms": null,
+    "forward_min_ms": null,
+    "forward_max_ms": null,
+    "fps": 2.487697564772168,
+    "engine_size_MB": 30.568950653076172,
+    "latency_scope": "engine_forward_on_real_samples",
+    "source_report": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/evaluation/five_way_ap_report_dynamic_agent_dim.json",
+    "success": true,
+    "error": null
+  },
+  "fp16_benchmark": {
+    "precision": "fp16",
+    "pyramid_forward_export_mode": "dynamic_agent_dim",
+    "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/artifacts/engines/fp16/lidar_pyramid_dynamic_agent_dim_fp16.engine",
+    "num_frames": 50,
+    "warmup_frames": null,
+    "actual_frames": 50,
+    "forward_mean_ms": 393.98946043103933,
+    "forward_p50_ms": 375.01353584229946,
+    "forward_p90_ms": 468.35714392364025,
+    "forward_p95_ms": null,
+    "forward_min_ms": null,
+    "forward_max_ms": null,
+    "fps": 2.666570415262343,
+    "engine_size_MB": 14.369815826416016,
+    "latency_scope": "engine_forward_on_real_samples",
+    "source_report": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/evaluation/five_way_ap_report_dynamic_agent_dim.json",
+    "success": true,
+    "error": null
+  },
+  "plugin_needed": false,
+  "need_bevwarp_plugin": false,
+  "need_pointpillar_scatter_plugin": false,
+  "need_bevpool_plugin": false,
+  "int8_qdq_modelopt_plugin_status": "not_run_by_request"
+}

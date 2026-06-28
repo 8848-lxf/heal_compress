@@ -1,0 +1,13 @@
+{
+  "dirs": {
+    "configs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/configs",
+    "onnx": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/artifacts/onnx",
+    "engines": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/artifacts/engines",
+    "calibration": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/calibration",
+    "benchmark": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/benchmark",
+    "evaluation": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/evaluation",
+    "logs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/logs",
+    "summary": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/summary",
+    "debug": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/debug"
+  }
+}

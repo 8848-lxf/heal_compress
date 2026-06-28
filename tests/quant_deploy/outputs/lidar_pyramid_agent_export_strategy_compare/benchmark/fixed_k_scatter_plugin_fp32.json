@@ -1,0 +1,53 @@
+{
+  "scheme": "fixed_k_scatter_plugin",
+  "precision": "fp32",
+  "num_frames": 50,
+  "actual_frames": 50,
+  "forward_p50_ms": 7.0506129413843155,
+  "forward_p90_ms": 8.525179699063301,
+  "forward_p95_ms": 9.730588644742966,
+  "execute_p50_ms": 5.129216194152832,
+  "total_runner_p50_ms": 7.0506129413843155,
+  "fps": 141.83164049899756,
+  "latency_scope": "fixed_k_scatter_plugin_real_sample_engine_forward",
+  "buckets": [
+    {
+      "bucket_id": 0,
+      "min_voxels": 1,
+      "opt_voxels": 9728,
+      "max_voxels": 9728,
+      "num_frames": 14,
+      "voxel_count_min": 8578,
+      "voxel_count_max": 9594
+    },
+    {
+      "bucket_id": 1,
+      "min_voxels": 9729,
+      "opt_voxels": 23040,
+      "max_voxels": 23040,
+      "num_frames": 26,
+      "voxel_count_min": 20646,
+      "voxel_count_max": 22985
+    },
+    {
+      "bucket_id": 2,
+      "min_voxels": 23041,
+      "opt_voxels": 23552,
+      "max_voxels": 23552,
+      "num_frames": 10,
+      "voxel_count_min": 23041,
+      "voxel_count_max": 23465
+    },
+    {
+      "bucket_id": 3,
+      "min_voxels": 23553,
+      "opt_voxels": 23553,
+      "max_voxels": 24064,
+      "num_frames": 0,
+      "voxel_count_min": null,
+      "voxel_count_max": null
+    }
+  ],
+  "ap_valid": true,
+  "whether_valid_mask_used": true
+}

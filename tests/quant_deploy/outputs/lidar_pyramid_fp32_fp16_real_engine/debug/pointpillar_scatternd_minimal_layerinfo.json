@@ -1,0 +1,106 @@
+{"Layers": [{
+  "Name": "entry^bb^signal^1_myl0_0",
+  "LayerType": "signal",
+  "Inputs": [],
+  "Outputs": [],
+  "TacticName": "",
+  "StreamId": 0,
+  "EventId": 2,
+  "Metadata": ""
+},{
+  "Name": "entry^bb^wait^1_myl0_1",
+  "LayerType": "wait",
+  "Inputs": [],
+  "Outputs": [],
+  "TacticName": "",
+  "StreamId": 1,
+  "EventId": 2,
+  "Metadata": ""
+},{
+  "Name": "__myl_Move_myl0_2",
+  "LayerType": "kgen",
+  "Inputs": [
+  {
+    "Name": "data",
+    "Dimensions": [64,131072],
+    "Format/Datatype": "Float"
+  }],
+  "Outputs": [
+  {
+    "Name": "output",
+    "Dimensions": [64,131072],
+    "Format/Datatype": "Float"
+  }],
+  "TacticName": "__myl_Move_0xaccf7a76f2801bb2af4ee290949c0105",
+  "StreamId": 0,
+  "Metadata": "[ONNX Layer: PointPillarScatterND]"
+},{
+  "Name": "__myl_Cast_myl0_3",
+  "LayerType": "kgen",
+  "Inputs": [
+  {
+    "Name": "indices",
+    "Dimensions": [64,8578,2],
+    "Format/Datatype": "Int64"
+  }],
+  "Outputs": [
+  {
+    "Name": "__myln_k_arg__bb1_5",
+    "Dimensions": [64,8578,2],
+    "Format/Datatype": "Int32"
+  }],
+  "TacticName": "__myl_Cast_0xbcc367402acc13c8b4c3111a537c610f",
+  "StreamId": 1,
+  "Metadata": ""
+},{
+  "Name": "__mye33_myl0_4",
+  "LayerType": "signal",
+  "Inputs": [],
+  "Outputs": [],
+  "TacticName": "",
+  "StreamId": 1,
+  "EventId": 1,
+  "Metadata": ""
+},{
+  "Name": "__mye35_myl0_5",
+  "LayerType": "wait",
+  "Inputs": [],
+  "Outputs": [],
+  "TacticName": "",
+  "StreamId": 0,
+  "EventId": 1,
+  "Metadata": ""
+},{
+  "Name": "__myl_Scat_myl0_6",
+  "LayerType": "kgen",
+  "Inputs": [
+  {
+    "Name": "output",
+    "Dimensions": [64,131072],
+    "Format/Datatype": "Float"
+  },
+  {
+    "Name": "__myln_k_arg__bb1_5",
+    "Dimensions": [64,8578,2],
+    "Format/Datatype": "Int32"
+  },
+  {
+    "Name": "updates",
+    "Dimensions": [64,8578],
+    "Format/Datatype": "Float"
+  }],
+  "Outputs": [
+  {
+    "Name": "output",
+    "Dimensions": [64,131072],
+    "Format/Datatype": "Float"
+  }],
+  "TacticName": "__myl_Scat_0x0c71755e95d02e936dbc655ac8203811",
+  "StreamId": 0,
+  "Metadata": "[ONNX Layer: PointPillarScatterND]"
+}],
+"Bindings": ["data"
+,"indices"
+,"updates"
+,"output"
+]}

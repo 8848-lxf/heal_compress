@@ -1,0 +1,27 @@
+pytorch2.4.0:õ
+¤
+pillar_features
+voxel_coords
+valid_voxel_maskspatial_features/PointPillarScatterTRT"PointPillarScatterTRT*
+height€ *
+
+num_agents *
+width€ 
+main_graphZ"
+pillar_features
+	
+€L
+@Z
+voxel_coords
+	
+€L
+Z
+valid_voxel_mask
+	
+€LbÙ
+spatial_featuresÄ
+Á¼
+-+PointPillarScatterTRTspatial_features_dim_0
+-+PointPillarScatterTRTspatial_features_dim_1
+-+PointPillarScatterTRTspatial_features_dim_2
+-+PointPillarScatterTRTspatial_features_dim_3B

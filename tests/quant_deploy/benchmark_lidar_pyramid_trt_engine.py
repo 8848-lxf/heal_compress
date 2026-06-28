@@ -11,7 +11,6 @@ if __package__ is None or __package__ == "":
 
 from quant_deploy_utils import (
     DEFAULT_TRT_ROOT,
-    INT8_NOT_IMPLEMENTED_MESSAGE,
     collect_env_report,
     default_benchmark_result,
     ensure_quant_deploy_run_dirs,
@@ -34,11 +33,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--trt_root", default=str(DEFAULT_TRT_ROOT))
     parser.add_argument("--trtexec_path", default=None)
     parser.add_argument("--timeout", type=int, default=900)
+    parser.add_argument("--benchmark_dir_name", default=None)
     return parser.parse_args(argv)
 
 
 def _default_engine_path(dirs: dict[str, Path], precision: str) -> Path:
-    name = "lidar_pyramid_int8_qdq.engine" if precision == "int8" else f"lidar_pyramid_{precision}.engine"
+    name = f"lidar_pyramid_{precision}.engine"
     return dirs[f"engine_{precision}"] / name
 
 
@@ -75,17 +75,15 @@ def benchmark_engine(args: argparse.Namespace) -> dict[str, Any]:
     dirs = ensure_quant_deploy_run_dirs(args.output_root)
     precision = args.precision.lower()
     engine_path = Path(args.engine_path) if args.engine_path else _default_engine_path(dirs, precision)
-    bench_dir = dirs[f"benchmark_{precision}"]
+    bench_dir = dirs["benchmark"] / args.benchmark_dir_name if args.benchmark_dir_name else dirs[f"benchmark_{precision}"]
+    bench_dir.mkdir(parents=True, exist_ok=True)
     log_path = dirs["logs_benchmark"] / f"benchmark_{precision}.log"
     result = default_benchmark_result(precision, engine_path, args.num_frames, args.warmup_frames)
     result["latency_scope"] = "engine_forward_only"
     env_report = collect_env_report(trt_root=getattr(args, "trt_root", None), explicit_trtexec=getattr(args, "trtexec_path", None))
     save_json(env_report, dirs["debug"] / "env_report.json")
 
-    if precision == "int8":
-        result.update({"success": False, "error": INT8_NOT_IMPLEMENTED_MESSAGE})
-        log_path.write_text(INT8_NOT_IMPLEMENTED_MESSAGE + "\n", encoding="utf-8")
-    elif not engine_path.exists():
+    if not engine_path.exists():
         result.update({"success": False, "error": f"engine file does not exist: {engine_path}"})
         log_path.write_text(result["error"] + "\n", encoding="utf-8")
     else:
@@ -137,7 +135,7 @@ def benchmark_engine(args: argparse.Namespace) -> dict[str, Any]:
     save_json(
         {
             "precision": precision,
-            "implemented": precision in {"fp32", "fp16"},
+            "implemented": precision in {"fp32", "fp16", "int8"},
             "build_success": build_success,
             "benchmark_success": result["success"],
             "engine_path": str(engine_path),
@@ -159,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     result = benchmark_engine(args)
     if not result["success"]:
         print(result["error"], file=sys.stderr)
-        return 2 if args.precision != "int8" else 0
+        return 2
     print(result)
     return 0
 

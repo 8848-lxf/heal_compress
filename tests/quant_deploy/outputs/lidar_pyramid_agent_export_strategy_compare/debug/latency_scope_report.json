@@ -1,0 +1,34 @@
+{
+  "pytorch_forward_p50_scope": {
+    "source": "evaluate_lidar_pyramid_ort_ap.py::_timed(lambda: model(ego))",
+    "includes_data_preparation": false,
+    "includes_h2d": false,
+    "includes_d2h": false,
+    "includes_postprocess": false,
+    "includes_synchronization": true
+  },
+  "onnxruntime_forward_p50_scope": {
+    "source": "evaluate_lidar_pyramid_ort_ap.py::_timed(lambda: session.run(...))",
+    "includes_data_preparation": false,
+    "includes_h2d": "ORT internal provider copies if needed",
+    "includes_d2h": "ORT output materialization to CPU then torch.to(device) in evaluator path",
+    "includes_postprocess": false,
+    "includes_synchronization": true
+  },
+  "trt_forward_p50_scope_before_breakdown": {
+    "source": "TensorRTEngineRunner.run inside evaluator",
+    "includes_data_preparation": false,
+    "includes_dtype_cast_contiguous": true,
+    "includes_h2d": true,
+    "includes_d2h": false,
+    "includes_postprocess": false,
+    "includes_synchronization": true,
+    "old_runner_allocated_outputs_per_frame": true
+  },
+  "trt_breakdown_scope": {
+    "source": "latency_decomposition.py",
+    "includes_input_prepare_ms": true,
+    "execute_async_ms": "CUDA event elapsed time around execute_async_v3",
+    "total_runner_ms": "profiled runner call plus explicit output D2H copy for measurement"
+  }
+}

@@ -1,0 +1,333 @@
+{
+  "scheme": "padded_agent_static",
+  "record_len": 1,
+  "input_shapes": {
+    "voxel_features": [
+      8578,
+      32,
+      4
+    ],
+    "voxel_coords": [
+      8578,
+      4
+    ],
+    "voxel_num_points": [
+      8578
+    ],
+    "valid_agent_mask": [
+      1,
+      2
+    ],
+    "pairwise_t_matrix": [
+      1,
+      2,
+      2,
+      4,
+      4
+    ]
+  },
+  "precisions": {
+    "fp32": {
+      "iterations": 50,
+      "summary": {
+        "num_frames": 50,
+        "overall": {
+          "execute_async_ms": {
+            "mean": 11.362925510406495,
+            "p50": 7.205887794494629,
+            "p90": 9.12179183959961,
+            "p95": 9.781248092651367,
+            "max": 215.40966796875
+          },
+          "total_runner_ms": {
+            "mean": 13.240938149392605,
+            "p50": 8.89207050204277,
+            "p90": 12.057054787874222,
+            "p95": 13.063723221421242,
+            "max": 218.0142104625702
+          },
+          "set_input_shape_ms": {
+            "mean": 0.0008966028690338135,
+            "p50": 0.0,
+            "p90": 0.0,
+            "p95": 0.0,
+            "max": 0.044830143451690674
+          },
+          "input_device_copy_ms": {
+            "mean": 1.095602661371231,
+            "p50": 0.7852055132389069,
+            "p90": 1.9599832594394684,
+            "p95": 3.665342926979065,
+            "max": 4.032384604215622
+          }
+        },
+        "by_record_len": {
+          "1": {
+            "record_len": 1,
+            "num_frames": 50,
+            "execute_async_ms": {
+              "mean": 11.362925510406495,
+              "p50": 7.205887794494629,
+              "p90": 9.12179183959961,
+              "p95": 9.781248092651367,
+              "max": 215.40966796875
+            },
+            "total_runner_ms": {
+              "mean": 13.240938149392605,
+              "p50": 8.89207050204277,
+              "p90": 12.057054787874222,
+              "p95": 13.063723221421242,
+              "max": 218.0142104625702
+            },
+            "set_input_shape_ms": {
+              "mean": 0.0008966028690338135,
+              "p50": 0.0,
+              "p90": 0.0,
+              "p95": 0.0,
+              "max": 0.044830143451690674
+            },
+            "input_device_copy_ms": {
+              "mean": 1.095602661371231,
+              "p50": 0.7852055132389069,
+              "p90": 1.9599832594394684,
+              "p95": 3.665342926979065,
+              "max": 4.032384604215622
+            }
+          }
+        }
+      },
+      "allocation_report": {
+        "context_created_per_run": false,
+        "stream_created_per_run": false,
+        "context_create_count": 1,
+        "stream_create_count": 1,
+        "run_count": 50,
+        "input_buffer_reallocation_count": 5,
+        "output_buffer_reallocation_count": 3,
+        "set_input_shape_call_count": 5,
+        "output_shape_query_call_count": 150,
+        "number_of_h2d_copies": 0,
+        "number_of_d2d_input_copies": 250,
+        "number_of_d2h_copies": 0,
+        "total_bytes_h2d": 0,
+        "total_bytes_d2d_input": 228188000,
+        "total_bytes_d2h": 0,
+        "input_buffer_reallocated_per_frame": false,
+        "output_buffer_reallocated_per_frame": false,
+        "set_input_shape_called_per_frame": false,
+        "output_shape_query_called_per_frame": true,
+        "input_buffers": {
+          "voxel_features": {
+            "shape": [
+              17920000
+            ],
+            "dtype": "torch.float32",
+            "numel": 17920000
+          },
+          "voxel_coords": {
+            "shape": [
+              560000
+            ],
+            "dtype": "torch.int32",
+            "numel": 560000
+          },
+          "voxel_num_points": {
+            "shape": [
+              140000
+            ],
+            "dtype": "torch.int32",
+            "numel": 140000
+          },
+          "valid_agent_mask": {
+            "shape": [
+              2
+            ],
+            "dtype": "torch.float32",
+            "numel": 2
+          },
+          "pairwise_t_matrix": {
+            "shape": [
+              64
+            ],
+            "dtype": "torch.float32",
+            "numel": 64
+          }
+        },
+        "output_buffers": {
+          "cls_preds": {
+            "shape": [
+              65536
+            ],
+            "dtype": "torch.float32",
+            "numel": 65536
+          },
+          "reg_preds": {
+            "shape": [
+              458752
+            ],
+            "dtype": "torch.float32",
+            "numel": 458752
+          },
+          "dir_preds": {
+            "shape": [
+              131072
+            ],
+            "dtype": "torch.float32",
+            "numel": 131072
+          }
+        }
+      }
+    },
+    "fp16": {
+      "iterations": 50,
+      "summary": {
+        "num_frames": 50,
+        "overall": {
+          "execute_async_ms": {
+            "mean": 4.935557038784027,
+            "p50": 1.8513920307159424,
+            "p90": 1.8554879426956177,
+            "p95": 1.8655680418014526,
+            "max": 155.9674835205078
+          },
+          "total_runner_ms": {
+            "mean": 7.51780167222023,
+            "p50": 4.291083663702011,
+            "p90": 7.044797763228416,
+            "p95": 8.104387670755386,
+            "max": 159.35423597693443
+          },
+          "set_input_shape_ms": {
+            "mean": 0.0006565079092979431,
+            "p50": 0.0,
+            "p90": 0.0,
+            "p95": 0.0,
+            "max": 0.032825395464897156
+          },
+          "input_device_copy_ms": {
+            "mean": 1.7379317060112953,
+            "p50": 1.6437023878097534,
+            "p90": 3.0156318098306656,
+            "p95": 4.797043278813362,
+            "max": 5.731908604502678
+          }
+        },
+        "by_record_len": {
+          "1": {
+            "record_len": 1,
+            "num_frames": 50,
+            "execute_async_ms": {
+              "mean": 4.935557038784027,
+              "p50": 1.8513920307159424,
+              "p90": 1.8554879426956177,
+              "p95": 1.8655680418014526,
+              "max": 155.9674835205078
+            },
+            "total_runner_ms": {
+              "mean": 7.51780167222023,
+              "p50": 4.291083663702011,
+              "p90": 7.044797763228416,
+              "p95": 8.104387670755386,
+              "max": 159.35423597693443
+            },
+            "set_input_shape_ms": {
+              "mean": 0.0006565079092979431,
+              "p50": 0.0,
+              "p90": 0.0,
+              "p95": 0.0,
+              "max": 0.032825395464897156
+            },
+            "input_device_copy_ms": {
+              "mean": 1.7379317060112953,
+              "p50": 1.6437023878097534,
+              "p90": 3.0156318098306656,
+              "p95": 4.797043278813362,
+              "max": 5.731908604502678
+            }
+          }
+        }
+      },
+      "allocation_report": {
+        "context_created_per_run": false,
+        "stream_created_per_run": false,
+        "context_create_count": 1,
+        "stream_create_count": 1,
+        "run_count": 50,
+        "input_buffer_reallocation_count": 5,
+        "output_buffer_reallocation_count": 3,
+        "set_input_shape_call_count": 5,
+        "output_shape_query_call_count": 150,
+        "number_of_h2d_copies": 0,
+        "number_of_d2d_input_copies": 250,
+        "number_of_d2h_copies": 0,
+        "total_bytes_h2d": 0,
+        "total_bytes_d2d_input": 228188000,
+        "total_bytes_d2h": 0,
+        "input_buffer_reallocated_per_frame": false,
+        "output_buffer_reallocated_per_frame": false,
+        "set_input_shape_called_per_frame": false,
+        "output_shape_query_called_per_frame": true,
+        "input_buffers": {
+          "voxel_features": {
+            "shape": [
+              17920000
+            ],
+            "dtype": "torch.float32",
+            "numel": 17920000
+          },
+          "voxel_coords": {
+            "shape": [
+              560000
+            ],
+            "dtype": "torch.int32",
+            "numel": 560000
+          },
+          "voxel_num_points": {
+            "shape": [
+              140000
+            ],
+            "dtype": "torch.int32",
+            "numel": 140000
+          },
+          "valid_agent_mask": {
+            "shape": [
+              2
+            ],
+            "dtype": "torch.float32",
+            "numel": 2
+          },
+          "pairwise_t_matrix": {
+            "shape": [
+              64
+            ],
+            "dtype": "torch.float32",
+            "numel": 64
+          }
+        },
+        "output_buffers": {
+          "cls_preds": {
+            "shape": [
+              65536
+            ],
+            "dtype": "torch.float32",
+            "numel": 65536
+          },
+          "reg_preds": {
+            "shape": [
+              458752
+            ],
+            "dtype": "torch.float32",
+            "numel": 458752
+          },
+          "dir_preds": {
+            "shape": [
+              131072
+            ],
+            "dtype": "torch.float32",
+            "numel": 131072
+          }
+        }
+      }
+    }
+  }
+}
