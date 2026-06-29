@@ -1,2 +1,0 @@
-round_id,model_type,checkpoint,model_size_mb,target_prune_ratio,actual_prune_ratio,gpu_id,gpu_name,dataset_total_frames,actual_frames,missing_frames,total_time_mean_ms,total_time_p50_ms,forward_time_mean_ms,forward_time_p50_ms,postprocess_time_mean_ms,postprocess_time_p50_ms,AP_0_03,AP_0_30,AP_0_50,AP_0_70,first_failure
-1,pruned,tests/outputs/prune_lidar_pyramid_25_l1/pruned_model.pth,20.842,0.25,0.0001932370332186073,,cpu,1789,0,3,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,The size of tensor a (64) must match the size of tensor b (48) at non-singleton dimension 1

@@ -333,6 +333,7 @@ def _build_one_engine(
 def _ensure_padded_exports_and_engines(args: argparse.Namespace, dirs: dict[str, Path], buckets: list[dict[str, Any]], plugin_so: Path) -> dict[str, Any]:
     canonical_onnx = dirs["onnx_fp32"] / "lidar_pyramid_padded_agent_static_fixed_k_scatter_plugin.onnx"
     source_onnx = _fixed_k_scatter_plugin_onnx_path(dirs)
+    max_bucket = max(int(bucket["max_voxels"]) for bucket in buckets)
     if (args.rebuild or not source_onnx.exists()) and not args.skip_existing:
         export_args = SimpleNamespace(
             hypes_yaml=args.hypes_yaml,
@@ -345,7 +346,7 @@ def _ensure_padded_exports_and_engines(args: argparse.Namespace, dirs: dict[str,
             num_frames=1,
             max_cav=int(args.max_cav),
             fixed_num_agents=None,
-            fixed_k=int(buckets[0]["max_voxels"]),
+            fixed_k=int(max_bucket),
             opset=17,
             overwrite=False,
             allow_synthetic_fallback=False,
@@ -355,7 +356,11 @@ def _ensure_padded_exports_and_engines(args: argparse.Namespace, dirs: dict[str,
             pillar_vfe_export_fix="explicit_squeeze",
             pyramid_forward_export_mode="fixed_k_scatter_plugin",
         )
-        export_lidar_pyramid_onnx(export_args)
+        summary = export_lidar_pyramid_onnx(export_args)
+        exported = Path(summary.get("onnx_path", ""))
+        if exported.exists() and exported.resolve() != source_onnx.resolve():
+            source_onnx.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(exported, source_onnx)
     _copy_or_link(source_onnx, canonical_onnx)
     build_args = SimpleNamespace(**vars(args))
     build_args.plugin_so = str(plugin_so)

@@ -38,10 +38,12 @@ DimsExprs PointPillarScatterPlugin::getOutputDimensions(
     int32_t nbInputs,
     IExprBuilder& exprBuilder) noexcept
 {
-    assert(nbInputs == 3);
+    assert(nbInputs == 3 || nbInputs == 4);
     DimsExprs out{};
     out.nbDims = 4;
-    out.d[0] = exprBuilder.constant(mParams.numAgents);
+    // New single-engine path passes pairwise_t_matrix as input 3 and uses its
+    // runtime agent dimension. The legacy 3-input path keeps serialized N.
+    out.d[0] = (nbInputs == 4) ? inputs[3].d[1] : exprBuilder.constant(mParams.numAgents);
     out.d[1] = inputs[0].d[1];
     out.d[2] = exprBuilder.constant(mParams.height);
     out.d[3] = exprBuilder.constant(mParams.width);
@@ -54,7 +56,7 @@ bool PointPillarScatterPlugin::supportsFormatCombination(
     int32_t nbInputs,
     int32_t nbOutputs) noexcept
 {
-    assert(nbInputs == 3 && nbOutputs == 1);
+    assert((nbInputs == 3 || nbInputs == 4) && nbOutputs == 1);
     if (pos == 0)
     {
         return isFp(inOut[pos].type) && inOut[pos].format == TensorFormat::kLINEAR;
@@ -69,6 +71,10 @@ bool PointPillarScatterPlugin::supportsFormatCombination(
                    || inOut[pos].type == DataType::kINT32 || inOut[pos].type == DataType::kBOOL)
             && inOut[pos].format == TensorFormat::kLINEAR;
     }
+    if (nbInputs == 4 && pos == 3)
+    {
+        return isFp(inOut[pos].type) && inOut[pos].format == TensorFormat::kLINEAR;
+    }
     return inOut[pos].type == inOut[0].type && inOut[pos].format == TensorFormat::kLINEAR;
 }
 
@@ -78,9 +84,11 @@ void PointPillarScatterPlugin::configurePlugin(
     DynamicPluginTensorDesc const*,
     int32_t) noexcept
 {
-    if (nbInputs != 3)
+    if (nbInputs != 3 && nbInputs != 4)
     {
-        std::cerr << "[PointPillarScatterTRT] expected pillar_features, voxel_coords, valid_voxel_mask." << std::endl;
+        std::cerr << "[PointPillarScatterTRT] expected pillar_features, voxel_coords, valid_voxel_mask"
+                     " and optional pairwise_t_matrix shape reference."
+                  << std::endl;
         return;
     }
     auto const& pf = in[0].desc.dims;
@@ -89,6 +97,14 @@ void PointPillarScatterPlugin::configurePlugin(
     if (pf.nbDims != 2 || coords.nbDims != 2 || coords.d[1] != 4 || mask.nbDims != 1)
     {
         std::cerr << "[PointPillarScatterTRT] expected [K,C], [K,4], [K]." << std::endl;
+    }
+    if (nbInputs == 4)
+    {
+        auto const& shapeRef = in[3].desc.dims;
+        if (shapeRef.nbDims != 5)
+        {
+            std::cerr << "[PointPillarScatterTRT] dynamic-N mode expects pairwise_t_matrix [1,N,N,4,4]." << std::endl;
+        }
     }
 }
 
@@ -100,7 +116,7 @@ size_t PointPillarScatterPlugin::getWorkspaceSize(PluginTensorDesc const*, int32
 
 int32_t PointPillarScatterPlugin::enqueue(
     PluginTensorDesc const* inputDesc,
-    PluginTensorDesc const*,
+    PluginTensorDesc const* outputDesc,
     void const* const* inputs,
     void* const* outputs,
     void*,
@@ -109,6 +125,11 @@ int32_t PointPillarScatterPlugin::enqueue(
     auto const& d = inputDesc[0].dims;
     int32_t K = d.d[0];
     int32_t C = d.d[1];
+    int32_t runtimeAgents = outputDesc[0].dims.d[0];
+    if (runtimeAgents <= 0)
+    {
+        runtimeAgents = mParams.numAgents;
+    }
     launchPointPillarScatter(
         inputs[0],
         inputs[1],
@@ -116,7 +137,7 @@ int32_t PointPillarScatterPlugin::enqueue(
         outputs[0],
         K,
         C,
-        mParams.numAgents,
+        runtimeAgents,
         mParams.height,
         mParams.width,
         inputDesc[0].type,

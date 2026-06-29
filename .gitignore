@@ -58,3 +58,45 @@ __pycache__/
 !tests/quant_deploy/outputs/**
 !tests/quant_deploy/plugins/
 !tests/quant_deploy/plugins/**
+
+# Model weights
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.weights
+
+# Deployment artifacts
+*.onnx
+*.engine
+*.plan
+*.trt
+*.raw
+*.so
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Model weights
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.weights
+
+# Deployment artifacts
+*.onnx
+*.engine
+*.plan
+*.trt
+*.raw
+*.so
+
+# Generated experiment outputs
+tests/outputs/
+tests/quant_deploy/outputs/

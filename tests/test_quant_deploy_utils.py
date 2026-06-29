@@ -18,8 +18,20 @@ from exportable_bev_warp import (
     warp_affine_simple_exportable,
 )
 from exportable_pillar_vfe import explicit_squeeze_pillar_features
+from build_dynamic_fixed_k_int8_engine import _input_files, _trt_dtype_to_numpy
+from dump_dynamic_fixed_k_int8_calibration import _covered_combos, _replacement_index_for_combo, _sample_npz_path
+from dynamic_single_engine_maxk_common import (
+    FIXED_K,
+    calibration_cache_path,
+    calibration_npz_dir,
+    engine_path as single_engine_path,
+    onnx_path as single_engine_onnx_path,
+    pad_pairwise_to_agent_count,
+    profile_from_observed_shapes,
+    single_engine_dynamic_axes,
+    single_engine_input_names,
+)
 from quant_deploy_utils import (
-    INT8_NOT_IMPLEMENTED_MESSAGE,
     build_trtexec_command,
     create_quant_deploy_run_dirs,
     detect_special_ops_in_onnx_model,
@@ -28,6 +40,10 @@ from quant_deploy_utils import (
     parse_precisions,
     write_summary_files,
 )
+from evaluate_all_deployment_engines_full_val_idle_gpu import eval_modes, mode_report_name, stats as full_val_stats
+from select_idle_gpu import GpuProcess, GpuSnapshot, choose_idle_gpu, parse_gpu_query_csv, parse_process_query_csv, wait_for_idle_gpu
+from analyze_voxel_k_coverage import ceil_to_multiple, k_distribution_summary, recommended_fixed_k_from_reports
+from dump_train_calibration_npz_for_all_strategies import enforce_train_split, file_sha256, write_calibration_manifest
 
 
 def test_create_quant_deploy_run_dirs_uses_required_layout(tmp_path):
@@ -149,16 +165,188 @@ def test_build_trtexec_command_for_fp32_no_tf32():
     assert "--noTF32" in cmd
 
 
-def test_build_trtexec_command_int8_is_reserved():
-    with pytest.raises(NotImplementedError) as exc:
-        build_trtexec_command(
-            precision="int8",
-            onnx_path=Path("model.onnx"),
-            engine_path=Path("lidar_pyramid_int8_qdq.engine"),
-            layerinfo_path=Path("layerinfo_int8.json"),
-        )
+def test_build_trtexec_command_for_native_int8_with_calibration_cache():
+    cmd = build_trtexec_command(
+        precision="int8",
+        onnx_path=Path("model.onnx"),
+        engine_path=Path("lidar_pyramid_int8.engine"),
+        layerinfo_path=Path("layerinfo_int8.json"),
+        calib_cache=Path("calib.cache"),
+    )
 
-    assert INT8_NOT_IMPLEMENTED_MESSAGE in str(exc.value)
+    assert "--int8" in cmd
+    assert "--calib=calib.cache" in cmd
+    assert "--fp16" not in cmd
+    assert "--exportLayerInfo=layerinfo_int8.json" in cmd
+
+
+def test_dynamic_fixed_k_int8_input_files_match_npz_suffix(tmp_path):
+    keep = tmp_path / "sample_000003_N2_bucket3.npz"
+    keep.write_bytes(b"npz")
+    (tmp_path / "sample_000004_N2_bucket2.npz").write_bytes(b"npz")
+    (tmp_path / "sample_000005_N1_bucket3.npz").write_bytes(b"npz")
+
+    assert _input_files(tmp_path, fixed_n=2, bucket_id=3) == [keep]
+
+
+def test_trt_dtype_to_numpy_maps_calibrator_float_and_int_types():
+    class FakeTrt:
+        float32 = object()
+        float16 = object()
+        int32 = object()
+        bool = object()
+
+    assert _trt_dtype_to_numpy(FakeTrt.float32, FakeTrt).__name__ == "float32"
+    assert _trt_dtype_to_numpy(FakeTrt.float16, FakeTrt).__name__ == "float16"
+    assert _trt_dtype_to_numpy(FakeTrt.int32, FakeTrt).__name__ == "int32"
+    assert _trt_dtype_to_numpy(FakeTrt.bool, FakeTrt).__name__ == "bool_"
+
+
+def test_dynamic_fixed_k_calibration_helpers_cover_required_combos(tmp_path):
+    rows = [
+        {"record_len": 1, "bucket_id": 0},
+        {"record_len": 2, "bucket_id": 1},
+        {"record_len": 2, "bucket_id": 1},
+    ]
+    required = {(1, 0), (2, 1), (2, 3)}
+
+    assert _covered_combos(rows, required) == {(1, 0), (2, 1)}
+    assert _replacement_index_for_combo(rows) == 2
+    assert _sample_npz_path(tmp_path, 2, 2, 3).name == "sample_000002_N2_bucket3.npz"
+
+
+def test_dynamic_single_engine_maxk_paths_and_input_contract(tmp_path):
+    dirs = create_quant_deploy_run_dirs(tmp_path / "outputs", "run", overwrite=False)
+
+    assert single_engine_input_names() == [
+        "voxel_features",
+        "voxel_coords",
+        "voxel_num_points",
+        "pairwise_t_matrix",
+        "valid_voxel_mask",
+    ]
+    assert single_engine_onnx_path(dirs).name == "lidar_pyramid_dynamic_agent_single_engine_maxK.onnx"
+    assert single_engine_path(dirs, "fp32").parts[-3:] == (
+        "dynamic_agent_single_engine_maxK",
+        "fp32",
+        "lidar_pyramid_dynamic_agent_single_engine_maxK_fp32.engine",
+    )
+    assert single_engine_path(dirs, "int8", 200).parts[-3:] == (
+        "dynamic_agent_single_engine_maxK",
+        "int8_train_calib200",
+        "lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+    )
+    assert calibration_npz_dir(dirs, 50).name == "dynamic_single_engine_maxK_train_calib50"
+    assert calibration_cache_path(dirs, 50).name == "lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib50.cache"
+
+
+def test_dynamic_single_engine_maxk_profile_uses_observed_dynamic_n_and_fixed_k():
+    observed = [
+        {"voxel_features": [FIXED_K, 32, 4], "pairwise_t_matrix": [1, 1, 1, 4, 4]},
+        {"voxel_features": [FIXED_K, 32, 4], "pairwise_t_matrix": [1, 2, 2, 4, 4]},
+        {"voxel_features": [FIXED_K, 32, 4], "pairwise_t_matrix": [1, 2, 2, 4, 4]},
+    ]
+
+    profile = profile_from_observed_shapes(observed)
+
+    assert profile["voxel_features"] == {"min": [FIXED_K, 32, 4], "opt": [FIXED_K, 32, 4], "max": [FIXED_K, 32, 4]}
+    assert profile["voxel_coords"]["max"] == [FIXED_K, 4]
+    assert profile["valid_voxel_mask"]["opt"] == [FIXED_K]
+    assert profile["pairwise_t_matrix"] == {
+        "min": [1, 1, 1, 4, 4],
+        "opt": [1, 2, 2, 4, 4],
+        "max": [1, 2, 2, 4, 4],
+    }
+
+
+def test_dynamic_single_engine_maxk_dynamic_axes_keep_k_static_and_n_dynamic():
+    axes = single_engine_dynamic_axes(["cls_preds"])
+
+    assert "voxel_features" not in axes
+    assert axes["pairwise_t_matrix"] == {1: "num_agents", 2: "num_agents"}
+    assert axes["cls_preds"] == {0: "batch"}
+
+
+def test_dynamic_single_engine_maxk_pairwise_padding_preserves_true_n_payload():
+    pairwise = torch.eye(4).view(1, 1, 1, 4, 4).numpy()
+
+    padded = pad_pairwise_to_agent_count(pairwise, 2)
+
+    assert padded.shape == (1, 2, 2, 4, 4)
+    assert padded.dtype == pairwise.dtype
+    assert padded[0, 0, 0, 0, 0] == 1
+    assert padded[0, 1, 1, 0, 0] == 1
+
+
+def test_select_idle_gpu_parses_nvidia_smi_csv():
+    gpu_rows = parse_gpu_query_csv(
+        "0, GPU-a, NVIDIA H800, 0, 12, 81559\n"
+        "1, GPU-b, NVIDIA H800, 98, 42000, 81559\n"
+    )
+    proc_rows = parse_process_query_csv("GPU-b, 1234, python, 4096\n")
+
+    assert gpu_rows[0]["index"] == 0
+    assert gpu_rows[1]["utilization_gpu"] == 98
+    assert proc_rows == [GpuProcess(gpu_uuid="GPU-b", pid=1234, process_name="python", used_memory_mb=4096)]
+
+
+def test_select_idle_gpu_prefers_lowest_memory_then_util():
+    snapshots = [
+        GpuSnapshot(index=0, uuid="GPU-0", name="H800", utilization_gpu=1, memory_used_mb=1500, memory_total_mb=80000, processes=[]),
+        GpuSnapshot(index=1, uuid="GPU-1", name="H800", utilization_gpu=0, memory_used_mb=500, memory_total_mb=80000, processes=[]),
+        GpuSnapshot(index=2, uuid="GPU-2", name="H800", utilization_gpu=0, memory_used_mb=100, memory_total_mb=80000, processes=[GpuProcess("GPU-2", 99, "python", 100)]),
+    ]
+
+    selected, reason = choose_idle_gpu(snapshots, util_threshold=5, mem_threshold_mb=2000)
+
+    assert selected is not None
+    assert selected.index == 1
+    assert "lowest memory" in reason
+
+
+def test_select_idle_gpu_rejects_busy_requested_gpu_without_override():
+    snapshots = [
+        GpuSnapshot(index=3, uuid="GPU-3", name="H800", utilization_gpu=10, memory_used_mb=3000, memory_total_mb=80000, processes=[]),
+    ]
+
+    selected, reason = choose_idle_gpu(snapshots, util_threshold=5, mem_threshold_mb=2000, gpu_index=3)
+
+    assert selected is None
+    assert "busy" in reason
+
+
+def test_full_val_mode_names_and_latency_stats_include_p99():
+    names = {mode.key: mode_report_name(mode) for mode in eval_modes()}
+    summary = full_val_stats([3.0, 1.0, 2.0])
+
+    assert names["single_engine_maxK_int8_train_calib200"] == "single_engine_maxK_int8_train_calib200_full_val.json"
+    assert names["dynamic_bucket_fp16"] == "dynamic_bucket_fp16_full_val.json"
+    assert summary["p50"] == 2.0
+    assert "p99" in summary
+
+
+def test_full_val_modes_can_use_fixedk_train_calibration_namespace():
+    modes = {mode.key: mode for mode in eval_modes(fixed_k=29696, dynamic_int8_calibration_split="train")}
+
+    assert modes["dynamic_bucket_fp16"].fixed_K == 29696
+    assert modes["dynamic_bucket_int8_calib200"].calibration_split == "train"
+    assert modes["dynamic_bucket_int8_calib200"].calibration_mode == "train_calib200"
+    assert modes["single_engine_maxK_int8_train_calib200"].fixed_K == 29696
+
+
+def test_wait_for_idle_gpu_records_query_failure_without_hanging(monkeypatch):
+    calls = {"count": 0}
+
+    def fail_query():
+        calls["count"] += 1
+        raise RuntimeError("nvidia-smi timed out after 1s")
+
+    monkeypatch.setattr("select_idle_gpu.query_gpu_snapshots", fail_query)
+
+    with pytest.raises(TimeoutError, match="gpu query failed"):
+        wait_for_idle_gpu(wait_timeout_sec=0, poll_interval_sec=1)
+
+    assert calls["count"] == 1
 
 
 def test_write_summary_files_records_dirs_and_markdown_table(tmp_path):
@@ -377,3 +565,63 @@ def test_explicit_squeeze_pillar_features_keeps_single_voxel_batch_dim():
 
     assert squeezed.shape == (1, 8)
     assert torch.equal(squeezed, features[:, 0, :])
+
+
+def test_voxel_k_coverage_summary_uses_required_percentiles_and_top_samples():
+    samples = [
+        {"sample_idx": 0, "record_len": 1, "original_num_voxels": 10},
+        {"sample_idx": 1, "record_len": 2, "original_num_voxels": 20},
+        {"sample_idx": 2, "record_len": 2, "original_num_voxels": 30},
+        {"sample_idx": 3, "record_len": 1, "original_num_voxels": 40},
+    ]
+
+    summary = k_distribution_summary(samples, split="val", old_fixed_k=25)
+
+    assert summary["split"] == "val"
+    assert summary["total_samples"] == 4
+    assert summary["valid_samples"] == 4
+    assert summary["K"]["min"] == 10
+    assert summary["K"]["p50"] == 25
+    assert summary["K"]["max"] == 40
+    assert summary["samples_with_K_gt_24064"] == 2
+    assert summary["top_50_largest_K_samples"][0]["original_num_voxels"] == 40
+
+
+def test_voxel_k_coverage_recommends_ceiled_fixed_k_across_train_and_val():
+    train = {"K": {"max": 33001}}
+    val = {"K": {"max": 32769}}
+
+    assert ceil_to_multiple(32769, 512) == 33280
+    assert recommended_fixed_k_from_reports(train, val, multiple=512) == 33280
+
+
+def test_train_calibration_manifest_records_hashes_and_rejects_non_train(tmp_path):
+    npz = tmp_path / "sample_000000_N1_bucket0.npz"
+    npz.write_bytes(b"calibration-bytes")
+    row = {
+        "path": str(npz),
+        "sample_idx": 0,
+        "record_len": 1,
+        "original_num_voxels": 123,
+        "input_shapes": {"voxel_features": [29696, 32, 4]},
+        "input_dtypes": {"voxel_features": "float32"},
+    }
+
+    with pytest.raises(ValueError, match="train"):
+        enforce_train_split("val")
+
+    manifest = write_calibration_manifest(
+        npz_dir=tmp_path,
+        strategy="dynamic_bucket",
+        fixed_k=29696,
+        num_samples=1,
+        rows=[row],
+        config_path="config.yaml",
+        checkpoint_path="model.pth",
+        calibration_split="train",
+    )
+
+    assert manifest["calibration_split"] == "train"
+    assert manifest["fixed_K"] == 29696
+    assert manifest["files"][0]["sha256"] == file_sha256(npz)
+    assert (tmp_path / "manifest.json").exists()

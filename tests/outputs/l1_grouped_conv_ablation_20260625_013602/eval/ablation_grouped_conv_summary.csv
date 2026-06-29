@@ -1,8 +1,0 @@
-model_name,group_conv_selection_mode,group_conv_prune_mode,group_conv_align,num_grouped_conv_align_violations
-baseline_original,not_available,not_available,8,
-shared_local_mean_p25,shared_local_mean,keep_groups,8,0
-shared_local_mean_p50,shared_local_mean,keep_groups,8,0
-shared_local_mean_p75,shared_local_mean,keep_groups,8,0
-independent_group_topk_p25,independent_group_topk,keep_groups,8,0
-independent_group_topk_p50,independent_group_topk,keep_groups,8,0
-independent_group_topk_p75,independent_group_topk,keep_groups,8,0

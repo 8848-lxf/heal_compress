@@ -86,12 +86,13 @@ def _percentile(values: list[float], pct: float) -> float | None:
 def _stats(values: list[float]) -> dict[str, float | None]:
     vals = [float(v) for v in values if v is not None]
     if not vals:
-        return {"mean": None, "p50": None, "p90": None, "p95": None, "max": None}
+        return {"mean": None, "p50": None, "p90": None, "p95": None, "p99": None, "max": None}
     return {
         "mean": float(sum(vals) / len(vals)),
         "p50": _percentile(vals, 50),
         "p90": _percentile(vals, 90),
         "p95": _percentile(vals, 95),
+        "p99": _percentile(vals, 99),
         "max": max(vals),
     }
 
