@@ -1,0 +1,16 @@
+{
+  "input_names": [
+    "voxel_features",
+    "voxel_coords",
+    "voxel_num_points",
+    "record_len",
+    "pairwise_t_matrix"
+  ],
+  "output_names": [
+    "cls_preds",
+    "reg_preds",
+    "dir_preds"
+  ],
+  "agent_modality_list_length": 1,
+  "modality_name": "m1"
+}

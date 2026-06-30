@@ -1,0 +1,9 @@
+{
+  "precision": "fp32",
+  "evaluation_status": "not_run",
+  "reason": "current stage only benchmarks TensorRT engine forward latency",
+  "ap_0_3": null,
+  "ap_0_5": null,
+  "ap_0_7": null,
+  "map": null
+}

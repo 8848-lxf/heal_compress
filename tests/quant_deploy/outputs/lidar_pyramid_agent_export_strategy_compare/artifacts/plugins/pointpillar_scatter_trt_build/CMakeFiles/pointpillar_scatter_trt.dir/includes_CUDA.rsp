@@ -1,0 +1,1 @@
+-I/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt -I"/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/include" -isystem "/usr/local/cuda-11/targets/x86_64-linux/include"

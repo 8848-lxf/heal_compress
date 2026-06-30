@@ -1,0 +1,56 @@
+[
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1026 In function checkSequenceEmpty:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1036 In function checkSequenceInsert:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1016 In function checkSequenceAt:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1026 In function checkSequenceEmpty:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1036 In function checkSequenceInsert:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1016 In function checkSequenceAt:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1026 In function checkSequenceEmpty:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1036 In function checkSequenceInsert:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1016 In function checkSequenceAt:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1026 In function checkSequenceEmpty:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1036 In function checkSequenceInsert:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1016 In function checkSequenceAt:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1026 In function checkSequenceEmpty:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1036 In function checkSequenceInsert:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1016 In function checkSequenceAt:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1026 In function checkSequenceEmpty:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1036 In function checkSequenceInsert:"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpCheckers.cpp:1016 In function checkSequenceAt:"
+  }
+]

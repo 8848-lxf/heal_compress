@@ -1,0 +1,6967 @@
+{
+  "nodes": {
+    "encoder_m1": {
+      "name": "encoder_m1",
+      "op_type": "Other",
+      "raw_type": "PointPillar",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "encoder_m1.pillar_vfe": {
+      "name": "encoder_m1.pillar_vfe",
+      "op_type": "Other",
+      "raw_type": "PillarVFE",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": true,
+      "is_det_head": false,
+      "protected_reason": "explicit"
+    },
+    "encoder_m1.pillar_vfe.pfn_layers": {
+      "name": "encoder_m1.pillar_vfe.pfn_layers",
+      "op_type": "Other",
+      "raw_type": "ModuleList",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": true,
+      "is_det_head": false,
+      "protected_reason": "explicit"
+    },
+    "encoder_m1.pillar_vfe.pfn_layers.0": {
+      "name": "encoder_m1.pillar_vfe.pfn_layers.0",
+      "op_type": "Other",
+      "raw_type": "PFNLayer",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": true,
+      "is_det_head": false,
+      "protected_reason": "explicit"
+    },
+    "encoder_m1.pillar_vfe.pfn_layers.0.linear": {
+      "name": "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+      "op_type": "Linear",
+      "raw_type": "Linear",
+      "in_channels": 10,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": true,
+      "is_det_head": false,
+      "protected_reason": "explicit"
+    },
+    "encoder_m1.pillar_vfe.pfn_layers.0.norm": {
+      "name": "encoder_m1.pillar_vfe.pfn_layers.0.norm",
+      "op_type": "BN",
+      "raw_type": "BatchNorm1d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": true,
+      "is_det_head": false,
+      "protected_reason": "explicit"
+    },
+    "encoder_m1.scatter": {
+      "name": "encoder_m1.scatter",
+      "op_type": "Other",
+      "raw_type": "PointPillarScatter",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": true,
+      "is_det_head": false,
+      "protected_reason": "explicit"
+    },
+    "backbone_m1": {
+      "name": "backbone_m1",
+      "op_type": "Other",
+      "raw_type": "ResNetBEVBackbone",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet": {
+      "name": "backbone_m1.resnet",
+      "op_type": "Other",
+      "raw_type": "ResNetModified",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0": {
+      "name": "backbone_m1.resnet.layer0",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.0": {
+      "name": "backbone_m1.resnet.layer0.0",
+      "op_type": "Other",
+      "raw_type": "BasicBlock",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.0.conv1": {
+      "name": "backbone_m1.resnet.layer0.0.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.0.bn1": {
+      "name": "backbone_m1.resnet.layer0.0.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.0.relu": {
+      "name": "backbone_m1.resnet.layer0.0.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.0.conv2": {
+      "name": "backbone_m1.resnet.layer0.0.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.0.bn2": {
+      "name": "backbone_m1.resnet.layer0.0.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.0.downsample": {
+      "name": "backbone_m1.resnet.layer0.0.downsample",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.0.downsample.0": {
+      "name": "backbone_m1.resnet.layer0.0.downsample.0",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.0.downsample.1": {
+      "name": "backbone_m1.resnet.layer0.0.downsample.1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.1": {
+      "name": "backbone_m1.resnet.layer0.1",
+      "op_type": "Other",
+      "raw_type": "BasicBlock",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.1.conv1": {
+      "name": "backbone_m1.resnet.layer0.1.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.1.bn1": {
+      "name": "backbone_m1.resnet.layer0.1.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.1.relu": {
+      "name": "backbone_m1.resnet.layer0.1.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.1.conv2": {
+      "name": "backbone_m1.resnet.layer0.1.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.1.bn2": {
+      "name": "backbone_m1.resnet.layer0.1.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.2": {
+      "name": "backbone_m1.resnet.layer0.2",
+      "op_type": "Other",
+      "raw_type": "BasicBlock",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.2.conv1": {
+      "name": "backbone_m1.resnet.layer0.2.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.2.bn1": {
+      "name": "backbone_m1.resnet.layer0.2.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.2.relu": {
+      "name": "backbone_m1.resnet.layer0.2.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.2.conv2": {
+      "name": "backbone_m1.resnet.layer0.2.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.resnet.layer0.2.bn2": {
+      "name": "backbone_m1.resnet.layer0.2.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "backbone_m1.deblocks": {
+      "name": "backbone_m1.deblocks",
+      "op_type": "Other",
+      "raw_type": "ModuleList",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "aligner_m1": {
+      "name": "aligner_m1",
+      "op_type": "Other",
+      "raw_type": "AlignNet",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "aligner_m1.channel_align": {
+      "name": "aligner_m1.channel_align",
+      "op_type": "Other",
+      "raw_type": "Identity",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone": {
+      "name": "pyramid_backbone",
+      "op_type": "Other",
+      "raw_type": "PyramidFusion",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet": {
+      "name": "pyramid_backbone.resnet",
+      "op_type": "Other",
+      "raw_type": "ResNetModified",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0": {
+      "name": "pyramid_backbone.resnet.layer0",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.0": {
+      "name": "pyramid_backbone.resnet.layer0.0",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.0.conv1": {
+      "name": "pyramid_backbone.resnet.layer0.0.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.0.bn1": {
+      "name": "pyramid_backbone.resnet.layer0.0.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.0.conv2": {
+      "name": "pyramid_backbone.resnet.layer0.0.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.0.bn2": {
+      "name": "pyramid_backbone.resnet.layer0.0.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.0.conv3": {
+      "name": "pyramid_backbone.resnet.layer0.0.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.0.bn3": {
+      "name": "pyramid_backbone.resnet.layer0.0.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.0.relu": {
+      "name": "pyramid_backbone.resnet.layer0.0.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.1": {
+      "name": "pyramid_backbone.resnet.layer0.1",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.1.conv1": {
+      "name": "pyramid_backbone.resnet.layer0.1.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.1.bn1": {
+      "name": "pyramid_backbone.resnet.layer0.1.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.1.conv2": {
+      "name": "pyramid_backbone.resnet.layer0.1.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.1.bn2": {
+      "name": "pyramid_backbone.resnet.layer0.1.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.1.conv3": {
+      "name": "pyramid_backbone.resnet.layer0.1.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.1.bn3": {
+      "name": "pyramid_backbone.resnet.layer0.1.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.1.relu": {
+      "name": "pyramid_backbone.resnet.layer0.1.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.2": {
+      "name": "pyramid_backbone.resnet.layer0.2",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.2.conv1": {
+      "name": "pyramid_backbone.resnet.layer0.2.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.2.bn1": {
+      "name": "pyramid_backbone.resnet.layer0.2.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.2.conv2": {
+      "name": "pyramid_backbone.resnet.layer0.2.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.2.bn2": {
+      "name": "pyramid_backbone.resnet.layer0.2.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.2.conv3": {
+      "name": "pyramid_backbone.resnet.layer0.2.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 64,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.2.bn3": {
+      "name": "pyramid_backbone.resnet.layer0.2.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 64,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer0.2.relu": {
+      "name": "pyramid_backbone.resnet.layer0.2.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1": {
+      "name": "pyramid_backbone.resnet.layer1",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0": {
+      "name": "pyramid_backbone.resnet.layer1.0",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.conv1": {
+      "name": "pyramid_backbone.resnet.layer1.0.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.bn1": {
+      "name": "pyramid_backbone.resnet.layer1.0.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.conv2": {
+      "name": "pyramid_backbone.resnet.layer1.0.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.bn2": {
+      "name": "pyramid_backbone.resnet.layer1.0.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.conv3": {
+      "name": "pyramid_backbone.resnet.layer1.0.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.bn3": {
+      "name": "pyramid_backbone.resnet.layer1.0.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.relu": {
+      "name": "pyramid_backbone.resnet.layer1.0.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.downsample": {
+      "name": "pyramid_backbone.resnet.layer1.0.downsample",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.downsample.0": {
+      "name": "pyramid_backbone.resnet.layer1.0.downsample.0",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.0.downsample.1": {
+      "name": "pyramid_backbone.resnet.layer1.0.downsample.1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.1": {
+      "name": "pyramid_backbone.resnet.layer1.1",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.1.conv1": {
+      "name": "pyramid_backbone.resnet.layer1.1.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.1.bn1": {
+      "name": "pyramid_backbone.resnet.layer1.1.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.1.conv2": {
+      "name": "pyramid_backbone.resnet.layer1.1.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.1.bn2": {
+      "name": "pyramid_backbone.resnet.layer1.1.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.1.conv3": {
+      "name": "pyramid_backbone.resnet.layer1.1.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.1.bn3": {
+      "name": "pyramid_backbone.resnet.layer1.1.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.1.relu": {
+      "name": "pyramid_backbone.resnet.layer1.1.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.2": {
+      "name": "pyramid_backbone.resnet.layer1.2",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.2.conv1": {
+      "name": "pyramid_backbone.resnet.layer1.2.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.2.bn1": {
+      "name": "pyramid_backbone.resnet.layer1.2.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.2.conv2": {
+      "name": "pyramid_backbone.resnet.layer1.2.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.2.bn2": {
+      "name": "pyramid_backbone.resnet.layer1.2.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.2.conv3": {
+      "name": "pyramid_backbone.resnet.layer1.2.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.2.bn3": {
+      "name": "pyramid_backbone.resnet.layer1.2.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.2.relu": {
+      "name": "pyramid_backbone.resnet.layer1.2.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.3": {
+      "name": "pyramid_backbone.resnet.layer1.3",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.3.conv1": {
+      "name": "pyramid_backbone.resnet.layer1.3.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.3.bn1": {
+      "name": "pyramid_backbone.resnet.layer1.3.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.3.conv2": {
+      "name": "pyramid_backbone.resnet.layer1.3.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.3.bn2": {
+      "name": "pyramid_backbone.resnet.layer1.3.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.3.conv3": {
+      "name": "pyramid_backbone.resnet.layer1.3.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.3.bn3": {
+      "name": "pyramid_backbone.resnet.layer1.3.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.3.relu": {
+      "name": "pyramid_backbone.resnet.layer1.3.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.4": {
+      "name": "pyramid_backbone.resnet.layer1.4",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.4.conv1": {
+      "name": "pyramid_backbone.resnet.layer1.4.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.4.bn1": {
+      "name": "pyramid_backbone.resnet.layer1.4.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.4.conv2": {
+      "name": "pyramid_backbone.resnet.layer1.4.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.4.bn2": {
+      "name": "pyramid_backbone.resnet.layer1.4.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.4.conv3": {
+      "name": "pyramid_backbone.resnet.layer1.4.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.4.bn3": {
+      "name": "pyramid_backbone.resnet.layer1.4.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer1.4.relu": {
+      "name": "pyramid_backbone.resnet.layer1.4.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2": {
+      "name": "pyramid_backbone.resnet.layer2",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0": {
+      "name": "pyramid_backbone.resnet.layer2.0",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.conv1": {
+      "name": "pyramid_backbone.resnet.layer2.0.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.bn1": {
+      "name": "pyramid_backbone.resnet.layer2.0.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.conv2": {
+      "name": "pyramid_backbone.resnet.layer2.0.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.bn2": {
+      "name": "pyramid_backbone.resnet.layer2.0.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.conv3": {
+      "name": "pyramid_backbone.resnet.layer2.0.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.bn3": {
+      "name": "pyramid_backbone.resnet.layer2.0.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.relu": {
+      "name": "pyramid_backbone.resnet.layer2.0.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.downsample": {
+      "name": "pyramid_backbone.resnet.layer2.0.downsample",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.downsample.0": {
+      "name": "pyramid_backbone.resnet.layer2.0.downsample.0",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.0.downsample.1": {
+      "name": "pyramid_backbone.resnet.layer2.0.downsample.1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.1": {
+      "name": "pyramid_backbone.resnet.layer2.1",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.1.conv1": {
+      "name": "pyramid_backbone.resnet.layer2.1.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.1.bn1": {
+      "name": "pyramid_backbone.resnet.layer2.1.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.1.conv2": {
+      "name": "pyramid_backbone.resnet.layer2.1.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.1.bn2": {
+      "name": "pyramid_backbone.resnet.layer2.1.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.1.conv3": {
+      "name": "pyramid_backbone.resnet.layer2.1.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.1.bn3": {
+      "name": "pyramid_backbone.resnet.layer2.1.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.1.relu": {
+      "name": "pyramid_backbone.resnet.layer2.1.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.2": {
+      "name": "pyramid_backbone.resnet.layer2.2",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.2.conv1": {
+      "name": "pyramid_backbone.resnet.layer2.2.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.2.bn1": {
+      "name": "pyramid_backbone.resnet.layer2.2.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.2.conv2": {
+      "name": "pyramid_backbone.resnet.layer2.2.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.2.bn2": {
+      "name": "pyramid_backbone.resnet.layer2.2.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.2.conv3": {
+      "name": "pyramid_backbone.resnet.layer2.2.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.2.bn3": {
+      "name": "pyramid_backbone.resnet.layer2.2.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.2.relu": {
+      "name": "pyramid_backbone.resnet.layer2.2.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.3": {
+      "name": "pyramid_backbone.resnet.layer2.3",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.3.conv1": {
+      "name": "pyramid_backbone.resnet.layer2.3.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.3.bn1": {
+      "name": "pyramid_backbone.resnet.layer2.3.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.3.conv2": {
+      "name": "pyramid_backbone.resnet.layer2.3.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.3.bn2": {
+      "name": "pyramid_backbone.resnet.layer2.3.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.3.conv3": {
+      "name": "pyramid_backbone.resnet.layer2.3.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.3.bn3": {
+      "name": "pyramid_backbone.resnet.layer2.3.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.3.relu": {
+      "name": "pyramid_backbone.resnet.layer2.3.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.4": {
+      "name": "pyramid_backbone.resnet.layer2.4",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.4.conv1": {
+      "name": "pyramid_backbone.resnet.layer2.4.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.4.bn1": {
+      "name": "pyramid_backbone.resnet.layer2.4.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.4.conv2": {
+      "name": "pyramid_backbone.resnet.layer2.4.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.4.bn2": {
+      "name": "pyramid_backbone.resnet.layer2.4.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.4.conv3": {
+      "name": "pyramid_backbone.resnet.layer2.4.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.4.bn3": {
+      "name": "pyramid_backbone.resnet.layer2.4.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.4.relu": {
+      "name": "pyramid_backbone.resnet.layer2.4.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.5": {
+      "name": "pyramid_backbone.resnet.layer2.5",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.5.conv1": {
+      "name": "pyramid_backbone.resnet.layer2.5.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.5.bn1": {
+      "name": "pyramid_backbone.resnet.layer2.5.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.5.conv2": {
+      "name": "pyramid_backbone.resnet.layer2.5.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.5.bn2": {
+      "name": "pyramid_backbone.resnet.layer2.5.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.5.conv3": {
+      "name": "pyramid_backbone.resnet.layer2.5.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.5.bn3": {
+      "name": "pyramid_backbone.resnet.layer2.5.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.5.relu": {
+      "name": "pyramid_backbone.resnet.layer2.5.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.6": {
+      "name": "pyramid_backbone.resnet.layer2.6",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.6.conv1": {
+      "name": "pyramid_backbone.resnet.layer2.6.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.6.bn1": {
+      "name": "pyramid_backbone.resnet.layer2.6.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.6.conv2": {
+      "name": "pyramid_backbone.resnet.layer2.6.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.6.bn2": {
+      "name": "pyramid_backbone.resnet.layer2.6.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.6.conv3": {
+      "name": "pyramid_backbone.resnet.layer2.6.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.6.bn3": {
+      "name": "pyramid_backbone.resnet.layer2.6.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.6.relu": {
+      "name": "pyramid_backbone.resnet.layer2.6.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.7": {
+      "name": "pyramid_backbone.resnet.layer2.7",
+      "op_type": "Other",
+      "raw_type": "Bottleneck",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.7.conv1": {
+      "name": "pyramid_backbone.resnet.layer2.7.conv1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.7.bn1": {
+      "name": "pyramid_backbone.resnet.layer2.7.bn1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.7.conv2": {
+      "name": "pyramid_backbone.resnet.layer2.7.conv2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 512,
+      "num_features": null,
+      "groups": 32,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.7.bn2": {
+      "name": "pyramid_backbone.resnet.layer2.7.bn2",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 512,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.7.conv3": {
+      "name": "pyramid_backbone.resnet.layer2.7.conv3",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 512,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.7.bn3": {
+      "name": "pyramid_backbone.resnet.layer2.7.bn3",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 256,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.resnet.layer2.7.relu": {
+      "name": "pyramid_backbone.resnet.layer2.7.relu",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks": {
+      "name": "pyramid_backbone.deblocks",
+      "op_type": "Other",
+      "raw_type": "ModuleList",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.0": {
+      "name": "pyramid_backbone.deblocks.0",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.0.0": {
+      "name": "pyramid_backbone.deblocks.0.0",
+      "op_type": "ConvTranspose2d",
+      "raw_type": "ConvTranspose2d",
+      "in_channels": 64,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.0.1": {
+      "name": "pyramid_backbone.deblocks.0.1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.0.2": {
+      "name": "pyramid_backbone.deblocks.0.2",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.1": {
+      "name": "pyramid_backbone.deblocks.1",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.1.0": {
+      "name": "pyramid_backbone.deblocks.1.0",
+      "op_type": "ConvTranspose2d",
+      "raw_type": "ConvTranspose2d",
+      "in_channels": 128,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.1.1": {
+      "name": "pyramid_backbone.deblocks.1.1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.1.2": {
+      "name": "pyramid_backbone.deblocks.1.2",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.2": {
+      "name": "pyramid_backbone.deblocks.2",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.2.0": {
+      "name": "pyramid_backbone.deblocks.2.0",
+      "op_type": "ConvTranspose2d",
+      "raw_type": "ConvTranspose2d",
+      "in_channels": 256,
+      "out_channels": 128,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.2.1": {
+      "name": "pyramid_backbone.deblocks.2.1",
+      "op_type": "BN",
+      "raw_type": "BatchNorm2d",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": 128,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.deblocks.2.2": {
+      "name": "pyramid_backbone.deblocks.2.2",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.single_head_0": {
+      "name": "pyramid_backbone.single_head_0",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 64,
+      "out_channels": 1,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.single_head_1": {
+      "name": "pyramid_backbone.single_head_1",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 128,
+      "out_channels": 1,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "pyramid_backbone.single_head_2": {
+      "name": "pyramid_backbone.single_head_2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 1,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "shrink_conv": {
+      "name": "shrink_conv",
+      "op_type": "Other",
+      "raw_type": "DownsampleConv",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "shrink_conv.layers": {
+      "name": "shrink_conv.layers",
+      "op_type": "Other",
+      "raw_type": "ModuleList",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "shrink_conv.layers.0": {
+      "name": "shrink_conv.layers.0",
+      "op_type": "Other",
+      "raw_type": "DoubleConv",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "shrink_conv.layers.0.double_conv": {
+      "name": "shrink_conv.layers.0.double_conv",
+      "op_type": "Other",
+      "raw_type": "Sequential",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "shrink_conv.layers.0.double_conv.0": {
+      "name": "shrink_conv.layers.0.double_conv.0",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 384,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "shrink_conv.layers.0.double_conv.1": {
+      "name": "shrink_conv.layers.0.double_conv.1",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "shrink_conv.layers.0.double_conv.2": {
+      "name": "shrink_conv.layers.0.double_conv.2",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 256,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "shrink_conv.layers.0.double_conv.3": {
+      "name": "shrink_conv.layers.0.double_conv.3",
+      "op_type": "Other",
+      "raw_type": "ReLU",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "cls_head": {
+      "name": "cls_head",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 2,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": true,
+      "is_det_head": true,
+      "protected_reason": "det_head_output"
+    },
+    "reg_head": {
+      "name": "reg_head",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 14,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": true,
+      "is_det_head": true,
+      "protected_reason": "det_head_output"
+    },
+    "dir_head": {
+      "name": "dir_head",
+      "op_type": "Conv",
+      "raw_type": "Conv2d",
+      "in_channels": 256,
+      "out_channels": 4,
+      "num_features": null,
+      "groups": 1,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [],
+      "output_shapes": [],
+      "module_scope": [],
+      "protected": true,
+      "is_det_head": true,
+      "protected_reason": "det_head_output"
+    },
+    "op::00000::Tensor.view": {
+      "name": "op::00000::Tensor.view",
+      "op_type": "View",
+      "raw_type": "Tensor.view",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          1,
+          1
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00001::Tensor.unsqueeze": {
+      "name": "op::00001::Tensor.unsqueeze",
+      "op_type": "View",
+      "raw_type": "Tensor.unsqueeze",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          1
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00002::Tensor.__add__": {
+      "name": "op::00002::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48,
+          1
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          1
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00003::Tensor.unsqueeze": {
+      "name": "op::00003::Tensor.unsqueeze",
+      "op_type": "View",
+      "raw_type": "Tensor.unsqueeze",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          1
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00004::Tensor.__add__": {
+      "name": "op::00004::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48,
+          1
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          1
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00005::Tensor.unsqueeze": {
+      "name": "op::00005::Tensor.unsqueeze",
+      "op_type": "View",
+      "raw_type": "Tensor.unsqueeze",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          1
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00006::Tensor.__add__": {
+      "name": "op::00006::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48,
+          1
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          1
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00007::torch.cat": {
+      "name": "op::00007::torch.cat",
+      "op_type": "Cat",
+      "raw_type": "torch.cat",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": 2,
+      "num_inputs": 3,
+      "input_shapes": [
+        [
+          48,
+          32,
+          4
+        ],
+        [
+          48,
+          32,
+          3
+        ],
+        [
+          48,
+          32,
+          3
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          32,
+          10
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00008::Tensor.view": {
+      "name": "op::00008::Tensor.view",
+      "op_type": "View",
+      "raw_type": "Tensor.view",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          32
+        ]
+      ],
+      "output_shapes": [
+        [
+          1,
+          32
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00009::Tensor.permute": {
+      "name": "op::00009::Tensor.permute",
+      "op_type": "Permute",
+      "raw_type": "Tensor.permute",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          64,
+          32
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe",
+        "encoder_m1.pillar_vfe.pfn_layers.0"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00010::Tensor.permute": {
+      "name": "op::00010::Tensor.permute",
+      "op_type": "Permute",
+      "raw_type": "Tensor.permute",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48,
+          64,
+          32
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe",
+        "encoder_m1.pillar_vfe.pfn_layers.0"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00011::Tensor.squeeze": {
+      "name": "op::00011::Tensor.squeeze",
+      "op_type": "View",
+      "raw_type": "Tensor.squeeze",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          48,
+          1,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          48,
+          64
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.pillar_vfe"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00012::Tensor.__add__": {
+      "name": "op::00012::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          24
+        ],
+        [
+          24
+        ]
+      ],
+      "output_shapes": [
+        [
+          24
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.scatter"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00013::Tensor.__add__": {
+      "name": "op::00013::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          24
+        ],
+        [
+          24
+        ]
+      ],
+      "output_shapes": [
+        [
+          24
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.scatter"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00014::Tensor.__add__": {
+      "name": "op::00014::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          24
+        ],
+        [
+          24
+        ]
+      ],
+      "output_shapes": [
+        [
+          24
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.scatter"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00015::Tensor.__add__": {
+      "name": "op::00015::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          24
+        ],
+        [
+          24
+        ]
+      ],
+      "output_shapes": [
+        [
+          24
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.scatter"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00016::torch.stack": {
+      "name": "op::00016::torch.stack",
+      "op_type": "Other",
+      "raw_type": "torch.stack",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          64,
+          131072
+        ],
+        [
+          64,
+          131072
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          131072
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.scatter"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00017::Tensor.view": {
+      "name": "op::00017::Tensor.view",
+      "op_type": "View",
+      "raw_type": "Tensor.view",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          64,
+          131072
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          256,
+          512
+        ]
+      ],
+      "module_scope": [
+        "encoder_m1",
+        "encoder_m1.scatter"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00018::Tensor.__iadd__": {
+      "name": "op::00018::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ],
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [
+        "backbone_m1",
+        "backbone_m1.resnet",
+        "backbone_m1.resnet.layer0",
+        "backbone_m1.resnet.layer0.0"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00019::Tensor.__iadd__": {
+      "name": "op::00019::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ],
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [
+        "backbone_m1",
+        "backbone_m1.resnet",
+        "backbone_m1.resnet.layer0",
+        "backbone_m1.resnet.layer0.1"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00020::Tensor.__iadd__": {
+      "name": "op::00020::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ],
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [
+        "backbone_m1",
+        "backbone_m1.resnet",
+        "backbone_m1.resnet.layer0",
+        "backbone_m1.resnet.layer0.2"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00021::torch.stack": {
+      "name": "op::00021::torch.stack",
+      "op_type": "Other",
+      "raw_type": "torch.stack",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          64,
+          128,
+          256
+        ],
+        [
+          64,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00022::Tensor.__iadd__": {
+      "name": "op::00022::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ],
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer0",
+        "pyramid_backbone.resnet.layer0.0"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00023::Tensor.__iadd__": {
+      "name": "op::00023::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ],
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer0",
+        "pyramid_backbone.resnet.layer0.1"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00024::Tensor.__iadd__": {
+      "name": "op::00024::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ],
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer0",
+        "pyramid_backbone.resnet.layer0.2"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00025::Tensor.__iadd__": {
+      "name": "op::00025::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ],
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer1",
+        "pyramid_backbone.resnet.layer1.0"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00026::Tensor.__iadd__": {
+      "name": "op::00026::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ],
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer1",
+        "pyramid_backbone.resnet.layer1.1"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00027::Tensor.__iadd__": {
+      "name": "op::00027::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ],
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer1",
+        "pyramid_backbone.resnet.layer1.2"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00028::Tensor.__iadd__": {
+      "name": "op::00028::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ],
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer1",
+        "pyramid_backbone.resnet.layer1.3"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00029::Tensor.__iadd__": {
+      "name": "op::00029::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ],
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer1",
+        "pyramid_backbone.resnet.layer1.4"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00030::Tensor.__iadd__": {
+      "name": "op::00030::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ],
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer2",
+        "pyramid_backbone.resnet.layer2.0"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00031::Tensor.__iadd__": {
+      "name": "op::00031::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ],
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer2",
+        "pyramid_backbone.resnet.layer2.1"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00032::Tensor.__iadd__": {
+      "name": "op::00032::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ],
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer2",
+        "pyramid_backbone.resnet.layer2.2"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00033::Tensor.__iadd__": {
+      "name": "op::00033::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ],
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer2",
+        "pyramid_backbone.resnet.layer2.3"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00034::Tensor.__iadd__": {
+      "name": "op::00034::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ],
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer2",
+        "pyramid_backbone.resnet.layer2.4"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00035::Tensor.__iadd__": {
+      "name": "op::00035::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ],
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer2",
+        "pyramid_backbone.resnet.layer2.5"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00036::Tensor.__iadd__": {
+      "name": "op::00036::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ],
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer2",
+        "pyramid_backbone.resnet.layer2.6"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00037::Tensor.__iadd__": {
+      "name": "op::00037::Tensor.__iadd__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__iadd__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ],
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [
+        "pyramid_backbone.resnet",
+        "pyramid_backbone.resnet.layer2",
+        "pyramid_backbone.resnet.layer2.7"
+      ],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00038::Tensor.__add__": {
+      "name": "op::00038::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          1,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          1,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00039::F.grid_sample": {
+      "name": "op::00039::F.grid_sample",
+      "op_type": "BEVWarp",
+      "raw_type": "F.grid_sample",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ],
+        [
+          2,
+          128,
+          256,
+          2
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          64,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00040::F.grid_sample": {
+      "name": "op::00040::F.grid_sample",
+      "op_type": "BEVWarp",
+      "raw_type": "F.grid_sample",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          1,
+          128,
+          256
+        ],
+        [
+          2,
+          128,
+          256,
+          2
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          1,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00041::torch.stack": {
+      "name": "op::00041::torch.stack",
+      "op_type": "Other",
+      "raw_type": "torch.stack",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          64,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          1,
+          64,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00042::Tensor.__add__": {
+      "name": "op::00042::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          1,
+          64,
+          128
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          1,
+          64,
+          128
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00043::F.grid_sample": {
+      "name": "op::00043::F.grid_sample",
+      "op_type": "BEVWarp",
+      "raw_type": "F.grid_sample",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ],
+        [
+          2,
+          64,
+          128,
+          2
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          128,
+          64,
+          128
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00044::F.grid_sample": {
+      "name": "op::00044::F.grid_sample",
+      "op_type": "BEVWarp",
+      "raw_type": "F.grid_sample",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          1,
+          64,
+          128
+        ],
+        [
+          2,
+          64,
+          128,
+          2
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          1,
+          64,
+          128
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00045::torch.stack": {
+      "name": "op::00045::torch.stack",
+      "op_type": "Other",
+      "raw_type": "torch.stack",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          128,
+          64,
+          128
+        ]
+      ],
+      "output_shapes": [
+        [
+          1,
+          128,
+          64,
+          128
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00046::Tensor.__add__": {
+      "name": "op::00046::Tensor.__add__",
+      "op_type": "Add",
+      "raw_type": "Tensor.__add__",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          1,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          1,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00047::F.grid_sample": {
+      "name": "op::00047::F.grid_sample",
+      "op_type": "BEVWarp",
+      "raw_type": "F.grid_sample",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ],
+        [
+          2,
+          32,
+          64,
+          2
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00048::F.grid_sample": {
+      "name": "op::00048::F.grid_sample",
+      "op_type": "BEVWarp",
+      "raw_type": "F.grid_sample",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          2,
+          1,
+          32,
+          64
+        ],
+        [
+          2,
+          32,
+          64,
+          2
+        ]
+      ],
+      "output_shapes": [
+        [
+          2,
+          1,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00049::torch.stack": {
+      "name": "op::00049::torch.stack",
+      "op_type": "Other",
+      "raw_type": "torch.stack",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": null,
+      "num_inputs": null,
+      "input_shapes": [
+        [
+          256,
+          32,
+          64
+        ]
+      ],
+      "output_shapes": [
+        [
+          1,
+          256,
+          32,
+          64
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    },
+    "op::00050::torch.cat": {
+      "name": "op::00050::torch.cat",
+      "op_type": "Cat",
+      "raw_type": "torch.cat",
+      "in_channels": null,
+      "out_channels": null,
+      "num_features": null,
+      "groups": null,
+      "cat_dim": 1,
+      "num_inputs": 3,
+      "input_shapes": [
+        [
+          1,
+          128,
+          128,
+          256
+        ],
+        [
+          1,
+          128,
+          128,
+          256
+        ],
+        [
+          1,
+          128,
+          128,
+          256
+        ]
+      ],
+      "output_shapes": [
+        [
+          1,
+          384,
+          128,
+          256
+        ]
+      ],
+      "module_scope": [],
+      "protected": false,
+      "is_det_head": false,
+      "protected_reason": ""
+    }
+  },
+  "edges": [
+    {
+      "src": "op::00002::Tensor.__add__",
+      "dst": "op::00003::Tensor.unsqueeze",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00004::Tensor.__add__",
+      "dst": "op::00005::Tensor.unsqueeze",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00007::torch.cat",
+      "dst": "encoder_m1.pillar_vfe.pfn_layers.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00007::torch.cat",
+      "dst": "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+      "dst": "op::00009::Tensor.permute",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00009::Tensor.permute",
+      "dst": "encoder_m1.pillar_vfe.pfn_layers.0.norm",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1.pillar_vfe.pfn_layers.0.norm",
+      "dst": "op::00010::Tensor.permute",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "encoder_m1.pillar_vfe.pfn_layers.0",
+      "dst": "op::00011::Tensor.squeeze",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "encoder_m1.pillar_vfe",
+      "dst": "encoder_m1.scatter",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1.pillar_vfe",
+      "dst": "encoder_m1.scatter",
+      "input_index": 1,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1.pillar_vfe",
+      "dst": "encoder_m1.scatter",
+      "input_index": 2,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1.pillar_vfe",
+      "dst": "encoder_m1.scatter",
+      "input_index": 3,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1.pillar_vfe.pfn_layers.0.norm",
+      "dst": "op::00012::Tensor.__add__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00012::Tensor.__add__",
+      "dst": "op::00013::Tensor.__add__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "encoder_m1.pillar_vfe.pfn_layers.0.norm",
+      "dst": "op::00013::Tensor.__add__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00014::Tensor.__add__",
+      "dst": "op::00015::Tensor.__add__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00016::torch.stack",
+      "dst": "op::00017::Tensor.view",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "encoder_m1",
+      "dst": "backbone_m1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1",
+      "dst": "backbone_m1.resnet",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1",
+      "dst": "backbone_m1.resnet.layer0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1",
+      "dst": "backbone_m1.resnet.layer0.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1",
+      "dst": "backbone_m1.resnet.layer0.0.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0.conv1",
+      "dst": "backbone_m1.resnet.layer0.0.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0.bn1",
+      "dst": "backbone_m1.resnet.layer0.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0.relu",
+      "dst": "backbone_m1.resnet.layer0.0.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0.conv2",
+      "dst": "backbone_m1.resnet.layer0.0.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1",
+      "dst": "backbone_m1.resnet.layer0.0.downsample",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "encoder_m1",
+      "dst": "backbone_m1.resnet.layer0.0.downsample.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0.downsample.0",
+      "dst": "backbone_m1.resnet.layer0.0.downsample.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0.bn2",
+      "dst": "op::00018::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0.downsample",
+      "dst": "op::00018::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00018::Tensor.__iadd__",
+      "dst": "backbone_m1.resnet.layer0.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0",
+      "dst": "backbone_m1.resnet.layer0.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0",
+      "dst": "backbone_m1.resnet.layer0.1.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.1.conv1",
+      "dst": "backbone_m1.resnet.layer0.1.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.1.bn1",
+      "dst": "backbone_m1.resnet.layer0.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.1.relu",
+      "dst": "backbone_m1.resnet.layer0.1.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.1.conv2",
+      "dst": "backbone_m1.resnet.layer0.1.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.1.bn2",
+      "dst": "op::00019::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.0",
+      "dst": "op::00019::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00019::Tensor.__iadd__",
+      "dst": "backbone_m1.resnet.layer0.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.1",
+      "dst": "backbone_m1.resnet.layer0.2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.1",
+      "dst": "backbone_m1.resnet.layer0.2.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.2.conv1",
+      "dst": "backbone_m1.resnet.layer0.2.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.2.bn1",
+      "dst": "backbone_m1.resnet.layer0.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.2.relu",
+      "dst": "backbone_m1.resnet.layer0.2.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.2.conv2",
+      "dst": "backbone_m1.resnet.layer0.2.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.2.bn2",
+      "dst": "op::00020::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "backbone_m1.resnet.layer0.1",
+      "dst": "op::00020::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00020::Tensor.__iadd__",
+      "dst": "backbone_m1.resnet.layer0.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1",
+      "dst": "aligner_m1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1",
+      "dst": "aligner_m1.channel_align",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "backbone_m1",
+      "dst": "op::00021::torch.stack",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00021::torch.stack",
+      "dst": "pyramid_backbone.resnet",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00021::torch.stack",
+      "dst": "pyramid_backbone.resnet.layer0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00021::torch.stack",
+      "dst": "pyramid_backbone.resnet.layer0.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00021::torch.stack",
+      "dst": "pyramid_backbone.resnet.layer0.0.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0.conv1",
+      "dst": "pyramid_backbone.resnet.layer0.0.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0.bn1",
+      "dst": "pyramid_backbone.resnet.layer0.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0.relu",
+      "dst": "pyramid_backbone.resnet.layer0.0.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0.conv2",
+      "dst": "pyramid_backbone.resnet.layer0.0.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0.bn2",
+      "dst": "pyramid_backbone.resnet.layer0.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0.relu",
+      "dst": "pyramid_backbone.resnet.layer0.0.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0.conv3",
+      "dst": "pyramid_backbone.resnet.layer0.0.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0.bn3",
+      "dst": "op::00022::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00021::torch.stack",
+      "dst": "op::00022::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00022::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer0.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0",
+      "dst": "pyramid_backbone.resnet.layer0.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0",
+      "dst": "pyramid_backbone.resnet.layer0.1.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1.conv1",
+      "dst": "pyramid_backbone.resnet.layer0.1.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1.bn1",
+      "dst": "pyramid_backbone.resnet.layer0.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1.relu",
+      "dst": "pyramid_backbone.resnet.layer0.1.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1.conv2",
+      "dst": "pyramid_backbone.resnet.layer0.1.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1.bn2",
+      "dst": "pyramid_backbone.resnet.layer0.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1.relu",
+      "dst": "pyramid_backbone.resnet.layer0.1.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1.conv3",
+      "dst": "pyramid_backbone.resnet.layer0.1.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1.bn3",
+      "dst": "op::00023::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.0",
+      "dst": "op::00023::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00023::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer0.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1",
+      "dst": "pyramid_backbone.resnet.layer0.2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1",
+      "dst": "pyramid_backbone.resnet.layer0.2.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.2.conv1",
+      "dst": "pyramid_backbone.resnet.layer0.2.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.2.bn1",
+      "dst": "pyramid_backbone.resnet.layer0.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.2.relu",
+      "dst": "pyramid_backbone.resnet.layer0.2.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.2.conv2",
+      "dst": "pyramid_backbone.resnet.layer0.2.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.2.bn2",
+      "dst": "pyramid_backbone.resnet.layer0.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.2.relu",
+      "dst": "pyramid_backbone.resnet.layer0.2.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.2.conv3",
+      "dst": "pyramid_backbone.resnet.layer0.2.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.2.bn3",
+      "dst": "op::00024::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0.1",
+      "dst": "op::00024::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00024::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer0.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0",
+      "dst": "pyramid_backbone.resnet.layer1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0",
+      "dst": "pyramid_backbone.resnet.layer1.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0",
+      "dst": "pyramid_backbone.resnet.layer1.0.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.conv1",
+      "dst": "pyramid_backbone.resnet.layer1.0.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.bn1",
+      "dst": "pyramid_backbone.resnet.layer1.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.relu",
+      "dst": "pyramid_backbone.resnet.layer1.0.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.conv2",
+      "dst": "pyramid_backbone.resnet.layer1.0.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.bn2",
+      "dst": "pyramid_backbone.resnet.layer1.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.relu",
+      "dst": "pyramid_backbone.resnet.layer1.0.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.conv3",
+      "dst": "pyramid_backbone.resnet.layer1.0.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0",
+      "dst": "pyramid_backbone.resnet.layer1.0.downsample",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer0",
+      "dst": "pyramid_backbone.resnet.layer1.0.downsample.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.downsample.0",
+      "dst": "pyramid_backbone.resnet.layer1.0.downsample.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.bn3",
+      "dst": "op::00025::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0.downsample",
+      "dst": "op::00025::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00025::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer1.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0",
+      "dst": "pyramid_backbone.resnet.layer1.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0",
+      "dst": "pyramid_backbone.resnet.layer1.1.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1.conv1",
+      "dst": "pyramid_backbone.resnet.layer1.1.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1.bn1",
+      "dst": "pyramid_backbone.resnet.layer1.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1.relu",
+      "dst": "pyramid_backbone.resnet.layer1.1.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1.conv2",
+      "dst": "pyramid_backbone.resnet.layer1.1.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1.bn2",
+      "dst": "pyramid_backbone.resnet.layer1.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1.relu",
+      "dst": "pyramid_backbone.resnet.layer1.1.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1.conv3",
+      "dst": "pyramid_backbone.resnet.layer1.1.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1.bn3",
+      "dst": "op::00026::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.0",
+      "dst": "op::00026::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00026::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer1.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1",
+      "dst": "pyramid_backbone.resnet.layer1.2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1",
+      "dst": "pyramid_backbone.resnet.layer1.2.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2.conv1",
+      "dst": "pyramid_backbone.resnet.layer1.2.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2.bn1",
+      "dst": "pyramid_backbone.resnet.layer1.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2.relu",
+      "dst": "pyramid_backbone.resnet.layer1.2.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2.conv2",
+      "dst": "pyramid_backbone.resnet.layer1.2.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2.bn2",
+      "dst": "pyramid_backbone.resnet.layer1.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2.relu",
+      "dst": "pyramid_backbone.resnet.layer1.2.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2.conv3",
+      "dst": "pyramid_backbone.resnet.layer1.2.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2.bn3",
+      "dst": "op::00027::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.1",
+      "dst": "op::00027::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00027::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer1.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2",
+      "dst": "pyramid_backbone.resnet.layer1.3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2",
+      "dst": "pyramid_backbone.resnet.layer1.3.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3.conv1",
+      "dst": "pyramid_backbone.resnet.layer1.3.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3.bn1",
+      "dst": "pyramid_backbone.resnet.layer1.3.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3.relu",
+      "dst": "pyramid_backbone.resnet.layer1.3.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3.conv2",
+      "dst": "pyramid_backbone.resnet.layer1.3.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3.bn2",
+      "dst": "pyramid_backbone.resnet.layer1.3.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3.relu",
+      "dst": "pyramid_backbone.resnet.layer1.3.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3.conv3",
+      "dst": "pyramid_backbone.resnet.layer1.3.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3.bn3",
+      "dst": "op::00028::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.2",
+      "dst": "op::00028::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00028::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer1.3.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3",
+      "dst": "pyramid_backbone.resnet.layer1.4",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3",
+      "dst": "pyramid_backbone.resnet.layer1.4.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.4.conv1",
+      "dst": "pyramid_backbone.resnet.layer1.4.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.4.bn1",
+      "dst": "pyramid_backbone.resnet.layer1.4.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.4.relu",
+      "dst": "pyramid_backbone.resnet.layer1.4.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.4.conv2",
+      "dst": "pyramid_backbone.resnet.layer1.4.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.4.bn2",
+      "dst": "pyramid_backbone.resnet.layer1.4.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.4.relu",
+      "dst": "pyramid_backbone.resnet.layer1.4.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.4.conv3",
+      "dst": "pyramid_backbone.resnet.layer1.4.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.4.bn3",
+      "dst": "op::00029::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1.3",
+      "dst": "op::00029::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00029::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer1.4.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1",
+      "dst": "pyramid_backbone.resnet.layer2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1",
+      "dst": "pyramid_backbone.resnet.layer2.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1",
+      "dst": "pyramid_backbone.resnet.layer2.0.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.conv1",
+      "dst": "pyramid_backbone.resnet.layer2.0.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.bn1",
+      "dst": "pyramid_backbone.resnet.layer2.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.relu",
+      "dst": "pyramid_backbone.resnet.layer2.0.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.conv2",
+      "dst": "pyramid_backbone.resnet.layer2.0.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.bn2",
+      "dst": "pyramid_backbone.resnet.layer2.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.relu",
+      "dst": "pyramid_backbone.resnet.layer2.0.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.conv3",
+      "dst": "pyramid_backbone.resnet.layer2.0.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1",
+      "dst": "pyramid_backbone.resnet.layer2.0.downsample",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer1",
+      "dst": "pyramid_backbone.resnet.layer2.0.downsample.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.downsample.0",
+      "dst": "pyramid_backbone.resnet.layer2.0.downsample.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.bn3",
+      "dst": "op::00030::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0.downsample",
+      "dst": "op::00030::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00030::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer2.0.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0",
+      "dst": "pyramid_backbone.resnet.layer2.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0",
+      "dst": "pyramid_backbone.resnet.layer2.1.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1.conv1",
+      "dst": "pyramid_backbone.resnet.layer2.1.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1.bn1",
+      "dst": "pyramid_backbone.resnet.layer2.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1.relu",
+      "dst": "pyramid_backbone.resnet.layer2.1.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1.conv2",
+      "dst": "pyramid_backbone.resnet.layer2.1.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1.bn2",
+      "dst": "pyramid_backbone.resnet.layer2.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1.relu",
+      "dst": "pyramid_backbone.resnet.layer2.1.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1.conv3",
+      "dst": "pyramid_backbone.resnet.layer2.1.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1.bn3",
+      "dst": "op::00031::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.0",
+      "dst": "op::00031::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00031::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer2.1.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1",
+      "dst": "pyramid_backbone.resnet.layer2.2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1",
+      "dst": "pyramid_backbone.resnet.layer2.2.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2.conv1",
+      "dst": "pyramid_backbone.resnet.layer2.2.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2.bn1",
+      "dst": "pyramid_backbone.resnet.layer2.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2.relu",
+      "dst": "pyramid_backbone.resnet.layer2.2.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2.conv2",
+      "dst": "pyramid_backbone.resnet.layer2.2.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2.bn2",
+      "dst": "pyramid_backbone.resnet.layer2.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2.relu",
+      "dst": "pyramid_backbone.resnet.layer2.2.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2.conv3",
+      "dst": "pyramid_backbone.resnet.layer2.2.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2.bn3",
+      "dst": "op::00032::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.1",
+      "dst": "op::00032::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00032::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer2.2.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2",
+      "dst": "pyramid_backbone.resnet.layer2.3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2",
+      "dst": "pyramid_backbone.resnet.layer2.3.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3.conv1",
+      "dst": "pyramid_backbone.resnet.layer2.3.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3.bn1",
+      "dst": "pyramid_backbone.resnet.layer2.3.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3.relu",
+      "dst": "pyramid_backbone.resnet.layer2.3.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3.conv2",
+      "dst": "pyramid_backbone.resnet.layer2.3.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3.bn2",
+      "dst": "pyramid_backbone.resnet.layer2.3.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3.relu",
+      "dst": "pyramid_backbone.resnet.layer2.3.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3.conv3",
+      "dst": "pyramid_backbone.resnet.layer2.3.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3.bn3",
+      "dst": "op::00033::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.2",
+      "dst": "op::00033::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00033::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer2.3.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3",
+      "dst": "pyramid_backbone.resnet.layer2.4",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3",
+      "dst": "pyramid_backbone.resnet.layer2.4.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4.conv1",
+      "dst": "pyramid_backbone.resnet.layer2.4.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4.bn1",
+      "dst": "pyramid_backbone.resnet.layer2.4.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4.relu",
+      "dst": "pyramid_backbone.resnet.layer2.4.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4.conv2",
+      "dst": "pyramid_backbone.resnet.layer2.4.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4.bn2",
+      "dst": "pyramid_backbone.resnet.layer2.4.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4.relu",
+      "dst": "pyramid_backbone.resnet.layer2.4.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4.conv3",
+      "dst": "pyramid_backbone.resnet.layer2.4.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4.bn3",
+      "dst": "op::00034::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.3",
+      "dst": "op::00034::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00034::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer2.4.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4",
+      "dst": "pyramid_backbone.resnet.layer2.5",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4",
+      "dst": "pyramid_backbone.resnet.layer2.5.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5.conv1",
+      "dst": "pyramid_backbone.resnet.layer2.5.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5.bn1",
+      "dst": "pyramid_backbone.resnet.layer2.5.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5.relu",
+      "dst": "pyramid_backbone.resnet.layer2.5.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5.conv2",
+      "dst": "pyramid_backbone.resnet.layer2.5.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5.bn2",
+      "dst": "pyramid_backbone.resnet.layer2.5.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5.relu",
+      "dst": "pyramid_backbone.resnet.layer2.5.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5.conv3",
+      "dst": "pyramid_backbone.resnet.layer2.5.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5.bn3",
+      "dst": "op::00035::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.4",
+      "dst": "op::00035::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00035::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer2.5.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5",
+      "dst": "pyramid_backbone.resnet.layer2.6",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5",
+      "dst": "pyramid_backbone.resnet.layer2.6.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6.conv1",
+      "dst": "pyramid_backbone.resnet.layer2.6.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6.bn1",
+      "dst": "pyramid_backbone.resnet.layer2.6.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6.relu",
+      "dst": "pyramid_backbone.resnet.layer2.6.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6.conv2",
+      "dst": "pyramid_backbone.resnet.layer2.6.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6.bn2",
+      "dst": "pyramid_backbone.resnet.layer2.6.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6.relu",
+      "dst": "pyramid_backbone.resnet.layer2.6.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6.conv3",
+      "dst": "pyramid_backbone.resnet.layer2.6.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6.bn3",
+      "dst": "op::00036::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.5",
+      "dst": "op::00036::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00036::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer2.6.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6",
+      "dst": "pyramid_backbone.resnet.layer2.7",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6",
+      "dst": "pyramid_backbone.resnet.layer2.7.conv1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.7.conv1",
+      "dst": "pyramid_backbone.resnet.layer2.7.bn1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.7.bn1",
+      "dst": "pyramid_backbone.resnet.layer2.7.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.7.relu",
+      "dst": "pyramid_backbone.resnet.layer2.7.conv2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.7.conv2",
+      "dst": "pyramid_backbone.resnet.layer2.7.bn2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.7.bn2",
+      "dst": "pyramid_backbone.resnet.layer2.7.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.7.relu",
+      "dst": "pyramid_backbone.resnet.layer2.7.conv3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.7.conv3",
+      "dst": "pyramid_backbone.resnet.layer2.7.bn3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.7.bn3",
+      "dst": "op::00037::Tensor.__iadd__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6",
+      "dst": "op::00037::Tensor.__iadd__",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00037::Tensor.__iadd__",
+      "dst": "pyramid_backbone.resnet.layer2.7.relu",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet",
+      "dst": "pyramid_backbone.single_head_0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet.layer2.6",
+      "dst": "op::00038::Tensor.__add__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00040::F.grid_sample",
+      "dst": "op::00041::torch.stack",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet",
+      "dst": "pyramid_backbone.single_head_1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00039::F.grid_sample",
+      "dst": "op::00042::Tensor.__add__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.resnet",
+      "dst": "pyramid_backbone.single_head_2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00040::F.grid_sample",
+      "dst": "op::00046::Tensor.__add__",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00048::F.grid_sample",
+      "dst": "op::00049::torch.stack",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00041::torch.stack",
+      "dst": "pyramid_backbone.deblocks.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00041::torch.stack",
+      "dst": "pyramid_backbone.deblocks.0.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.deblocks.0.0",
+      "dst": "pyramid_backbone.deblocks.0.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.deblocks.0.1",
+      "dst": "pyramid_backbone.deblocks.0.2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00045::torch.stack",
+      "dst": "pyramid_backbone.deblocks.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00045::torch.stack",
+      "dst": "pyramid_backbone.deblocks.1.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.deblocks.1.0",
+      "dst": "pyramid_backbone.deblocks.1.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.deblocks.1.1",
+      "dst": "pyramid_backbone.deblocks.1.2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00049::torch.stack",
+      "dst": "pyramid_backbone.deblocks.2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00049::torch.stack",
+      "dst": "pyramid_backbone.deblocks.2.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.deblocks.2.0",
+      "dst": "pyramid_backbone.deblocks.2.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.deblocks.2.1",
+      "dst": "pyramid_backbone.deblocks.2.2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "pyramid_backbone.deblocks.0",
+      "dst": "op::00050::torch.cat",
+      "input_index": 0,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.deblocks.1",
+      "dst": "op::00050::torch.cat",
+      "input_index": 1,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "pyramid_backbone.deblocks.2",
+      "dst": "op::00050::torch.cat",
+      "input_index": 2,
+      "kind": "tensor_op_input"
+    },
+    {
+      "src": "op::00050::torch.cat",
+      "dst": "shrink_conv",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00050::torch.cat",
+      "dst": "shrink_conv.layers.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00050::torch.cat",
+      "dst": "shrink_conv.layers.0.double_conv",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "op::00050::torch.cat",
+      "dst": "shrink_conv.layers.0.double_conv.0",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "shrink_conv.layers.0.double_conv.0",
+      "dst": "shrink_conv.layers.0.double_conv.1",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "shrink_conv.layers.0.double_conv.1",
+      "dst": "shrink_conv.layers.0.double_conv.2",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "shrink_conv.layers.0.double_conv.2",
+      "dst": "shrink_conv.layers.0.double_conv.3",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "shrink_conv",
+      "dst": "cls_head",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "shrink_conv",
+      "dst": "reg_head",
+      "input_index": 0,
+      "kind": "module_input"
+    },
+    {
+      "src": "shrink_conv",
+      "dst": "dir_head",
+      "input_index": 0,
+      "kind": "module_input"
+    }
+  ],
+  "warnings": []
+}

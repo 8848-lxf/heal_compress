@@ -1,0 +1,8 @@
+{
+  "num_residual_blocks": 3,
+  "num_identity_shortcut": 0,
+  "num_projection_shortcut": 3,
+  "num_residual_protected_groups": 0,
+  "num_residual_prunable_groups": 3,
+  "residual_consistency_check_result": "pass"
+}

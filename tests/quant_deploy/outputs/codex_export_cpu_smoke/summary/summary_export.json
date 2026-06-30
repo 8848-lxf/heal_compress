@@ -1,0 +1,10 @@
+{
+  "success": false,
+  "error": "Exporting the operator 'aten::affine_grid_generator' to ONNX opset version 17 is not supported. Please feel free to request support or submit a pull request on PyTorch GitHub: https://github.com/pytorch/pytorch/issues.",
+  "export_boundary": "full_model",
+  "opset": 17,
+  "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_export_cpu_smoke/artifacts/onnx/fp32/lidar_pyramid_fp32_dynamic.onnx",
+  "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_export_cpu_smoke/logs/export/export_onnx.log",
+  "sample_source": "real_validation_or_test_sample",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/export_lidar_pyramid_onnx.py\", line 335, in export_lidar_pyramid_onnx\n    torch.onnx.export(\n  File \"/home/lixingfeng/miniconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/onnx/utils.py\", line 506, in export\n    _export(\n  File \"/home/lixingfeng/miniconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/onnx/utils.py\", line 1548, in _export\n    graph, params_dict, torch_out = _model_to_graph(\n  File \"/home/lixingfeng/miniconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/onnx/utils.py\", line 1117, in _model_to_graph\n    graph = _optimize_graph(\n  File \"/home/lixingfeng/miniconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/onnx/utils.py\", line 665, in _optimize_graph\n    graph = _C._jit_pass_onnx(graph, operator_export_type)\n  File \"/home/lixingfeng/miniconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/onnx/utils.py\", line 1901, in _run_symbolic_function\n    raise errors.UnsupportedOperatorError(\ntorch.onnx.errors.UnsupportedOperatorError: Exporting the operator 'aten::affine_grid_generator' to ONNX opset version 17 is not supported. Please feel free to request support or submit a pull request on PyTorch GitHub: https://github.com/pytorch/pytorch/issues.\n"
+}

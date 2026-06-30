@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

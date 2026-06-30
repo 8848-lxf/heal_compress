@@ -1,0 +1,19 @@
+{
+  "total_frames": 1789,
+  "actual_frames": 1789,
+  "skipped_frames": 0,
+  "AP@0.03": 0.8454,
+  "AP@0.30": 0.8261,
+  "AP@0.50": 0.7814,
+  "AP@0.70": 0.603,
+  "total_time_mean_ms": 11.447,
+  "total_time_p50_ms": 11.298,
+  "forward_time_mean_ms": 8.381,
+  "forward_time_p50_ms": 8.306,
+  "postprocess_time_mean_ms": 3.066,
+  "postprocess_time_p50_ms": 3.004,
+  "model_name": "lidar_pyramid",
+  "checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+  "param_count": 5464791,
+  "param_size_mb": 20.85
+}

@@ -1,0 +1,20 @@
+{
+  "backend": "onnxruntime_fp32",
+  "backend_label": "ONNXRuntime FP32",
+  "success": true,
+  "num_frames": 50,
+  "actual_frames": 50,
+  "skipped_frames": 0,
+  "AP@0.30": 0.8721,
+  "AP@0.50": 0.8534,
+  "AP@0.70": 0.7475,
+  "mAP": 0.8243,
+  "forward_mean_ms": 31.693784780800343,
+  "forward_p50_ms": 24.93860200047493,
+  "forward_p90_ms": 32.45088644325733,
+  "postprocess_mean_ms": 27.409551106393337,
+  "postprocess_p50_ms": 10.062508285045624,
+  "total_mean_ms": 59.10333588719368,
+  "total_p50_ms": 42.409297078847885,
+  "error": null
+}

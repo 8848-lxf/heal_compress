@@ -1,0 +1,93 @@
+{
+  "num_frames": 50,
+  "output_names": [
+    "cls_preds",
+    "reg_preds",
+    "dir_preds"
+  ],
+  "outputs": {
+    "cls_preds": {
+      "max_abs_error": 0.011028289794921875,
+      "mean_abs_error": 0.00023263336922127564,
+      "relative_error": 4.1447831414044183e-05,
+      "numel": 3276800,
+      "shape_mismatches": []
+    },
+    "reg_preds": {
+      "max_abs_error": 0.004504799842834473,
+      "mean_abs_error": 4.104622867863077e-05,
+      "relative_error": 0.0002603794836820189,
+      "numel": 22937600,
+      "shape_mismatches": []
+    },
+    "dir_preds": {
+      "max_abs_error": 0.01030421257019043,
+      "mean_abs_error": 0.00017178096088059646,
+      "relative_error": 0.00034989478257959494,
+      "numel": 6553600,
+      "shape_mismatches": []
+    }
+  },
+  "by_record_len": {
+    "1": {
+      "record_len": 1,
+      "agent_count": 1,
+      "num_frames": 14,
+      "outputs": {
+        "cls_preds": {
+          "max_abs_error": 0.011028289794921875,
+          "mean_abs_error": 0.0008308334615045558,
+          "relative_error": 0.00015077033936741993,
+          "numel": 917504,
+          "shape_mismatches": []
+        },
+        "reg_preds": {
+          "max_abs_error": 0.004504799842834473,
+          "mean_abs_error": 0.00014659367385225276,
+          "relative_error": 0.0009537267652541607,
+          "numel": 6422528,
+          "shape_mismatches": []
+        },
+        "dir_preds": {
+          "max_abs_error": 0.01030421257019043,
+          "mean_abs_error": 0.0006135034317164159,
+          "relative_error": 0.0012689478312916112,
+          "numel": 1835008,
+          "shape_mismatches": []
+        }
+      }
+    },
+    "2": {
+      "record_len": 2,
+      "agent_count": 2,
+      "num_frames": 36,
+      "outputs": {
+        "cls_preds": {
+          "max_abs_error": 0.0,
+          "mean_abs_error": 0.0,
+          "relative_error": 0.0,
+          "numel": 2359296,
+          "shape_mismatches": []
+        },
+        "reg_preds": {
+          "max_abs_error": 0.0,
+          "mean_abs_error": 0.0,
+          "relative_error": 0.0,
+          "numel": 16515072,
+          "shape_mismatches": []
+        },
+        "dir_preds": {
+          "max_abs_error": 0.0,
+          "mean_abs_error": 0.0,
+          "relative_error": 0.0,
+          "numel": 4718592,
+          "shape_mismatches": []
+        }
+      }
+    }
+  },
+  "success": true,
+  "comparison": "original_pytorch_forward_vs_padded_agent_static_wrapper",
+  "device": "cuda:0",
+  "pyramid_forward_export_mode": "padded_agent_static"
+}

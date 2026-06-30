@@ -1,0 +1,14 @@
+{
+  "original_checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+  "pruned_checkpoint": "tests/outputs/l1_grouped_conv_ablation_20260625_013602/independent_group_topk_p75/pruned_model.pth",
+  "model_config": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml",
+  "heal_root": "/home/lixingfeng/UniAD_examine/HEAL",
+  "rounds": 3,
+  "gup_id": "3",
+  "device": "cuda:3",
+  "output_dir": "tests/outputs/l1_grouped_conv_ablation_20260625_013602/eval/independent_group_topk_p75_001",
+  "max_frames": 0,
+  "warmup_frames": 50,
+  "eval_original": false,
+  "eval_pruned": true
+}

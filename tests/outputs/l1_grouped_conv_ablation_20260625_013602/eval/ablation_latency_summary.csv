@@ -1,0 +1,8 @@
+model_name,latency_mean_ms,latency_p50_ms,latency_p90_ms,latency_p95_ms,forward_mean_ms,forward_p50_ms,forward_p90_ms,forward_p95_ms,postprocess_mean_ms,FPS,speedup_vs_original
+baseline_original,22.642333,20.366,27.0878,42.2198,8.441667,8.461,8.666,8.986,3.139667,44.16506,0.0
+shared_local_mean_p25,37.547333,18.853333,95.7664,122.313,7.879667,7.956667,8.1778,8.3534,2.420333,26.63305,0.059607
+shared_local_mean_p50,39.244333,18.881333,103.8272,128.7644,7.991,8.011,8.3924,8.7412,2.372333,25.481386,0.053185
+shared_local_mean_p75,39.094667,19.053,102.6368,125.4472,7.806667,7.835333,8.1874,8.4992,2.262667,25.578936,0.073947
+independent_group_topk_p25,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available
+independent_group_topk_p50,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available
+independent_group_topk_p75,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available,not_available

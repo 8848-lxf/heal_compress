@@ -1,0 +1,10 @@
+{
+  "plugin_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt",
+  "build_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build",
+  "plugin_so": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+  "success": true,
+  "error": null,
+  "configure_log": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/pointpillar_scatter_plugin_cmake_configure.log",
+  "build_log": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/pointpillar_scatter_plugin_cmake_build.log",
+  "plugin_so_size_MB": 0.089080810546875
+}

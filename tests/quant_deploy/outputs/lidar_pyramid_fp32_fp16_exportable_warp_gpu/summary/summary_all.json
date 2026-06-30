@@ -1,0 +1,987 @@
+{
+  "model": "lidar_pyramid",
+  "checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+  "hypes_yaml": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml",
+  "output_root": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu",
+  "dirs": {
+    "configs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/configs",
+    "onnx": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/artifacts/onnx",
+    "engines": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/artifacts/engines",
+    "calibration": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/calibration",
+    "benchmark": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/benchmark",
+    "evaluation": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/evaluation",
+    "logs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/logs",
+    "summary": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/summary",
+    "debug": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/debug"
+  },
+  "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/artifacts/onnx/fp32/lidar_pyramid_fp32_dynamic.onnx",
+  "onnx_export": {
+    "success": true,
+    "error": null,
+    "export_boundary": "full_model",
+    "opset": 17
+  },
+  "precisions": {
+    "fp32": {
+      "implemented": true,
+      "build_success": false,
+      "benchmark_success": false,
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/artifacts/engines/fp32/lidar_pyramid_fp32.engine",
+      "engine_size_MB": null,
+      "forward_p50_ms": null,
+      "forward_p90_ms": null,
+      "forward_p95_ms": null,
+      "fps": null,
+      "speedup_vs_fp32": null,
+      "error": "[06/25/2026-08:21:47] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpImporters.cpp:5889 In function importSqueeze:"
+    },
+    "fp16": {
+      "implemented": true,
+      "build_success": false,
+      "benchmark_success": false,
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+      "engine_size_MB": null,
+      "forward_p50_ms": null,
+      "forward_p90_ms": null,
+      "forward_p95_ms": null,
+      "fps": null,
+      "speedup_vs_fp32": null,
+      "error": "[06/25/2026-08:21:55] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpImporters.cpp:5889 In function importSqueeze:"
+    }
+  },
+  "detected_special_ops": {
+    "GridSample": [
+      {
+        "name": "/model/GridSample",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/model/GridSample_output_0"
+        ]
+      },
+      {
+        "name": "/model/GridSample_1",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/model/GridSample_1_output_0"
+        ]
+      },
+      {
+        "name": "/model/GridSample_2",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/model/GridSample_2_output_0"
+        ]
+      },
+      {
+        "name": "/model/GridSample_3",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/model/GridSample_3_output_0"
+        ]
+      },
+      {
+        "name": "/model/GridSample_4",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/model/GridSample_4_output_0"
+        ]
+      },
+      {
+        "name": "/model/GridSample_5",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/model/GridSample_5_output_0"
+        ]
+      }
+    ],
+    "AffineGrid": [],
+    "Scatter": [
+      {
+        "name": "/model/ScatterND",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/model/ScatterND_output_0"
+        ]
+      },
+      {
+        "name": "/model/ScatterND_1",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/model/ScatterND_1_output_0"
+        ]
+      },
+      {
+        "name": "/model/ScatterND_2",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/model/ScatterND_2_output_0"
+        ]
+      },
+      {
+        "name": "/model/ScatterND_3",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/model/ScatterND_3_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/ScatterND",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/ScatterND_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/ScatterND_1",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/ScatterND_1_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/ScatterND_2",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/ScatterND_2_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/scatter/ScatterND",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/scatter/ScatterND_output_0"
+        ]
+      }
+    ],
+    "Gather": [
+      {
+        "name": "/model/Gather",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_1",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_1_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_2",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_2_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_3",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_3_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_4",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_4_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_5",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_5_output_0"
+        ]
+      },
+      {
+        "name": "Gather_478",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_407"
+        ]
+      },
+      {
+        "name": "Gather_485",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_414"
+        ]
+      },
+      {
+        "name": "Gather_492",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_421"
+        ]
+      },
+      {
+        "name": "/model/Gather_6",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_6_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_7",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_7_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_8",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_8_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_9",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_9_output_0"
+        ]
+      },
+      {
+        "name": "Gather_578",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_507"
+        ]
+      },
+      {
+        "name": "Gather_585",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_514"
+        ]
+      },
+      {
+        "name": "Gather_592",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_521"
+        ]
+      },
+      {
+        "name": "/model/Gather_10",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_10_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_11",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_11_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_12",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_12_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_13",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_13_output_0"
+        ]
+      },
+      {
+        "name": "Gather_678",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_607"
+        ]
+      },
+      {
+        "name": "Gather_685",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_614"
+        ]
+      },
+      {
+        "name": "Gather_692",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_621"
+        ]
+      },
+      {
+        "name": "/model/Gather_14",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_14_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_15",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_15_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_16",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_16_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_17",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_17_output_0"
+        ]
+      },
+      {
+        "name": "Gather_778",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_707"
+        ]
+      },
+      {
+        "name": "Gather_785",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_714"
+        ]
+      },
+      {
+        "name": "Gather_792",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_721"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather_1",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_1_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather_2",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_2_output_0"
+        ]
+      },
+      {
+        "name": "Gather_905",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_846"
+        ]
+      },
+      {
+        "name": "Gather_912",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_853"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather_3",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_3_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather_4",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_4_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather_5",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_5_output_0"
+        ]
+      },
+      {
+        "name": "Gather_977",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_918"
+        ]
+      },
+      {
+        "name": "Gather_984",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_925"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather_6",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_6_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather_7",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_7_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather_8",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_8_output_0"
+        ]
+      },
+      {
+        "name": "Gather_1049",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_990"
+        ]
+      },
+      {
+        "name": "Gather_1056",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_997"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/pillar_vfe/Gather_9",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/pillar_vfe/Gather_9_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/scatter/Gather",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/scatter/Gather_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/scatter/GatherND",
+        "op_type": "GatherND",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/scatter/GatherND_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/scatter/Gather_1",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/scatter/Gather_1_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/scatter/Gather_2",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/scatter/Gather_2_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/scatter/Gather_3",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/scatter/Gather_3_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/scatter/GatherND_1",
+        "op_type": "GatherND",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/scatter/GatherND_1_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_18",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_18_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_19",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_19_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_22",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_22_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_23",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_23_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_24",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_24_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_27",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_27_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_28",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_28_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_29",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_29_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_30",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_30_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_31",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_31_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_32",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_32_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_33",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_33_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_34",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_34_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_35",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_35_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_36",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_36_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_37",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_37_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_40",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_40_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_41",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_41_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_42",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_42_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_45",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_45_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_46",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_46_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_47",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_47_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_48",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_48_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_49",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_49_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_50",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_50_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_51",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_51_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_52",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_52_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_53",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_53_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_54",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_54_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_55",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_55_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_58",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_58_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_59",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_59_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_60",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_60_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_63",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_63_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_64",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_64_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_65",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_65_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_66",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_66_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_67",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_67_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_68",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_68_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_69",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_69_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_70",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_70_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_71",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_71_output_0"
+        ]
+      },
+      {
+        "name": "/model/Gather_72",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/model/Gather_72_output_0"
+        ]
+      }
+    ],
+    "NonZero": [
+      {
+        "name": "/model/encoder_m1/scatter/NonZero",
+        "op_type": "NonZero",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/scatter/NonZero_output_0"
+        ]
+      },
+      {
+        "name": "/model/encoder_m1/scatter/NonZero_1",
+        "op_type": "NonZero",
+        "domain": "",
+        "outputs": [
+          "/model/encoder_m1/scatter/NonZero_1_output_0"
+        ]
+      }
+    ],
+    "Inverse": [],
+    "aten_ops": [],
+    "org_pytorch_ops": [],
+    "unsupported_ops": []
+  },
+  "env_report": {
+    "python_executable": "/home/lixingfeng/miniconda3/envs/modelopt/bin/python",
+    "conda_prefix": "/home/lixingfeng/miniconda3/envs/modelopt",
+    "TRT_ROOT": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+    "LD_LIBRARY_PATH": "/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusparselt/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/curand/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusolver/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cublas/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cuda_cupti/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/nvshmem/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cu13/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusparse/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/nvtx/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cudnn/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cufft/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/nccl/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cuda_nvrtc/lib:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/torch/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib64:/usr/local/cuda/lib64:/usr/local/cuda/lib64",
+    "CUDA_VISIBLE_DEVICES": "0",
+    "torch_available": true,
+    "torch_version": "2.4.0+cu118",
+    "cuda_available": true,
+    "cuda_device_count": 1,
+    "gpu_names": [
+      "NVIDIA H800"
+    ],
+    "tensorrt_available": true,
+    "tensorrt_version": "10.9.0.34",
+    "modelopt_available": false,
+    "modelopt_error": "ModuleNotFoundError(\"No module named 'modelopt'\")",
+    "modelopt_version": null,
+    "trtexec": {
+      "trtexec_found": true,
+      "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+      "checked_paths": [
+        "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+      ],
+      "suggestion": null
+    },
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+  },
+  "bev_warp_export_mode": "exportable_grid",
+  "evaluation_status": "not_run",
+  "evaluation_reason": "current stage only benchmarks TensorRT engine forward latency"
+}

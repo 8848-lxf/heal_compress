@@ -1,0 +1,57 @@
+{
+  "wrapper_source": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/exportable_lidar_pyramid_fixed_k_scatter_plugin.py",
+  "same_shape": true,
+  "outputs": {
+    "cls_preds": {
+      "reference_shape": [
+        1,
+        2,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        2,
+        128,
+        256
+      ],
+      "max_abs_error": 0.009569168090820312,
+      "mean_abs_error": 0.000805611489340663,
+      "relative_error": 0.00014688813826069236
+    },
+    "reg_preds": {
+      "reference_shape": [
+        1,
+        14,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        14,
+        128,
+        256
+      ],
+      "max_abs_error": 0.0029534101486206055,
+      "mean_abs_error": 0.00010183051199419424,
+      "relative_error": 0.0006840350106358528
+    },
+    "dir_preds": {
+      "reference_shape": [
+        1,
+        4,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        4,
+        128,
+        256
+      ],
+      "max_abs_error": 0.0053640007972717285,
+      "mean_abs_error": 0.00041776918806135654,
+      "relative_error": 0.000829041819088161
+    }
+  }
+}

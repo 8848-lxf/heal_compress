@@ -1,0 +1,13 @@
+{
+  "dirs": {
+    "configs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/configs",
+    "onnx": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/artifacts/onnx",
+    "engines": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/artifacts/engines",
+    "calibration": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/calibration",
+    "benchmark": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/benchmark",
+    "evaluation": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/evaluation",
+    "logs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/logs",
+    "summary": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/summary",
+    "debug": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/debug"
+  }
+}

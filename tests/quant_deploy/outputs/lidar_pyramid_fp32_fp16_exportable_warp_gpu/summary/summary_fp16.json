@@ -1,0 +1,13 @@
+{
+  "implemented": true,
+  "build_success": false,
+  "benchmark_success": false,
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_gpu/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+  "engine_size_MB": null,
+  "forward_p50_ms": null,
+  "forward_p90_ms": null,
+  "forward_p95_ms": null,
+  "fps": null,
+  "speedup_vs_fp32": null,
+  "error": "[06/25/2026-08:21:55] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpImporters.cpp:5889 In function importSqueeze:"
+}

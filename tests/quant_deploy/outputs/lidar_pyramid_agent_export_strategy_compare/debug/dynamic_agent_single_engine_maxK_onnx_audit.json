@@ -1,0 +1,433 @@
+{
+  "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/dynamic_agent_single_engine_maxK/lidar_pyramid_dynamic_agent_single_engine_maxK.onnx",
+  "single_onnx": true,
+  "no_N1_N2_onnx": true,
+  "no_bucket_onnx": true,
+  "fixed_K": 29696,
+  "input_names": [
+    "voxel_features",
+    "voxel_coords",
+    "voxel_num_points",
+    "pairwise_t_matrix",
+    "valid_voxel_mask"
+  ],
+  "output_names": [
+    "cls_preds",
+    "reg_preds",
+    "dir_preds"
+  ],
+  "valid_voxel_mask_input_exists": true,
+  "pairwise_t_matrix_dynamic_N": true,
+  "PointPillarScatterTRT_node_count": 1,
+  "PointPillarScatterTRT_input_counts": [
+    4
+  ],
+  "scatter_plugin_uses_shape_ref_input": true,
+  "sequence_node_count": 0,
+  "AffineGrid_exists": false,
+  "GridSample_exists": true,
+  "detected_special_ops": {
+    "GridSample": [
+      {
+        "name": "/GridSample",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_1",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_1_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_2",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_2_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_3",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_3_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_4",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_4_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_5",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_5_output_0"
+        ]
+      }
+    ],
+    "AffineGrid": [],
+    "Scatter": [
+      {
+        "name": "/pillar_vfe/ScatterND",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/ScatterND_output_0"
+        ]
+      },
+      {
+        "name": "/pillar_vfe/ScatterND_1",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/ScatterND_1_output_0"
+        ]
+      },
+      {
+        "name": "/pillar_vfe/ScatterND_2",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/ScatterND_2_output_0"
+        ]
+      },
+      {
+        "name": "/PointPillarScatterTRT",
+        "op_type": "PointPillarScatterTRT",
+        "domain": "",
+        "outputs": [
+          "/PointPillarScatterTRT_output_0"
+        ]
+      }
+    ],
+    "Gather": [
+      {
+        "name": "/pillar_vfe/Gather",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/Gather_output_0"
+        ]
+      },
+      {
+        "name": "/pillar_vfe/Gather_1",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/Gather_1_output_0"
+        ]
+      },
+      {
+        "name": "/pillar_vfe/Gather_2",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/Gather_2_output_0"
+        ]
+      },
+      {
+        "name": "/pillar_vfe/Gather_3",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/Gather_3_output_0"
+        ]
+      },
+      {
+        "name": "/pillar_vfe/Gather_4",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/Gather_4_output_0"
+        ]
+      },
+      {
+        "name": "/pillar_vfe/Gather_5",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/Gather_5_output_0"
+        ]
+      },
+      {
+        "name": "/pillar_vfe/Gather_6",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/Gather_6_output_0"
+        ]
+      },
+      {
+        "name": "/pillar_vfe/Gather_7",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/Gather_7_output_0"
+        ]
+      },
+      {
+        "name": "/Gather",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_1",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_1_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_2",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_2_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_3",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_3_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_4",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_4_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_5",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_5_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_6",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_6_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_7",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_7_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_8",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_8_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_9",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_9_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_10",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_10_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_11",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_11_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_12",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_12_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_13",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_13_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_14",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_14_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_15",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_15_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_16",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_16_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_17",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_17_output_0"
+        ]
+      }
+    ],
+    "NonZero": [],
+    "Squeeze": [
+      {
+        "name": "/pillar_vfe/Squeeze",
+        "op_type": "Squeeze",
+        "domain": "",
+        "outputs": [
+          "/pillar_vfe/Squeeze_output_0"
+        ],
+        "inputs": [
+          "/pillar_vfe/pfn_layers.0/ReduceMax_output_0",
+          "/pillar_vfe/Constant_59_output_0"
+        ],
+        "has_axes_input": true,
+        "has_axes_attribute": false
+      }
+    ],
+    "Squeeze_without_axes": [],
+    "SequenceEmpty": [],
+    "SequenceInsert": [],
+    "SequenceAt": [],
+    "Sequence": [],
+    "sequence_op_count": 0,
+    "Inverse": [],
+    "aten_ops": [],
+    "org_pytorch_ops": [],
+    "unsupported_ops": []
+  },
+  "graph_info": {
+    "ir_version": 8,
+    "opset": [
+      {
+        "domain": "",
+        "version": 17
+      }
+    ],
+    "inputs": [
+      {
+        "name": "voxel_features",
+        "type": "tensor_type {\n  elem_type: 1\n  shape {\n    dim {\n      dim_value: 29696\n    }\n    dim {\n      dim_value: 32\n    }\n    dim {\n      dim_value: 4\n    }\n  }\n}\n"
+      },
+      {
+        "name": "voxel_coords",
+        "type": "tensor_type {\n  elem_type: 6\n  shape {\n    dim {\n      dim_value: 29696\n    }\n    dim {\n      dim_value: 4\n    }\n  }\n}\n"
+      },
+      {
+        "name": "voxel_num_points",
+        "type": "tensor_type {\n  elem_type: 6\n  shape {\n    dim {\n      dim_value: 29696\n    }\n  }\n}\n"
+      },
+      {
+        "name": "pairwise_t_matrix",
+        "type": "tensor_type {\n  elem_type: 1\n  shape {\n    dim {\n      dim_value: 1\n    }\n    dim {\n      dim_param: \"num_agents\"\n    }\n    dim {\n      dim_param: \"num_agents\"\n    }\n    dim {\n      dim_value: 4\n    }\n    dim {\n      dim_value: 4\n    }\n  }\n}\n"
+      },
+      {
+        "name": "valid_voxel_mask",
+        "type": "tensor_type {\n  elem_type: 1\n  shape {\n    dim {\n      dim_value: 29696\n    }\n  }\n}\n"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "cls_preds",
+        "type": "tensor_type {\n  elem_type: 1\n  shape {\n    dim {\n      dim_param: \"batch\"\n    }\n    dim {\n      dim_value: 2\n    }\n    dim {\n      dim_value: 128\n    }\n    dim {\n      dim_value: 256\n    }\n  }\n}\n"
+      },
+      {
+        "name": "reg_preds",
+        "type": "tensor_type {\n  elem_type: 1\n  shape {\n    dim {\n      dim_param: \"batch\"\n    }\n    dim {\n      dim_value: 14\n    }\n    dim {\n      dim_value: 128\n    }\n    dim {\n      dim_value: 256\n    }\n  }\n}\n"
+      },
+      {
+        "name": "dir_preds",
+        "type": "tensor_type {\n  elem_type: 1\n  shape {\n    dim {\n      dim_param: \"batch\"\n    }\n    dim {\n      dim_value: 4\n    }\n    dim {\n      dim_value: 128\n    }\n    dim {\n      dim_value: 256\n    }\n  }\n}\n"
+      }
+    ],
+    "num_nodes": 559,
+    "op_types": [
+      "Add",
+      "BatchNormalization",
+      "Cast",
+      "Concat",
+      "Constant",
+      "ConstantOfShape",
+      "Conv",
+      "ConvTranspose",
+      "Div",
+      "Equal",
+      "Expand",
+      "Gather",
+      "Greater",
+      "GridSample",
+      "IsNaN",
+      "MatMul",
+      "Mul",
+      "PointPillarScatterTRT",
+      "ReduceMax",
+      "ReduceSum",
+      "Relu",
+      "Reshape",
+      "ScatterND",
+      "Shape",
+      "Sigmoid",
+      "Slice",
+      "Softmax",
+      "Squeeze",
+      "Sub",
+      "Transpose",
+      "Unsqueeze",
+      "Where"
+    ]
+  }
+}

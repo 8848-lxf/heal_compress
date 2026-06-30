@@ -1,0 +1,1944 @@
+frame=0 precision=int8 calib=50 record_len=1 K=8578 forward_ms=184.689 execute_ms=169.620
+frame=1 precision=int8 calib=50 record_len=1 K=8756 forward_ms=16.329 execute_ms=1.322
+frame=2 precision=int8 calib=50 record_len=1 K=8923 forward_ms=16.435 execute_ms=1.329
+frame=3 precision=int8 calib=50 record_len=1 K=9011 forward_ms=16.184 execute_ms=1.320
+frame=4 precision=int8 calib=50 record_len=1 K=9010 forward_ms=16.329 execute_ms=1.336
+frame=5 precision=int8 calib=50 record_len=1 K=9020 forward_ms=16.334 execute_ms=1.326
+frame=6 precision=int8 calib=50 record_len=1 K=9520 forward_ms=16.203 execute_ms=1.324
+frame=7 precision=int8 calib=50 record_len=1 K=9542 forward_ms=16.260 execute_ms=1.318
+frame=8 precision=int8 calib=50 record_len=1 K=9544 forward_ms=2.532 execute_ms=1.483
+frame=9 precision=int8 calib=50 record_len=1 K=9431 forward_ms=14.620 execute_ms=1.324
+frame=10 precision=int8 calib=50 record_len=1 K=9377 forward_ms=16.330 execute_ms=1.329
+frame=11 precision=int8 calib=50 record_len=1 K=9396 forward_ms=16.264 execute_ms=1.321
+frame=12 precision=int8 calib=50 record_len=1 K=9270 forward_ms=16.839 execute_ms=1.331
+frame=13 precision=int8 calib=50 record_len=1 K=9594 forward_ms=16.333 execute_ms=1.326
+frame=14 precision=int8 calib=50 record_len=2 K=20646 forward_ms=120.189 execute_ms=105.025
+frame=15 precision=int8 calib=50 record_len=2 K=20743 forward_ms=16.440 execute_ms=1.499
+frame=16 precision=int8 calib=50 record_len=2 K=20912 forward_ms=16.447 execute_ms=1.494
+frame=17 precision=int8 calib=50 record_len=2 K=21208 forward_ms=16.343 execute_ms=1.488
+frame=18 precision=int8 calib=50 record_len=2 K=21150 forward_ms=16.381 execute_ms=1.499
+frame=19 precision=int8 calib=50 record_len=2 K=21681 forward_ms=16.370 execute_ms=1.497
+frame=20 precision=int8 calib=50 record_len=2 K=22440 forward_ms=16.554 execute_ms=1.498
+frame=21 precision=int8 calib=50 record_len=2 K=22638 forward_ms=16.386 execute_ms=1.499
+frame=22 precision=int8 calib=50 record_len=2 K=22452 forward_ms=16.290 execute_ms=1.501
+frame=23 precision=int8 calib=50 record_len=2 K=22768 forward_ms=16.364 execute_ms=1.498
+frame=24 precision=int8 calib=50 record_len=2 K=22506 forward_ms=16.466 execute_ms=1.497
+frame=25 precision=int8 calib=50 record_len=2 K=22712 forward_ms=16.346 execute_ms=1.492
+frame=26 precision=int8 calib=50 record_len=2 K=22673 forward_ms=16.244 execute_ms=1.501
+frame=27 precision=int8 calib=50 record_len=2 K=22667 forward_ms=16.445 execute_ms=1.502
+frame=28 precision=int8 calib=50 record_len=2 K=22612 forward_ms=16.357 execute_ms=1.491
+frame=29 precision=int8 calib=50 record_len=2 K=22731 forward_ms=16.375 execute_ms=1.496
+frame=30 precision=int8 calib=50 record_len=2 K=23198 forward_ms=9.219 execute_ms=1.498
+frame=31 precision=int8 calib=50 record_len=2 K=22700 forward_ms=16.318 execute_ms=1.496
+frame=32 precision=int8 calib=50 record_len=2 K=22921 forward_ms=16.430 execute_ms=1.495
+frame=33 precision=int8 calib=50 record_len=2 K=22956 forward_ms=16.297 execute_ms=1.501
+frame=34 precision=int8 calib=50 record_len=2 K=23111 forward_ms=16.529 execute_ms=1.504
+frame=35 precision=int8 calib=50 record_len=2 K=22891 forward_ms=16.346 execute_ms=1.496
+frame=36 precision=int8 calib=50 record_len=2 K=23254 forward_ms=12.996 execute_ms=1.491
+frame=37 precision=int8 calib=50 record_len=2 K=22924 forward_ms=16.504 execute_ms=1.501
+frame=38 precision=int8 calib=50 record_len=2 K=22875 forward_ms=18.876 execute_ms=1.498
+frame=39 precision=int8 calib=50 record_len=2 K=22907 forward_ms=2.813 execute_ms=1.687
+frame=40 precision=int8 calib=50 record_len=2 K=23304 forward_ms=13.012 execute_ms=1.494
+frame=41 precision=int8 calib=50 record_len=2 K=22940 forward_ms=16.527 execute_ms=1.501
+frame=42 precision=int8 calib=50 record_len=2 K=22985 forward_ms=16.456 execute_ms=1.501
+frame=43 precision=int8 calib=50 record_len=2 K=23119 forward_ms=16.346 execute_ms=1.503
+frame=44 precision=int8 calib=50 record_len=2 K=23282 forward_ms=16.374 execute_ms=1.497
+frame=45 precision=int8 calib=50 record_len=2 K=23041 forward_ms=16.404 execute_ms=1.505
+frame=46 precision=int8 calib=50 record_len=2 K=23194 forward_ms=16.432 execute_ms=1.502
+frame=47 precision=int8 calib=50 record_len=2 K=22937 forward_ms=16.375 execute_ms=1.497
+frame=48 precision=int8 calib=50 record_len=2 K=23465 forward_ms=16.563 execute_ms=1.498
+frame=49 precision=int8 calib=50 record_len=2 K=23367 forward_ms=16.260 execute_ms=1.498
+frame=50 precision=int8 calib=50 record_len=2 K=23220 forward_ms=16.317 execute_ms=1.501
+frame=51 precision=int8 calib=50 record_len=2 K=23355 forward_ms=16.563 execute_ms=1.504
+frame=52 precision=int8 calib=50 record_len=2 K=22911 forward_ms=16.454 execute_ms=1.497
+frame=53 precision=int8 calib=50 record_len=2 K=23052 forward_ms=16.197 execute_ms=1.495
+frame=54 precision=int8 calib=50 record_len=2 K=23065 forward_ms=16.411 execute_ms=1.497
+frame=55 precision=int8 calib=50 record_len=2 K=23479 forward_ms=16.253 execute_ms=1.500
+frame=56 precision=int8 calib=50 record_len=2 K=23063 forward_ms=16.453 execute_ms=1.494
+frame=57 precision=int8 calib=50 record_len=2 K=23170 forward_ms=16.231 execute_ms=1.500
+frame=58 precision=int8 calib=50 record_len=2 K=22921 forward_ms=16.145 execute_ms=1.498
+frame=59 precision=int8 calib=50 record_len=2 K=23073 forward_ms=16.297 execute_ms=1.495
+frame=60 precision=int8 calib=50 record_len=2 K=23095 forward_ms=16.369 execute_ms=1.493
+frame=61 precision=int8 calib=50 record_len=2 K=22964 forward_ms=16.543 execute_ms=1.500
+frame=62 precision=int8 calib=50 record_len=2 K=22539 forward_ms=16.457 execute_ms=1.496
+frame=63 precision=int8 calib=50 record_len=2 K=23104 forward_ms=16.324 execute_ms=1.501
+frame=64 precision=int8 calib=50 record_len=2 K=23408 forward_ms=16.562 execute_ms=1.494
+frame=65 precision=int8 calib=50 record_len=2 K=23372 forward_ms=16.344 execute_ms=1.495
+frame=66 precision=int8 calib=50 record_len=2 K=23301 forward_ms=16.404 execute_ms=1.502
+frame=67 precision=int8 calib=50 record_len=2 K=23485 forward_ms=16.403 execute_ms=1.497
+frame=68 precision=int8 calib=50 record_len=2 K=23630 forward_ms=16.462 execute_ms=1.499
+frame=69 precision=int8 calib=50 record_len=2 K=23370 forward_ms=16.508 execute_ms=1.496
+frame=70 precision=int8 calib=50 record_len=2 K=23571 forward_ms=16.401 execute_ms=1.504
+frame=71 precision=int8 calib=50 record_len=2 K=23683 forward_ms=16.348 execute_ms=1.498
+frame=72 precision=int8 calib=50 record_len=2 K=23732 forward_ms=16.358 execute_ms=1.499
+frame=73 precision=int8 calib=50 record_len=2 K=23830 forward_ms=16.336 execute_ms=1.497
+frame=74 precision=int8 calib=50 record_len=2 K=23859 forward_ms=16.333 execute_ms=1.497
+frame=75 skipped error=num_voxels=24149 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24149 exceeds fixed_K=24064
+
+frame=76 precision=int8 calib=50 record_len=2 K=23955 forward_ms=16.349 execute_ms=1.501
+frame=77 skipped error=num_voxels=24162 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24162 exceeds fixed_K=24064
+
+frame=78 precision=int8 calib=50 record_len=2 K=23629 forward_ms=16.639 execute_ms=1.502
+frame=79 precision=int8 calib=50 record_len=2 K=23966 forward_ms=16.424 execute_ms=1.505
+frame=80 precision=int8 calib=50 record_len=2 K=23678 forward_ms=16.587 execute_ms=1.499
+frame=81 precision=int8 calib=50 record_len=2 K=23784 forward_ms=16.402 execute_ms=1.495
+frame=82 precision=int8 calib=50 record_len=2 K=23497 forward_ms=16.359 execute_ms=1.499
+frame=83 precision=int8 calib=50 record_len=2 K=23333 forward_ms=16.394 execute_ms=1.499
+frame=84 precision=int8 calib=50 record_len=2 K=23435 forward_ms=16.394 execute_ms=1.501
+frame=85 precision=int8 calib=50 record_len=2 K=23419 forward_ms=16.372 execute_ms=1.503
+frame=86 precision=int8 calib=50 record_len=2 K=23103 forward_ms=16.425 execute_ms=1.494
+frame=87 precision=int8 calib=50 record_len=2 K=22921 forward_ms=16.333 execute_ms=1.496
+frame=88 precision=int8 calib=50 record_len=2 K=23008 forward_ms=16.287 execute_ms=1.502
+frame=89 precision=int8 calib=50 record_len=2 K=22881 forward_ms=16.429 execute_ms=1.497
+frame=90 precision=int8 calib=50 record_len=2 K=22692 forward_ms=16.328 execute_ms=1.493
+frame=91 precision=int8 calib=50 record_len=2 K=22658 forward_ms=16.348 execute_ms=1.498
+frame=92 precision=int8 calib=50 record_len=2 K=22671 forward_ms=16.431 execute_ms=1.503
+frame=93 precision=int8 calib=50 record_len=2 K=22610 forward_ms=16.282 execute_ms=1.500
+frame=94 precision=int8 calib=50 record_len=2 K=22687 forward_ms=16.456 execute_ms=1.494
+frame=95 precision=int8 calib=50 record_len=2 K=22210 forward_ms=16.379 execute_ms=1.494
+frame=96 precision=int8 calib=50 record_len=2 K=22309 forward_ms=16.403 execute_ms=1.500
+frame=97 precision=int8 calib=50 record_len=2 K=22507 forward_ms=16.525 execute_ms=1.500
+frame=98 precision=int8 calib=50 record_len=2 K=22577 forward_ms=16.417 execute_ms=1.497
+frame=99 precision=int8 calib=50 record_len=2 K=21965 forward_ms=16.349 execute_ms=1.498
+frame=100 precision=int8 calib=50 record_len=2 K=22261 forward_ms=16.452 execute_ms=1.504
+frame=101 precision=int8 calib=50 record_len=2 K=22143 forward_ms=16.438 execute_ms=1.497
+frame=102 precision=int8 calib=50 record_len=2 K=22175 forward_ms=16.547 execute_ms=1.501
+frame=103 precision=int8 calib=50 record_len=2 K=22040 forward_ms=16.297 execute_ms=1.493
+frame=104 precision=int8 calib=50 record_len=2 K=22018 forward_ms=5.598 execute_ms=1.519
+frame=105 precision=int8 calib=50 record_len=2 K=21932 forward_ms=16.498 execute_ms=1.499
+frame=106 precision=int8 calib=50 record_len=2 K=21808 forward_ms=16.454 execute_ms=1.494
+frame=107 precision=int8 calib=50 record_len=2 K=21465 forward_ms=16.450 execute_ms=1.496
+frame=108 precision=int8 calib=50 record_len=2 K=21640 forward_ms=16.388 execute_ms=1.498
+frame=109 precision=int8 calib=50 record_len=2 K=21435 forward_ms=13.202 execute_ms=1.496
+frame=110 precision=int8 calib=50 record_len=2 K=21491 forward_ms=16.273 execute_ms=1.498
+frame=111 precision=int8 calib=50 record_len=2 K=21104 forward_ms=13.639 execute_ms=1.496
+frame=112 precision=int8 calib=50 record_len=2 K=21126 forward_ms=16.354 execute_ms=1.497
+frame=113 precision=int8 calib=50 record_len=2 K=21096 forward_ms=16.495 execute_ms=1.506
+frame=114 precision=int8 calib=50 record_len=2 K=21250 forward_ms=16.475 execute_ms=1.495
+frame=115 precision=int8 calib=50 record_len=2 K=21180 forward_ms=16.328 execute_ms=1.494
+frame=116 precision=int8 calib=50 record_len=2 K=21087 forward_ms=16.416 execute_ms=1.499
+frame=117 precision=int8 calib=50 record_len=2 K=20599 forward_ms=16.263 execute_ms=1.492
+frame=118 precision=int8 calib=50 record_len=2 K=20895 forward_ms=16.387 execute_ms=1.495
+frame=119 precision=int8 calib=50 record_len=2 K=20680 forward_ms=16.198 execute_ms=1.498
+frame=120 precision=int8 calib=50 record_len=2 K=20052 forward_ms=12.997 execute_ms=1.499
+frame=121 precision=int8 calib=50 record_len=2 K=20159 forward_ms=16.326 execute_ms=1.496
+frame=122 precision=int8 calib=50 record_len=2 K=19966 forward_ms=15.409 execute_ms=1.491
+frame=123 precision=int8 calib=50 record_len=2 K=20125 forward_ms=16.446 execute_ms=1.496
+frame=124 precision=int8 calib=50 record_len=2 K=20373 forward_ms=16.544 execute_ms=1.495
+frame=125 precision=int8 calib=50 record_len=2 K=20632 forward_ms=8.870 execute_ms=1.502
+frame=126 precision=int8 calib=50 record_len=2 K=20411 forward_ms=16.532 execute_ms=1.496
+frame=127 precision=int8 calib=50 record_len=2 K=20829 forward_ms=13.293 execute_ms=1.495
+frame=128 precision=int8 calib=50 record_len=2 K=20594 forward_ms=16.330 execute_ms=1.502
+frame=129 precision=int8 calib=50 record_len=2 K=20567 forward_ms=13.223 execute_ms=1.504
+frame=130 precision=int8 calib=50 record_len=2 K=20623 forward_ms=16.496 execute_ms=1.490
+frame=131 precision=int8 calib=50 record_len=2 K=20737 forward_ms=16.297 execute_ms=1.500
+frame=132 precision=int8 calib=50 record_len=1 K=8159 forward_ms=126.252 execute_ms=125.113
+frame=133 precision=int8 calib=50 record_len=1 K=8101 forward_ms=2.928 execute_ms=1.579
+frame=134 precision=int8 calib=50 record_len=2 K=22336 forward_ms=137.840 execute_ms=136.671
+frame=135 precision=int8 calib=50 record_len=2 K=22235 forward_ms=16.285 execute_ms=1.498
+frame=136 precision=int8 calib=50 record_len=2 K=22217 forward_ms=16.419 execute_ms=1.499
+frame=137 precision=int8 calib=50 record_len=2 K=22445 forward_ms=16.442 execute_ms=1.494
+frame=138 precision=int8 calib=50 record_len=2 K=22463 forward_ms=16.244 execute_ms=1.493
+frame=139 precision=int8 calib=50 record_len=2 K=22518 forward_ms=16.350 execute_ms=1.497
+frame=140 precision=int8 calib=50 record_len=2 K=22382 forward_ms=16.438 execute_ms=1.497
+frame=141 precision=int8 calib=50 record_len=2 K=22401 forward_ms=11.689 execute_ms=1.614
+frame=142 precision=int8 calib=50 record_len=2 K=22792 forward_ms=16.381 execute_ms=1.500
+frame=143 precision=int8 calib=50 record_len=2 K=23098 forward_ms=16.351 execute_ms=1.498
+frame=144 precision=int8 calib=50 record_len=2 K=22879 forward_ms=2.602 execute_ms=1.643
+frame=145 precision=int8 calib=50 record_len=2 K=22989 forward_ms=16.263 execute_ms=1.494
+frame=146 precision=int8 calib=50 record_len=2 K=22958 forward_ms=16.354 execute_ms=1.499
+frame=147 precision=int8 calib=50 record_len=2 K=23245 forward_ms=2.642 execute_ms=1.659
+frame=148 precision=int8 calib=50 record_len=2 K=23228 forward_ms=13.439 execute_ms=1.501
+frame=149 precision=int8 calib=50 record_len=2 K=23389 forward_ms=16.408 execute_ms=1.494
+frame=150 precision=int8 calib=50 record_len=2 K=23097 forward_ms=3.690 execute_ms=1.489
+frame=151 precision=int8 calib=50 record_len=2 K=23567 forward_ms=16.485 execute_ms=1.496
+frame=152 precision=int8 calib=50 record_len=2 K=23501 forward_ms=2.572 execute_ms=1.645
+frame=153 precision=int8 calib=50 record_len=2 K=23440 forward_ms=16.279 execute_ms=1.501
+frame=154 precision=int8 calib=50 record_len=2 K=23385 forward_ms=16.435 execute_ms=1.496
+frame=155 precision=int8 calib=50 record_len=2 K=23480 forward_ms=16.533 execute_ms=1.502
+frame=156 precision=int8 calib=50 record_len=2 K=23608 forward_ms=16.456 execute_ms=1.506
+frame=157 precision=int8 calib=50 record_len=2 K=23535 forward_ms=16.546 execute_ms=1.499
+frame=158 precision=int8 calib=50 record_len=2 K=23710 forward_ms=16.437 execute_ms=1.494
+frame=159 precision=int8 calib=50 record_len=2 K=23567 forward_ms=16.528 execute_ms=1.493
+frame=160 precision=int8 calib=50 record_len=2 K=23531 forward_ms=16.553 execute_ms=1.502
+frame=161 precision=int8 calib=50 record_len=2 K=23638 forward_ms=2.871 execute_ms=1.684
+frame=162 precision=int8 calib=50 record_len=2 K=23775 forward_ms=9.337 execute_ms=1.622
+frame=163 precision=int8 calib=50 record_len=2 K=23529 forward_ms=16.363 execute_ms=1.500
+frame=164 precision=int8 calib=50 record_len=2 K=23741 forward_ms=16.433 execute_ms=1.499
+frame=165 precision=int8 calib=50 record_len=2 K=23809 forward_ms=16.553 execute_ms=1.500
+frame=166 precision=int8 calib=50 record_len=2 K=23703 forward_ms=16.439 execute_ms=1.496
+frame=167 precision=int8 calib=50 record_len=2 K=23859 forward_ms=16.366 execute_ms=1.497
+frame=168 precision=int8 calib=50 record_len=2 K=23900 forward_ms=16.461 execute_ms=1.498
+frame=169 precision=int8 calib=50 record_len=2 K=23863 forward_ms=16.431 execute_ms=1.500
+frame=170 precision=int8 calib=50 record_len=2 K=23866 forward_ms=16.490 execute_ms=1.491
+frame=171 skipped error=num_voxels=24205 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24205 exceeds fixed_K=24064
+
+frame=172 precision=int8 calib=50 record_len=2 K=23996 forward_ms=16.399 execute_ms=1.494
+frame=173 precision=int8 calib=50 record_len=2 K=23947 forward_ms=2.630 execute_ms=1.648
+frame=174 skipped error=num_voxels=24387 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24387 exceeds fixed_K=24064
+
+frame=175 skipped error=num_voxels=24314 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24314 exceeds fixed_K=24064
+
+frame=176 skipped error=num_voxels=24476 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24476 exceeds fixed_K=24064
+
+frame=177 skipped error=num_voxels=24527 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24527 exceeds fixed_K=24064
+
+frame=178 skipped error=num_voxels=24528 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24528 exceeds fixed_K=24064
+
+frame=179 skipped error=num_voxels=24621 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24621 exceeds fixed_K=24064
+
+frame=180 skipped error=num_voxels=24631 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24631 exceeds fixed_K=24064
+
+frame=181 skipped error=num_voxels=24884 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24884 exceeds fixed_K=24064
+
+frame=182 skipped error=num_voxels=24871 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24871 exceeds fixed_K=24064
+
+frame=183 skipped error=num_voxels=24602 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24602 exceeds fixed_K=24064
+
+frame=184 skipped error=num_voxels=24899 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24899 exceeds fixed_K=24064
+
+frame=185 skipped error=num_voxels=24723 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24723 exceeds fixed_K=24064
+
+frame=186 skipped error=num_voxels=24660 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24660 exceeds fixed_K=24064
+
+frame=187 skipped error=num_voxels=24750 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24750 exceeds fixed_K=24064
+
+frame=188 skipped error=num_voxels=24926 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24926 exceeds fixed_K=24064
+
+frame=189 skipped error=num_voxels=24282 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24282 exceeds fixed_K=24064
+
+frame=190 skipped error=num_voxels=24374 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24374 exceeds fixed_K=24064
+
+frame=191 skipped error=num_voxels=24282 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24282 exceeds fixed_K=24064
+
+frame=192 skipped error=num_voxels=24407 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24407 exceeds fixed_K=24064
+
+frame=193 skipped error=num_voxels=24260 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24260 exceeds fixed_K=24064
+
+frame=194 skipped error=num_voxels=24301 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24301 exceeds fixed_K=24064
+
+frame=195 precision=int8 calib=50 record_len=2 K=23776 forward_ms=16.372 execute_ms=1.505
+frame=196 skipped error=num_voxels=24182 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24182 exceeds fixed_K=24064
+
+frame=197 precision=int8 calib=50 record_len=2 K=23787 forward_ms=16.475 execute_ms=1.496
+frame=198 precision=int8 calib=50 record_len=2 K=24040 forward_ms=16.532 execute_ms=1.504
+frame=199 precision=int8 calib=50 record_len=2 K=23994 forward_ms=16.514 execute_ms=1.496
+frame=200 skipped error=num_voxels=24142 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24142 exceeds fixed_K=24064
+
+frame=201 precision=int8 calib=50 record_len=2 K=23992 forward_ms=16.353 execute_ms=1.505
+frame=202 skipped error=num_voxels=24440 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24440 exceeds fixed_K=24064
+
+frame=203 skipped error=num_voxels=24195 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24195 exceeds fixed_K=24064
+
+frame=204 skipped error=num_voxels=24133 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24133 exceeds fixed_K=24064
+
+frame=205 skipped error=num_voxels=24185 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24185 exceeds fixed_K=24064
+
+frame=206 precision=int8 calib=50 record_len=2 K=24052 forward_ms=3.168 execute_ms=1.730
+frame=207 precision=int8 calib=50 record_len=2 K=23987 forward_ms=16.490 execute_ms=1.501
+frame=208 precision=int8 calib=50 record_len=2 K=24016 forward_ms=16.329 execute_ms=1.501
+frame=209 precision=int8 calib=50 record_len=2 K=23949 forward_ms=16.541 execute_ms=1.498
+frame=210 precision=int8 calib=50 record_len=2 K=23605 forward_ms=16.583 execute_ms=1.499
+frame=211 precision=int8 calib=50 record_len=2 K=23893 forward_ms=16.557 execute_ms=1.497
+frame=212 precision=int8 calib=50 record_len=2 K=23548 forward_ms=2.708 execute_ms=1.660
+frame=213 precision=int8 calib=50 record_len=2 K=23655 forward_ms=16.620 execute_ms=1.500
+frame=214 precision=int8 calib=50 record_len=2 K=23630 forward_ms=16.443 execute_ms=1.493
+frame=215 precision=int8 calib=50 record_len=2 K=23525 forward_ms=16.520 execute_ms=1.500
+frame=216 precision=int8 calib=50 record_len=2 K=23612 forward_ms=16.440 execute_ms=1.505
+frame=217 precision=int8 calib=50 record_len=2 K=23189 forward_ms=2.701 execute_ms=1.660
+frame=218 precision=int8 calib=50 record_len=2 K=23139 forward_ms=3.899 execute_ms=1.618
+frame=219 precision=int8 calib=50 record_len=2 K=23226 forward_ms=16.264 execute_ms=1.493
+frame=220 precision=int8 calib=50 record_len=2 K=22965 forward_ms=16.563 execute_ms=1.502
+frame=221 precision=int8 calib=50 record_len=2 K=22861 forward_ms=16.329 execute_ms=1.504
+frame=222 skipped error=num_voxels=24112 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24112 exceeds fixed_K=24064
+
+frame=223 skipped error=num_voxels=24386 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24386 exceeds fixed_K=24064
+
+frame=224 skipped error=num_voxels=24451 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24451 exceeds fixed_K=24064
+
+frame=225 skipped error=num_voxels=24460 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24460 exceeds fixed_K=24064
+
+frame=226 skipped error=num_voxels=24567 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24567 exceeds fixed_K=24064
+
+frame=227 skipped error=num_voxels=24893 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24893 exceeds fixed_K=24064
+
+frame=228 skipped error=num_voxels=24723 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24723 exceeds fixed_K=24064
+
+frame=229 skipped error=num_voxels=24923 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24923 exceeds fixed_K=24064
+
+frame=230 skipped error=num_voxels=25167 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25167 exceeds fixed_K=24064
+
+frame=231 skipped error=num_voxels=24909 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24909 exceeds fixed_K=24064
+
+frame=232 skipped error=num_voxels=25077 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25077 exceeds fixed_K=24064
+
+frame=233 skipped error=num_voxels=25264 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25264 exceeds fixed_K=24064
+
+frame=234 skipped error=num_voxels=25410 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25410 exceeds fixed_K=24064
+
+frame=235 skipped error=num_voxels=24997 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24997 exceeds fixed_K=24064
+
+frame=236 skipped error=num_voxels=26931 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26931 exceeds fixed_K=24064
+
+frame=237 skipped error=num_voxels=26803 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26803 exceeds fixed_K=24064
+
+frame=238 skipped error=num_voxels=26935 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26935 exceeds fixed_K=24064
+
+frame=239 skipped error=num_voxels=26811 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26811 exceeds fixed_K=24064
+
+frame=240 skipped error=num_voxels=26840 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26840 exceeds fixed_K=24064
+
+frame=241 skipped error=num_voxels=26937 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26937 exceeds fixed_K=24064
+
+frame=242 skipped error=num_voxels=26750 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26750 exceeds fixed_K=24064
+
+frame=243 skipped error=num_voxels=26448 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26448 exceeds fixed_K=24064
+
+frame=244 skipped error=num_voxels=26743 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26743 exceeds fixed_K=24064
+
+frame=245 skipped error=num_voxels=26643 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26643 exceeds fixed_K=24064
+
+frame=246 skipped error=num_voxels=26902 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26902 exceeds fixed_K=24064
+
+frame=247 skipped error=num_voxels=26734 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26734 exceeds fixed_K=24064
+
+frame=248 skipped error=num_voxels=26795 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26795 exceeds fixed_K=24064
+
+frame=249 skipped error=num_voxels=26806 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26806 exceeds fixed_K=24064
+
+frame=250 skipped error=num_voxels=26797 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26797 exceeds fixed_K=24064
+
+frame=251 skipped error=num_voxels=27154 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27154 exceeds fixed_K=24064
+
+frame=252 skipped error=num_voxels=26805 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26805 exceeds fixed_K=24064
+
+frame=253 skipped error=num_voxels=26999 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26999 exceeds fixed_K=24064
+
+frame=254 skipped error=num_voxels=26966 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26966 exceeds fixed_K=24064
+
+frame=255 skipped error=num_voxels=26767 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26767 exceeds fixed_K=24064
+
+frame=256 skipped error=num_voxels=26801 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26801 exceeds fixed_K=24064
+
+frame=257 skipped error=num_voxels=26887 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26887 exceeds fixed_K=24064
+
+frame=258 skipped error=num_voxels=26807 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26807 exceeds fixed_K=24064
+
+frame=259 skipped error=num_voxels=26783 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26783 exceeds fixed_K=24064
+
+frame=260 skipped error=num_voxels=26760 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26760 exceeds fixed_K=24064
+
+frame=261 skipped error=num_voxels=26724 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26724 exceeds fixed_K=24064
+
+frame=262 skipped error=num_voxels=27023 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27023 exceeds fixed_K=24064
+
+frame=263 skipped error=num_voxels=27020 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27020 exceeds fixed_K=24064
+
+frame=264 skipped error=num_voxels=27161 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27161 exceeds fixed_K=24064
+
+frame=265 skipped error=num_voxels=27018 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27018 exceeds fixed_K=24064
+
+frame=266 skipped error=num_voxels=27247 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27247 exceeds fixed_K=24064
+
+frame=267 skipped error=num_voxels=27169 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27169 exceeds fixed_K=24064
+
+frame=268 skipped error=num_voxels=27258 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27258 exceeds fixed_K=24064
+
+frame=269 skipped error=num_voxels=27286 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27286 exceeds fixed_K=24064
+
+frame=270 skipped error=num_voxels=27508 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27508 exceeds fixed_K=24064
+
+frame=271 skipped error=num_voxels=27476 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27476 exceeds fixed_K=24064
+
+frame=272 skipped error=num_voxels=27701 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27701 exceeds fixed_K=24064
+
+frame=273 skipped error=num_voxels=27452 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27452 exceeds fixed_K=24064
+
+frame=274 skipped error=num_voxels=27637 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27637 exceeds fixed_K=24064
+
+frame=275 skipped error=num_voxels=27367 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27367 exceeds fixed_K=24064
+
+frame=276 skipped error=num_voxels=27316 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27316 exceeds fixed_K=24064
+
+frame=277 skipped error=num_voxels=27452 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27452 exceeds fixed_K=24064
+
+frame=278 skipped error=num_voxels=27329 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27329 exceeds fixed_K=24064
+
+frame=279 skipped error=num_voxels=27364 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27364 exceeds fixed_K=24064
+
+frame=280 skipped error=num_voxels=27151 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27151 exceeds fixed_K=24064
+
+frame=281 skipped error=num_voxels=27094 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27094 exceeds fixed_K=24064
+
+frame=282 skipped error=num_voxels=27073 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27073 exceeds fixed_K=24064
+
+frame=283 skipped error=num_voxels=26766 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26766 exceeds fixed_K=24064
+
+frame=284 skipped error=num_voxels=26997 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26997 exceeds fixed_K=24064
+
+frame=285 skipped error=num_voxels=26870 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26870 exceeds fixed_K=24064
+
+frame=286 skipped error=num_voxels=26843 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26843 exceeds fixed_K=24064
+
+frame=287 skipped error=num_voxels=26911 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26911 exceeds fixed_K=24064
+
+frame=288 skipped error=num_voxels=26745 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26745 exceeds fixed_K=24064
+
+frame=289 skipped error=num_voxels=26719 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26719 exceeds fixed_K=24064
+
+frame=290 skipped error=num_voxels=26890 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26890 exceeds fixed_K=24064
+
+frame=291 skipped error=num_voxels=26486 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26486 exceeds fixed_K=24064
+
+frame=292 skipped error=num_voxels=26621 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26621 exceeds fixed_K=24064
+
+frame=293 skipped error=num_voxels=26477 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26477 exceeds fixed_K=24064
+
+frame=294 skipped error=num_voxels=26554 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26554 exceeds fixed_K=24064
+
+frame=295 skipped error=num_voxels=26383 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26383 exceeds fixed_K=24064
+
+frame=296 skipped error=num_voxels=26413 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26413 exceeds fixed_K=24064
+
+frame=297 skipped error=num_voxels=26653 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26653 exceeds fixed_K=24064
+
+frame=298 skipped error=num_voxels=26587 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26587 exceeds fixed_K=24064
+
+frame=299 skipped error=num_voxels=26706 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26706 exceeds fixed_K=24064
+
+frame=300 skipped error=num_voxels=26553 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26553 exceeds fixed_K=24064
+
+frame=301 skipped error=num_voxels=26647 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26647 exceeds fixed_K=24064
+
+frame=302 skipped error=num_voxels=26608 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26608 exceeds fixed_K=24064
+
+frame=303 skipped error=num_voxels=25543 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25543 exceeds fixed_K=24064
+
+frame=304 skipped error=num_voxels=25342 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25342 exceeds fixed_K=24064
+
+frame=305 skipped error=num_voxels=25356 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25356 exceeds fixed_K=24064
+
+frame=306 skipped error=num_voxels=25537 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25537 exceeds fixed_K=24064
+
+frame=307 skipped error=num_voxels=25474 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25474 exceeds fixed_K=24064
+
+frame=308 skipped error=num_voxels=25101 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25101 exceeds fixed_K=24064
+
+frame=309 skipped error=num_voxels=24870 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24870 exceeds fixed_K=24064
+
+frame=310 skipped error=num_voxels=24678 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24678 exceeds fixed_K=24064
+
+frame=311 skipped error=num_voxels=25098 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25098 exceeds fixed_K=24064
+
+frame=312 skipped error=num_voxels=24864 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24864 exceeds fixed_K=24064
+
+frame=313 skipped error=num_voxels=25135 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25135 exceeds fixed_K=24064
+
+frame=314 skipped error=num_voxels=24771 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=24771 exceeds fixed_K=24064
+
+frame=315 skipped error=num_voxels=25011 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25011 exceeds fixed_K=24064
+
+frame=316 skipped error=num_voxels=25293 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25293 exceeds fixed_K=24064
+
+frame=317 skipped error=num_voxels=25249 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25249 exceeds fixed_K=24064
+
+frame=318 skipped error=num_voxels=25337 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25337 exceeds fixed_K=24064
+
+frame=319 skipped error=num_voxels=25440 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25440 exceeds fixed_K=24064
+
+frame=320 skipped error=num_voxels=25999 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25999 exceeds fixed_K=24064
+
+frame=321 skipped error=num_voxels=25845 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25845 exceeds fixed_K=24064
+
+frame=322 skipped error=num_voxels=26203 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26203 exceeds fixed_K=24064
+
+frame=323 skipped error=num_voxels=26112 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26112 exceeds fixed_K=24064
+
+frame=324 skipped error=num_voxels=26613 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26613 exceeds fixed_K=24064
+
+frame=325 skipped error=num_voxels=26736 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26736 exceeds fixed_K=24064
+
+frame=326 skipped error=num_voxels=26806 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26806 exceeds fixed_K=24064
+
+frame=327 skipped error=num_voxels=27011 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27011 exceeds fixed_K=24064
+
+frame=328 skipped error=num_voxels=27130 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27130 exceeds fixed_K=24064
+
+frame=329 skipped error=num_voxels=27202 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27202 exceeds fixed_K=24064
+
+frame=330 skipped error=num_voxels=27247 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27247 exceeds fixed_K=24064
+
+frame=331 skipped error=num_voxels=27564 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27564 exceeds fixed_K=24064
+
+frame=332 skipped error=num_voxels=27460 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27460 exceeds fixed_K=24064
+
+frame=333 skipped error=num_voxels=27649 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27649 exceeds fixed_K=24064
+
+frame=334 skipped error=num_voxels=27758 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27758 exceeds fixed_K=24064
+
+frame=335 skipped error=num_voxels=28035 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28035 exceeds fixed_K=24064
+
+frame=336 skipped error=num_voxels=28015 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28015 exceeds fixed_K=24064
+
+frame=337 skipped error=num_voxels=27959 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27959 exceeds fixed_K=24064
+
+frame=338 skipped error=num_voxels=28182 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28182 exceeds fixed_K=24064
+
+frame=339 skipped error=num_voxels=28611 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28611 exceeds fixed_K=24064
+
+frame=340 skipped error=num_voxels=28518 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28518 exceeds fixed_K=24064
+
+frame=341 skipped error=num_voxels=28666 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28666 exceeds fixed_K=24064
+
+frame=342 skipped error=num_voxels=28467 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28467 exceeds fixed_K=24064
+
+frame=343 skipped error=num_voxels=28582 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28582 exceeds fixed_K=24064
+
+frame=344 skipped error=num_voxels=28508 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28508 exceeds fixed_K=24064
+
+frame=345 skipped error=num_voxels=28918 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28918 exceeds fixed_K=24064
+
+frame=346 skipped error=num_voxels=28574 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28574 exceeds fixed_K=24064
+
+frame=347 skipped error=num_voxels=28450 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28450 exceeds fixed_K=24064
+
+frame=348 skipped error=num_voxels=28524 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28524 exceeds fixed_K=24064
+
+frame=349 skipped error=num_voxels=28322 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28322 exceeds fixed_K=24064
+
+frame=350 skipped error=num_voxels=28385 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28385 exceeds fixed_K=24064
+
+frame=351 skipped error=num_voxels=28449 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28449 exceeds fixed_K=24064
+
+frame=352 skipped error=num_voxels=28645 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28645 exceeds fixed_K=24064
+
+frame=353 skipped error=num_voxels=28473 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28473 exceeds fixed_K=24064
+
+frame=354 skipped error=num_voxels=28633 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28633 exceeds fixed_K=24064
+
+frame=355 skipped error=num_voxels=28460 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28460 exceeds fixed_K=24064
+
+frame=356 skipped error=num_voxels=28794 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28794 exceeds fixed_K=24064
+
+frame=357 skipped error=num_voxels=28572 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28572 exceeds fixed_K=24064
+
+frame=358 skipped error=num_voxels=28681 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28681 exceeds fixed_K=24064
+
+frame=359 skipped error=num_voxels=28624 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28624 exceeds fixed_K=24064
+
+frame=360 skipped error=num_voxels=28833 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28833 exceeds fixed_K=24064
+
+frame=361 skipped error=num_voxels=28824 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28824 exceeds fixed_K=24064
+
+frame=362 skipped error=num_voxels=28711 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28711 exceeds fixed_K=24064
+
+frame=363 skipped error=num_voxels=28667 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28667 exceeds fixed_K=24064
+
+frame=364 skipped error=num_voxels=28533 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28533 exceeds fixed_K=24064
+
+frame=365 skipped error=num_voxels=28607 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28607 exceeds fixed_K=24064
+
+frame=366 skipped error=num_voxels=28280 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28280 exceeds fixed_K=24064
+
+frame=367 skipped error=num_voxels=28317 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28317 exceeds fixed_K=24064
+
+frame=368 skipped error=num_voxels=28425 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28425 exceeds fixed_K=24064
+
+frame=369 skipped error=num_voxels=28328 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28328 exceeds fixed_K=24064
+
+frame=370 skipped error=num_voxels=28508 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28508 exceeds fixed_K=24064
+
+frame=371 skipped error=num_voxels=28493 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28493 exceeds fixed_K=24064
+
+frame=372 skipped error=num_voxels=28292 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28292 exceeds fixed_K=24064
+
+frame=373 skipped error=num_voxels=28156 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28156 exceeds fixed_K=24064
+
+frame=374 skipped error=num_voxels=28151 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28151 exceeds fixed_K=24064
+
+frame=375 skipped error=num_voxels=28008 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28008 exceeds fixed_K=24064
+
+frame=376 skipped error=num_voxels=28001 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28001 exceeds fixed_K=24064
+
+frame=377 skipped error=num_voxels=28143 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28143 exceeds fixed_K=24064
+
+frame=378 skipped error=num_voxels=28349 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=28349 exceeds fixed_K=24064
+
+frame=379 skipped error=num_voxels=27876 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27876 exceeds fixed_K=24064
+
+frame=380 skipped error=num_voxels=27819 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27819 exceeds fixed_K=24064
+
+frame=381 skipped error=num_voxels=27830 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27830 exceeds fixed_K=24064
+
+frame=382 skipped error=num_voxels=27605 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27605 exceeds fixed_K=24064
+
+frame=383 skipped error=num_voxels=27695 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27695 exceeds fixed_K=24064
+
+frame=384 skipped error=num_voxels=27850 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27850 exceeds fixed_K=24064
+
+frame=385 skipped error=num_voxels=27812 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27812 exceeds fixed_K=24064
+
+frame=386 skipped error=num_voxels=27759 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27759 exceeds fixed_K=24064
+
+frame=387 skipped error=num_voxels=27668 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27668 exceeds fixed_K=24064
+
+frame=388 skipped error=num_voxels=27638 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27638 exceeds fixed_K=24064
+
+frame=389 skipped error=num_voxels=27552 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27552 exceeds fixed_K=24064
+
+frame=390 skipped error=num_voxels=27601 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27601 exceeds fixed_K=24064
+
+frame=391 skipped error=num_voxels=27476 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27476 exceeds fixed_K=24064
+
+frame=392 skipped error=num_voxels=27637 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27637 exceeds fixed_K=24064
+
+frame=393 skipped error=num_voxels=27268 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27268 exceeds fixed_K=24064
+
+frame=394 skipped error=num_voxels=27258 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27258 exceeds fixed_K=24064
+
+frame=395 skipped error=num_voxels=27292 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27292 exceeds fixed_K=24064
+
+frame=396 skipped error=num_voxels=27220 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27220 exceeds fixed_K=24064
+
+frame=397 skipped error=num_voxels=27008 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27008 exceeds fixed_K=24064
+
+frame=398 skipped error=num_voxels=26948 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26948 exceeds fixed_K=24064
+
+frame=399 skipped error=num_voxels=27039 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27039 exceeds fixed_K=24064
+
+frame=400 skipped error=num_voxels=27234 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27234 exceeds fixed_K=24064
+
+frame=401 skipped error=num_voxels=27015 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=27015 exceeds fixed_K=24064
+
+frame=402 skipped error=num_voxels=26914 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26914 exceeds fixed_K=24064
+
+frame=403 skipped error=num_voxels=26823 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26823 exceeds fixed_K=24064
+
+frame=404 skipped error=num_voxels=26933 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26933 exceeds fixed_K=24064
+
+frame=405 skipped error=num_voxels=26582 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26582 exceeds fixed_K=24064
+
+frame=406 skipped error=num_voxels=26507 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26507 exceeds fixed_K=24064
+
+frame=407 skipped error=num_voxels=26523 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26523 exceeds fixed_K=24064
+
+frame=408 skipped error=num_voxels=26456 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=26456 exceeds fixed_K=24064
+
+frame=409 skipped error=num_voxels=25298 exceeds fixed_K=24064
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 165, in evaluate_one
+    inputs, input_meta = _prepare_inputs(ego, modality)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/run_dynamic_single_engine_maxk.py", line 77, in _prepare_inputs
+    raise ValueError(f"num_voxels={original_num_voxels} exceeds fixed_K={FIXED_K}")
+ValueError: num_voxels=25298 exceeds fixed_K=24064
+
+frame=410 precision=int8 calib=50 record_len=1 K=10364 forward_ms=123.878 execute_ms=108.758
+frame=411 precision=int8 calib=50 record_len=1 K=10439 forward_ms=16.260 execute_ms=1.328
+frame=412 precision=int8 calib=50 record_len=1 K=10522 forward_ms=16.350 execute_ms=1.328
+frame=413 precision=int8 calib=50 record_len=1 K=10539 forward_ms=16.343 execute_ms=1.328
+frame=414 precision=int8 calib=50 record_len=2 K=23361 forward_ms=138.383 execute_ms=123.505
+frame=415 precision=int8 calib=50 record_len=2 K=23352 forward_ms=2.689 execute_ms=1.665
+frame=416 precision=int8 calib=50 record_len=2 K=23599 forward_ms=16.361 execute_ms=1.502
+frame=417 precision=int8 calib=50 record_len=2 K=23380 forward_ms=16.234 execute_ms=1.499

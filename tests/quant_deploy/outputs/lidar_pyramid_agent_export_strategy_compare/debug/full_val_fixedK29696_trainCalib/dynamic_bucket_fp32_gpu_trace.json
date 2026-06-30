@@ -1,0 +1,28 @@
+{
+  "selected_gpu": 5,
+  "selected_gpu_uuid": "forced-gpu-5",
+  "polling_interval": 30,
+  "samples": [],
+  "contention_events": [],
+  "other_processes_detected": null,
+  "other_processes": [],
+  "gpu_contention_detected": false,
+  "unreliable_latency": false,
+  "forced_no_nvidia_smi": true,
+  "mode": "dynamic_bucket_fp32",
+  "nvidia_smi_before": [
+    {
+      "source": "user_provided_or_forced_no_nvidia_smi",
+      "selected_gpu": 5,
+      "excluded_gpu_indices": "",
+      "note": "nvidia-smi telemetry disabled; GPU 2 reported error by user."
+    }
+  ],
+  "nvidia_smi_after": [],
+  "mode_start_check": {
+    "ok": true,
+    "checks": [],
+    "forced_no_nvidia_smi": true,
+    "note": "Skipped process check because nvidia-smi is disabled for this run."
+  }
+}

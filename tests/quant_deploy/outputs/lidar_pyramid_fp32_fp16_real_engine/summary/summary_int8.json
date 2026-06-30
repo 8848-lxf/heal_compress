@@ -1,0 +1,20 @@
+{
+  "implemented": true,
+  "build_success": true,
+  "benchmark_success": true,
+  "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/int8/lidar_pyramid_int8_native.engine",
+  "engine_size_MB": 42.756229400634766,
+  "forward_p50_ms": 1.24921,
+  "forward_p90_ms": 3.46021,
+  "forward_p95_ms": 7.0616,
+  "fps": 800.5059197412766,
+  "speedup_vs_fp32": 2.827643070420506,
+  "ap_0_3": 0.0,
+  "ap_0_5": 0.0,
+  "ap_0_7": 0.0,
+  "map": 0.0,
+  "error": "not reevaluated in this run; previous AP=0 invalidated by dtype binding bug",
+  "reevaluated_after_dtype_fix": false,
+  "ap_invalidated": true,
+  "invalid_reason": "pairwise_t_matrix dtype binding mismatch"
+}

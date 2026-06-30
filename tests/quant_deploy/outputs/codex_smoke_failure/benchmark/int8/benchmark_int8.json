@@ -1,0 +1,22 @@
+{
+  "precision": "int8",
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/artifacts/engines/int8/lidar_pyramid_int8_qdq.engine",
+  "num_frames": 1,
+  "warmup_frames": 0,
+  "forward_mean_ms": null,
+  "forward_p50_ms": null,
+  "forward_p90_ms": null,
+  "forward_p95_ms": null,
+  "forward_min_ms": null,
+  "forward_max_ms": null,
+  "fps": null,
+  "engine_size_MB": null,
+  "latency_scope": "engine_forward_only",
+  "data_loading_time_ms": null,
+  "data_to_gpu_time_ms": null,
+  "forward_time_ms": null,
+  "postprocess_time_ms": null,
+  "total_time_ms": null,
+  "success": false,
+  "error": "INT8 deployment is not implemented yet. The current implementation supports fp32/fp16 engine build and reserves the INT8 Q/DQ interface for future extension."
+}

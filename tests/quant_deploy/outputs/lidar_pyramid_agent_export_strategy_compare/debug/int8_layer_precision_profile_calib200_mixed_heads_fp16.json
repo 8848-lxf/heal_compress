@@ -1,0 +1,685 @@
+{
+  "calibration_frames": 200,
+  "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+  "precision_strategy": "mixed_heads_fp16",
+  "per_engine": [
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib200_mixed_heads_fp16.json",
+      "num_layers": 136,
+      "counts": {
+        "INT8 Conv layers count": 69,
+        "FP16 Conv layers count": 9,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 43,
+        "Reformat / Cast / Quantize / Dequantize layers count": 27,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp32": 1,
+            "fp16": 14,
+            "int8": 10
+          },
+          "other": {
+            "unknown": 19,
+            "fp16": 19
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 60
+          },
+          "detection_head": {
+            "fp16": 6
+          },
+          "gemm_matmul": {
+            "fp16": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 1,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib200_mixed_heads_fp16.json",
+      "num_layers": 138,
+      "counts": {
+        "INT8 Conv layers count": 69,
+        "FP16 Conv layers count": 9,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 42,
+        "Reformat / Cast / Quantize / Dequantize layers count": 26,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp16": 14,
+            "int8": 10
+          },
+          "other": {
+            "unknown": 22,
+            "fp16": 19
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 60
+          },
+          "detection_head": {
+            "fp16": 6
+          },
+          "gemm_matmul": {
+            "fp16": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 2,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib200_mixed_heads_fp16.json",
+      "num_layers": 0,
+      "counts": {
+        "INT8 Conv layers count": 0,
+        "FP16 Conv layers count": 0,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 0,
+        "Reformat / Cast / Quantize / Dequantize layers count": 0,
+        "category_precision": {}
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 3,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib200_mixed_heads_fp16.json",
+      "num_layers": 0,
+      "counts": {
+        "INT8 Conv layers count": 0,
+        "FP16 Conv layers count": 0,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 0,
+        "Reformat / Cast / Quantize / Dequantize layers count": 0,
+        "category_precision": {}
+      }
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 0,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib200_mixed_heads_fp16.json",
+      "num_layers": 0,
+      "counts": {
+        "INT8 Conv layers count": 0,
+        "FP16 Conv layers count": 0,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 0,
+        "Reformat / Cast / Quantize / Dequantize layers count": 0,
+        "category_precision": {}
+      }
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 1,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib200_mixed_heads_fp16.json",
+      "num_layers": 119,
+      "counts": {
+        "INT8 Conv layers count": 69,
+        "FP16 Conv layers count": 9,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 35,
+        "Reformat / Cast / Quantize / Dequantize layers count": 23,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp16": 11,
+            "int8": 10
+          },
+          "other": {
+            "unknown": 10,
+            "fp16": 7,
+            "fp32": 8
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 60
+          },
+          "detection_head": {
+            "fp16": 6
+          },
+          "gemm_matmul": {
+            "fp32": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 2,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib200_mixed_heads_fp16.json",
+      "num_layers": 119,
+      "counts": {
+        "INT8 Conv layers count": 69,
+        "FP16 Conv layers count": 9,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 35,
+        "Reformat / Cast / Quantize / Dequantize layers count": 23,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp16": 11,
+            "int8": 10
+          },
+          "other": {
+            "unknown": 10,
+            "fp16": 7,
+            "fp32": 8
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 60
+          },
+          "detection_head": {
+            "fp16": 6
+          },
+          "gemm_matmul": {
+            "fp32": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 3,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib200_mixed_heads_fp16.json",
+      "num_layers": 120,
+      "counts": {
+        "INT8 Conv layers count": 66,
+        "FP16 Conv layers count": 13,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 40,
+        "Reformat / Cast / Quantize / Dequantize layers count": 24,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp16": 12,
+            "int8": 10
+          },
+          "other": {
+            "unknown": 10,
+            "fp16": 7,
+            "fp32": 8
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 56,
+            "fp16": 4
+          },
+          "detection_head": {
+            "fp16": 6
+          },
+          "gemm_matmul": {
+            "fp32": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    }
+  ],
+  "counts": {
+    "INT8 Conv layers count": 342,
+    "FP16 Conv layers count": 49,
+    "FP32 Conv layers count": 0,
+    "INT8 GEMM / MatMul layers count": 0,
+    "FP16/FP32 fallback layers": 195,
+    "Reformat / Cast / Quantize / Dequantize layers count": 123,
+    "category_precision": {
+      "reformat_cast_qdq": {
+        "unknown": 10,
+        "fp32": 1,
+        "fp16": 62,
+        "int8": 50
+      },
+      "other": {
+        "unknown": 71,
+        "fp16": 59,
+        "fp32": 24
+      },
+      "PillarVFE/PFN": {
+        "fp16": 5
+      },
+      "plugin": {
+        "fp16": 5
+      },
+      "BEV_backbone": {
+        "int8": 296,
+        "fp16": 4
+      },
+      "detection_head": {
+        "fp16": 30
+      },
+      "gemm_matmul": {
+        "fp16": 2,
+        "fp32": 3
+      },
+      "shrink_conv": {
+        "int8": 10
+      }
+    }
+  },
+  "PointPillarScatterTRT precision": [
+    "fp16"
+  ],
+  "PointPillarScatterTRT io_dtypes": [
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Float"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 1,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Half"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 1,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Half"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 2,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Half"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 3,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Half"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    }
+  ],
+  "PillarVFE / PFN precision": {
+    "fp16": 5
+  },
+  "BEV backbone precision": {
+    "int8": 296,
+    "fp16": 4
+  },
+  "shrink_conv precision": {
+    "int8": 10
+  },
+  "detection head precision": {
+    "fp16": 30
+  },
+  "plugin precision": {
+    "fp16": 5
+  },
+  "top 20 latency layers": [
+    {
+      "name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_19",
+      "layer_type": "",
+      "latency_ms": 0.254944,
+      "category": "Other",
+      "raw": {
+        "name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_19",
+        "timeMs": 30.5954,
+        "averageMs": 0.254961,
+        "medianMs": 0.254944,
+        "percentage": 13.6007
+      }
+    },
+    {
+      "name": "/PointPillarScatterTRT",
+      "layer_type": "",
+      "latency_ms": 0.072736,
+      "category": "PointPillarScatterTRT",
+      "raw": {
+        "name": "/PointPillarScatterTRT",
+        "timeMs": 10.0446,
+        "averageMs": 0.0837053,
+        "medianMs": 0.072736,
+        "percentage": 4.4652
+      }
+    },
+    {
+      "name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_18",
+      "layer_type": "",
+      "latency_ms": 0.065888,
+      "category": "PillarVFE / PFN",
+      "raw": {
+        "name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_18",
+        "timeMs": 7.90371,
+        "averageMs": 0.0658643,
+        "medianMs": 0.065888,
+        "percentage": 3.51348
+      }
+    },
+    {
+      "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_8",
+      "layer_type": "",
+      "latency_ms": 0.061408,
+      "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+      "raw": {
+        "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_8",
+        "timeMs": 7.3726,
+        "averageMs": 0.0614384,
+        "medianMs": 0.061408,
+        "percentage": 3.27738
+      }
+    },
+    {
+      "name": "/shrink_conv/layers.0/double_conv/double_conv.0/Conv + /shrink_conv/layers.0/double_conv/double_conv.1/Relu",
+      "layer_type": "",
+      "latency_ms": 0.045232,
+      "category": "BEV backbone Conv",
+      "raw": {
+        "name": "/shrink_conv/layers.0/double_conv/double_conv.0/Conv + /shrink_conv/layers.0/double_conv/double_conv.1/Relu",
+        "timeMs": 5.43625,
+        "averageMs": 0.0453021,
+        "medianMs": 0.045232,
+        "percentage": 2.41661
+      }
+    },
+    {
+      "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_6",
+      "layer_type": "",
+      "latency_ms": 0.035776,
+      "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+      "raw": {
+        "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_6",
+        "timeMs": 4.29414,
+        "averageMs": 0.0357845,
+        "medianMs": 0.035776,
+        "percentage": 1.9089
+      }
+    },
+    {
+      "name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_17",
+      "layer_type": "",
+      "latency_ms": 0.03528,
+      "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+      "raw": {
+        "name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_17",
+        "timeMs": 4.23286,
+        "averageMs": 0.0352739,
+        "medianMs": 0.03528,
+        "percentage": 1.88166
+      }
+    },
+    {
+      "name": "Reformatting CopyNode for Output Tensor 0 to /PointPillarScatterTRT",
+      "layer_type": "",
+      "latency_ms": 0.035136,
+      "category": "PointPillarScatterTRT",
+      "raw": {
+        "name": "Reformatting CopyNode for Output Tensor 0 to /PointPillarScatterTRT",
+        "timeMs": 4.94032,
+        "averageMs": 0.0411693,
+        "medianMs": 0.035136,
+        "percentage": 2.19615
+      }
+    },
+    {
+      "name": "/shrink_conv/layers.0/double_conv/double_conv.2/Conv + /shrink_conv/layers.0/double_conv/double_conv.3/Relu",
+      "layer_type": "",
+      "latency_ms": 0.034272,
+      "category": "BEV backbone Conv",
+      "raw": {
+        "name": "/shrink_conv/layers.0/double_conv/double_conv.2/Conv + /shrink_conv/layers.0/double_conv/double_conv.3/Relu",
+        "timeMs": 4.11546,
+        "averageMs": 0.0342955,
+        "medianMs": 0.034272,
+        "percentage": 1.82947
+      }
+    },
+    {
+      "name": "__myl_SlicSum_myl3_14",
+      "layer_type": "",
+      "latency_ms": 0.023808,
+      "category": "Other",
+      "raw": {
+        "name": "__myl_SlicSum_myl3_14",
+        "timeMs": 2.86621,
+        "averageMs": 0.0238851,
+        "medianMs": 0.023808,
+        "percentage": 1.27413
+      }
+    },
+    {
+      "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_4",
+      "layer_type": "",
+      "latency_ms": 0.02232,
+      "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+      "raw": {
+        "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_4",
+        "timeMs": 2.68134,
+        "averageMs": 0.0223445,
+        "medianMs": 0.02232,
+        "percentage": 1.19195
+      }
+    },
+    {
+      "name": "/layer1/layer1.0/conv2/Conv + /layer1/layer1.0/relu_1/Relu",
+      "layer_type": "",
+      "latency_ms": 0.021008,
+      "category": "BEV backbone Conv",
+      "raw": {
+        "name": "/layer1/layer1.0/conv2/Conv + /layer1/layer1.0/relu_1/Relu",
+        "timeMs": 2.52426,
+        "averageMs": 0.0210355,
+        "medianMs": 0.021008,
+        "percentage": 1.12212
+      }
+    },
+    {
+      "name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_6",
+      "layer_type": "",
+      "latency_ms": 0.0208,
+      "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+      "raw": {
+        "name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_6",
+        "timeMs": 2.8983,
+        "averageMs": 0.0241525,
+        "medianMs": 0.0208,
+        "percentage": 1.2884
+      }
+    },
+    {
+      "name": "/layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu",
+      "layer_type": "",
+      "latency_ms": 0.020256,
+      "category": "BEV backbone Conv",
+      "raw": {
+        "name": "/layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu",
+        "timeMs": 2.43206,
+        "averageMs": 0.0202672,
+        "medianMs": 0.020256,
+        "percentage": 1.08114
+      }
+    },
+    {
+      "name": "/layer1/layer1.0/conv1/Conv + /layer1/layer1.0/relu/Relu",
+      "layer_type": "",
+      "latency_ms": 0.018848,
+      "category": "BEV backbone Conv",
+      "raw": {
+        "name": "/layer1/layer1.0/conv1/Conv + /layer1/layer1.0/relu/Relu",
+        "timeMs": 2.26541,
+        "averageMs": 0.0188784,
+        "medianMs": 0.018848,
+        "percentage": 1.00705
+      }
+    },
+    {
+      "name": "__myl_Repl_myl3_4",
+      "layer_type": "",
+      "latency_ms": 0.018112,
+      "category": "Other",
+      "raw": {
+        "name": "__myl_Repl_myl3_4",
+        "timeMs": 2.40522,
+        "averageMs": 0.0200435,
+        "medianMs": 0.018112,
+        "percentage": 1.0692
+      }
+    },
+    {
+      "name": "/layer0/layer0.1/conv2_1/Conv + /layer0/layer0.1/relu_3/Relu",
+      "layer_type": "",
+      "latency_ms": 0.01776,
+      "category": "BEV backbone Conv",
+      "raw": {
+        "name": "/layer0/layer0.1/conv2_1/Conv + /layer0/layer0.1/relu_3/Relu",
+        "timeMs": 2.13162,
+        "averageMs": 0.0177635,
+        "medianMs": 0.01776,
+        "percentage": 0.947579
+      }
+    },
+    {
+      "name": "/layer0/layer0.0/conv2_1/Conv + /layer0/layer0.0/relu_3/Relu",
+      "layer_type": "",
+      "latency_ms": 0.01768,
+      "category": "BEV backbone Conv",
+      "raw": {
+        "name": "/layer0/layer0.0/conv2_1/Conv + /layer0/layer0.0/relu_3/Relu",
+        "timeMs": 2.12541,
+        "averageMs": 0.0177117,
+        "medianMs": 0.01768,
+        "percentage": 0.944819
+      }
+    },
+    {
+      "name": "/layer0/layer0.0/conv2/Conv",
+      "layer_type": "",
+      "latency_ms": 0.017664,
+      "category": "BEV backbone Conv",
+      "raw": {
+        "name": "/layer0/layer0.0/conv2/Conv",
+        "timeMs": 2.11546,
+        "averageMs": 0.0176288,
+        "medianMs": 0.017664,
+        "percentage": 0.940395
+      }
+    },
+    {
+      "name": "/layer1/layer1.1/conv2/Conv + /layer1/layer1.1/relu_1/Relu",
+      "layer_type": "",
+      "latency_ms": 0.017664,
+      "category": "BEV backbone Conv",
+      "raw": {
+        "name": "/layer1/layer1.1/conv2/Conv + /layer1/layer1.1/relu_1/Relu",
+        "timeMs": 2.12243,
+        "averageMs": 0.0176869,
+        "medianMs": 0.017664,
+        "percentage": 0.943496
+      }
+    }
+  ],
+  "answers": {
+    "int8_engine_really_uses_int8": true,
+    "just_renamed_fp16_engine": false,
+    "plugin_causes_large_fallback": false,
+    "main_latency_layers": [
+      "reformat_cast_qdq",
+      "reformat_cast_qdq",
+      "reformat_cast_qdq",
+      "reformat_cast_qdq",
+      "other"
+    ],
+    "int8_speedup_space": true
+  },
+  "runtime_layer_profile_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trt_layer_profile_dynamic_agent_dim_N2_fixed_k_plugin_int8_calib200_mixed_heads_fp16.json",
+  "runtime_layer_profile_scope": "representative N2 bucket1 real-input trtexec profile",
+  "runtime_layer_category_totals_ms": {
+    "BEV backbone Conv": 0.8728799999999999,
+    "Other": 0.379264,
+    "Shape/Gather/Slice/Reshape/Shuffle/Reformat": 0.31819200000000003,
+    "PointPillarScatterTRT": 0.107872,
+    "PillarVFE / PFN": 0.0796,
+    "Head Conv": 0.054624000000000006,
+    "valid_voxel_mask": 0.007056
+  }
+}

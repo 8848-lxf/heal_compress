@@ -1,0 +1,1994 @@
+{
+  "parameters": [
+    {
+      "parameter": "encoder_m1.pillar_vfe.pfn_layers.0.linear.weight",
+      "numel": 640,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.455089,
+      "fisher_weight2_sum": 0.895748,
+      "grad_abs_mean": 0.056422,
+      "grad_square_mean": 3.302532
+    },
+    {
+      "parameter": "encoder_m1.pillar_vfe.pfn_layers.0.norm.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.80228,
+      "fisher_weight2_sum": 0.325343,
+      "grad_abs_mean": 0.01261,
+      "grad_square_mean": 0.004778
+    },
+    {
+      "parameter": "encoder_m1.pillar_vfe.pfn_layers.0.norm.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.017587,
+      "fisher_weight2_sum": 0.000217,
+      "grad_abs_mean": 0.00602,
+      "grad_square_mean": 0.001214
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.0.conv1.weight",
+      "numel": 36864,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 3.024963,
+      "fisher_weight2_sum": 0.021085,
+      "grad_abs_mean": 0.001581,
+      "grad_square_mean": 9.1e-05
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.0.bn1.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.569176,
+      "fisher_weight2_sum": 0.090609,
+      "grad_abs_mean": 0.009481,
+      "grad_square_mean": 0.001553
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.0.bn1.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.097431,
+      "fisher_weight2_sum": 0.004433,
+      "grad_abs_mean": 0.016247,
+      "grad_square_mean": 0.004154
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.0.conv2.weight",
+      "numel": 36864,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 6.093797,
+      "fisher_weight2_sum": 0.046195,
+      "grad_abs_mean": 0.003165,
+      "grad_square_mean": 0.000256
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.0.bn2.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.507572,
+      "fisher_weight2_sum": 0.11726,
+      "grad_abs_mean": 0.008153,
+      "grad_square_mean": 0.00183
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.0.bn2.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.036093,
+      "fisher_weight2_sum": 0.001249,
+      "grad_abs_mean": 0.011197,
+      "grad_square_mean": 0.002225
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.0.downsample.0.weight",
+      "numel": 4096,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.129928,
+      "fisher_weight2_sum": 0.082853,
+      "grad_abs_mean": 0.004046,
+      "grad_square_mean": 0.000838
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.0.downsample.1.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.309685,
+      "fisher_weight2_sum": 0.045186,
+      "grad_abs_mean": 0.005575,
+      "grad_square_mean": 0.0009
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.0.downsample.1.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.036093,
+      "fisher_weight2_sum": 0.001249,
+      "grad_abs_mean": 0.011197,
+      "grad_square_mean": 0.002225
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.1.conv1.weight",
+      "numel": 36864,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 5.999373,
+      "fisher_weight2_sum": 0.041549,
+      "grad_abs_mean": 0.003228,
+      "grad_square_mean": 0.00027
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.1.bn1.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.525861,
+      "fisher_weight2_sum": 0.072294,
+      "grad_abs_mean": 0.008862,
+      "grad_square_mean": 0.00131
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.1.bn1.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.01698,
+      "fisher_weight2_sum": 0.000135,
+      "grad_abs_mean": 0.008604,
+      "grad_square_mean": 0.00152
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.1.conv2.weight",
+      "numel": 36864,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 5.527457,
+      "fisher_weight2_sum": 0.033001,
+      "grad_abs_mean": 0.002995,
+      "grad_square_mean": 0.00021
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.1.bn2.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.527607,
+      "fisher_weight2_sum": 0.064792,
+      "grad_abs_mean": 0.008513,
+      "grad_square_mean": 0.001079
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.1.bn2.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.012693,
+      "fisher_weight2_sum": 9.7e-05,
+      "grad_abs_mean": 0.006706,
+      "grad_square_mean": 0.000869
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.2.conv1.weight",
+      "numel": 36864,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 5.281655,
+      "fisher_weight2_sum": 0.033093,
+      "grad_abs_mean": 0.002869,
+      "grad_square_mean": 0.000212
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.2.bn1.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.413373,
+      "fisher_weight2_sum": 0.054858,
+      "grad_abs_mean": 0.006826,
+      "grad_square_mean": 0.000915
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.2.bn1.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.010216,
+      "fisher_weight2_sum": 4.2e-05,
+      "grad_abs_mean": 0.005655,
+      "grad_square_mean": 0.000457
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.2.conv2.weight",
+      "numel": 36864,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 4.968132,
+      "fisher_weight2_sum": 0.025404,
+      "grad_abs_mean": 0.002757,
+      "grad_square_mean": 0.000166
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.2.bn2.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.443893,
+      "fisher_weight2_sum": 0.053738,
+      "grad_abs_mean": 0.007199,
+      "grad_square_mean": 0.000893
+    },
+    {
+      "parameter": "backbone_m1.resnet.layer0.2.bn2.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.014689,
+      "fisher_weight2_sum": 6.4e-05,
+      "grad_abs_mean": 0.006469,
+      "grad_square_mean": 0.000553
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.0.conv1.weight",
+      "numel": 8192,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 3.588689,
+      "fisher_weight2_sum": 0.060824,
+      "grad_abs_mean": 0.004601,
+      "grad_square_mean": 0.0005
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.0.bn1.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.607146,
+      "fisher_weight2_sum": 0.054165,
+      "grad_abs_mean": 0.005353,
+      "grad_square_mean": 0.000518
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.0.bn1.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.012822,
+      "fisher_weight2_sum": 3.6e-05,
+      "grad_abs_mean": 0.004214,
+      "grad_square_mean": 0.000275
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.0.conv2.weight",
+      "numel": 4608,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.021312,
+      "fisher_weight2_sum": 0.033449,
+      "grad_abs_mean": 0.010691,
+      "grad_square_mean": 0.002306
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.0.bn2.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.58344,
+      "fisher_weight2_sum": 0.037773,
+      "grad_abs_mean": 0.004935,
+      "grad_square_mean": 0.000333
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.0.bn2.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.0103,
+      "fisher_weight2_sum": 1.5e-05,
+      "grad_abs_mean": 0.003965,
+      "grad_square_mean": 0.00017
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.0.conv3.weight",
+      "numel": 8192,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.949722,
+      "fisher_weight2_sum": 0.032645,
+      "grad_abs_mean": 0.002894,
+      "grad_square_mean": 0.000152
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.0.bn3.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.34007,
+      "fisher_weight2_sum": 0.032753,
+      "grad_abs_mean": 0.00553,
+      "grad_square_mean": 0.000546
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.0.bn3.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.013621,
+      "fisher_weight2_sum": 5.1e-05,
+      "grad_abs_mean": 0.006018,
+      "grad_square_mean": 0.000392
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.1.conv1.weight",
+      "numel": 8192,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 3.569207,
+      "fisher_weight2_sum": 0.051659,
+      "grad_abs_mean": 0.004711,
+      "grad_square_mean": 0.000469
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.1.bn1.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.56331,
+      "fisher_weight2_sum": 0.04582,
+      "grad_abs_mean": 0.005065,
+      "grad_square_mean": 0.000462
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.1.bn1.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.012716,
+      "fisher_weight2_sum": 4.5e-05,
+      "grad_abs_mean": 0.00412,
+      "grad_square_mean": 0.000254
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.1.conv2.weight",
+      "numel": 4608,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.825293,
+      "fisher_weight2_sum": 0.02599,
+      "grad_abs_mean": 0.00929,
+      "grad_square_mean": 0.001874
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.1.bn2.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.531171,
+      "fisher_weight2_sum": 0.037113,
+      "grad_abs_mean": 0.004561,
+      "grad_square_mean": 0.00034
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.1.bn2.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.009204,
+      "fisher_weight2_sum": 1.4e-05,
+      "grad_abs_mean": 0.003673,
+      "grad_square_mean": 0.000168
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.1.conv3.weight",
+      "numel": 8192,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.70963,
+      "fisher_weight2_sum": 0.027002,
+      "grad_abs_mean": 0.002747,
+      "grad_square_mean": 0.00014
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.1.bn3.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.318577,
+      "fisher_weight2_sum": 0.024262,
+      "grad_abs_mean": 0.005181,
+      "grad_square_mean": 0.000398
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.1.bn3.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.011873,
+      "fisher_weight2_sum": 3.4e-05,
+      "grad_abs_mean": 0.004909,
+      "grad_square_mean": 0.000289
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.2.conv1.weight",
+      "numel": 8192,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 3.480953,
+      "fisher_weight2_sum": 0.044842,
+      "grad_abs_mean": 0.00452,
+      "grad_square_mean": 0.000367
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.2.bn1.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.558541,
+      "fisher_weight2_sum": 0.035767,
+      "grad_abs_mean": 0.005159,
+      "grad_square_mean": 0.000383
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.2.bn1.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.016467,
+      "fisher_weight2_sum": 0.000105,
+      "grad_abs_mean": 0.003867,
+      "grad_square_mean": 0.000181
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.2.conv2.weight",
+      "numel": 4608,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.737336,
+      "fisher_weight2_sum": 0.023182,
+      "grad_abs_mean": 0.008609,
+      "grad_square_mean": 0.001577
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.2.bn2.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.493469,
+      "fisher_weight2_sum": 0.028286,
+      "grad_abs_mean": 0.004196,
+      "grad_square_mean": 0.000261
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.2.bn2.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.007333,
+      "fisher_weight2_sum": 8e-06,
+      "grad_abs_mean": 0.003136,
+      "grad_square_mean": 0.000124
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.2.conv3.weight",
+      "numel": 8192,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.480373,
+      "fisher_weight2_sum": 0.021556,
+      "grad_abs_mean": 0.002523,
+      "grad_square_mean": 0.000113
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.2.bn3.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.2471,
+      "fisher_weight2_sum": 0.014295,
+      "grad_abs_mean": 0.004028,
+      "grad_square_mean": 0.000248
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer0.2.bn3.bias",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.009567,
+      "fisher_weight2_sum": 2.6e-05,
+      "grad_abs_mean": 0.004299,
+      "grad_square_mean": 0.000216
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.conv1.weight",
+      "numel": 16384,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 3.085671,
+      "fisher_weight2_sum": 0.034175,
+      "grad_abs_mean": 0.002909,
+      "grad_square_mean": 0.000239
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.bn1.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.485531,
+      "fisher_weight2_sum": 0.026091,
+      "grad_abs_mean": 0.003,
+      "grad_square_mean": 0.000216
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.bn1.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.020348,
+      "fisher_weight2_sum": 9.2e-05,
+      "grad_abs_mean": 0.002438,
+      "grad_square_mean": 9.9e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.conv2.weight",
+      "numel": 18432,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.558146,
+      "fisher_weight2_sum": 0.007746,
+      "grad_abs_mean": 0.002423,
+      "grad_square_mean": 0.000167
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.bn2.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.425116,
+      "fisher_weight2_sum": 0.017458,
+      "grad_abs_mean": 0.002308,
+      "grad_square_mean": 0.000122
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.bn2.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.011324,
+      "fisher_weight2_sum": 1.5e-05,
+      "grad_abs_mean": 0.001764,
+      "grad_square_mean": 5.1e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.conv3.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.560096,
+      "fisher_weight2_sum": 0.011102,
+      "grad_abs_mean": 0.001166,
+      "grad_square_mean": 3.7e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.bn3.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.349053,
+      "fisher_weight2_sum": 0.025537,
+      "grad_abs_mean": 0.003308,
+      "grad_square_mean": 0.000281
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.bn3.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.010222,
+      "fisher_weight2_sum": 2e-05,
+      "grad_abs_mean": 0.003007,
+      "grad_square_mean": 0.000137
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.downsample.0.weight",
+      "numel": 8192,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.920577,
+      "fisher_weight2_sum": 0.016128,
+      "grad_abs_mean": 0.002921,
+      "grad_square_mean": 0.000183
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.downsample.1.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.348987,
+      "fisher_weight2_sum": 0.01599,
+      "grad_abs_mean": 0.003426,
+      "grad_square_mean": 0.000196
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.0.downsample.1.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.010222,
+      "fisher_weight2_sum": 2e-05,
+      "grad_abs_mean": 0.003007,
+      "grad_square_mean": 0.000137
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.1.conv1.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.303084,
+      "fisher_weight2_sum": 0.009931,
+      "grad_abs_mean": 0.001251,
+      "grad_square_mean": 5e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.1.bn1.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.411577,
+      "fisher_weight2_sum": 0.01407,
+      "grad_abs_mean": 0.002536,
+      "grad_square_mean": 0.000128
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.1.bn1.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.014678,
+      "fisher_weight2_sum": 2.7e-05,
+      "grad_abs_mean": 0.001882,
+      "grad_square_mean": 7.2e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.1.conv2.weight",
+      "numel": 18432,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.858173,
+      "fisher_weight2_sum": 0.010051,
+      "grad_abs_mean": 0.002782,
+      "grad_square_mean": 0.00021
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.1.bn2.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.392956,
+      "fisher_weight2_sum": 0.013247,
+      "grad_abs_mean": 0.002176,
+      "grad_square_mean": 9.5e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.1.bn2.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.012099,
+      "fisher_weight2_sum": 1.4e-05,
+      "grad_abs_mean": 0.002001,
+      "grad_square_mean": 5.5e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.1.conv3.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.700981,
+      "fisher_weight2_sum": 0.009949,
+      "grad_abs_mean": 0.001236,
+      "grad_square_mean": 3.5e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.1.bn3.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.299919,
+      "fisher_weight2_sum": 0.012593,
+      "grad_abs_mean": 0.002835,
+      "grad_square_mean": 0.00014
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.1.bn3.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.011222,
+      "fisher_weight2_sum": 2.2e-05,
+      "grad_abs_mean": 0.00291,
+      "grad_square_mean": 0.000112
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.2.conv1.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.777112,
+      "fisher_weight2_sum": 0.012942,
+      "grad_abs_mean": 0.001558,
+      "grad_square_mean": 6.7e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.2.bn1.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.45248,
+      "fisher_weight2_sum": 0.02176,
+      "grad_abs_mean": 0.002767,
+      "grad_square_mean": 0.000173
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.2.bn1.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.017633,
+      "fisher_weight2_sum": 3.7e-05,
+      "grad_abs_mean": 0.002224,
+      "grad_square_mean": 8.4e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.2.conv2.weight",
+      "numel": 18432,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.896548,
+      "fisher_weight2_sum": 0.013663,
+      "grad_abs_mean": 0.002874,
+      "grad_square_mean": 0.000241
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.2.bn2.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.445265,
+      "fisher_weight2_sum": 0.019154,
+      "grad_abs_mean": 0.002414,
+      "grad_square_mean": 0.00012
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.2.bn2.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.011324,
+      "fisher_weight2_sum": 1.5e-05,
+      "grad_abs_mean": 0.001881,
+      "grad_square_mean": 5.6e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.2.conv3.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.478078,
+      "fisher_weight2_sum": 0.009998,
+      "grad_abs_mean": 0.001129,
+      "grad_square_mean": 3.1e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.2.bn3.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.278156,
+      "fisher_weight2_sum": 0.01605,
+      "grad_abs_mean": 0.002502,
+      "grad_square_mean": 0.000141
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.2.bn3.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.01024,
+      "fisher_weight2_sum": 2.3e-05,
+      "grad_abs_mean": 0.002371,
+      "grad_square_mean": 8.2e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.3.conv1.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.472881,
+      "fisher_weight2_sum": 0.011045,
+      "grad_abs_mean": 0.001392,
+      "grad_square_mean": 5.3e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.3.bn1.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.359555,
+      "fisher_weight2_sum": 0.014781,
+      "grad_abs_mean": 0.002317,
+      "grad_square_mean": 0.000132
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.3.bn1.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.013262,
+      "fisher_weight2_sum": 4.4e-05,
+      "grad_abs_mean": 0.001826,
+      "grad_square_mean": 6.6e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.3.conv2.weight",
+      "numel": 18432,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.478405,
+      "fisher_weight2_sum": 0.008382,
+      "grad_abs_mean": 0.002326,
+      "grad_square_mean": 0.00016
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.3.bn2.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.350444,
+      "fisher_weight2_sum": 0.012296,
+      "grad_abs_mean": 0.001914,
+      "grad_square_mean": 8e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.3.bn2.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.008435,
+      "fisher_weight2_sum": 7e-06,
+      "grad_abs_mean": 0.001505,
+      "grad_square_mean": 3.5e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.3.conv3.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.863778,
+      "fisher_weight2_sum": 0.004551,
+      "grad_abs_mean": 0.000892,
+      "grad_square_mean": 1.8e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.3.bn3.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.190792,
+      "fisher_weight2_sum": 0.004631,
+      "grad_abs_mean": 0.001779,
+      "grad_square_mean": 4.9e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.3.bn3.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.00767,
+      "fisher_weight2_sum": 1.3e-05,
+      "grad_abs_mean": 0.001661,
+      "grad_square_mean": 3.9e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.4.conv1.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.680383,
+      "fisher_weight2_sum": 0.00404,
+      "grad_abs_mean": 0.001023,
+      "grad_square_mean": 2.6e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.4.bn1.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.233937,
+      "fisher_weight2_sum": 0.00441,
+      "grad_abs_mean": 0.00158,
+      "grad_square_mean": 4.7e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.4.bn1.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.00846,
+      "fisher_weight2_sum": 9e-06,
+      "grad_abs_mean": 0.001277,
+      "grad_square_mean": 2.8e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.4.conv2.weight",
+      "numel": 18432,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.935711,
+      "fisher_weight2_sum": 0.003138,
+      "grad_abs_mean": 0.001543,
+      "grad_square_mean": 7.3e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.4.bn2.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.184512,
+      "fisher_weight2_sum": 0.00478,
+      "grad_abs_mean": 0.001028,
+      "grad_square_mean": 3e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.4.bn2.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.005867,
+      "fisher_weight2_sum": 1.2e-05,
+      "grad_abs_mean": 0.000984,
+      "grad_square_mean": 1.9e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.4.conv3.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.112324,
+      "fisher_weight2_sum": 0.001952,
+      "grad_abs_mean": 0.000551,
+      "grad_square_mean": 7e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.4.bn3.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.113883,
+      "fisher_weight2_sum": 0.00192,
+      "grad_abs_mean": 0.001098,
+      "grad_square_mean": 2e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer1.4.bn3.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.005669,
+      "fisher_weight2_sum": 7e-06,
+      "grad_abs_mean": 0.001248,
+      "grad_square_mean": 2.6e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.conv1.weight",
+      "numel": 65536,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.178047,
+      "fisher_weight2_sum": 0.000166,
+      "grad_abs_mean": 0.000109,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.bn1.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.022607,
+      "fisher_weight2_sum": 0.000203,
+      "grad_abs_mean": 0.00029,
+      "grad_square_mean": 6e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.bn1.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.004209,
+      "fisher_weight2_sum": 6e-06,
+      "grad_abs_mean": 0.00032,
+      "grad_square_mean": 4e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.conv2.weight",
+      "numel": 73728,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.071109,
+      "fisher_weight2_sum": 9.8e-05,
+      "grad_abs_mean": 4.8e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.bn2.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.018099,
+      "fisher_weight2_sum": 0.000113,
+      "grad_abs_mean": 0.000193,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.bn2.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.001975,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 0.000261,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.conv3.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.080181,
+      "fisher_weight2_sum": 6.6e-05,
+      "grad_abs_mean": 3.3e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.bn3.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.025301,
+      "fisher_weight2_sum": 0.000192,
+      "grad_abs_mean": 0.000343,
+      "grad_square_mean": 4e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.bn3.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.006056,
+      "fisher_weight2_sum": 7e-06,
+      "grad_abs_mean": 0.00061,
+      "grad_square_mean": 1.1e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.downsample.0.weight",
+      "numel": 32768,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.485697,
+      "fisher_weight2_sum": 0.001161,
+      "grad_abs_mean": 0.000426,
+      "grad_square_mean": 9e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.downsample.1.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.06992,
+      "fisher_weight2_sum": 0.002111,
+      "grad_abs_mean": 0.000668,
+      "grad_square_mean": 2e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.0.downsample.1.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.006056,
+      "fisher_weight2_sum": 7e-06,
+      "grad_abs_mean": 0.00061,
+      "grad_square_mean": 1.1e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.1.conv1.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.223903,
+      "fisher_weight2_sum": 0.000284,
+      "grad_abs_mean": 7.4e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.1.bn1.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.058776,
+      "fisher_weight2_sum": 0.000717,
+      "grad_abs_mean": 0.000669,
+      "grad_square_mean": 2.3e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.1.bn1.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.007735,
+      "fisher_weight2_sum": 1.4e-05,
+      "grad_abs_mean": 0.000523,
+      "grad_square_mean": 1.2e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.1.conv2.weight",
+      "numel": 73728,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.208713,
+      "fisher_weight2_sum": 0.000457,
+      "grad_abs_mean": 9.7e-05,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.1.bn2.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.054272,
+      "fisher_weight2_sum": 0.000654,
+      "grad_abs_mean": 0.000498,
+      "grad_square_mean": 1.5e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.1.bn2.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.0067,
+      "fisher_weight2_sum": 8e-06,
+      "grad_abs_mean": 0.000407,
+      "grad_square_mean": 7e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.1.conv3.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.154884,
+      "fisher_weight2_sum": 0.000186,
+      "grad_abs_mean": 4.8e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.1.bn3.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.036355,
+      "fisher_weight2_sum": 0.000464,
+      "grad_abs_mean": 0.000423,
+      "grad_square_mean": 9e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.1.bn3.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.004384,
+      "fisher_weight2_sum": 5e-06,
+      "grad_abs_mean": 0.000387,
+      "grad_square_mean": 6e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.2.conv1.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.145949,
+      "fisher_weight2_sum": 0.000286,
+      "grad_abs_mean": 4.4e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.2.bn1.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.042471,
+      "fisher_weight2_sum": 0.001215,
+      "grad_abs_mean": 0.000413,
+      "grad_square_mean": 2.6e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.2.bn1.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.00425,
+      "fisher_weight2_sum": 8e-06,
+      "grad_abs_mean": 0.000291,
+      "grad_square_mean": 9e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.2.conv2.weight",
+      "numel": 73728,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.122763,
+      "fisher_weight2_sum": 0.0009,
+      "grad_abs_mean": 4.4e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.2.bn2.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.038094,
+      "fisher_weight2_sum": 0.000951,
+      "grad_abs_mean": 0.000323,
+      "grad_square_mean": 1.9e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.2.bn2.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.005335,
+      "fisher_weight2_sum": 2.3e-05,
+      "grad_abs_mean": 0.000263,
+      "grad_square_mean": 6e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.2.conv3.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.070632,
+      "fisher_weight2_sum": 0.000261,
+      "grad_abs_mean": 1.9e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.2.bn3.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.024353,
+      "fisher_weight2_sum": 0.00067,
+      "grad_abs_mean": 0.000267,
+      "grad_square_mean": 6e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.2.bn3.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.002995,
+      "fisher_weight2_sum": 4e-06,
+      "grad_abs_mean": 0.000294,
+      "grad_square_mean": 4e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.3.conv1.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.05032,
+      "fisher_weight2_sum": 0.00011,
+      "grad_abs_mean": 1.3e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.3.bn1.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.016865,
+      "fisher_weight2_sum": 0.0006,
+      "grad_abs_mean": 0.000169,
+      "grad_square_mean": 1.4e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.3.bn1.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.001753,
+      "fisher_weight2_sum": 8e-06,
+      "grad_abs_mean": 0.000134,
+      "grad_square_mean": 6e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.3.conv2.weight",
+      "numel": 73728,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.039168,
+      "fisher_weight2_sum": 0.000245,
+      "grad_abs_mean": 1.4e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.3.bn2.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.014043,
+      "fisher_weight2_sum": 0.000191,
+      "grad_abs_mean": 0.000122,
+      "grad_square_mean": 4e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.3.bn2.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.001759,
+      "fisher_weight2_sum": 4e-06,
+      "grad_abs_mean": 9.8e-05,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.3.conv3.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.02379,
+      "fisher_weight2_sum": 4.8e-05,
+      "grad_abs_mean": 7e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.3.bn3.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.009176,
+      "fisher_weight2_sum": 0.000105,
+      "grad_abs_mean": 0.000132,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.3.bn3.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.002243,
+      "fisher_weight2_sum": 2e-06,
+      "grad_abs_mean": 0.00025,
+      "grad_square_mean": 3e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.4.conv1.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.023383,
+      "fisher_weight2_sum": 0.000148,
+      "grad_abs_mean": 6e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.4.bn1.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.00727,
+      "fisher_weight2_sum": 0.00068,
+      "grad_abs_mean": 6.6e-05,
+      "grad_square_mean": 1.3e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.4.bn1.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.000576,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 6.4e-05,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.4.conv2.weight",
+      "numel": 73728,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.019337,
+      "fisher_weight2_sum": 0.000535,
+      "grad_abs_mean": 6e-06,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.4.bn2.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.007969,
+      "fisher_weight2_sum": 0.00049,
+      "grad_abs_mean": 4.4e-05,
+      "grad_square_mean": 3e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.4.bn2.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.000404,
+      "fisher_weight2_sum": 0.0,
+      "grad_abs_mean": 6.3e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.4.conv3.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.015679,
+      "fisher_weight2_sum": 4e-05,
+      "grad_abs_mean": 4e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.4.bn3.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.009136,
+      "fisher_weight2_sum": 4.4e-05,
+      "grad_abs_mean": 0.000152,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.4.bn3.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.001848,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 0.000225,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.5.conv1.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.012535,
+      "fisher_weight2_sum": 3.5e-05,
+      "grad_abs_mean": 4e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.5.bn1.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.00715,
+      "fisher_weight2_sum": 0.000472,
+      "grad_abs_mean": 6.9e-05,
+      "grad_square_mean": 1.5e-05
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.5.bn1.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.000645,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 5.8e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.5.conv2.weight",
+      "numel": 73728,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.009409,
+      "fisher_weight2_sum": 0.000182,
+      "grad_abs_mean": 3e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.5.bn2.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.007212,
+      "fisher_weight2_sum": 0.000436,
+      "grad_abs_mean": 3.9e-05,
+      "grad_square_mean": 3e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.5.bn2.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.000433,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 7.2e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.5.conv3.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.011127,
+      "fisher_weight2_sum": 7.3e-05,
+      "grad_abs_mean": 4e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.5.bn3.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.007521,
+      "fisher_weight2_sum": 7.6e-05,
+      "grad_abs_mean": 9.5e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.5.bn3.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.001698,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 0.000236,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.6.conv1.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.011881,
+      "fisher_weight2_sum": 1.5e-05,
+      "grad_abs_mean": 7e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.6.bn1.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.004337,
+      "fisher_weight2_sum": 8.6e-05,
+      "grad_abs_mean": 6.3e-05,
+      "grad_square_mean": 4e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.6.bn1.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.00084,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 9.2e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.6.conv2.weight",
+      "numel": 73728,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.008584,
+      "fisher_weight2_sum": 1.5e-05,
+      "grad_abs_mean": 7e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.6.bn2.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.004038,
+      "fisher_weight2_sum": 7.3e-05,
+      "grad_abs_mean": 3.5e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.6.bn2.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.000706,
+      "fisher_weight2_sum": 0.0,
+      "grad_abs_mean": 9.7e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.6.conv3.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.008904,
+      "fisher_weight2_sum": 6e-06,
+      "grad_abs_mean": 5e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.6.bn3.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.00503,
+      "fisher_weight2_sum": 1e-05,
+      "grad_abs_mean": 7.6e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.6.bn3.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.001772,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 0.000248,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.7.conv1.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.01134,
+      "fisher_weight2_sum": 6e-06,
+      "grad_abs_mean": 6e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.7.bn1.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.003039,
+      "fisher_weight2_sum": 3.2e-05,
+      "grad_abs_mean": 4.8e-05,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.7.bn1.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.001038,
+      "fisher_weight2_sum": 4e-06,
+      "grad_abs_mean": 8.6e-05,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.7.conv2.weight",
+      "numel": 73728,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.009286,
+      "fisher_weight2_sum": 2.2e-05,
+      "grad_abs_mean": 6e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.7.bn2.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.003345,
+      "fisher_weight2_sum": 1.5e-05,
+      "grad_abs_mean": 3.9e-05,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.7.bn2.bias",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.000467,
+      "fisher_weight2_sum": 0.0,
+      "grad_abs_mean": 6.8e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.7.conv3.weight",
+      "numel": 131072,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.007747,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 5e-06,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.7.bn3.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.003052,
+      "fisher_weight2_sum": 2e-06,
+      "grad_abs_mean": 4.9e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.resnet.layer2.7.bn3.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.001929,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 0.000256,
+      "grad_square_mean": 3e-06
+    },
+    {
+      "parameter": "pyramid_backbone.deblocks.0.0.weight",
+      "numel": 8192,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.791394,
+      "fisher_weight2_sum": 0.033839,
+      "grad_abs_mean": 0.005549,
+      "grad_square_mean": 0.00059
+    },
+    {
+      "parameter": "pyramid_backbone.deblocks.0.1.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.382691,
+      "fisher_weight2_sum": 0.024537,
+      "grad_abs_mean": 0.003964,
+      "grad_square_mean": 0.000321
+    },
+    {
+      "parameter": "pyramid_backbone.deblocks.0.1.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.057176,
+      "fisher_weight2_sum": 0.000741,
+      "grad_abs_mean": 0.003707,
+      "grad_square_mean": 0.000214
+    },
+    {
+      "parameter": "pyramid_backbone.deblocks.1.0.weight",
+      "numel": 65536,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.876363,
+      "fisher_weight2_sum": 0.006455,
+      "grad_abs_mean": 0.00067,
+      "grad_square_mean": 2.3e-05
+    },
+    {
+      "parameter": "pyramid_backbone.deblocks.1.1.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.283462,
+      "fisher_weight2_sum": 0.019884,
+      "grad_abs_mean": 0.002748,
+      "grad_square_mean": 0.000225
+    },
+    {
+      "parameter": "pyramid_backbone.deblocks.1.1.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.020694,
+      "fisher_weight2_sum": 0.000139,
+      "grad_abs_mean": 0.002673,
+      "grad_square_mean": 0.000266
+    },
+    {
+      "parameter": "pyramid_backbone.deblocks.2.0.weight",
+      "numel": 524288,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.160766,
+      "fisher_weight2_sum": 0.000106,
+      "grad_abs_mean": 2e-05,
+      "grad_square_mean": 0.0
+    },
+    {
+      "parameter": "pyramid_backbone.deblocks.2.1.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.019772,
+      "fisher_weight2_sum": 0.000255,
+      "grad_abs_mean": 0.000212,
+      "grad_square_mean": 3e-06
+    },
+    {
+      "parameter": "pyramid_backbone.deblocks.2.1.bias",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.007974,
+      "fisher_weight2_sum": 4.8e-05,
+      "grad_abs_mean": 0.000876,
+      "grad_square_mean": 4.3e-05
+    },
+    {
+      "parameter": "pyramid_backbone.single_head_0.weight",
+      "numel": 64,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.004772,
+      "fisher_weight2_sum": 1.3e-05,
+      "grad_abs_mean": 0.001273,
+      "grad_square_mean": 5.6e-05
+    },
+    {
+      "parameter": "pyramid_backbone.single_head_0.bias",
+      "numel": 1,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.8e-05,
+      "fisher_weight2_sum": 0.0,
+      "grad_abs_mean": 0.000349,
+      "grad_square_mean": 2e-06
+    },
+    {
+      "parameter": "pyramid_backbone.single_head_1.weight",
+      "numel": 128,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.007873,
+      "fisher_weight2_sum": 1.5e-05,
+      "grad_abs_mean": 0.001476,
+      "grad_square_mean": 5e-05
+    },
+    {
+      "parameter": "pyramid_backbone.single_head_1.bias",
+      "numel": 1,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 3.2e-05,
+      "fisher_weight2_sum": 0.0,
+      "grad_abs_mean": 0.001033,
+      "grad_square_mean": 9e-06
+    },
+    {
+      "parameter": "pyramid_backbone.single_head_2.weight",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.001966,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 0.000135,
+      "grad_square_mean": 1e-06
+    },
+    {
+      "parameter": "pyramid_backbone.single_head_2.bias",
+      "numel": 1,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.000109,
+      "fisher_weight2_sum": 0.0,
+      "grad_abs_mean": 0.000912,
+      "grad_square_mean": 7e-06
+    },
+    {
+      "parameter": "shrink_conv.layers.0.double_conv.0.weight",
+      "numel": 884736,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 4.944675,
+      "fisher_weight2_sum": 0.019921,
+      "grad_abs_mean": 0.000245,
+      "grad_square_mean": 1.2e-05
+    },
+    {
+      "parameter": "shrink_conv.layers.0.double_conv.0.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.035348,
+      "fisher_weight2_sum": 0.000535,
+      "grad_abs_mean": 0.002188,
+      "grad_square_mean": 0.000262
+    },
+    {
+      "parameter": "shrink_conv.layers.0.double_conv.2.weight",
+      "numel": 589824,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 2.550476,
+      "fisher_weight2_sum": 0.006634,
+      "grad_abs_mean": 0.000223,
+      "grad_square_mean": 1.2e-05
+    },
+    {
+      "parameter": "shrink_conv.layers.0.double_conv.2.bias",
+      "numel": 256,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.059954,
+      "fisher_weight2_sum": 0.000606,
+      "grad_abs_mean": 0.004434,
+      "grad_square_mean": 0.000338
+    },
+    {
+      "parameter": "cls_head.weight",
+      "numel": 512,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.097541,
+      "fisher_weight2_sum": 0.006171,
+      "grad_abs_mean": 0.002008,
+      "grad_square_mean": 0.000664
+    },
+    {
+      "parameter": "cls_head.bias",
+      "numel": 2,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 9.5e-05,
+      "fisher_weight2_sum": 1e-06,
+      "grad_abs_mean": 0.013414,
+      "grad_square_mean": 0.005168
+    },
+    {
+      "parameter": "reg_head.weight",
+      "numel": 3584,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 1.119114,
+      "fisher_weight2_sum": 0.026373,
+      "grad_abs_mean": 0.017477,
+      "grad_square_mean": 0.019161
+    },
+    {
+      "parameter": "reg_head.bias",
+      "numel": 14,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.068202,
+      "fisher_weight2_sum": 0.006208,
+      "grad_abs_mean": 0.147071,
+      "grad_square_mean": 0.206524
+    },
+    {
+      "parameter": "dir_head.weight",
+      "numel": 1024,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.080531,
+      "fisher_weight2_sum": 0.001622,
+      "grad_abs_mean": 0.000548,
+      "grad_square_mean": 1.5e-05
+    },
+    {
+      "parameter": "dir_head.bias",
+      "numel": 4,
+      "has_grad": true,
+      "grad_batches": 16,
+      "first_order_sum": 0.002531,
+      "fisher_weight2_sum": 1e-05,
+      "grad_abs_mean": 0.004811,
+      "grad_square_mean": 0.000166
+    }
+  ]
+}

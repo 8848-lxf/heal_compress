@@ -1,0 +1,58 @@
+{
+  "wrapper_source": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/exportable_lidar_pyramid_dynamic_single_engine_maxk.py",
+  "fixed_K": 29696,
+  "same_shape": true,
+  "outputs": {
+    "cls_preds": {
+      "reference_shape": [
+        1,
+        2,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        2,
+        128,
+        256
+      ],
+      "max_abs_error": 0.0006923675537109375,
+      "mean_abs_error": 1.9408023945288733e-05,
+      "relative_error": 3.4921729366033105e-06
+    },
+    "reg_preds": {
+      "reference_shape": [
+        1,
+        14,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        14,
+        128,
+        256
+      ],
+      "max_abs_error": 0.0007453598082065582,
+      "mean_abs_error": 6.03824264544528e-06,
+      "relative_error": 3.765268775168806e-05
+    },
+    "dir_preds": {
+      "reference_shape": [
+        1,
+        4,
+        128,
+        256
+      ],
+      "candidate_shape": [
+        1,
+        4,
+        128,
+        256
+      ],
+      "max_abs_error": 0.001688241958618164,
+      "mean_abs_error": 3.0428785976255313e-05,
+      "relative_error": 5.8957353758160025e-05
+    }
+  }
+}

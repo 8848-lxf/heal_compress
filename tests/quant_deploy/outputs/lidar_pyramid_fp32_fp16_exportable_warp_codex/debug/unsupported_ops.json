@@ -1,0 +1,5 @@
+[
+  {
+    "line": "Cuda failure at /_src/samples/common/safeCommon.h:287: no CUDA-capable device is detected"
+  }
+]

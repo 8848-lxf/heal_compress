@@ -1,0 +1,17 @@
+layer,in_channels,out_channels,groups,in_channels_per_group,out_channels_per_group,aligned
+pyramid_backbone.resnet.layer0.0.conv2,64,64,8,8,8,True
+pyramid_backbone.resnet.layer0.1.conv2,64,64,8,8,8,True
+pyramid_backbone.resnet.layer0.2.conv2,64,64,8,8,8,True
+pyramid_backbone.resnet.layer1.0.conv2,192,192,24,8,8,True
+pyramid_backbone.resnet.layer1.1.conv2,192,192,24,8,8,True
+pyramid_backbone.resnet.layer1.2.conv2,192,192,24,8,8,True
+pyramid_backbone.resnet.layer1.3.conv2,192,192,24,8,8,True
+pyramid_backbone.resnet.layer1.4.conv2,192,192,24,8,8,True
+pyramid_backbone.resnet.layer2.0.conv2,384,384,24,16,16,True
+pyramid_backbone.resnet.layer2.1.conv2,384,384,24,16,16,True
+pyramid_backbone.resnet.layer2.2.conv2,384,384,24,16,16,True
+pyramid_backbone.resnet.layer2.3.conv2,384,384,24,16,16,True
+pyramid_backbone.resnet.layer2.4.conv2,384,384,24,16,16,True
+pyramid_backbone.resnet.layer2.5.conv2,384,384,24,16,16,True
+pyramid_backbone.resnet.layer2.6.conv2,384,384,24,16,16,True
+pyramid_backbone.resnet.layer2.7.conv2,384,384,24,16,16,True

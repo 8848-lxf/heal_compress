@@ -1,0 +1,4912 @@
+{
+  "success": true,
+  "strategy": "dynamic_agent_single_engine_maxK",
+  "precision": "int8",
+  "calibration_split": "train",
+  "evaluation_split": "val",
+  "calibration_frames": 200,
+  "eval_frames": 50,
+  "num_frames": 50,
+  "actual_frames": 50,
+  "calibration_eval_overlap": false,
+  "single_engine": true,
+  "engine_count": 1,
+  "AP@0.30": 0.7843,
+  "AP@0.50": 0.7692,
+  "AP@0.70": 0.5992,
+  "mAP": 0.7176,
+  "map": 0.7176,
+  "mAP drop vs single-engine FP16 same val set": 0.101,
+  "mAP drop vs multi-engine FP16 same val set": 0.1013,
+  "AP@0.70 drop vs FP16": 0.132,
+  "execute_ms": {
+    "mean": 5.934759726524353,
+    "p50": 1.524224042892456,
+    "p90": 1.5355199575424194,
+    "p95": 1.7595839500427246,
+    "p99": 117.90771484375,
+    "max": 117.90771484375
+  },
+  "forward_ms": {
+    "mean": 19.67952251434326,
+    "p50": 16.385603696107864,
+    "p90": 16.564808785915375,
+    "p95": 16.814634203910828,
+    "p99": 144.59408074617386,
+    "max": 144.59408074617386
+  },
+  "total_runner_ms": {
+    "mean": 19.67952251434326,
+    "p50": 16.385603696107864,
+    "p90": 16.564808785915375,
+    "p95": 16.814634203910828,
+    "p99": 144.59408074617386,
+    "max": 144.59408074617386
+  },
+  "shape_setup_ms": {
+    "mean": 0.001394525170326233,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p95": 0.0,
+    "p99": 0.045981258153915405,
+    "max": 0.045981258153915405
+  },
+  "padding_ms": {
+    "mean": 1.602921262383461,
+    "p50": 1.6421563923358917,
+    "p90": 2.0530857145786285,
+    "p95": 2.0841285586357117,
+    "p99": 2.641778439283371,
+    "max": 2.641778439283371
+  },
+  "forward_mean_ms": 19.67952251434326,
+  "forward_p50_ms": 16.385603696107864,
+  "forward_p90_ms": 16.564808785915375,
+  "forward_p95_ms": 16.814634203910828,
+  "forward_p99_ms": 144.59408074617386,
+  "FPS": 61.02918260115945,
+  "fps": 61.02918260115945,
+  "postprocess_mean_ms": 70.69590218365192,
+  "total_mean_ms": 90.37542469799519,
+  "record_len distribution": {
+    "1": 14,
+    "2": 36
+  },
+  "N runtime shape distribution": {
+    "1": 14,
+    "2": 36
+  },
+  "original_num_voxels distribution": {
+    "min": 8578.0,
+    "p50": 22652.5,
+    "p90": 23203.6,
+    "p95": 23294.1,
+    "p99": 23416.98,
+    "mean": 18857.64,
+    "max": 23465.0
+  },
+  "padding_ratio distribution": {
+    "min": 0.024891954787234043,
+    "p50": 0.058656083776595744,
+    "p90": 0.6252036236702128,
+    "p95": 0.6275702293882979,
+    "p99": 0.6399094082446808,
+    "mean": 0.21635472074468087,
+    "max": 0.6435339095744681
+  },
+  "fixed_K": 24064,
+  "skipped_samples": [],
+  "skip_reasons": {},
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+  "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/dynamic_agent_single_engine_maxK/lidar_pyramid_dynamic_agent_single_engine_maxK.onnx",
+  "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+  "calibration_cache_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.cache",
+  "no_bucket_router": true,
+  "no_N_engine_router": true,
+  "valid_voxel_mask enabled": true,
+  "pointpillar_scatter_plugin enabled": true,
+  "latency_summary": {
+    "num_frames": 50,
+    "overall": {
+      "input_prepare_ms": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "dtype_cast_ms": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "contiguous_ms": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "h2d_copy_ms": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "input_device_copy_ms": {
+        "mean": 10.428659096360207,
+        "p50": 11.67021319270134,
+        "p90": 11.764638125896454,
+        "p95": 11.77389919757843,
+        "p99": 11.820726096630096,
+        "max": 11.820726096630096
+      },
+      "set_input_shape_ms": {
+        "mean": 0.001394525170326233,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "p99": 0.045981258153915405,
+        "max": 0.045981258153915405
+      },
+      "output_shape_query_ms": {
+        "mean": 0.04069902002811432,
+        "p50": 0.03855675458908081,
+        "p90": 0.048980116844177246,
+        "p95": 0.05474314093589783,
+        "p99": 0.06115436553955078,
+        "max": 0.06115436553955078
+      },
+      "bind_address_ms": {
+        "mean": 0.008359402418136597,
+        "p50": 0.007715076208114624,
+        "p90": 0.009503215551376343,
+        "p95": 0.010717660188674927,
+        "p99": 0.027477741241455078,
+        "max": 0.027477741241455078
+      },
+      "execute_async_ms": {
+        "mean": 5.934759726524353,
+        "p50": 1.524224042892456,
+        "p90": 1.5355199575424194,
+        "p95": 1.7595839500427246,
+        "p99": 117.90771484375,
+        "max": 117.90771484375
+      },
+      "synchronize_ms": {
+        "mean": 2.6202231645584106,
+        "p50": 2.9782243072986603,
+        "p90": 3.0792802572250366,
+        "p95": 3.096591681241989,
+        "p99": 3.1119994819164276,
+        "max": 3.1119994819164276
+      },
+      "d2h_copy_ms": {
+        "mean": 0.450700968503952,
+        "p50": 0.4226118326187134,
+        "p90": 0.5911700427532196,
+        "p95": 0.6551221013069153,
+        "p99": 0.8307583630084991,
+        "max": 0.8307583630084991
+      },
+      "output_wrap_ms": {
+        "mean": 0.002275034785270691,
+        "p50": 0.0021010637283325195,
+        "p90": 0.002436339855194092,
+        "p95": 0.004116445779800415,
+        "p99": 0.005844980478286743,
+        "max": 0.005844980478286743
+      },
+      "alloc_ms": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "total_runner_ms": {
+        "mean": 19.67952251434326,
+        "p50": 16.385603696107864,
+        "p90": 16.564808785915375,
+        "p95": 16.814634203910828,
+        "p99": 144.59408074617386,
+        "max": 144.59408074617386
+      },
+      "execute_ms": {
+        "mean": 5.934759726524353,
+        "p50": 1.524224042892456,
+        "p90": 1.5355199575424194,
+        "p95": 1.7595839500427246,
+        "p99": 117.90771484375,
+        "max": 117.90771484375
+      },
+      "forward_ms": {
+        "mean": 19.67952251434326,
+        "p50": 16.385603696107864,
+        "p90": 16.564808785915375,
+        "p95": 16.814634203910828,
+        "p99": 144.59408074617386,
+        "max": 144.59408074617386
+      },
+      "padding_ms": {
+        "mean": 1.602921262383461,
+        "p50": 1.6421563923358917,
+        "p90": 2.0530857145786285,
+        "p95": 2.0841285586357117,
+        "p99": 2.641778439283371,
+        "max": 2.641778439283371
+      },
+      "shape_setup_ms": {
+        "mean": 0.001394525170326233,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "p99": 0.045981258153915405,
+        "max": 0.045981258153915405
+      }
+    },
+    "by_record_len": {
+      "1": {
+        "record_len": 1,
+        "num_frames": 14,
+        "input_prepare_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "dtype_cast_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "contiguous_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "h2d_copy_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "input_device_copy_ms": {
+          "mean": 9.593181312084198,
+          "p50": 11.64659857749939,
+          "p90": 11.786729097366333,
+          "p95": 11.786729097366333,
+          "p99": 11.820726096630096,
+          "max": 11.820726096630096
+        },
+        "set_input_shape_ms": {
+          "mean": 0.003284375582422529,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.045981258153915405,
+          "max": 0.045981258153915405
+        },
+        "output_shape_query_ms": {
+          "mean": 0.04141964018344879,
+          "p50": 0.037845224142074585,
+          "p90": 0.0540614128112793,
+          "p95": 0.0540614128112793,
+          "p99": 0.06115436553955078,
+          "max": 0.06115436553955078
+        },
+        "bind_address_ms": {
+          "mean": 0.009252556732722692,
+          "p50": 0.007398426532745361,
+          "p90": 0.010717660188674927,
+          "p95": 0.010717660188674927,
+          "p99": 0.027477741241455078,
+          "max": 0.027477741241455078
+        },
+        "execute_async_ms": {
+          "mean": 9.718290482248578,
+          "p50": 1.3574399948120117,
+          "p90": 1.7095999717712402,
+          "p95": 1.7095999717712402,
+          "p99": 117.90771484375,
+          "max": 117.90771484375
+        },
+        "synchronize_ms": {
+          "mean": 2.2967197000980377,
+          "p50": 2.873241901397705,
+          "p90": 2.924438565969467,
+          "p95": 2.924438565969467,
+          "p99": 2.9332563281059265,
+          "max": 2.9332563281059265
+        },
+        "d2h_copy_ms": {
+          "mean": 0.469875122819628,
+          "p50": 0.42416155338287354,
+          "p90": 0.6059594452381134,
+          "p95": 0.6059594452381134,
+          "p99": 0.7223784923553467,
+          "max": 0.7223784923553467
+        },
+        "output_wrap_ms": {
+          "mean": 0.002545437642506191,
+          "p50": 0.002212822437286377,
+          "p90": 0.004116445779800415,
+          "p95": 0.004116445779800415,
+          "p99": 0.005844980478286743,
+          "max": 0.005844980478286743
+        },
+        "alloc_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "total_runner_ms": {
+          "mean": 23.2688020914793,
+          "p50": 16.25344157218933,
+          "p90": 16.441896557807922,
+          "p95": 16.441896557807922,
+          "p99": 144.59408074617386,
+          "max": 144.59408074617386
+        },
+        "execute_ms": {
+          "mean": 9.718290482248578,
+          "p50": 1.3574399948120117,
+          "p90": 1.7095999717712402,
+          "p95": 1.7095999717712402,
+          "p99": 117.90771484375,
+          "max": 117.90771484375
+        },
+        "forward_ms": {
+          "mean": 23.2688020914793,
+          "p50": 16.25344157218933,
+          "p90": 16.441896557807922,
+          "p95": 16.441896557807922,
+          "p99": 144.59408074617386,
+          "max": 144.59408074617386
+        },
+        "padding_ms": {
+          "mean": 1.8515703933579581,
+          "p50": 2.033613622188568,
+          "p90": 2.132028341293335,
+          "p95": 2.132028341293335,
+          "p99": 2.641778439283371,
+          "max": 2.641778439283371
+        },
+        "shape_setup_ms": {
+          "mean": 0.003284375582422529,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.045981258153915405,
+          "max": 0.045981258153915405
+        }
+      },
+      "2": {
+        "record_len": 2,
+        "num_frames": 36,
+        "input_prepare_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "dtype_cast_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "contiguous_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "h2d_copy_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "input_device_copy_ms": {
+          "mean": 10.753567123578655,
+          "p50": 11.67076826095581,
+          "p90": 11.748258024454117,
+          "p95": 11.761374771595001,
+          "p99": 11.772241443395615,
+          "max": 11.772241443395615
+        },
+        "set_input_shape_ms": {
+          "mean": 0.0006595833433998956,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.02374500036239624,
+          "max": 0.02374500036239624
+        },
+        "output_shape_query_ms": {
+          "mean": 0.04041877885659536,
+          "p50": 0.04091113805770874,
+          "p90": 0.04600733518600464,
+          "p95": 0.05048885941505432,
+          "p99": 0.05703046917915344,
+          "max": 0.05703046917915344
+        },
+        "bind_address_ms": {
+          "mean": 0.008012064629130893,
+          "p50": 0.007729977369308472,
+          "p90": 0.009298324584960938,
+          "p95": 0.009492039680480957,
+          "p99": 0.011838972568511963,
+          "max": 0.011838972568511963
+        },
+        "execute_async_ms": {
+          "mean": 4.463386654853821,
+          "p50": 1.525696039199829,
+          "p90": 1.5355199575424194,
+          "p95": 1.6897920370101929,
+          "p99": 106.87369537353516,
+          "max": 106.87369537353516
+        },
+        "synchronize_ms": {
+          "mean": 2.7460300674041114,
+          "p50": 3.0270591378211975,
+          "p90": 3.0948705971240997,
+          "p95": 3.096591681241989,
+          "p99": 3.1119994819164276,
+          "max": 3.1119994819164276
+        },
+        "d2h_copy_ms": {
+          "mean": 0.4432443529367447,
+          "p50": 0.4226118326187134,
+          "p90": 0.5406700074672699,
+          "p95": 0.6291233003139496,
+          "p99": 0.8307583630084991,
+          "max": 0.8307583630084991
+        },
+        "output_wrap_ms": {
+          "mean": 0.0021698781185679967,
+          "p50": 0.0020600855350494385,
+          "p90": 0.002436339855194092,
+          "p95": 0.0024884939193725586,
+          "p99": 0.004958361387252808,
+          "max": 0.004958361387252808
+        },
+        "alloc_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "total_runner_ms": {
+          "mean": 18.283691567679245,
+          "p50": 16.40651747584343,
+          "p90": 16.594983637332916,
+          "p95": 16.69089123606682,
+          "p99": 121.84778973460197,
+          "max": 121.84778973460197
+        },
+        "execute_ms": {
+          "mean": 4.463386654853821,
+          "p50": 1.525696039199829,
+          "p90": 1.5355199575424194,
+          "p95": 1.6897920370101929,
+          "p99": 106.87369537353516,
+          "max": 106.87369537353516
+        },
+        "forward_ms": {
+          "mean": 18.283691567679245,
+          "p50": 16.40651747584343,
+          "p90": 16.594983637332916,
+          "p95": 16.69089123606682,
+          "p99": 121.84778973460197,
+          "max": 121.84778973460197
+        },
+        "padding_ms": {
+          "mean": 1.506224378115601,
+          "p50": 1.6048438847064972,
+          "p90": 1.728340983390808,
+          "p95": 1.7351657152175903,
+          "p99": 1.7603598535060883,
+          "max": 1.7603598535060883
+        },
+        "shape_setup_ms": {
+          "mean": 0.0006595833433998956,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.02374500036239624,
+          "max": 0.02374500036239624
+        }
+      }
+    }
+  },
+  "frames": [
+    {
+      "frame_id": 0,
+      "sample_idx": 0,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 8578,
+      "padding_voxel_count": 15486,
+      "padding_ratio": 0.6435339095744681,
+      "valid_voxel_count": 8578,
+      "padding_ms": 2.641778439283371,
+      "shape_setup_ms": 0.045981258153915405,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 9.180106222629547,
+      "set_input_shape_ms": 0.045981258153915405,
+      "output_shape_query_ms": 0.034127384424209595,
+      "bind_address_ms": 0.027477741241455078,
+      "execute_ms": 117.90771484375,
+      "execute_async_ms": 117.90771484375,
+      "synchronize_ms": 1.012161374092102,
+      "d2h_copy_ms": 0.48491358757019043,
+      "output_wrap_ms": 0.005844980478286743,
+      "forward_ms": 144.59408074617386,
+      "total_runner_ms": 144.59408074617386,
+      "postprocess_ms": 80.32183721661568,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 1,
+      "sample_idx": 1,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 8756,
+      "padding_voxel_count": 15308,
+      "padding_ratio": 0.6361369680851063,
+      "valid_voxel_count": 8756,
+      "padding_ms": 2.0530857145786285,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.742841452360153,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03672763705253601,
+      "bind_address_ms": 0.006858259439468384,
+      "execute_ms": 1.3574399948120117,
+      "execute_async_ms": 1.3574399948120117,
+      "synchronize_ms": 2.924438565969467,
+      "d2h_copy_ms": 0.4208385944366455,
+      "output_wrap_ms": 0.0019632279872894287,
+      "forward_ms": 16.316581517457962,
+      "total_runner_ms": 16.316581517457962,
+      "postprocess_ms": 80.12052997946739,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 2,
+      "sample_idx": 2,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 8923,
+      "padding_voxel_count": 15141,
+      "padding_ratio": 0.6291971409574468,
+      "valid_voxel_count": 8923,
+      "padding_ms": 2.0229145884513855,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.786729097366333,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03559514880180359,
+      "bind_address_ms": 0.007152557373046875,
+      "execute_ms": 1.357983946800232,
+      "execute_async_ms": 1.357983946800232,
+      "synchronize_ms": 2.873241901397705,
+      "d2h_copy_ms": 0.3880597651004791,
+      "output_wrap_ms": 0.0021979212760925293,
+      "forward_ms": 16.252532601356506,
+      "total_runner_ms": 16.252532601356506,
+      "postprocess_ms": 80.28845861554146,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 3,
+      "sample_idx": 3,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9011,
+      "padding_voxel_count": 15053,
+      "padding_ratio": 0.6255402260638298,
+      "valid_voxel_count": 9011,
+      "padding_ms": 1.9478090107440948,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.568915098905563,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03855675458908081,
+      "bind_address_ms": 0.008132308721542358,
+      "execute_ms": 1.361024022102356,
+      "execute_async_ms": 1.361024022102356,
+      "synchronize_ms": 2.876918762922287,
+      "d2h_copy_ms": 0.43964385986328125,
+      "output_wrap_ms": 0.0022239983081817627,
+      "forward_ms": 16.25344157218933,
+      "total_runner_ms": 16.25344157218933,
+      "postprocess_ms": 80.16368746757507,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 4,
+      "sample_idx": 4,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9010,
+      "padding_voxel_count": 15054,
+      "padding_ratio": 0.6255817819148937,
+      "valid_voxel_count": 9010,
+      "padding_ms": 1.992061734199524,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.753883212804794,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.037845224142074585,
+      "bind_address_ms": 0.008068978786468506,
+      "execute_ms": 1.352992057800293,
+      "execute_async_ms": 1.352992057800293,
+      "synchronize_ms": 2.9332563281059265,
+      "d2h_copy_ms": 0.41407719254493713,
+      "output_wrap_ms": 0.0017844140529632568,
+      "forward_ms": 16.357101500034332,
+      "total_runner_ms": 16.357101500034332,
+      "postprocess_ms": 80.18238097429276,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 5,
+      "sample_idx": 5,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9020,
+      "padding_voxel_count": 15044,
+      "padding_ratio": 0.6251662234042553,
+      "valid_voxel_count": 9020,
+      "padding_ms": 0.46532973647117615,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.09759515523910522,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.06115436553955078,
+      "bind_address_ms": 0.009503215551376343,
+      "execute_ms": 1.7095999717712402,
+      "execute_async_ms": 1.7095999717712402,
+      "synchronize_ms": 0.07544085383415222,
+      "d2h_copy_ms": 0.7223784923553467,
+      "output_wrap_ms": 0.004116445779800415,
+      "forward_ms": 3.2814815640449524,
+      "total_runner_ms": 3.2814815640449524,
+      "postprocess_ms": 9.352903813123703,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 6,
+      "sample_idx": 6,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9520,
+      "padding_voxel_count": 14544,
+      "padding_ratio": 0.6043882978723404,
+      "valid_voxel_count": 9520,
+      "padding_ms": 2.033613622188568,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.77389919757843,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04398450255393982,
+      "bind_address_ms": 0.010717660188674927,
+      "execute_ms": 1.3613439798355103,
+      "execute_async_ms": 1.3613439798355103,
+      "synchronize_ms": 2.624776214361191,
+      "d2h_copy_ms": 0.44540688395500183,
+      "output_wrap_ms": 0.0024028122425079346,
+      "forward_ms": 16.441896557807922,
+      "total_runner_ms": 16.441896557807922,
+      "postprocess_ms": 79.16653528809547,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 7,
+      "sample_idx": 7,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9542,
+      "padding_voxel_count": 14522,
+      "padding_ratio": 0.6034740691489362,
+      "valid_voxel_count": 9542,
+      "padding_ms": 2.0409561693668365,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 7.768608629703522,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.0540614128112793,
+      "bind_address_ms": 0.009562820196151733,
+      "execute_ms": 1.3531520366668701,
+      "execute_async_ms": 1.3531520366668701,
+      "synchronize_ms": 2.1860264241695404,
+      "d2h_copy_ms": 0.6059594452381134,
+      "output_wrap_ms": 0.0023655593395233154,
+      "forward_ms": 12.205097824335098,
+      "total_runner_ms": 12.205097824335098,
+      "postprocess_ms": 7.491070777177811,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 8,
+      "sample_idx": 8,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9544,
+      "padding_voxel_count": 14520,
+      "padding_ratio": 0.6033909574468085,
+      "valid_voxel_count": 9544,
+      "padding_ms": 2.080801874399185,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.713266372680664,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04063919186592102,
+      "bind_address_ms": 0.006757676601409912,
+      "execute_ms": 1.3526400327682495,
+      "execute_async_ms": 1.3526400327682495,
+      "synchronize_ms": 2.8740577399730682,
+      "d2h_copy_ms": 0.40930137038230896,
+      "output_wrap_ms": 0.002384185791015625,
+      "forward_ms": 16.17991551756859,
+      "total_runner_ms": 16.17991551756859,
+      "postprocess_ms": 79.95446398854256,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 9,
+      "sample_idx": 9,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9431,
+      "padding_voxel_count": 14633,
+      "padding_ratio": 0.6080867686170213,
+      "valid_voxel_count": 9431,
+      "padding_ms": 2.0841285586357117,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.820726096630096,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03454461693763733,
+      "bind_address_ms": 0.0064782798290252686,
+      "execute_ms": 1.352255940437317,
+      "execute_async_ms": 1.352255940437317,
+      "synchronize_ms": 2.911243587732315,
+      "d2h_copy_ms": 0.3963969647884369,
+      "output_wrap_ms": 0.002212822437286377,
+      "forward_ms": 16.30489155650139,
+      "total_runner_ms": 16.30489155650139,
+      "postprocess_ms": 80.22533729672432,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 10,
+      "sample_idx": 10,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9377,
+      "padding_voxel_count": 14687,
+      "padding_ratio": 0.6103307845744681,
+      "valid_voxel_count": 9377,
+      "padding_ms": 2.132028341293335,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.603228747844696,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03540143370628357,
+      "bind_address_ms": 0.006545335054397583,
+      "execute_ms": 1.356768012046814,
+      "execute_async_ms": 1.356768012046814,
+      "synchronize_ms": 2.9185935854911804,
+      "d2h_copy_ms": 0.42416155338287354,
+      "output_wrap_ms": 0.0017583370208740234,
+      "forward_ms": 16.249828040599823,
+      "total_runner_ms": 16.249828040599823,
+      "postprocess_ms": 79.92565631866455,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 11,
+      "sample_idx": 11,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9396,
+      "padding_voxel_count": 14668,
+      "padding_ratio": 0.6095412234042553,
+      "valid_voxel_count": 9396,
+      "padding_ms": 2.0580850541591644,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.64659857749939,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.048980116844177246,
+      "bind_address_ms": 0.0066980719566345215,
+      "execute_ms": 1.3559999465942383,
+      "execute_async_ms": 1.3559999465942383,
+      "synchronize_ms": 2.323415130376816,
+      "d2h_copy_ms": 0.5911700427532196,
+      "output_wrap_ms": 0.0019744038581848145,
+      "forward_ms": 16.429752111434937,
+      "total_runner_ms": 16.429752111434937,
+      "postprocess_ms": 79.85145971179008,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 12,
+      "sample_idx": 12,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9270,
+      "padding_voxel_count": 14794,
+      "padding_ratio": 0.6147772606382979,
+      "valid_voxel_count": 9270,
+      "padding_ms": 2.0114220678806305,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.76552101969719,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03664940595626831,
+      "bind_address_ms": 0.007398426532745361,
+      "execute_ms": 1.3586879968643188,
+      "execute_async_ms": 1.3586879968643188,
+      "synchronize_ms": 2.9237456619739532,
+      "d2h_copy_ms": 0.42911991477012634,
+      "output_wrap_ms": 0.0021420419216156006,
+      "forward_ms": 16.34841412305832,
+      "total_runner_ms": 16.34841412305832,
+      "postprocess_ms": 80.22863045334816,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 13,
+      "sample_idx": 13,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 1,
+      "N_runtime_shape": 1,
+      "fixed_K": 24064,
+      "original_num_voxels": 9594,
+      "padding_voxel_count": 14470,
+      "padding_ratio": 0.601313164893617,
+      "valid_voxel_count": 9594,
+      "padding_ms": 0.35797059535980225,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.08261948823928833,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04160776734352112,
+      "bind_address_ms": 0.008184462785720825,
+      "execute_ms": 1.5184639692306519,
+      "execute_async_ms": 1.5184639692306519,
+      "synchronize_ms": 0.6967596709728241,
+      "d2h_copy_ms": 0.4068240523338318,
+      "output_wrap_ms": 0.0022649765014648438,
+      "forward_ms": 2.5482140481472015,
+      "total_runner_ms": 2.5482140481472015,
+      "postprocess_ms": 63.322022557258606,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 14,
+      "sample_idx": 14,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 20646,
+      "padding_voxel_count": 3418,
+      "padding_ratio": 0.14203789893617022,
+      "valid_voxel_count": 20646,
+      "padding_ms": 1.4932453632354736,
+      "shape_setup_ms": 0.02374500036239624,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.65115088224411,
+      "set_input_shape_ms": 0.02374500036239624,
+      "output_shape_query_ms": 0.03342330455780029,
+      "bind_address_ms": 0.008765608072280884,
+      "execute_ms": 106.87369537353516,
+      "execute_async_ms": 106.87369537353516,
+      "synchronize_ms": 0.415019690990448,
+      "d2h_copy_ms": 0.46494975686073303,
+      "output_wrap_ms": 0.004958361387252808,
+      "forward_ms": 121.84778973460197,
+      "total_runner_ms": 121.84778973460197,
+      "postprocess_ms": 80.41875809431076,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 15,
+      "sample_idx": 15,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 20743,
+      "padding_voxel_count": 3321,
+      "padding_ratio": 0.13800698138297873,
+      "valid_voxel_count": 20743,
+      "padding_ms": 1.468569040298462,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.689256876707077,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.036247074604034424,
+      "bind_address_ms": 0.007584691047668457,
+      "execute_ms": 1.5214719772338867,
+      "execute_async_ms": 1.5214719772338867,
+      "synchronize_ms": 3.0598416924476624,
+      "d2h_copy_ms": 0.4279427230358124,
+      "output_wrap_ms": 0.002000480890274048,
+      "forward_ms": 16.42584800720215,
+      "total_runner_ms": 16.42584800720215,
+      "postprocess_ms": 77.60985195636749,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 16,
+      "sample_idx": 16,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 20912,
+      "padding_voxel_count": 3152,
+      "padding_ratio": 0.1309840425531915,
+      "valid_voxel_count": 20912,
+      "padding_ms": 1.5487149357795715,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.70259341597557,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04215911030769348,
+      "bind_address_ms": 0.008061528205871582,
+      "execute_ms": 1.5216959714889526,
+      "execute_async_ms": 1.5216959714889526,
+      "synchronize_ms": 2.8811879456043243,
+      "d2h_copy_ms": 0.4286058247089386,
+      "output_wrap_ms": 0.002436339855194092,
+      "forward_ms": 16.414303332567215,
+      "total_runner_ms": 16.414303332567215,
+      "postprocess_ms": 79.96588945388794,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 17,
+      "sample_idx": 17,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 21208,
+      "padding_voxel_count": 2856,
+      "padding_ratio": 0.11868351063829788,
+      "valid_voxel_count": 21208,
+      "padding_ms": 1.4879517257213593,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.601470410823822,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04600733518600464,
+      "bind_address_ms": 0.009298324584960938,
+      "execute_ms": 1.5249600410461426,
+      "execute_async_ms": 1.5249600410461426,
+      "synchronize_ms": 2.737872302532196,
+      "d2h_copy_ms": 0.8307583630084991,
+      "output_wrap_ms": 0.002302229404449463,
+      "forward_ms": 16.814634203910828,
+      "total_runner_ms": 16.814634203910828,
+      "postprocess_ms": 47.29776456952095,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 18,
+      "sample_idx": 18,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 21150,
+      "padding_voxel_count": 2914,
+      "padding_ratio": 0.12109375,
+      "valid_voxel_count": 21150,
+      "padding_ms": 1.6421563923358917,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.621959507465363,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.036094337701797485,
+      "bind_address_ms": 0.007465481758117676,
+      "execute_ms": 1.5242880582809448,
+      "execute_async_ms": 1.5242880582809448,
+      "synchronize_ms": 3.0346624553203583,
+      "d2h_copy_ms": 0.3923065960407257,
+      "output_wrap_ms": 0.0018440186977386475,
+      "forward_ms": 16.30900427699089,
+      "total_runner_ms": 16.30900427699089,
+      "postprocess_ms": 80.36738261580467,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 19,
+      "sample_idx": 19,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 21681,
+      "padding_voxel_count": 2383,
+      "padding_ratio": 0.09902759308510638,
+      "valid_voxel_count": 21681,
+      "padding_ms": 0.3735758364200592,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 1.8385760486125946,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.036969780921936035,
+      "bind_address_ms": 0.007715076208114624,
+      "execute_ms": 1.5216000080108643,
+      "execute_async_ms": 1.5216000080108643,
+      "synchronize_ms": 1.10548734664917,
+      "d2h_copy_ms": 0.43516606092453003,
+      "output_wrap_ms": 0.001773238182067871,
+      "forward_ms": 4.636045545339584,
+      "total_runner_ms": 4.636045545339584,
+      "postprocess_ms": 72.91935011744499,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 20,
+      "sample_idx": 20,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22440,
+      "padding_voxel_count": 1624,
+      "padding_ratio": 0.06748670212765957,
+      "valid_voxel_count": 22440,
+      "padding_ms": 1.728340983390808,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.772241443395615,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.036191195249557495,
+      "bind_address_ms": 0.007156282663345337,
+      "execute_ms": 1.5217920541763306,
+      "execute_async_ms": 1.5217920541763306,
+      "synchronize_ms": 3.078088164329529,
+      "d2h_copy_ms": 0.42988359928131104,
+      "output_wrap_ms": 0.0019706785678863525,
+      "forward_ms": 16.564808785915375,
+      "total_runner_ms": 16.564808785915375,
+      "postprocess_ms": 80.38182184100151,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 21,
+      "sample_idx": 21,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22638,
+      "padding_voxel_count": 1426,
+      "padding_ratio": 0.059258643617021274,
+      "valid_voxel_count": 22638,
+      "padding_ms": 1.7478838562965393,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.672772467136383,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.035703182220458984,
+      "bind_address_ms": 0.006273388862609863,
+      "execute_ms": 1.5355199575424194,
+      "execute_async_ms": 1.5355199575424194,
+      "synchronize_ms": 3.0657686293125153,
+      "d2h_copy_ms": 0.37020444869995117,
+      "output_wrap_ms": 0.0020600855350494385,
+      "forward_ms": 16.291294246912003,
+      "total_runner_ms": 16.291294246912003,
+      "postprocess_ms": 80.40396869182587,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 22,
+      "sample_idx": 22,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22452,
+      "padding_voxel_count": 1612,
+      "padding_ratio": 0.06698803191489362,
+      "valid_voxel_count": 22452,
+      "padding_ms": 1.7169006168842316,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.652927845716476,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03614649176597595,
+      "bind_address_ms": 0.007528811693191528,
+      "execute_ms": 1.5287679433822632,
+      "execute_async_ms": 1.5287679433822632,
+      "synchronize_ms": 3.0464008450508118,
+      "d2h_copy_ms": 0.37131085991859436,
+      "output_wrap_ms": 0.0020526349544525146,
+      "forward_ms": 16.28066971898079,
+      "total_runner_ms": 16.28066971898079,
+      "postprocess_ms": 78.24596762657166,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 23,
+      "sample_idx": 23,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22768,
+      "padding_voxel_count": 1296,
+      "padding_ratio": 0.0538563829787234,
+      "valid_voxel_count": 22768,
+      "padding_ms": 1.7165057361125946,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.606935411691666,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04445761442184448,
+      "bind_address_ms": 0.007059425115585327,
+      "execute_ms": 1.525696039199829,
+      "execute_async_ms": 1.525696039199829,
+      "synchronize_ms": 2.6862509548664093,
+      "d2h_copy_ms": 0.6291233003139496,
+      "output_wrap_ms": 0.0024884939193725586,
+      "forward_ms": 16.594983637332916,
+      "total_runner_ms": 16.594983637332916,
+      "postprocess_ms": 80.0694152712822,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 24,
+      "sample_idx": 24,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22506,
+      "padding_voxel_count": 1558,
+      "padding_ratio": 0.0647440159574468,
+      "valid_voxel_count": 22506,
+      "padding_ms": 1.6983598470687866,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.764638125896454,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04091113805770874,
+      "bind_address_ms": 0.007238239049911499,
+      "execute_ms": 1.5327680110931396,
+      "execute_async_ms": 1.5327680110931396,
+      "synchronize_ms": 3.0257441103458405,
+      "d2h_copy_ms": 0.40168315172195435,
+      "output_wrap_ms": 0.0022239983081817627,
+      "forward_ms": 16.486749053001404,
+      "total_runner_ms": 16.486749053001404,
+      "postprocess_ms": 78.18745821714401,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 25,
+      "sample_idx": 25,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22712,
+      "padding_voxel_count": 1352,
+      "padding_ratio": 0.05618351063829787,
+      "valid_voxel_count": 22712,
+      "padding_ms": 1.7212368547916412,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.748258024454117,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.041894614696502686,
+      "bind_address_ms": 0.008046627044677734,
+      "execute_ms": 1.5232959985733032,
+      "execute_async_ms": 1.5232959985733032,
+      "synchronize_ms": 2.966213971376419,
+      "d2h_copy_ms": 0.40093064308166504,
+      "output_wrap_ms": 0.00278279185295105,
+      "forward_ms": 16.40651747584343,
+      "total_runner_ms": 16.40651747584343,
+      "postprocess_ms": 80.30378445982933,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 26,
+      "sample_idx": 26,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22673,
+      "padding_voxel_count": 1391,
+      "padding_ratio": 0.05780418882978723,
+      "valid_voxel_count": 22673,
+      "padding_ms": 1.7603598535060883,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.69329509139061,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.0425875186920166,
+      "bind_address_ms": 0.008534640073776245,
+      "execute_ms": 1.5262080430984497,
+      "execute_async_ms": 1.5262080430984497,
+      "synchronize_ms": 3.0226409435272217,
+      "d2h_copy_ms": 0.6551221013069153,
+      "output_wrap_ms": 0.001948326826095581,
+      "forward_ms": 16.69089123606682,
+      "total_runner_ms": 16.69089123606682,
+      "postprocess_ms": 65.73446840047836,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 27,
+      "sample_idx": 27,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22667,
+      "padding_voxel_count": 1397,
+      "padding_ratio": 0.058053523936170214,
+      "valid_voxel_count": 22667,
+      "padding_ms": 0.453803688287735,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.09764358401298523,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.05703046917915344,
+      "bind_address_ms": 0.011838972568511963,
+      "execute_ms": 1.7595839500427246,
+      "execute_async_ms": 1.7595839500427246,
+      "synchronize_ms": 0.46916306018829346,
+      "d2h_copy_ms": 0.4555433988571167,
+      "output_wrap_ms": 0.002428889274597168,
+      "forward_ms": 2.982616424560547,
+      "total_runner_ms": 2.982616424560547,
+      "postprocess_ms": 4.6267397701740265,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 28,
+      "sample_idx": 28,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22612,
+      "padding_voxel_count": 1452,
+      "padding_ratio": 0.060339095744680854,
+      "valid_voxel_count": 22612,
+      "padding_ms": 1.2744441628456116,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.467117816209793,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.05474314093589783,
+      "bind_address_ms": 0.008128583431243896,
+      "execute_ms": 1.523743987083435,
+      "execute_async_ms": 1.523743987083435,
+      "synchronize_ms": 2.629760652780533,
+      "d2h_copy_ms": 0.5406700074672699,
+      "output_wrap_ms": 0.0020526349544525146,
+      "forward_ms": 16.529109328985214,
+      "total_runner_ms": 16.529109328985214,
+      "postprocess_ms": 58.716583997011185,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 29,
+      "sample_idx": 29,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22731,
+      "padding_voxel_count": 1333,
+      "padding_ratio": 0.0553939494680851,
+      "valid_voxel_count": 22731,
+      "padding_ms": 1.7183013260364532,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.67076826095581,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03515183925628662,
+      "bind_address_ms": 0.006988644599914551,
+      "execute_ms": 1.5231679677963257,
+      "execute_async_ms": 1.5231679677963257,
+      "synchronize_ms": 3.096591681241989,
+      "d2h_copy_ms": 0.46264007687568665,
+      "output_wrap_ms": 0.0021457672119140625,
+      "forward_ms": 16.448501497507095,
+      "total_runner_ms": 16.448501497507095,
+      "postprocess_ms": 80.47884702682495,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 30,
+      "sample_idx": 30,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23198,
+      "padding_voxel_count": 866,
+      "padding_ratio": 0.0359873670212766,
+      "valid_voxel_count": 23198,
+      "padding_ms": 1.5522874891757965,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.761374771595001,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.036656856536865234,
+      "bind_address_ms": 0.007428228855133057,
+      "execute_ms": 1.530176043510437,
+      "execute_async_ms": 1.530176043510437,
+      "synchronize_ms": 3.086686134338379,
+      "d2h_copy_ms": 0.393792986869812,
+      "output_wrap_ms": 0.0018253922462463379,
+      "forward_ms": 16.456864774227142,
+      "total_runner_ms": 16.456864774227142,
+      "postprocess_ms": 68.55160742998123,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 31,
+      "sample_idx": 31,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22700,
+      "padding_voxel_count": 1364,
+      "padding_ratio": 0.05668218085106383,
+      "valid_voxel_count": 22700,
+      "padding_ms": 1.6270875930786133,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.702228337526321,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03485754132270813,
+      "bind_address_ms": 0.007189810276031494,
+      "execute_ms": 1.5258560180664062,
+      "execute_async_ms": 1.5258560180664062,
+      "synchronize_ms": 3.04364413022995,
+      "d2h_copy_ms": 0.3878362476825714,
+      "output_wrap_ms": 0.0020228326320648193,
+      "forward_ms": 16.33559912443161,
+      "total_runner_ms": 16.33559912443161,
+      "postprocess_ms": 80.35118132829666,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 32,
+      "sample_idx": 32,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22921,
+      "padding_voxel_count": 1143,
+      "padding_ratio": 0.047498337765957445,
+      "valid_voxel_count": 22921,
+      "padding_ms": 1.5063025057315826,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.735659092664719,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03628060221672058,
+      "bind_address_ms": 0.007603317499160767,
+      "execute_ms": 1.5219199657440186,
+      "execute_async_ms": 1.5219199657440186,
+      "synchronize_ms": 3.0948705971240997,
+      "d2h_copy_ms": 0.4050061106681824,
+      "output_wrap_ms": 0.001817941665649414,
+      "forward_ms": 16.47024229168892,
+      "total_runner_ms": 16.47024229168892,
+      "postprocess_ms": 70.9277018904686,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 33,
+      "sample_idx": 33,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22956,
+      "padding_voxel_count": 1108,
+      "padding_ratio": 0.0460438829787234,
+      "valid_voxel_count": 22956,
+      "padding_ms": 1.6022175550460815,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.700276285409927,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.035297125577926636,
+      "bind_address_ms": 0.007729977369308472,
+      "execute_ms": 1.5202879905700684,
+      "execute_async_ms": 1.5202879905700684,
+      "synchronize_ms": 3.0528120696544647,
+      "d2h_copy_ms": 0.4226118326187134,
+      "output_wrap_ms": 0.002164393663406372,
+      "forward_ms": 16.3552425801754,
+      "total_runner_ms": 16.3552425801754,
+      "postprocess_ms": 80.04958555102348,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 34,
+      "sample_idx": 34,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23111,
+      "padding_voxel_count": 953,
+      "padding_ratio": 0.039602726063829786,
+      "valid_voxel_count": 23111,
+      "padding_ms": 1.5857480466365814,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.621732264757156,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.038038939237594604,
+      "bind_address_ms": 0.007420778274536133,
+      "execute_ms": 1.5242880582809448,
+      "execute_async_ms": 1.5242880582809448,
+      "synchronize_ms": 3.051578998565674,
+      "d2h_copy_ms": 0.3812164068222046,
+      "output_wrap_ms": 0.001959502696990967,
+      "forward_ms": 16.309216618537903,
+      "total_runner_ms": 16.309216618537903,
+      "postprocess_ms": 74.16784763336182,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 35,
+      "sample_idx": 35,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22891,
+      "padding_voxel_count": 1173,
+      "padding_ratio": 0.04874501329787234,
+      "valid_voxel_count": 22891,
+      "padding_ms": 1.577276736497879,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.589966714382172,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04178658127784729,
+      "bind_address_ms": 0.007547438144683838,
+      "execute_ms": 1.5247360467910767,
+      "execute_async_ms": 1.5247360467910767,
+      "synchronize_ms": 3.0270591378211975,
+      "d2h_copy_ms": 0.4008486866950989,
+      "output_wrap_ms": 0.0017434358596801758,
+      "forward_ms": 16.325674951076508,
+      "total_runner_ms": 16.325674951076508,
+      "postprocess_ms": 80.01755177974701,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 36,
+      "sample_idx": 36,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23254,
+      "padding_voxel_count": 810,
+      "padding_ratio": 0.03366023936170213,
+      "valid_voxel_count": 23254,
+      "padding_ms": 1.6048438847064972,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.744361370801926,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04137679934501648,
+      "bind_address_ms": 0.008475035429000854,
+      "execute_ms": 1.5276479721069336,
+      "execute_async_ms": 1.5276479721069336,
+      "synchronize_ms": 3.0135177075862885,
+      "d2h_copy_ms": 0.4146993160247803,
+      "output_wrap_ms": 0.002201646566390991,
+      "forward_ms": 16.50569587945938,
+      "total_runner_ms": 16.50569587945938,
+      "postprocess_ms": 68.49213689565659,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 37,
+      "sample_idx": 37,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22924,
+      "padding_voxel_count": 1140,
+      "padding_ratio": 0.04737367021276596,
+      "valid_voxel_count": 22924,
+      "padding_ms": 1.6583502292633057,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.608261615037918,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04186108708381653,
+      "bind_address_ms": 0.007662922143936157,
+      "execute_ms": 1.5233919620513916,
+      "execute_async_ms": 1.5233919620513916,
+      "synchronize_ms": 3.033064305782318,
+      "d2h_copy_ms": 0.42875856161117554,
+      "output_wrap_ms": 0.002209097146987915,
+      "forward_ms": 16.386140137910843,
+      "total_runner_ms": 16.386140137910843,
+      "postprocess_ms": 80.27683570981026,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 38,
+      "sample_idx": 38,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22875,
+      "padding_voxel_count": 1189,
+      "padding_ratio": 0.049409906914893616,
+      "valid_voxel_count": 22875,
+      "padding_ms": 1.4776363968849182,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.716585606336594,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.05048885941505432,
+      "bind_address_ms": 0.009037554264068604,
+      "execute_ms": 1.5283199548721313,
+      "execute_async_ms": 1.5283199548721313,
+      "synchronize_ms": 2.809174358844757,
+      "d2h_copy_ms": 0.447593629360199,
+      "output_wrap_ms": 0.0021420419216156006,
+      "forward_ms": 16.542207449674606,
+      "total_runner_ms": 16.542207449674606,
+      "postprocess_ms": 80.24827018380165,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 39,
+      "sample_idx": 39,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22907,
+      "padding_voxel_count": 1157,
+      "padding_ratio": 0.04808011968085106,
+      "valid_voxel_count": 22907,
+      "padding_ms": 1.4830008149147034,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.655081063508987,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04246458411216736,
+      "bind_address_ms": 0.008098781108856201,
+      "execute_ms": 1.5234880447387695,
+      "execute_async_ms": 1.5234880447387695,
+      "synchronize_ms": 2.9782243072986603,
+      "d2h_copy_ms": 0.3701895475387573,
+      "output_wrap_ms": 0.0018402934074401855,
+      "forward_ms": 16.308046877384186,
+      "total_runner_ms": 16.308046877384186,
+      "postprocess_ms": 72.45517894625664,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 40,
+      "sample_idx": 40,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23304,
+      "padding_voxel_count": 760,
+      "padding_ratio": 0.03158244680851064,
+      "valid_voxel_count": 23304,
+      "padding_ms": 1.7351657152175903,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.5976482629776,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.038992613554000854,
+      "bind_address_ms": 0.007744878530502319,
+      "execute_ms": 1.5281280279159546,
+      "execute_async_ms": 1.5281280279159546,
+      "synchronize_ms": 3.0792802572250366,
+      "d2h_copy_ms": 0.39664655923843384,
+      "output_wrap_ms": 0.0020526349544525146,
+      "forward_ms": 16.336940228939056,
+      "total_runner_ms": 16.336940228939056,
+      "postprocess_ms": 80.302894115448,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 41,
+      "sample_idx": 41,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22940,
+      "padding_voxel_count": 1124,
+      "padding_ratio": 0.04670877659574468,
+      "valid_voxel_count": 22940,
+      "padding_ms": 1.7156340181827545,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.709343641996384,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04402920603752136,
+      "bind_address_ms": 0.008940696716308594,
+      "execute_ms": 1.5327680110931396,
+      "execute_async_ms": 1.5327680110931396,
+      "synchronize_ms": 3.0639879405498505,
+      "d2h_copy_ms": 0.4492625594139099,
+      "output_wrap_ms": 0.0021010637283325195,
+      "forward_ms": 16.522783786058426,
+      "total_runner_ms": 16.522783786058426,
+      "postprocess_ms": 77.93594151735306,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 42,
+      "sample_idx": 42,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22985,
+      "padding_voxel_count": 1079,
+      "padding_ratio": 0.04483876329787234,
+      "valid_voxel_count": 22985,
+      "padding_ms": 1.5603825449943542,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.738955974578857,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03696605563163757,
+      "bind_address_ms": 0.007711350917816162,
+      "execute_ms": 1.5255039930343628,
+      "execute_async_ms": 1.5255039930343628,
+      "synchronize_ms": 3.023214638233185,
+      "d2h_copy_ms": 0.4050321877002716,
+      "output_wrap_ms": 0.001862645149230957,
+      "forward_ms": 16.40043407678604,
+      "total_runner_ms": 16.40043407678604,
+      "postprocess_ms": 80.35233616828918,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 43,
+      "sample_idx": 43,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23119,
+      "padding_voxel_count": 945,
+      "padding_ratio": 0.039270279255319146,
+      "valid_voxel_count": 23119,
+      "padding_ms": 1.6685090959072113,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.68782263994217,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.0337548553943634,
+      "bind_address_ms": 0.007860362529754639,
+      "execute_ms": 1.5293760299682617,
+      "execute_async_ms": 1.5293760299682617,
+      "synchronize_ms": 3.1099356710910797,
+      "d2h_copy_ms": 0.39521604776382446,
+      "output_wrap_ms": 0.002074986696243286,
+      "forward_ms": 16.388144344091415,
+      "total_runner_ms": 16.388144344091415,
+      "postprocess_ms": 68.22465360164642,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 44,
+      "sample_idx": 44,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23282,
+      "padding_voxel_count": 782,
+      "padding_ratio": 0.0324966755319149,
+      "valid_voxel_count": 23282,
+      "padding_ms": 1.6384609043598175,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.69818639755249,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.03676488995552063,
+      "bind_address_ms": 0.007506459951400757,
+      "execute_ms": 1.5172799825668335,
+      "execute_async_ms": 1.5172799825668335,
+      "synchronize_ms": 3.0358023941516876,
+      "d2h_copy_ms": 0.4223920404911041,
+      "output_wrap_ms": 0.0019744038581848145,
+      "forward_ms": 16.3576677441597,
+      "total_runner_ms": 16.3576677441597,
+      "postprocess_ms": 80.20203933119774,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 45,
+      "sample_idx": 45,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23041,
+      "padding_voxel_count": 1023,
+      "padding_ratio": 0.04251163563829787,
+      "valid_voxel_count": 23041,
+      "padding_ms": 1.6644634306430817,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.64408028125763,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04151463508605957,
+      "bind_address_ms": 0.007916241884231567,
+      "execute_ms": 1.5329920053482056,
+      "execute_async_ms": 1.5329920053482056,
+      "synchronize_ms": 3.025699406862259,
+      "d2h_copy_ms": 0.4713200032711029,
+      "output_wrap_ms": 0.0023730099201202393,
+      "forward_ms": 16.49302989244461,
+      "total_runner_ms": 16.49302989244461,
+      "postprocess_ms": 66.00157171487808,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 46,
+      "sample_idx": 46,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23194,
+      "padding_voxel_count": 870,
+      "padding_ratio": 0.036153590425531915,
+      "valid_voxel_count": 23194,
+      "padding_ms": 1.5551522374153137,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.67021319270134,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04583969712257385,
+      "bind_address_ms": 0.009492039680480957,
+      "execute_ms": 1.5323519706726074,
+      "execute_async_ms": 1.5323519706726074,
+      "synchronize_ms": 3.0070580542087555,
+      "d2h_copy_ms": 0.4051588475704193,
+      "output_wrap_ms": 0.001948326826095581,
+      "forward_ms": 16.385603696107864,
+      "total_runner_ms": 16.385603696107864,
+      "postprocess_ms": 80.45686781406403,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 47,
+      "sample_idx": 47,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 22937,
+      "padding_voxel_count": 1127,
+      "padding_ratio": 0.04683344414893617,
+      "valid_voxel_count": 22937,
+      "padding_ms": 0.37689507007598877,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.08184835314750671,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.043082982301712036,
+      "bind_address_ms": 0.008452683687210083,
+      "execute_ms": 1.6897920370101929,
+      "execute_async_ms": 1.6897920370101929,
+      "synchronize_ms": 0.8909888565540314,
+      "d2h_copy_ms": 0.35978853702545166,
+      "output_wrap_ms": 0.001821666955947876,
+      "forward_ms": 2.670232206583023,
+      "total_runner_ms": 2.670232206583023,
+      "postprocess_ms": 3.5012923181056976,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 48,
+      "sample_idx": 48,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23465,
+      "padding_voxel_count": 599,
+      "padding_ratio": 0.024891954787234043,
+      "valid_voxel_count": 23465,
+      "padding_ms": 1.4509819447994232,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.563997715711594,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04313141107559204,
+      "bind_address_ms": 0.009685754776000977,
+      "execute_ms": 1.524224042892456,
+      "execute_async_ms": 1.524224042892456,
+      "synchronize_ms": 2.9977895319461823,
+      "d2h_copy_ms": 0.45669078826904297,
+      "output_wrap_ms": 0.0022277235984802246,
+      "forward_ms": 16.535334289073944,
+      "total_runner_ms": 16.535334289073944,
+      "postprocess_ms": 80.16740158200264,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    },
+    {
+      "frame_id": 49,
+      "sample_idx": 49,
+      "strategy": "dynamic_agent_single_engine_maxK",
+      "precision": "int8",
+      "calibration_split": "train",
+      "evaluation_split": "val",
+      "calibration_frames": 200,
+      "calibration_eval_overlap": false,
+      "single_engine": true,
+      "engine_count": 1,
+      "record_len": 2,
+      "N_runtime_shape": 2,
+      "fixed_K": 24064,
+      "original_num_voxels": 23367,
+      "padding_voxel_count": 697,
+      "padding_ratio": 0.028964428191489363,
+      "valid_voxel_count": 23367,
+      "padding_ms": 1.6333311796188354,
+      "shape_setup_ms": 0.0,
+      "dtype_cast_ms": 0.0,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 11.64918765425682,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.036172568798065186,
+      "bind_address_ms": 0.007245689630508423,
+      "execute_ms": 1.5311360359191895,
+      "execute_async_ms": 1.5311360359191895,
+      "synchronize_ms": 3.1119994819164276,
+      "d2h_copy_ms": 0.44589489698410034,
+      "output_wrap_ms": 0.0022836029529571533,
+      "forward_ms": 16.404028981924057,
+      "total_runner_ms": 16.404028981924057,
+      "postprocess_ms": 75.7891871035099,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          24064,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          24064,
+          4
+        ],
+        "voxel_num_points": [
+          24064
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          24064
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      },
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine",
+      "no_bucket_router": true,
+      "no_N_engine_router": true,
+      "valid_voxel_mask enabled": true,
+      "pointpillar_scatter_plugin enabled": true
+    }
+  ],
+  "output_names": [
+    "cls_preds",
+    "reg_preds",
+    "dir_preds"
+  ]
+}

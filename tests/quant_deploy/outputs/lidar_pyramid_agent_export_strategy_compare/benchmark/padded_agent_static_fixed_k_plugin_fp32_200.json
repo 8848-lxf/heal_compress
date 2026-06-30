@@ -1,0 +1,84 @@
+{
+  "agent_export_mode": "padded_agent_static_fixed_k_plugin",
+  "precision": "fp32",
+  "num_frames": 200,
+  "actual_frames": 200,
+  "execute_ms": {
+    "mean": 5.158770563602448,
+    "p50": 5.1609601974487305,
+    "p90": 5.21830415725708,
+    "p95": 5.271552085876465,
+    "max": 6.048768043518066
+  },
+  "forward_ms": {
+    "p50": 6.964974105358124,
+    "p90": 7.767707109451294,
+    "p95": 8.325831964612007,
+    "p99": 9.446538984775543,
+    "mean": 7.084973305463791,
+    "max": 10.42122021317482
+  },
+  "total_runner_ms": {
+    "mean": 7.084973305463791,
+    "p50": 6.964974105358124,
+    "p90": 7.767707109451294,
+    "p95": 8.325831964612007,
+    "max": 10.42122021317482
+  },
+  "forward_p50_ms": 6.964974105358124,
+  "execute_p50_ms": 5.1609601974487305,
+  "fps": 143.57555173546223,
+  "record_len_distribution": {
+    "1": 20,
+    "2": 180
+  },
+  "bucket_distribution": {
+    "0": 16,
+    "1": 93,
+    "2": 50,
+    "3": 41
+  },
+  "fixed_k_buckets": [
+    {
+      "bucket_id": 0,
+      "min_voxels": 1,
+      "opt_voxels": 9728,
+      "max_voxels": 9728,
+      "num_frames": 16,
+      "voxel_count_min": 8101,
+      "voxel_count_max": 9594
+    },
+    {
+      "bucket_id": 1,
+      "min_voxels": 9729,
+      "opt_voxels": 23040,
+      "max_voxels": 23040,
+      "num_frames": 87,
+      "voxel_count_min": 19966,
+      "voxel_count_max": 23008
+    },
+    {
+      "bucket_id": 2,
+      "min_voxels": 23041,
+      "opt_voxels": 23552,
+      "max_voxels": 23552,
+      "num_frames": 42,
+      "voxel_count_min": 23041,
+      "voxel_count_max": 23535
+    },
+    {
+      "bucket_id": 3,
+      "min_voxels": 23553,
+      "opt_voxels": 24064,
+      "max_voxels": 24064,
+      "num_frames": 30,
+      "voxel_count_min": 23567,
+      "voxel_count_max": 24040
+    }
+  ],
+  "valid_voxel_mask_enabled": true,
+  "pointpillar_scatter_plugin_enabled": true,
+  "valid_agent_mask_enabled": true,
+  "true_dynamic_agent_dim": false,
+  "per_N_engine_routing": false
+}

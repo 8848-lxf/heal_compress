@@ -1,0 +1,76 @@
+{
+  "engine": "TensorRT FP16",
+  "success": true,
+  "actual_frames": 50,
+  "AP@0.30": 0.527,
+  "AP@0.50": 0.5034,
+  "AP@0.70": 0.4465,
+  "map": 0.4923,
+  "forward_p50_ms": 1.92236,
+  "forward_p90_ms": 3.0033,
+  "forward_p95_ms": 3.63062,
+  "fps": 520.1939282964689,
+  "speedup_vs_pytorch": 8.632618240079902,
+  "speedup_vs_trt_fp32": 2.578809380136915,
+  "ap_drop_vs_pytorch": {
+    "AP@0.30": 0.3452,
+    "AP@0.50": 0.3501,
+    "AP@0.70": 0.3012
+  },
+  "mean_ap_drop_vs_pytorch": 0.3322,
+  "eval_report": {
+    "precision": "fp16",
+    "success": true,
+    "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+    "num_frames": 50,
+    "actual_frames": 50,
+    "skipped_frames": 0,
+    "ap_0_3": 0.527,
+    "ap_0_5": 0.5034,
+    "ap_0_7": 0.4465,
+    "map": 0.4923,
+    "forward_mean_ms": 186.93297009915113,
+    "forward_p50_ms": 181.3863255083561,
+    "forward_p90_ms": 216.3714710623026,
+    "postprocess_mean_ms": 10.981469862163067,
+    "postprocess_p50_ms": 8.762069046497345,
+    "total_mean_ms": 197.9144399613142,
+    "total_p50_ms": 189.90436755120754,
+    "output_names": [
+      "cls_preds",
+      "reg_preds",
+      "dir_preds"
+    ]
+  },
+  "benchmark_report": {
+    "precision": "fp16",
+    "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+    "num_frames": 50,
+    "warmup_frames": 10,
+    "forward_mean_ms": 2.10251,
+    "forward_p50_ms": 1.92236,
+    "forward_p90_ms": 3.0033,
+    "forward_p95_ms": 3.63062,
+    "forward_min_ms": 1.50269,
+    "forward_max_ms": 5.85742,
+    "fps": 520.1939282964689,
+    "engine_size_MB": 30.593425750732422,
+    "latency_scope": "engine_forward_only",
+    "data_loading_time_ms": null,
+    "data_to_gpu_time_ms": null,
+    "forward_time_ms": null,
+    "postprocess_time_ms": null,
+    "total_time_ms": null,
+    "success": true,
+    "error": null,
+    "trtexec": {
+      "trtexec_found": true,
+      "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+      "checked_paths": [
+        "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+      ],
+      "suggestion": null
+    }
+  }
+}

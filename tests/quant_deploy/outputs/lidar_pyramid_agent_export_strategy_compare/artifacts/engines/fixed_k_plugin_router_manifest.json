@@ -1,0 +1,51 @@
+{
+  "note": "fixed-K deployment uses bucket routers; canonical .engine symlinks are representative only, not the whole router.",
+  "padded_agent_static_fixed_k_plugin": {
+    "fp32": [
+      "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket0_fp32.engine",
+      "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket1_fp32.engine",
+      "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket2_fp32.engine",
+      "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp32.engine"
+    ],
+    "fp16": [
+      "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket0_fp16.engine",
+      "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket1_fp16.engine",
+      "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket2_fp16.engine",
+      "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp16.engine"
+    ]
+  },
+  "dynamic_agent_dim_fixed_k_plugin": {
+    "true_dynamic_agent_dim": false,
+    "per_N_engine_routing": true,
+    "engines": {
+      "fp32": {
+        "N1": [
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp32.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp32.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp32.engine"
+        ],
+        "N2": [
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp32.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp32.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp32.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp32.engine"
+        ]
+      },
+      "fp16": {
+        "N1": [
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp16.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp16.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_fp16.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_fp16.engine"
+        ],
+        "N2": [
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_fp16.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp16.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp16.engine",
+          "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp16.engine"
+        ]
+      }
+    }
+  }
+}

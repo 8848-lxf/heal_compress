@@ -1,0 +1,13 @@
+{
+  "implemented": true,
+  "build_success": false,
+  "benchmark_success": false,
+  "engine_path": null,
+  "engine_size_MB": null,
+  "forward_p50_ms": null,
+  "forward_p90_ms": null,
+  "forward_p95_ms": null,
+  "fps": null,
+  "speedup_vs_fp32": null,
+  "error": "skipped because ONNX export failed: hypes_yaml is required and does not exist: /tmp/missing_lidar_pyramid.yaml"
+}

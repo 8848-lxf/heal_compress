@@ -1,0 +1,17 @@
+Align corners:  False
+=========Those modules have trainable component=========
+encoder_m1
+backbone_m1
+pyramid_backbone
+shrink_conv
+cls_head
+reg_head
+dir_head
+
+=========Those modules have untrainable component=========
+
+
+/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/exportable_lidar_pyramid_dynamic_single_engine_maxk.py:41: TracerWarning: Converting a tensor to a Python integer might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  num_agents = int(pairwise_t_matrix.shape[1])
+/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/exportable_lidar_pyramid_dynamic_single_engine_maxk.py:47: TracerWarning: Converting a tensor to a Python integer might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  num_bev_features=int(pillar_features.shape[1]),

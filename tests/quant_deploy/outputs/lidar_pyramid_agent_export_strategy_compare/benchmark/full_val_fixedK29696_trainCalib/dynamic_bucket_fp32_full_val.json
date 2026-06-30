@@ -1,0 +1,55 @@
+{
+  "scheme": "dynamic_agent_dim",
+  "engine_strategy": "dynamic_agent_dim_bucket_fixed_k_plugin",
+  "precision": "fp32",
+  "calibration_mode": null,
+  "calibration_split": null,
+  "evaluation_split": "val",
+  "full_val": true,
+  "status": "success",
+  "total_val_samples": 1789,
+  "evaluated_samples": 1789,
+  "skipped_samples": [],
+  "skipped_ratio": 0.0,
+  "skip_reasons": {},
+  "AP@0.30": 0.8263,
+  "AP@0.50": 0.7817,
+  "AP@0.70": 0.6026,
+  "mAP": 0.7369,
+  "execute_ms": {
+    "p50": 4.994880199432373,
+    "p90": 5.216256141662598,
+    "p95": 5.222271919250488,
+    "p99": 5.239808082580566,
+    "mean": 4.946846708731169,
+    "max": 7.740416049957275
+  },
+  "forward_ms": {
+    "p50": 6.140599027276039,
+    "p90": 6.368055939674377,
+    "p95": 6.427185609936714,
+    "p99": 6.735263392329216,
+    "mean": 6.086650278699337,
+    "max": 20.738273859024048
+  },
+  "total_runner_ms": {
+    "p50": 6.140599027276039,
+    "p90": 6.368055939674377,
+    "p95": 6.427185609936714,
+    "p99": 6.735263392329216,
+    "mean": 6.086650278699337,
+    "max": 20.738273859024048
+  },
+  "FPS": 162.85056157519514,
+  "engine_count": 5,
+  "engine_paths": [
+    "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_fp32.engine",
+    "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.engine",
+    "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp32.engine",
+    "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_fp32.engine",
+    "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_fp32.engine"
+  ],
+  "selected_gpu": 5,
+  "gpu_contention_detected": false,
+  "unreliable_latency": false
+}

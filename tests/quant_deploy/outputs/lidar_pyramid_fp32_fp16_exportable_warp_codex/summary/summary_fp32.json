@@ -1,0 +1,13 @@
+{
+  "implemented": true,
+  "build_success": false,
+  "benchmark_success": false,
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp_codex/artifacts/engines/fp32/lidar_pyramid_fp32.engine",
+  "engine_size_MB": null,
+  "forward_p50_ms": null,
+  "forward_p90_ms": null,
+  "forward_p95_ms": null,
+  "fps": null,
+  "speedup_vs_fp32": null,
+  "error": "Cuda failure at /_src/samples/common/safeCommon.h:287: no CUDA-capable device is detected"
+}

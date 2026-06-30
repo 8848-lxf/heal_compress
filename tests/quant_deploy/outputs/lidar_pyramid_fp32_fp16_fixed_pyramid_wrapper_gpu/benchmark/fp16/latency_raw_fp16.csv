@@ -1,0 +1,2 @@
+precision,latency_scope,forward_mean_ms,forward_p50_ms,forward_p90_ms,forward_p95_ms,source
+fp16,engine_forward_only,1.33814,1.3374,1.34204,1.34357,trtexec_summary

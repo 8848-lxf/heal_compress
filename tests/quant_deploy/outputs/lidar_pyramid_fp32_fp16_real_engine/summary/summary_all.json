@@ -1,0 +1,1860 @@
+{
+  "model": "lidar_pyramid",
+  "checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+  "hypes_yaml": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml",
+  "output_root": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine",
+  "dirs": {
+    "configs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/configs",
+    "onnx": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/onnx",
+    "engines": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines",
+    "calibration": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/calibration",
+    "benchmark": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/benchmark",
+    "evaluation": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/evaluation",
+    "logs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/logs",
+    "summary": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/summary",
+    "debug": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug"
+  },
+  "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/onnx/fp32/lidar_pyramid_fp32_dynamic.onnx",
+  "pyramid_forward_export_mode": "fixed_static",
+  "export_forward_mode": "fixed_static",
+  "is_export_specialized_wrapper": true,
+  "is_original_forward": false,
+  "num_pyramid_scales": 3,
+  "sequence_ops_removed": true,
+  "wrapper_equivalence_num_frames": 50,
+  "wrapper_equivalence_max_abs_error": 0.0,
+  "wrapper_equivalence_mean_abs_error": 0.0,
+  "trt_fp32_vs_pytorch_error": {
+    "success": true,
+    "max_abs_error": 0.011945724487304688,
+    "mean_abs_error": 0.0007648059947200636,
+    "relative_error": 0.0008250186801715633
+  },
+  "trt_fp16_vs_pytorch_error": {
+    "success": true,
+    "max_abs_error": 0.10426950454711914,
+    "mean_abs_error": 0.007969814216181703,
+    "relative_error": 0.009384643321528111
+  },
+  "fixed_pyramid_wrapper_source": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/pyramid-trt/export_dynamic_onnx.py",
+  "wrapper_equivalence": {
+    "num_frames": 50,
+    "output_names": [
+      "cls_preds",
+      "reg_preds",
+      "dir_preds"
+    ],
+    "outputs": {
+      "cls_preds": {
+        "max_abs_error": 0.0,
+        "mean_abs_error": 0.0,
+        "relative_error": 0.0,
+        "numel": 3276800,
+        "shape_mismatches": []
+      },
+      "reg_preds": {
+        "max_abs_error": 0.0,
+        "mean_abs_error": 0.0,
+        "relative_error": 0.0,
+        "numel": 22937600,
+        "shape_mismatches": []
+      },
+      "dir_preds": {
+        "max_abs_error": 0.0,
+        "mean_abs_error": 0.0,
+        "relative_error": 0.0,
+        "numel": 6553600,
+        "shape_mismatches": []
+      }
+    },
+    "by_record_len": {
+      "1": {
+        "record_len": 1,
+        "agent_count": 1,
+        "num_frames": 14,
+        "outputs": {
+          "cls_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 917504,
+            "shape_mismatches": []
+          },
+          "reg_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 6422528,
+            "shape_mismatches": []
+          },
+          "dir_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 1835008,
+            "shape_mismatches": []
+          }
+        }
+      },
+      "2": {
+        "record_len": 2,
+        "agent_count": 2,
+        "num_frames": 36,
+        "outputs": {
+          "cls_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 2359296,
+            "shape_mismatches": []
+          },
+          "reg_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 16515072,
+            "shape_mismatches": []
+          },
+          "dir_preds": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 4718592,
+            "shape_mismatches": []
+          }
+        }
+      }
+    },
+    "success": true,
+    "comparison": "original_pytorch_forward_vs_fixed_static_wrapper",
+    "device": "cuda:0"
+  },
+  "trt_output_equivalence": {
+    "success": true,
+    "output_names": [
+      "cls_preds",
+      "reg_preds",
+      "dir_preds"
+    ],
+    "comparisons": {
+      "onnxruntime_fp32_vs_pytorch": {
+        "num_frames": 1,
+        "output_names": [
+          "cls_preds",
+          "reg_preds",
+          "dir_preds"
+        ],
+        "outputs": {
+          "cls_preds": {
+            "max_abs_error": 0.015562057495117188,
+            "mean_abs_error": 0.0009311938069913595,
+            "relative_error": 0.00016980258116114396,
+            "numel": 65536,
+            "shape_mismatches": []
+          },
+          "reg_preds": {
+            "max_abs_error": 0.003531217575073242,
+            "mean_abs_error": 0.00013000031403390518,
+            "relative_error": 0.0008733883265732582,
+            "numel": 458752,
+            "shape_mismatches": []
+          },
+          "dir_preds": {
+            "max_abs_error": 0.0068926215171813965,
+            "mean_abs_error": 0.00053079378940879,
+            "relative_error": 0.0010532694860767298,
+            "numel": 131072,
+            "shape_mismatches": []
+          }
+        },
+        "by_record_len": {
+          "0": {
+            "record_len": 0,
+            "agent_count": 0,
+            "num_frames": 1,
+            "outputs": {
+              "cls_preds": {
+                "max_abs_error": 0.015562057495117188,
+                "mean_abs_error": 0.0009311938069913595,
+                "relative_error": 0.00016980258116114396,
+                "numel": 65536,
+                "shape_mismatches": []
+              },
+              "reg_preds": {
+                "max_abs_error": 0.003531217575073242,
+                "mean_abs_error": 0.00013000031403390518,
+                "relative_error": 0.0008733883265732582,
+                "numel": 458752,
+                "shape_mismatches": []
+              },
+              "dir_preds": {
+                "max_abs_error": 0.0068926215171813965,
+                "mean_abs_error": 0.00053079378940879,
+                "relative_error": 0.0010532694860767298,
+                "numel": 131072,
+                "shape_mismatches": []
+              }
+            }
+          }
+        },
+        "success": true,
+        "comparison": "onnxruntime_fp32_vs_pytorch"
+      },
+      "trt_fp32_vs_pytorch": {
+        "num_frames": 1,
+        "output_names": [
+          "cls_preds",
+          "reg_preds",
+          "dir_preds"
+        ],
+        "outputs": {
+          "cls_preds": {
+            "max_abs_error": 0.011945724487304688,
+            "mean_abs_error": 0.0007648059947200636,
+            "relative_error": 0.0001394618725081234,
+            "numel": 65536,
+            "shape_mismatches": []
+          },
+          "reg_preds": {
+            "max_abs_error": 0.0028046369552612305,
+            "mean_abs_error": 0.0001207476320498811,
+            "relative_error": 0.0008112255195493177,
+            "numel": 458752,
+            "shape_mismatches": []
+          },
+          "dir_preds": {
+            "max_abs_error": 0.006822645664215088,
+            "mean_abs_error": 0.00041576709224955266,
+            "relative_error": 0.0008250186801715633,
+            "numel": 131072,
+            "shape_mismatches": []
+          }
+        },
+        "by_record_len": {
+          "0": {
+            "record_len": 0,
+            "agent_count": 0,
+            "num_frames": 1,
+            "outputs": {
+              "cls_preds": {
+                "max_abs_error": 0.011945724487304688,
+                "mean_abs_error": 0.0007648059947200636,
+                "relative_error": 0.0001394618725081234,
+                "numel": 65536,
+                "shape_mismatches": []
+              },
+              "reg_preds": {
+                "max_abs_error": 0.0028046369552612305,
+                "mean_abs_error": 0.0001207476320498811,
+                "relative_error": 0.0008112255195493177,
+                "numel": 458752,
+                "shape_mismatches": []
+              },
+              "dir_preds": {
+                "max_abs_error": 0.006822645664215088,
+                "mean_abs_error": 0.00041576709224955266,
+                "relative_error": 0.0008250186801715633,
+                "numel": 131072,
+                "shape_mismatches": []
+              }
+            }
+          }
+        },
+        "success": true,
+        "comparison": "trt_fp32_vs_pytorch"
+      },
+      "trt_fp16_vs_pytorch": {
+        "num_frames": 1,
+        "output_names": [
+          "cls_preds",
+          "reg_preds",
+          "dir_preds"
+        ],
+        "outputs": {
+          "cls_preds": {
+            "max_abs_error": 0.10426950454711914,
+            "mean_abs_error": 0.007969814216181703,
+            "relative_error": 0.0014532904054150241,
+            "numel": 65536,
+            "shape_mismatches": []
+          },
+          "reg_preds": {
+            "max_abs_error": 0.03503608703613281,
+            "mean_abs_error": 0.0011198120173009838,
+            "relative_error": 0.007523295240748819,
+            "numel": 458752,
+            "shape_mismatches": []
+          },
+          "dir_preds": {
+            "max_abs_error": 0.08861923217773438,
+            "mean_abs_error": 0.004729378812101004,
+            "relative_error": 0.009384643321528111,
+            "numel": 131072,
+            "shape_mismatches": []
+          }
+        },
+        "by_record_len": {
+          "0": {
+            "record_len": 0,
+            "agent_count": 0,
+            "num_frames": 1,
+            "outputs": {
+              "cls_preds": {
+                "max_abs_error": 0.10426950454711914,
+                "mean_abs_error": 0.007969814216181703,
+                "relative_error": 0.0014532904054150241,
+                "numel": 65536,
+                "shape_mismatches": []
+              },
+              "reg_preds": {
+                "max_abs_error": 0.03503608703613281,
+                "mean_abs_error": 0.0011198120173009838,
+                "relative_error": 0.007523295240748819,
+                "numel": 458752,
+                "shape_mismatches": []
+              },
+              "dir_preds": {
+                "max_abs_error": 0.08861923217773438,
+                "mean_abs_error": 0.004729378812101004,
+                "relative_error": 0.009384643321528111,
+                "numel": 131072,
+                "shape_mismatches": []
+              }
+            }
+          }
+        },
+        "success": true,
+        "comparison": "trt_fp16_vs_pytorch"
+      }
+    }
+  },
+  "onnx_export": {
+    "success": true,
+    "error": null,
+    "export_boundary": "full_model",
+    "opset": 17,
+    "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/onnx/fp32/lidar_pyramid_fp32_dynamic.onnx",
+    "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/logs/export/export_onnx.log",
+    "sample_source": "real_validation_or_test_sample",
+    "detected_special_ops": {
+      "GridSample": [
+        {
+          "name": "/GridSample",
+          "op_type": "GridSample",
+          "domain": "",
+          "outputs": [
+            "/GridSample_output_0"
+          ]
+        },
+        {
+          "name": "/GridSample_1",
+          "op_type": "GridSample",
+          "domain": "",
+          "outputs": [
+            "/GridSample_1_output_0"
+          ]
+        },
+        {
+          "name": "/GridSample_2",
+          "op_type": "GridSample",
+          "domain": "",
+          "outputs": [
+            "/GridSample_2_output_0"
+          ]
+        },
+        {
+          "name": "/GridSample_3",
+          "op_type": "GridSample",
+          "domain": "",
+          "outputs": [
+            "/GridSample_3_output_0"
+          ]
+        },
+        {
+          "name": "/GridSample_4",
+          "op_type": "GridSample",
+          "domain": "",
+          "outputs": [
+            "/GridSample_4_output_0"
+          ]
+        },
+        {
+          "name": "/GridSample_5",
+          "op_type": "GridSample",
+          "domain": "",
+          "outputs": [
+            "/GridSample_5_output_0"
+          ]
+        }
+      ],
+      "AffineGrid": [],
+      "Scatter": [
+        {
+          "name": "/encoder_m1/pillar_vfe/ScatterND",
+          "op_type": "ScatterND",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/ScatterND_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/ScatterND_1",
+          "op_type": "ScatterND",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/ScatterND_1_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/ScatterND_2",
+          "op_type": "ScatterND",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/ScatterND_2_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/scatter/ScatterND",
+          "op_type": "ScatterND",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/scatter/ScatterND_output_0"
+          ]
+        }
+      ],
+      "Gather": [
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather_1",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_1_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather_2",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_2_output_0"
+          ]
+        },
+        {
+          "name": "Gather_205",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "onnx::Cast_424"
+          ]
+        },
+        {
+          "name": "Gather_212",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "onnx::Cast_431"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather_3",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_3_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather_4",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_4_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather_5",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_5_output_0"
+          ]
+        },
+        {
+          "name": "Gather_277",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "onnx::Cast_496"
+          ]
+        },
+        {
+          "name": "Gather_284",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "onnx::Cast_503"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather_6",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_6_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather_7",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_7_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather_8",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_8_output_0"
+          ]
+        },
+        {
+          "name": "Gather_349",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "onnx::Cast_568"
+          ]
+        },
+        {
+          "name": "Gather_356",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "onnx::Cast_575"
+          ]
+        },
+        {
+          "name": "/encoder_m1/pillar_vfe/Gather_9",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Gather_9_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/scatter/Gather",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/scatter/Gather_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/scatter/GatherND",
+          "op_type": "GatherND",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/scatter/GatherND_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/scatter/Gather_1",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/scatter/Gather_1_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/scatter/Gather_2",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/scatter/Gather_2_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/scatter/Gather_3",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/scatter/Gather_3_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/scatter/GatherND_1",
+          "op_type": "GatherND",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/scatter/GatherND_1_output_0"
+          ]
+        },
+        {
+          "name": "/Gather",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_1",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_1_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_2",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_2_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_3",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_3_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_4",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_4_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_5",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_5_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_6",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_6_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_7",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_7_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_8",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_8_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_9",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_9_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_10",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_10_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_11",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_11_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_12",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_12_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_13",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_13_output_0"
+          ]
+        },
+        {
+          "name": "/Gather_14",
+          "op_type": "Gather",
+          "domain": "",
+          "outputs": [
+            "/Gather_14_output_0"
+          ]
+        }
+      ],
+      "NonZero": [
+        {
+          "name": "/encoder_m1/scatter/NonZero",
+          "op_type": "NonZero",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/scatter/NonZero_output_0"
+          ]
+        },
+        {
+          "name": "/encoder_m1/scatter/NonZero_1",
+          "op_type": "NonZero",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/scatter/NonZero_1_output_0"
+          ]
+        }
+      ],
+      "Squeeze": [
+        {
+          "name": "/encoder_m1/pillar_vfe/Squeeze",
+          "op_type": "Squeeze",
+          "domain": "",
+          "outputs": [
+            "/encoder_m1/pillar_vfe/Squeeze_output_0"
+          ],
+          "inputs": [
+            "/encoder_m1/pillar_vfe/pfn_layers.0/ReduceMax_output_0",
+            "/encoder_m1/pillar_vfe/Constant_54_output_0"
+          ],
+          "has_axes_input": true,
+          "has_axes_attribute": false
+        }
+      ],
+      "Squeeze_without_axes": [],
+      "SequenceEmpty": [],
+      "SequenceInsert": [],
+      "SequenceAt": [],
+      "Sequence": [],
+      "sequence_op_count": 0,
+      "Inverse": [],
+      "aten_ops": [],
+      "org_pytorch_ops": [],
+      "unsupported_ops": []
+    },
+    "bev_warp_export_mode": "exportable_grid",
+    "bev_warp_equivalence": {
+      "max_abs_error": 1.430511474609375e-06,
+      "mean_abs_error": 1.4796063396715908e-07,
+      "relative_error": 3.252988654370225e-07,
+      "align_corners": false,
+      "H": 6,
+      "W": 8,
+      "N": 2,
+      "C": 3
+    },
+    "pillar_vfe_export_fix": "explicit_squeeze",
+    "pillar_vfe_export_fix_report": {
+      "same_shape": true,
+      "original_shape": [
+        8578,
+        64
+      ],
+      "patched_shape": [
+        8578,
+        64
+      ],
+      "max_abs_error": 0.0,
+      "mean_abs_error": 0.0,
+      "relative_error": 0.0
+    },
+    "pyramid_forward_export_mode": "fixed_static",
+    "fixed_pyramid_wrapper_source": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/pyramid-trt/export_dynamic_onnx.py",
+    "fixed_pyramid_forward_report": {
+      "wrapper_source": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/pyramid-trt/export_dynamic_onnx.py",
+      "same_shape": true,
+      "outputs": {
+        "cls_preds": {
+          "reference_shape": [
+            1,
+            2,
+            128,
+            256
+          ],
+          "fixed_shape": [
+            1,
+            2,
+            128,
+            256
+          ],
+          "max_abs_error": 0.0,
+          "mean_abs_error": 0.0,
+          "relative_error": 0.0
+        },
+        "reg_preds": {
+          "reference_shape": [
+            1,
+            14,
+            128,
+            256
+          ],
+          "fixed_shape": [
+            1,
+            14,
+            128,
+            256
+          ],
+          "max_abs_error": 0.0,
+          "mean_abs_error": 0.0,
+          "relative_error": 0.0
+        },
+        "dir_preds": {
+          "reference_shape": [
+            1,
+            4,
+            128,
+            256
+          ],
+          "fixed_shape": [
+            1,
+            4,
+            128,
+            256
+          ],
+          "max_abs_error": 0.0,
+          "mean_abs_error": 0.0,
+          "relative_error": 0.0
+        }
+      }
+    },
+    "env_report": {
+      "python_executable": "/home/lixingfeng/anaconda3/envs/modelopt/bin/python",
+      "conda_prefix": "/home/lixingfeng/anaconda3/envs/modelopt",
+      "TRT_ROOT": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+      "LD_LIBRARY_PATH": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib64:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:",
+      "CUDA_VISIBLE_DEVICES": null,
+      "torch_available": true,
+      "torch_version": "2.4.0+cu118",
+      "cuda_available": false,
+      "cuda_device_count": 0,
+      "gpu_names": [],
+      "tensorrt_available": true,
+      "tensorrt_version": "10.9.0.34",
+      "modelopt_available": false,
+      "modelopt_error": "ModuleNotFoundError(\"No module named 'modelopt'\")",
+      "modelopt_version": null,
+      "trtexec": {
+        "trtexec_found": true,
+        "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+        "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+        "checked_paths": [
+          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+        ],
+        "suggestion": null
+      },
+      "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+    }
+  },
+  "precisions": {
+    "fp32": {
+      "implemented": true,
+      "build_success": true,
+      "benchmark_success": true,
+      "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp32/lidar_pyramid_fp32.engine",
+      "engine_size_MB": 62.83784103393555,
+      "forward_p50_ms": 4.9574,
+      "forward_p90_ms": 7.18579,
+      "forward_p95_ms": 8.12378,
+      "fps": 201.71864283697101,
+      "speedup_vs_fp32": 1.0,
+      "ap_0_3": 0.5294,
+      "ap_0_5": 0.5058,
+      "ap_0_7": 0.4492,
+      "map": 0.4948,
+      "error": null,
+      "reevaluated_after_dtype_fix": true,
+      "actual_frames": 50,
+      "ap_drop_vs_pytorch": {
+        "AP@0.30": 0.3428,
+        "AP@0.50": 0.3477,
+        "AP@0.70": 0.2985
+      },
+      "mean_ap_drop_vs_pytorch": 0.3297,
+      "speedup_vs_pytorch": 3.3475208778795333,
+      "speedup_vs_trt_fp32": 1.0,
+      "previous_trt_ap_zero_invalidated": true,
+      "invalid_reason": "pairwise_t_matrix dtype binding mismatch"
+    },
+    "fp16": {
+      "implemented": true,
+      "build_success": true,
+      "benchmark_success": true,
+      "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+      "engine_size_MB": 30.593425750732422,
+      "forward_p50_ms": 1.92236,
+      "forward_p90_ms": 3.0033,
+      "forward_p95_ms": 3.63062,
+      "fps": 520.1939282964689,
+      "speedup_vs_fp32": 2.578809380136915,
+      "ap_0_3": 0.527,
+      "ap_0_5": 0.5034,
+      "ap_0_7": 0.4465,
+      "map": 0.4923,
+      "error": null,
+      "reevaluated_after_dtype_fix": true,
+      "actual_frames": 50,
+      "ap_drop_vs_pytorch": {
+        "AP@0.30": 0.3452,
+        "AP@0.50": 0.3501,
+        "AP@0.70": 0.3012
+      },
+      "mean_ap_drop_vs_pytorch": 0.3322,
+      "speedup_vs_pytorch": 8.632618240079902,
+      "speedup_vs_trt_fp32": 2.578809380136915,
+      "previous_trt_ap_zero_invalidated": true,
+      "invalid_reason": "pairwise_t_matrix dtype binding mismatch"
+    },
+    "int8": {
+      "implemented": true,
+      "build_success": true,
+      "benchmark_success": true,
+      "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/int8/lidar_pyramid_int8_native.engine",
+      "engine_size_MB": 42.756229400634766,
+      "forward_p50_ms": 1.24921,
+      "forward_p90_ms": 3.46021,
+      "forward_p95_ms": 7.0616,
+      "fps": 800.5059197412766,
+      "speedup_vs_fp32": 2.827643070420506,
+      "ap_0_3": 0.0,
+      "ap_0_5": 0.0,
+      "ap_0_7": 0.0,
+      "map": 0.0,
+      "error": "not reevaluated in this run; previous AP=0 invalidated by dtype binding bug",
+      "reevaluated_after_dtype_fix": false,
+      "ap_invalidated": true,
+      "invalid_reason": "pairwise_t_matrix dtype binding mismatch"
+    }
+  },
+  "pytorch_baseline_50": {
+    "total_frames": 1789,
+    "actual_frames": 50,
+    "skipped_frames": 0,
+    "AP@0.03": 0.9111,
+    "AP@0.30": 0.8722,
+    "AP@0.50": 0.8535,
+    "AP@0.70": 0.7476,
+    "total_time_mean_ms": 53.272,
+    "total_time_p50_ms": 20.249,
+    "forward_time_mean_ms": 44.077,
+    "forward_time_p50_ms": 13.687,
+    "postprocess_time_mean_ms": 9.195,
+    "postprocess_time_p50_ms": 7.134,
+    "model_name": "lidar_pyramid",
+    "checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+    "param_count": 5464791,
+    "param_size_mb": 20.85
+  },
+  "evaluation_metrics": {
+    "fp32": {
+      "precision": "fp32",
+      "success": true,
+      "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp32/lidar_pyramid_fp32.engine",
+      "num_frames": 50,
+      "actual_frames": 50,
+      "skipped_frames": 0,
+      "ap_0_3": 0.0,
+      "ap_0_5": 0.0,
+      "ap_0_7": 0.0,
+      "map": 0.0,
+      "forward_mean_ms": 192.43747394531965,
+      "forward_p50_ms": 182.63446353375912,
+      "forward_p90_ms": 230.2551120519638,
+      "postprocess_mean_ms": 11.823915876448154,
+      "postprocess_p50_ms": 5.806613713502884,
+      "total_mean_ms": 204.2613898217678,
+      "total_p50_ms": 190.53635001182556,
+      "output_names": [
+        "cls_preds",
+        "reg_preds",
+        "dir_preds"
+      ]
+    },
+    "fp16": {
+      "precision": "fp16",
+      "success": true,
+      "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+      "num_frames": 50,
+      "actual_frames": 50,
+      "skipped_frames": 0,
+      "ap_0_3": 0.0,
+      "ap_0_5": 0.0,
+      "ap_0_7": 0.0,
+      "map": 0.0,
+      "forward_mean_ms": 199.6578550338745,
+      "forward_p50_ms": 192.9128896445036,
+      "forward_p90_ms": 227.06075385212898,
+      "postprocess_mean_ms": 8.080088011920452,
+      "postprocess_p50_ms": 5.462076514959335,
+      "total_mean_ms": 207.73794304579496,
+      "total_p50_ms": 198.27251695096493,
+      "output_names": [
+        "cls_preds",
+        "reg_preds",
+        "dir_preds"
+      ]
+    },
+    "int8": {
+      "precision": "int8",
+      "success": true,
+      "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/int8/lidar_pyramid_int8.engine",
+      "num_frames": 50,
+      "actual_frames": 50,
+      "skipped_frames": 0,
+      "ap_0_3": 0.0,
+      "ap_0_5": 0.0,
+      "ap_0_7": 0.0,
+      "map": 0.0,
+      "forward_mean_ms": 192.23450485616922,
+      "forward_p50_ms": 180.07712438702583,
+      "forward_p90_ms": 230.9244740754366,
+      "postprocess_mean_ms": 9.038933590054512,
+      "postprocess_p50_ms": 4.799507558345795,
+      "total_mean_ms": 201.27343844622374,
+      "total_p50_ms": 190.8231768757105,
+      "output_names": [
+        "cls_preds",
+        "reg_preds",
+        "dir_preds"
+      ]
+    }
+  },
+  "detected_special_ops": {
+    "GridSample": [
+      {
+        "name": "/GridSample",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_1",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_1_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_2",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_2_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_3",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_3_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_4",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_4_output_0"
+        ]
+      },
+      {
+        "name": "/GridSample_5",
+        "op_type": "GridSample",
+        "domain": "",
+        "outputs": [
+          "/GridSample_5_output_0"
+        ]
+      }
+    ],
+    "AffineGrid": [],
+    "Scatter": [
+      {
+        "name": "/encoder_m1/pillar_vfe/ScatterND",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/ScatterND_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/ScatterND_1",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/ScatterND_1_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/ScatterND_2",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/ScatterND_2_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/scatter/ScatterND",
+        "op_type": "ScatterND",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/scatter/ScatterND_output_0"
+        ]
+      }
+    ],
+    "Gather": [
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather_1",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_1_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather_2",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_2_output_0"
+        ]
+      },
+      {
+        "name": "Gather_205",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_424"
+        ]
+      },
+      {
+        "name": "Gather_212",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_431"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather_3",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_3_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather_4",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_4_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather_5",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_5_output_0"
+        ]
+      },
+      {
+        "name": "Gather_277",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_496"
+        ]
+      },
+      {
+        "name": "Gather_284",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_503"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather_6",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_6_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather_7",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_7_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather_8",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_8_output_0"
+        ]
+      },
+      {
+        "name": "Gather_349",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_568"
+        ]
+      },
+      {
+        "name": "Gather_356",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "onnx::Cast_575"
+        ]
+      },
+      {
+        "name": "/encoder_m1/pillar_vfe/Gather_9",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Gather_9_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/scatter/Gather",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/scatter/Gather_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/scatter/GatherND",
+        "op_type": "GatherND",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/scatter/GatherND_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/scatter/Gather_1",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/scatter/Gather_1_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/scatter/Gather_2",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/scatter/Gather_2_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/scatter/Gather_3",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/scatter/Gather_3_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/scatter/GatherND_1",
+        "op_type": "GatherND",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/scatter/GatherND_1_output_0"
+        ]
+      },
+      {
+        "name": "/Gather",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_1",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_1_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_2",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_2_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_3",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_3_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_4",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_4_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_5",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_5_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_6",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_6_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_7",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_7_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_8",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_8_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_9",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_9_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_10",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_10_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_11",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_11_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_12",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_12_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_13",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_13_output_0"
+        ]
+      },
+      {
+        "name": "/Gather_14",
+        "op_type": "Gather",
+        "domain": "",
+        "outputs": [
+          "/Gather_14_output_0"
+        ]
+      }
+    ],
+    "NonZero": [
+      {
+        "name": "/encoder_m1/scatter/NonZero",
+        "op_type": "NonZero",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/scatter/NonZero_output_0"
+        ]
+      },
+      {
+        "name": "/encoder_m1/scatter/NonZero_1",
+        "op_type": "NonZero",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/scatter/NonZero_1_output_0"
+        ]
+      }
+    ],
+    "Squeeze": [
+      {
+        "name": "/encoder_m1/pillar_vfe/Squeeze",
+        "op_type": "Squeeze",
+        "domain": "",
+        "outputs": [
+          "/encoder_m1/pillar_vfe/Squeeze_output_0"
+        ],
+        "inputs": [
+          "/encoder_m1/pillar_vfe/pfn_layers.0/ReduceMax_output_0",
+          "/encoder_m1/pillar_vfe/Constant_54_output_0"
+        ],
+        "has_axes_input": true,
+        "has_axes_attribute": false
+      }
+    ],
+    "Squeeze_without_axes": [],
+    "SequenceEmpty": [],
+    "SequenceInsert": [],
+    "SequenceAt": [],
+    "Sequence": [],
+    "sequence_op_count": 0,
+    "Inverse": [],
+    "aten_ops": [],
+    "org_pytorch_ops": [],
+    "unsupported_ops": []
+  },
+  "env_report": {
+    "python_executable": "/home/lixingfeng/anaconda3/envs/modelopt/bin/python",
+    "conda_prefix": "/home/lixingfeng/anaconda3/envs/modelopt",
+    "TRT_ROOT": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+    "LD_LIBRARY_PATH": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib64:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:",
+    "CUDA_VISIBLE_DEVICES": null,
+    "torch_available": true,
+    "torch_version": "2.4.0+cu118",
+    "cuda_available": true,
+    "cuda_device_count": 8,
+    "gpu_names": [
+      "NVIDIA GeForce RTX 4090",
+      "NVIDIA GeForce RTX 4090",
+      "NVIDIA GeForce RTX 4090",
+      "NVIDIA GeForce RTX 4090",
+      "NVIDIA GeForce RTX 4090",
+      "NVIDIA GeForce RTX 4090",
+      "NVIDIA GeForce RTX 4090",
+      "NVIDIA GeForce RTX 4090"
+    ],
+    "tensorrt_available": true,
+    "tensorrt_version": "10.9.0.34",
+    "modelopt_available": false,
+    "modelopt_error": "ModuleNotFoundError(\"No module named 'modelopt'\")",
+    "modelopt_version": null,
+    "trtexec": {
+      "trtexec_found": true,
+      "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+      "checked_paths": [
+        "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+      ],
+      "suggestion": null
+    },
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+  },
+  "bev_warp_export_mode": "exportable_grid",
+  "pillar_vfe_export_fix": "explicit_squeeze",
+  "deployment_acceptance": {
+    "status": "failed_equivalence",
+    "reason": "ONNXRuntime FP32 closely matches PyTorch wrapper, but TensorRT FP32/FP16 outputs diverge and TRT AP is 0.0 on 50-frame evaluation.",
+    "scatternd_warning": "non_causal_warning",
+    "next_debug_steps": [
+      "check TensorRT name-based IO and output order",
+      "compare GridSample behavior",
+      "isolate TensorRT ScatterND semantics with the exported subgraph"
+    ]
+  },
+  "scatternd_duplicate_indices": false,
+  "scatternd_warning_causal_assessment": "non_causal_warning",
+  "plugin_needed": false,
+  "plugin_needed_reason": "First mismatch stage is BEV warp grid construction, which does not map to an existing camera plugin recommendation.",
+  "need_bevwarp_plugin": false,
+  "need_bevpool_plugin": false,
+  "need_inverse_plugin": false,
+  "need_pointpillar_scatter_plugin": false,
+  "first_mismatch_stage": "BEV warp grid construction",
+  "io_mapping_bug_found": false,
+  "gridsample_trt_equivalent": true,
+  "scatternd_trt_equivalent": true,
+  "recommended_plugin": null,
+  "bev_warp_grid_first_bad_tensor": "/Gather_output_0",
+  "bev_warp_grid_first_bad_node": "/Gather",
+  "bev_warp_grid_first_bad_op_type": "Gather",
+  "bev_warp_grid_suspected_reason": "TensorRT converted ONNX input dtype(s) to engine dtype(s), but runtime feeds used original dtype(s): pairwise_t_matrix. Binding buffers with the engine dtype makes ORT and TRT align, so this is a runtime dtype binding bug, not a plugin issue.",
+  "trt_dtype_binding_mismatch_found": true,
+  "trt_dtype_binding_mismatched_inputs": [
+    "pairwise_t_matrix"
+  ],
+  "trt_engine_cast_first_bad_tensor": null,
+  "previous_trt_ap_zero_invalidated": true,
+  "invalid_reason": "pairwise_t_matrix dtype binding mismatch",
+  "fixed_trt_eval_summary": {
+    "pytorch": {
+      "engine": "PyTorch",
+      "success": true,
+      "actual_frames": 50,
+      "AP@0.30": 0.8722,
+      "AP@0.50": 0.8535,
+      "AP@0.70": 0.7477,
+      "map": 0.8245,
+      "forward_p50_ms": 16.595,
+      "forward_p90_ms": null,
+      "forward_p95_ms": null,
+      "fps": 60.259114191021396,
+      "speedup_vs_pytorch": 1.0,
+      "speedup_vs_trt_fp32": null,
+      "ap_drop_vs_pytorch": {
+        "AP@0.30": 0.0,
+        "AP@0.50": 0.0,
+        "AP@0.70": 0.0
+      },
+      "mean_ap_drop_vs_pytorch": 0.0,
+      "eval_report": {
+        "total_frames": 1789,
+        "actual_frames": 50,
+        "skipped_frames": 0,
+        "AP@0.03": 0.9111,
+        "AP@0.30": 0.8722,
+        "AP@0.50": 0.8535,
+        "AP@0.70": 0.7477,
+        "total_time_mean_ms": 51.215,
+        "total_time_p50_ms": 26.283,
+        "forward_time_mean_ms": 37.967,
+        "forward_time_p50_ms": 16.595,
+        "postprocess_time_mean_ms": 13.247,
+        "postprocess_time_p50_ms": 8.83,
+        "model_name": "lidar_pyramid",
+        "checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+        "param_count": 5464791,
+        "param_size_mb": 20.85
+      }
+    },
+    "fp32": {
+      "engine": "TensorRT FP32",
+      "success": true,
+      "actual_frames": 50,
+      "AP@0.30": 0.5294,
+      "AP@0.50": 0.5058,
+      "AP@0.70": 0.4492,
+      "map": 0.4948,
+      "forward_p50_ms": 4.9574,
+      "forward_p90_ms": 7.18579,
+      "forward_p95_ms": 8.12378,
+      "fps": 201.71864283697101,
+      "speedup_vs_pytorch": 3.3475208778795333,
+      "speedup_vs_trt_fp32": 1.0,
+      "ap_drop_vs_pytorch": {
+        "AP@0.30": 0.3428,
+        "AP@0.50": 0.3477,
+        "AP@0.70": 0.2985
+      },
+      "mean_ap_drop_vs_pytorch": 0.3297,
+      "eval_report": {
+        "precision": "fp32",
+        "success": true,
+        "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp32/lidar_pyramid_fp32.engine",
+        "num_frames": 50,
+        "actual_frames": 50,
+        "skipped_frames": 0,
+        "ap_0_3": 0.5294,
+        "ap_0_5": 0.5058,
+        "ap_0_7": 0.4492,
+        "map": 0.4948,
+        "forward_mean_ms": 185.422803722322,
+        "forward_p50_ms": 172.43032157421112,
+        "forward_p90_ms": 217.7167683839798,
+        "postprocess_mean_ms": 13.402678370475769,
+        "postprocess_p50_ms": 9.97862033545971,
+        "total_mean_ms": 198.82548209279776,
+        "total_p50_ms": 185.81165932118893,
+        "output_names": [
+          "cls_preds",
+          "reg_preds",
+          "dir_preds"
+        ]
+      },
+      "benchmark_report": {
+        "precision": "fp32",
+        "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp32/lidar_pyramid_fp32.engine",
+        "num_frames": 50,
+        "warmup_frames": 10,
+        "forward_mean_ms": 5.33222,
+        "forward_p50_ms": 4.9574,
+        "forward_p90_ms": 7.18579,
+        "forward_p95_ms": 8.12378,
+        "forward_min_ms": 3.52246,
+        "forward_max_ms": 12.1607,
+        "fps": 201.71864283697101,
+        "engine_size_MB": 62.83784103393555,
+        "latency_scope": "engine_forward_only",
+        "data_loading_time_ms": null,
+        "data_to_gpu_time_ms": null,
+        "forward_time_ms": null,
+        "postprocess_time_ms": null,
+        "total_time_ms": null,
+        "success": true,
+        "error": null,
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        }
+      }
+    },
+    "fp16": {
+      "engine": "TensorRT FP16",
+      "success": true,
+      "actual_frames": 50,
+      "AP@0.30": 0.527,
+      "AP@0.50": 0.5034,
+      "AP@0.70": 0.4465,
+      "map": 0.4923,
+      "forward_p50_ms": 1.92236,
+      "forward_p90_ms": 3.0033,
+      "forward_p95_ms": 3.63062,
+      "fps": 520.1939282964689,
+      "speedup_vs_pytorch": 8.632618240079902,
+      "speedup_vs_trt_fp32": 2.578809380136915,
+      "ap_drop_vs_pytorch": {
+        "AP@0.30": 0.3452,
+        "AP@0.50": 0.3501,
+        "AP@0.70": 0.3012
+      },
+      "mean_ap_drop_vs_pytorch": 0.3322,
+      "eval_report": {
+        "precision": "fp16",
+        "success": true,
+        "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+        "num_frames": 50,
+        "actual_frames": 50,
+        "skipped_frames": 0,
+        "ap_0_3": 0.527,
+        "ap_0_5": 0.5034,
+        "ap_0_7": 0.4465,
+        "map": 0.4923,
+        "forward_mean_ms": 186.93297009915113,
+        "forward_p50_ms": 181.3863255083561,
+        "forward_p90_ms": 216.3714710623026,
+        "postprocess_mean_ms": 10.981469862163067,
+        "postprocess_p50_ms": 8.762069046497345,
+        "total_mean_ms": 197.9144399613142,
+        "total_p50_ms": 189.90436755120754,
+        "output_names": [
+          "cls_preds",
+          "reg_preds",
+          "dir_preds"
+        ]
+      },
+      "benchmark_report": {
+        "precision": "fp16",
+        "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+        "num_frames": 50,
+        "warmup_frames": 10,
+        "forward_mean_ms": 2.10251,
+        "forward_p50_ms": 1.92236,
+        "forward_p90_ms": 3.0033,
+        "forward_p95_ms": 3.63062,
+        "forward_min_ms": 1.50269,
+        "forward_max_ms": 5.85742,
+        "fps": 520.1939282964689,
+        "engine_size_MB": 30.593425750732422,
+        "latency_scope": "engine_forward_only",
+        "data_loading_time_ms": null,
+        "data_to_gpu_time_ms": null,
+        "forward_time_ms": null,
+        "postprocess_time_ms": null,
+        "total_time_ms": null,
+        "success": true,
+        "error": null,
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        }
+      }
+    }
+  },
+  "trt_fp32_output_error_after_dtype_fix": {
+    "success": true,
+    "max_abs_error": 0.011945724487304688,
+    "mean_abs_error": 0.0007648059947200636,
+    "relative_error": 0.0008250186801715633
+  },
+  "trt_fp16_output_error_after_dtype_fix": {
+    "success": true,
+    "max_abs_error": 0.10426950454711914,
+    "mean_abs_error": 0.007969814216181703,
+    "relative_error": 0.009384643321528111
+  },
+  "ort_fp32_ap_report": {
+    "backend": "onnxruntime_fp32",
+    "backend_label": "ONNXRuntime FP32",
+    "success": true,
+    "num_frames": 50,
+    "actual_frames": 50,
+    "skipped_frames": 0,
+    "AP@0.30": 0.5295,
+    "AP@0.50": 0.5058,
+    "AP@0.70": 0.4493,
+    "mAP": 0.4949,
+    "forward_mean_ms": 24.52841281890869,
+    "forward_p50_ms": 17.360946163535118,
+    "forward_p90_ms": 23.30130524933338,
+    "postprocess_mean_ms": 8.782692030072212,
+    "postprocess_p50_ms": 8.397197350859642,
+    "total_mean_ms": 33.311104848980904,
+    "total_p50_ms": 25.40670894086361,
+    "error": null
+  },
+  "five_way_ap_table": [
+    {
+      "backend_key": "pytorch_original",
+      "backend": "PyTorch original",
+      "AP@0.30": 0.8722,
+      "AP@0.50": 0.8535,
+      "AP@0.70": 0.7477,
+      "mAP": 0.8245,
+      "mAP_drop_vs_PyTorch": 0.0,
+      "actual_frames": 50,
+      "success": true
+    },
+    {
+      "backend_key": "pytorch_fixed_wrapper",
+      "backend": "PyTorch fixed wrapper",
+      "AP@0.30": 0.8722,
+      "AP@0.50": 0.8535,
+      "AP@0.70": 0.7477,
+      "mAP": 0.8245,
+      "mAP_drop_vs_PyTorch": 0.0,
+      "actual_frames": 50,
+      "success": true
+    },
+    {
+      "backend_key": "onnxruntime_fp32",
+      "backend": "ONNXRuntime FP32",
+      "AP@0.30": 0.5295,
+      "AP@0.50": 0.5058,
+      "AP@0.70": 0.4493,
+      "mAP": 0.4949,
+      "mAP_drop_vs_PyTorch": 0.3296,
+      "actual_frames": 50,
+      "success": true
+    },
+    {
+      "backend_key": "tensorrt_fp32",
+      "backend": "TensorRT FP32",
+      "AP@0.30": 0.5295,
+      "AP@0.50": 0.5058,
+      "AP@0.70": 0.4492,
+      "mAP": 0.4948,
+      "mAP_drop_vs_PyTorch": 0.3297,
+      "actual_frames": 50,
+      "success": true
+    },
+    {
+      "backend_key": "tensorrt_fp16",
+      "backend": "TensorRT FP16",
+      "AP@0.30": 0.5271,
+      "AP@0.50": 0.5035,
+      "AP@0.70": 0.4466,
+      "mAP": 0.4924,
+      "mAP_drop_vs_PyTorch": 0.3321,
+      "actual_frames": 50,
+      "success": true
+    }
+  ],
+  "precision_drop_branch": {
+    "pytorch_map": 0.8245,
+    "onnxruntime_fp32_map": 0.4949,
+    "tensorrt_fp32_map": 0.4948,
+    "tolerance": 0.03,
+    "onnxruntime_fp32_close_to_pytorch": false,
+    "tensorrt_fp32_close_to_pytorch": false,
+    "suspected_area": "ONNX export/fixed_static wrapper/ORT-TRT shared evaluator"
+  },
+  "per_frame_ap_and_error_report": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/per_frame_ap_and_error_report.json",
+  "postprocess_stage_diff_top5": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/postprocess_stage_diff_top5.json",
+  "output_layout_report": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/output_layout_report.json",
+  "trt_precision_equivalence_bug_open": true,
+  "record_len_is_graph_input": true,
+  "record_len_downstream_consumer_count": 6,
+  "record_len_semantics_erased_in_onnx": true,
+  "export_dummy_record_len": null,
+  "evaluation_record_len_distribution": {
+    "1": 14,
+    "2": 36
+  },
+  "suspected_static_agent_count": 1
+}

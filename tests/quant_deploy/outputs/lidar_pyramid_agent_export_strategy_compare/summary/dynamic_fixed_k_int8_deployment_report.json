@@ -1,0 +1,3992 @@
+{
+  "rows": [
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "fp32",
+      "calibration frames": "-",
+      "eval frames": 50,
+      "AP@0.30": 0.8721,
+      "AP@0.50": 0.8534,
+      "AP@0.70": 0.7476,
+      "mAP": 0.8244,
+      "mAP drop vs FP16": -0.0055,
+      "execute p50": 4.985856056213379,
+      "forward p50": 6.470624357461929,
+      "FPS": 154.54459179766775,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    },
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "fp16",
+      "calibration frames": "-",
+      "eval frames": 50,
+      "AP@0.30": 0.8723,
+      "AP@0.50": 0.8523,
+      "AP@0.70": 0.7322,
+      "mAP": 0.8189,
+      "mAP drop vs FP16": 0.0,
+      "execute p50": 2.148128032684326,
+      "forward p50": 3.6728251725435257,
+      "FPS": 272.2699701242448,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    },
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "native int8",
+      "calibration frames": 50,
+      "eval frames": 50,
+      "AP@0.30": 0.8076,
+      "AP@0.50": 0.7873,
+      "AP@0.70": 0.6412,
+      "mAP": 0.7454,
+      "mAP drop vs FP16": 0.0735,
+      "execute p50": 1.533087968826294,
+      "forward p50": 2.5472305715084076,
+      "FPS": 392.58322791243216,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    },
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "native int8",
+      "calibration frames": 200,
+      "eval frames": 50,
+      "AP@0.30": 0.8257,
+      "AP@0.50": 0.8042,
+      "AP@0.70": 0.6327,
+      "mAP": 0.7542,
+      "mAP drop vs FP16": 0.0647,
+      "execute p50": 1.5381120443344116,
+      "forward p50": 2.5267787277698517,
+      "FPS": 395.760811585827,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    },
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "int8 mixed heads-FP16",
+      "calibration frames": 200,
+      "eval frames": 50,
+      "AP@0.30": 0.825,
+      "AP@0.50": 0.8024,
+      "AP@0.70": 0.6422,
+      "mAP": 0.7565,
+      "mAP drop vs FP16": 0.0624,
+      "execute p50": 1.622912049293518,
+      "forward p50": 2.6664920151233673,
+      "FPS": 375.024561981947,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    },
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "fp32",
+      "calibration frames": "-",
+      "eval frames": 200,
+      "AP@0.30": 0.8102,
+      "AP@0.50": 0.7712,
+      "AP@0.70": 0.598,
+      "mAP": 0.7265,
+      "mAP drop vs FP16": -0.0014,
+      "execute p50": 4.987904071807861,
+      "forward p50": 6.449433043599129,
+      "FPS": 155.05238882857623,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    },
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "fp16",
+      "calibration frames": "-",
+      "eval frames": 200,
+      "AP@0.30": 0.8105,
+      "AP@0.50": 0.7704,
+      "AP@0.70": 0.5944,
+      "mAP": 0.7251,
+      "mAP drop vs FP16": 0.0,
+      "execute p50": 2.1432321071624756,
+      "forward p50": 3.358054906129837,
+      "FPS": 297.7914381848215,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    },
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "native int8",
+      "calibration frames": 50,
+      "eval frames": 200,
+      "AP@0.30": 0.6855,
+      "AP@0.50": 0.6441,
+      "AP@0.70": 0.4513,
+      "mAP": 0.5936,
+      "mAP drop vs FP16": 0.1315,
+      "execute p50": 1.5535039901733398,
+      "forward p50": 2.55439430475235,
+      "FPS": 391.48223832927414,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    },
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "native int8",
+      "calibration frames": 200,
+      "eval frames": 200,
+      "AP@0.30": 0.7604,
+      "AP@0.50": 0.7154,
+      "AP@0.70": 0.5107,
+      "mAP": 0.6622,
+      "mAP drop vs FP16": 0.0629,
+      "execute p50": 1.5445760488510132,
+      "forward p50": 2.5555528700351715,
+      "FPS": 391.3047590309635,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    },
+    {
+      "mode": "dynamic fixed-K plugin",
+      "precision strategy": "int8 mixed heads-FP16",
+      "calibration frames": 200,
+      "eval frames": 200,
+      "AP@0.30": 0.7605,
+      "AP@0.50": 0.7157,
+      "AP@0.70": 0.5079,
+      "mAP": 0.6614,
+      "mAP drop vs FP16": 0.0637,
+      "execute p50": 1.6270079612731934,
+      "forward p50": 2.682555466890335,
+      "FPS": 372.77887161797156,
+      "notes": "per-N fixed-K bucket router",
+      "success": true
+    }
+  ],
+  "answers": {
+    "INT8 engine 是否成功构建": true,
+    "INT8 engine 是否真的运行了 INT8 层": true,
+    "PointPillarScatterTRT 在 INT8 engine 中以什么精度执行": [
+      [
+        "fp16"
+      ],
+      [
+        "fp16"
+      ]
+    ],
+    "INT8 相比 FP16 是否有 latency 收益": true,
+    "INT8 相比 FP16 的 AP 损失是多少": 0.0629,
+    "AP 损失主要发生在哪个 IoU": "AP@0.70 drop=0.0837",
+    "native INT8 是否可接受": false,
+    "mixed precision INT8 是否优于 native INT8": false,
+    "是否建议进入 Q/DQ / ModelOpt 进一步优化": true,
+    "是否建议当前就把 INT8 纳入默认部署路径": false,
+    "当前默认部署路径是否仍为 dynamic_agent_dim + fixed-K bucket router + PointPillarScatterTRT": true,
+    "padded_agent_static 是否仍只作为 baseline": true
+  },
+  "plugin_int8_support_audit": {
+    "plugin_src_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt",
+    "source_files": {
+      "cpp": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt/pointpillar_scatter_plugin.cpp",
+      "cu": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt/pointpillar_scatter_kernel.cu",
+      "header": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt/pointpillar_scatter_plugin.h"
+    },
+    "audited_methods": {
+      "supportsFormatCombination": true,
+      "enqueue": true,
+      "configurePlugin": true,
+      "getOutputDataType": true,
+      "getOutputDimensions": true
+    },
+    "plugin_supports_int8_io": false,
+    "plugin_supports_fp16_io": true,
+    "plugin_supports_fp32_io": true,
+    "expected_plugin_precision_in_int8_engine": "fp16",
+    "int8_engine_requires_reformat_around_plugin": true,
+    "risk_level": "medium",
+    "recommended_int8_strategy": "Use native TensorRT INT8 calibration first and allow this plugin to run as an FP16/FP32 precision island. Audit the INT8 engine layer info for Reformat/Quantize/Dequantize around PointPillarScatterTRT. If AP drops, protect heads and the plugin in FP16 before moving to Q/DQ or ModelOpt.",
+    "valid_voxel_mask_dtype": {
+      "onnx_expected": "float32 in the dynamic fixed-K ONNX inputs",
+      "plugin_accepts": [
+        "fp32",
+        "fp16",
+        "int32",
+        "bool"
+      ]
+    },
+    "voxel_coords_dtype": "int32",
+    "int8_fallback_assessment": {
+      "plugin_has_int8_kernel": false,
+      "output_dtype_follows_feature_input": true,
+      "tensorRT_can_fallback": "expected, if the builder can insert quantize/dequantize or reformat tensors around a plugin with FP32/FP16 formats",
+      "needs_layer_audit": true
+    },
+    "implementation_notes": {
+      "uses_serialized_num_agents_for_output_dim": true,
+      "true_dynamic_N_single_engine_supported": false,
+      "enqueue_feature_dispatch": "half/float only"
+    },
+    "snippets": {
+      "supportsFormatCombination": "PointPillarScatterPlugin::supportsFormatCombination(\n    int32_t pos,\n    PluginTensorDesc const* inOut,\n    int32_t nbInputs,\n    int32_t nbOutputs) noexcept\n{\n    assert(nbInputs == 3 && nbOutputs == 1);\n    if (pos == 0)\n    {\n        return isFp(inOut[pos].type) && inOut[pos].format == TensorFormat::kLINEAR;\n    }\n    if (pos == 1)\n    {\n        return inOut[pos].type == DataType::kINT32 && inOut[pos].format == TensorFormat::kLINEAR;\n    }\n    if (pos == 2)\n    {\n        return (inOut[pos].type == DataType::kFLOAT || inOut[pos].type == DataType::kHALF\n                   || inOut[pos].type == DataType::kINT32 || inOut[pos].type == DataType::kBOOL)\n            && inOut[pos].format == TensorFormat::kLINEAR;\n    }\n    return inOut[pos].type == inOut[0].type && inOut[pos].format == TensorFormat::kLINEAR;\n}",
+      "getOutputDataType": "PointPillarScatterPlugin::getOutputDataType(int32_t, DataType const* inputTypes, int32_t) const noexcept\n{\n    return inputTypes[0];\n}",
+      "getOutputDimensions": "PointPillarScatterPlugin::getOutputDimensions(\n    int32_t,\n    DimsExprs const* inputs,\n    int32_t nbInputs,\n    IExprBuilder& exprBuilder) noexcept\n{\n    assert(nbInputs == 3);\n    DimsExprs out{};\n    out.nbDims = 4;\n    out.d[0] = exprBuilder.constant(mParams.numAgents);\n    out.d[1] = inputs[0].d[1];\n    out.d[2] = exprBuilder.constant(mParams.height);\n    out.d[3] = exprBuilder.constant(mParams.width);\n    return out;\n}"
+    }
+  },
+  "build_reports": [
+    {
+      "agent_export_mode": "dynamic_agent_dim",
+      "fixed_k_bucket_router": true,
+      "pointpillar_scatter_plugin_enabled": true,
+      "valid_voxel_mask_enabled": true,
+      "precision": "int8",
+      "calibration_frames": 50,
+      "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+      "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib50.cache",
+      "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+      "engines": [
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib50.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib50",
+          "calibration_frames": 50,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib50_N1_bucket0.cache",
+          "calibration_sample_files_for_engine": 14,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib50.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 10.017375946044922,
+          "fixed_N": 1,
+          "bucket_id": 0
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib50.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib50",
+          "calibration_frames": 50,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib50_N1_bucket1.cache",
+          "calibration_sample_files_for_engine": 1,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib50.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 10.179370880126953,
+          "fixed_N": 1,
+          "bucket_id": 1
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib50.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib50",
+          "calibration_frames": 50,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib50_N1_bucket2.cache",
+          "calibration_sample_files_for_engine": 0,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": false,
+          "valid_voxel_mask input exists": false,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": true,
+          "build_success": false,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib50.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": "no calibration samples for N=1, bucket=2 in tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "fixed_N": 1,
+          "bucket_id": 2
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib50.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib50",
+          "calibration_frames": 50,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib50_N1_bucket3.cache",
+          "calibration_sample_files_for_engine": 0,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": false,
+          "valid_voxel_mask input exists": false,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": true,
+          "build_success": false,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib50.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": "no calibration samples for N=1, bucket=3 in tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "fixed_N": 1,
+          "bucket_id": 3
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib50.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib50",
+          "calibration_frames": 50,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib50_N2_bucket0.cache",
+          "calibration_sample_files_for_engine": 0,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": false,
+          "valid_voxel_mask input exists": false,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": true,
+          "build_success": false,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib50.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": "no calibration samples for N=2, bucket=0 in tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "fixed_N": 2,
+          "bucket_id": 0
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib50.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib50",
+          "calibration_frames": 50,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib50_N2_bucket1.cache",
+          "calibration_sample_files_for_engine": 26,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib50.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 10.332439422607422,
+          "fixed_N": 2,
+          "bucket_id": 1
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib50.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib50",
+          "calibration_frames": 50,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib50_N2_bucket2.cache",
+          "calibration_sample_files_for_engine": 8,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib50.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 10.364788055419922,
+          "fixed_N": 2,
+          "bucket_id": 2
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib50.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib50",
+          "calibration_frames": 50,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_50",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib50_N2_bucket3.cache",
+          "calibration_sample_files_for_engine": 1,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": true,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib50.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 10.239017486572266,
+          "fixed_N": 2,
+          "bucket_id": 3
+        }
+      ],
+      "any_build_success": true,
+      "all_build_success": false
+    },
+    {
+      "agent_export_mode": "dynamic_agent_dim",
+      "fixed_k_bucket_router": true,
+      "pointpillar_scatter_plugin_enabled": true,
+      "valid_voxel_mask_enabled": true,
+      "precision": "int8",
+      "calibration_frames": 200,
+      "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+      "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200.cache",
+      "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+      "engines": [
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib200.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib200",
+          "calibration_frames": 200,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_N1_bucket0.cache",
+          "calibration_sample_files_for_engine": 16,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": false,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib200.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 9.943378448486328,
+          "fixed_N": 1,
+          "bucket_id": 0
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib200.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib200",
+          "calibration_frames": 200,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_N1_bucket1.cache",
+          "calibration_sample_files_for_engine": 4,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": false,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib200.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 10.08291244506836,
+          "fixed_N": 1,
+          "bucket_id": 1
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib200.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib200",
+          "calibration_frames": 200,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_N1_bucket2.cache",
+          "calibration_sample_files_for_engine": 0,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": false,
+          "valid_voxel_mask input exists": false,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": false,
+          "build_success": false,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib200.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": "no calibration samples for N=1, bucket=2 in tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "fixed_N": 1,
+          "bucket_id": 2
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib200.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib200",
+          "calibration_frames": 200,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_N1_bucket3.cache",
+          "calibration_sample_files_for_engine": 0,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": false,
+          "valid_voxel_mask input exists": false,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": false,
+          "build_success": false,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib200.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": "no calibration samples for N=1, bucket=3 in tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "fixed_N": 1,
+          "bucket_id": 3
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib200.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib200",
+          "calibration_frames": 200,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_N2_bucket0.cache",
+          "calibration_sample_files_for_engine": 0,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": false,
+          "valid_voxel_mask input exists": false,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": false,
+          "build_success": false,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib200.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": "no calibration samples for N=2, bucket=0 in tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "fixed_N": 2,
+          "bucket_id": 0
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib200.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib200",
+          "calibration_frames": 200,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_N2_bucket1.cache",
+          "calibration_sample_files_for_engine": 89,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": false,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib200.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 10.30788803100586,
+          "fixed_N": 2,
+          "bucket_id": 1
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib200.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib200",
+          "calibration_frames": 200,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_N2_bucket2.cache",
+          "calibration_sample_files_for_engine": 50,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": false,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib200.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 10.13228988647461,
+          "fixed_N": 2,
+          "bucket_id": 2
+        },
+        {
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib200.engine",
+          "precision": "int8",
+          "engine_precision_tag": "int8_calib200",
+          "calibration_frames": 200,
+          "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+          "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_N2_bucket3.cache",
+          "calibration_sample_files_for_engine": 41,
+          "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "plugin_loaded": true,
+          "PointPillarScatterTRT layer exists": true,
+          "valid_voxel_mask input exists": true,
+          "TensorRT version": "10.9.0.34",
+          "builder_flags": [
+            "INT8",
+            "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
+          ],
+          "build_method": "tensorrt_python_calibrator",
+          "enabled INT8": true,
+          "enabled FP16 fallback": true,
+          "strict_types": false,
+          "obey_precision_constraints": false,
+          "force_recalibrate": false,
+          "build_success": true,
+          "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib200.log",
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "error": null,
+          "command": [
+            "tensorrt_python_builder",
+            "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx"
+          ],
+          "returncode": 0,
+          "unsupported_ops": [],
+          "failed_nodes": [],
+          "engine_size_MB": 10.196117401123047,
+          "fixed_N": 2,
+          "bucket_id": 3
+        }
+      ],
+      "any_build_success": true,
+      "all_build_success": false
+    }
+  ],
+  "mixed_build_report": {
+    "agent_export_mode": "dynamic_agent_dim",
+    "fixed_k_bucket_router": true,
+    "pointpillar_scatter_plugin_enabled": true,
+    "valid_voxel_mask_enabled": true,
+    "precision": "int8",
+    "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+    "mixed_heads_fp16": true,
+    "forced_fp16_layer_patterns": [
+      "cls",
+      "reg",
+      "dir",
+      "head"
+    ],
+    "calibration_frames": 200,
+    "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+    "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_mixed_heads_fp16.cache",
+    "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+    "engines": [
+      {
+        "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib200_mixed_heads_fp16.engine",
+        "precision": "int8",
+        "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+        "calibration_frames": 200,
+        "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_mixed_heads_fp16_N1_bucket0.cache",
+        "calibration_sample_files_for_engine": 16,
+        "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+        "plugin_loaded": true,
+        "PointPillarScatterTRT layer exists": true,
+        "valid_voxel_mask input exists": true,
+        "TensorRT version": "10.9.0.34",
+        "builder_flags": [
+          "INT8",
+          "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER",
+          "PREFER_PRECISION_CONSTRAINTS"
+        ],
+        "build_method": "tensorrt_python_calibrator",
+        "enabled INT8": true,
+        "enabled FP16 fallback": true,
+        "strict_types": false,
+        "prefer_precision_constraints": true,
+        "obey_precision_constraints": false,
+        "mixed_heads_fp16": true,
+        "forced_fp16_layer_patterns": [
+          "cls",
+          "reg",
+          "dir",
+          "head"
+        ],
+        "force_recalibrate": true,
+        "build_success": true,
+        "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib200_mixed_heads_fp16.log",
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        },
+        "error": null,
+        "command": [
+          "tensorrt_python_builder",
+          "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx"
+        ],
+        "returncode": 0,
+        "unsupported_ops": [],
+        "failed_nodes": [],
+        "engine_size_MB": 10.006084442138672,
+        "fixed_N": 1,
+        "bucket_id": 0
+      },
+      {
+        "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib200_mixed_heads_fp16.engine",
+        "precision": "int8",
+        "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+        "calibration_frames": 200,
+        "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_mixed_heads_fp16_N1_bucket1.cache",
+        "calibration_sample_files_for_engine": 4,
+        "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+        "plugin_loaded": true,
+        "PointPillarScatterTRT layer exists": true,
+        "valid_voxel_mask input exists": true,
+        "TensorRT version": "10.9.0.34",
+        "builder_flags": [
+          "INT8",
+          "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER",
+          "PREFER_PRECISION_CONSTRAINTS"
+        ],
+        "build_method": "tensorrt_python_calibrator",
+        "enabled INT8": true,
+        "enabled FP16 fallback": true,
+        "strict_types": false,
+        "prefer_precision_constraints": true,
+        "obey_precision_constraints": false,
+        "mixed_heads_fp16": true,
+        "forced_fp16_layer_patterns": [
+          "cls",
+          "reg",
+          "dir",
+          "head"
+        ],
+        "force_recalibrate": true,
+        "build_success": true,
+        "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib200_mixed_heads_fp16.log",
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        },
+        "error": null,
+        "command": [
+          "tensorrt_python_builder",
+          "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx"
+        ],
+        "returncode": 0,
+        "unsupported_ops": [],
+        "failed_nodes": [],
+        "engine_size_MB": 10.323307037353516,
+        "fixed_N": 1,
+        "bucket_id": 1
+      },
+      {
+        "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib200_mixed_heads_fp16.engine",
+        "precision": "int8",
+        "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+        "calibration_frames": 200,
+        "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_mixed_heads_fp16_N1_bucket2.cache",
+        "calibration_sample_files_for_engine": 0,
+        "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+        "plugin_loaded": true,
+        "PointPillarScatterTRT layer exists": false,
+        "valid_voxel_mask input exists": false,
+        "TensorRT version": "10.9.0.34",
+        "builder_flags": [
+          "INT8",
+          "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER",
+          "PREFER_PRECISION_CONSTRAINTS"
+        ],
+        "build_method": "tensorrt_python_calibrator",
+        "enabled INT8": true,
+        "enabled FP16 fallback": true,
+        "strict_types": false,
+        "prefer_precision_constraints": true,
+        "obey_precision_constraints": false,
+        "mixed_heads_fp16": true,
+        "forced_fp16_layer_patterns": [
+          "cls",
+          "reg",
+          "dir",
+          "head"
+        ],
+        "force_recalibrate": true,
+        "build_success": false,
+        "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib200_mixed_heads_fp16.log",
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        },
+        "error": "no calibration samples for N=1, bucket=2 in tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "fixed_N": 1,
+        "bucket_id": 2
+      },
+      {
+        "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin.onnx",
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib200_mixed_heads_fp16.engine",
+        "precision": "int8",
+        "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+        "calibration_frames": 200,
+        "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_mixed_heads_fp16_N1_bucket3.cache",
+        "calibration_sample_files_for_engine": 0,
+        "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+        "plugin_loaded": true,
+        "PointPillarScatterTRT layer exists": false,
+        "valid_voxel_mask input exists": false,
+        "TensorRT version": "10.9.0.34",
+        "builder_flags": [
+          "INT8",
+          "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER",
+          "PREFER_PRECISION_CONSTRAINTS"
+        ],
+        "build_method": "tensorrt_python_calibrator",
+        "enabled INT8": true,
+        "enabled FP16 fallback": true,
+        "strict_types": false,
+        "prefer_precision_constraints": true,
+        "obey_precision_constraints": false,
+        "mixed_heads_fp16": true,
+        "forced_fp16_layer_patterns": [
+          "cls",
+          "reg",
+          "dir",
+          "head"
+        ],
+        "force_recalibrate": true,
+        "build_success": false,
+        "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib200_mixed_heads_fp16.log",
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        },
+        "error": "no calibration samples for N=1, bucket=3 in tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "fixed_N": 1,
+        "bucket_id": 3
+      },
+      {
+        "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib200_mixed_heads_fp16.engine",
+        "precision": "int8",
+        "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+        "calibration_frames": 200,
+        "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_mixed_heads_fp16_N2_bucket0.cache",
+        "calibration_sample_files_for_engine": 0,
+        "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+        "plugin_loaded": true,
+        "PointPillarScatterTRT layer exists": false,
+        "valid_voxel_mask input exists": false,
+        "TensorRT version": "10.9.0.34",
+        "builder_flags": [
+          "INT8",
+          "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER",
+          "PREFER_PRECISION_CONSTRAINTS"
+        ],
+        "build_method": "tensorrt_python_calibrator",
+        "enabled INT8": true,
+        "enabled FP16 fallback": true,
+        "strict_types": false,
+        "prefer_precision_constraints": true,
+        "obey_precision_constraints": false,
+        "mixed_heads_fp16": true,
+        "forced_fp16_layer_patterns": [
+          "cls",
+          "reg",
+          "dir",
+          "head"
+        ],
+        "force_recalibrate": true,
+        "build_success": false,
+        "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib200_mixed_heads_fp16.log",
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        },
+        "error": "no calibration samples for N=2, bucket=0 in tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "fixed_N": 2,
+        "bucket_id": 0
+      },
+      {
+        "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib200_mixed_heads_fp16.engine",
+        "precision": "int8",
+        "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+        "calibration_frames": 200,
+        "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_mixed_heads_fp16_N2_bucket1.cache",
+        "calibration_sample_files_for_engine": 89,
+        "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+        "plugin_loaded": true,
+        "PointPillarScatterTRT layer exists": true,
+        "valid_voxel_mask input exists": true,
+        "TensorRT version": "10.9.0.34",
+        "builder_flags": [
+          "INT8",
+          "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER",
+          "PREFER_PRECISION_CONSTRAINTS"
+        ],
+        "build_method": "tensorrt_python_calibrator",
+        "enabled INT8": true,
+        "enabled FP16 fallback": true,
+        "strict_types": false,
+        "prefer_precision_constraints": true,
+        "obey_precision_constraints": false,
+        "mixed_heads_fp16": true,
+        "forced_fp16_layer_patterns": [
+          "cls",
+          "reg",
+          "dir",
+          "head"
+        ],
+        "force_recalibrate": true,
+        "build_success": true,
+        "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib200_mixed_heads_fp16.log",
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        },
+        "error": null,
+        "command": [
+          "tensorrt_python_builder",
+          "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx"
+        ],
+        "returncode": 0,
+        "unsupported_ops": [],
+        "failed_nodes": [],
+        "engine_size_MB": 10.244892120361328,
+        "fixed_N": 2,
+        "bucket_id": 1
+      },
+      {
+        "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib200_mixed_heads_fp16.engine",
+        "precision": "int8",
+        "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+        "calibration_frames": 200,
+        "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_mixed_heads_fp16_N2_bucket2.cache",
+        "calibration_sample_files_for_engine": 50,
+        "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+        "plugin_loaded": true,
+        "PointPillarScatterTRT layer exists": true,
+        "valid_voxel_mask input exists": true,
+        "TensorRT version": "10.9.0.34",
+        "builder_flags": [
+          "INT8",
+          "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER",
+          "PREFER_PRECISION_CONSTRAINTS"
+        ],
+        "build_method": "tensorrt_python_calibrator",
+        "enabled INT8": true,
+        "enabled FP16 fallback": true,
+        "strict_types": false,
+        "prefer_precision_constraints": true,
+        "obey_precision_constraints": false,
+        "mixed_heads_fp16": true,
+        "forced_fp16_layer_patterns": [
+          "cls",
+          "reg",
+          "dir",
+          "head"
+        ],
+        "force_recalibrate": true,
+        "build_success": true,
+        "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib200_mixed_heads_fp16.log",
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        },
+        "error": null,
+        "command": [
+          "tensorrt_python_builder",
+          "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx"
+        ],
+        "returncode": 0,
+        "unsupported_ops": [],
+        "failed_nodes": [],
+        "engine_size_MB": 10.49734115600586,
+        "fixed_N": 2,
+        "bucket_id": 2
+      },
+      {
+        "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib200_mixed_heads_fp16.engine",
+        "precision": "int8",
+        "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+        "calibration_frames": 200,
+        "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/dynamic_fixed_k_int8_calib_200",
+        "calibration_cache_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_fixed_k_scatter_plugin_int8_calib200_mixed_heads_fp16_N2_bucket3.cache",
+        "calibration_sample_files_for_engine": 41,
+        "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+        "plugin_loaded": true,
+        "PointPillarScatterTRT layer exists": true,
+        "valid_voxel_mask input exists": true,
+        "TensorRT version": "10.9.0.34",
+        "builder_flags": [
+          "INT8",
+          "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER",
+          "PREFER_PRECISION_CONSTRAINTS"
+        ],
+        "build_method": "tensorrt_python_calibrator",
+        "enabled INT8": true,
+        "enabled FP16 fallback": true,
+        "strict_types": false,
+        "prefer_precision_constraints": true,
+        "obey_precision_constraints": false,
+        "mixed_heads_fp16": true,
+        "forced_fp16_layer_patterns": [
+          "cls",
+          "reg",
+          "dir",
+          "head"
+        ],
+        "force_recalibrate": true,
+        "build_success": true,
+        "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib200_mixed_heads_fp16.log",
+        "trtexec": {
+          "trtexec_found": true,
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+          "checked_paths": [
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+          ],
+          "suggestion": null
+        },
+        "error": null,
+        "command": [
+          "tensorrt_python_builder",
+          "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx"
+        ],
+        "returncode": 0,
+        "unsupported_ops": [],
+        "failed_nodes": [],
+        "engine_size_MB": 10.653644561767578,
+        "fixed_N": 2,
+        "bucket_id": 3
+      }
+    ],
+    "any_build_success": true,
+    "all_build_success": false
+  },
+  "precision_reports": [
+    {
+      "calibration_frames": 50,
+      "engine_precision_tag": "int8_calib50",
+      "per_engine": [
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib50.json",
+          "num_layers": 131,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 1,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 34,
+            "Reformat / Cast / Quantize / Dequantize layers count": 22,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp16": 11,
+                "int8": 9
+              },
+              "other": {
+                "unknown": 19,
+                "fp16": 19
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 5,
+                "fp16": 1
+              },
+              "gemm_matmul": {
+                "fp16": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 1,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib50.json",
+          "num_layers": 135,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 1,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 35,
+            "Reformat / Cast / Quantize / Dequantize layers count": 23,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp32": 1,
+                "fp16": 11,
+                "int8": 9
+              },
+              "other": {
+                "unknown": 22,
+                "fp16": 19
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 5,
+                "fp16": 1
+              },
+              "gemm_matmul": {
+                "fp16": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 2,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib50.json",
+          "num_layers": 0,
+          "counts": {
+            "INT8 Conv layers count": 0,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 0,
+            "Reformat / Cast / Quantize / Dequantize layers count": 0,
+            "category_precision": {}
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 3,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib50.json",
+          "num_layers": 0,
+          "counts": {
+            "INT8 Conv layers count": 0,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 0,
+            "Reformat / Cast / Quantize / Dequantize layers count": 0,
+            "category_precision": {}
+          }
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 0,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib50.json",
+          "num_layers": 0,
+          "counts": {
+            "INT8 Conv layers count": 0,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 0,
+            "Reformat / Cast / Quantize / Dequantize layers count": 0,
+            "category_precision": {}
+          }
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 1,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib50.json",
+          "num_layers": 109,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 22,
+            "Reformat / Cast / Quantize / Dequantize layers count": 13,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp16": 4,
+                "int8": 7
+              },
+              "other": {
+                "unknown": 10,
+                "fp16": 7,
+                "fp32": 8
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 6
+              },
+              "gemm_matmul": {
+                "fp32": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 2,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib50.json",
+          "num_layers": 109,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 22,
+            "Reformat / Cast / Quantize / Dequantize layers count": 13,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp16": 4,
+                "int8": 7
+              },
+              "other": {
+                "unknown": 10,
+                "fp16": 7,
+                "fp32": 8
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 6
+              },
+              "gemm_matmul": {
+                "fp32": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 3,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib50.json",
+          "num_layers": 109,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 22,
+            "Reformat / Cast / Quantize / Dequantize layers count": 13,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp16": 4,
+                "int8": 7
+              },
+              "other": {
+                "unknown": 10,
+                "fp16": 7,
+                "fp32": 8
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 6
+              },
+              "gemm_matmul": {
+                "fp32": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        }
+      ],
+      "counts": {
+        "INT8 Conv layers count": 355,
+        "FP16 Conv layers count": 2,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 135,
+        "Reformat / Cast / Quantize / Dequantize layers count": 84,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 10,
+            "fp16": 34,
+            "int8": 39,
+            "fp32": 1
+          },
+          "other": {
+            "unknown": 71,
+            "fp16": 59,
+            "fp32": 24
+          },
+          "PillarVFE/PFN": {
+            "fp16": 5
+          },
+          "plugin": {
+            "fp16": 5
+          },
+          "BEV_backbone": {
+            "int8": 300
+          },
+          "detection_head": {
+            "int8": 28,
+            "fp16": 2
+          },
+          "gemm_matmul": {
+            "fp16": 2,
+            "fp32": 3
+          },
+          "shrink_conv": {
+            "int8": 10
+          }
+        }
+      },
+      "PointPillarScatterTRT precision": [
+        "fp16"
+      ],
+      "PointPillarScatterTRT io_dtypes": [
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Half"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 1,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Float"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 1,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Half"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 2,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Half"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 3,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Half"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        }
+      ],
+      "PillarVFE / PFN precision": {
+        "fp16": 5
+      },
+      "BEV backbone precision": {
+        "int8": 300
+      },
+      "shrink_conv precision": {
+        "int8": 10
+      },
+      "detection head precision": {
+        "int8": 28,
+        "fp16": 2
+      },
+      "plugin precision": {
+        "fp16": 5
+      },
+      "top 20 latency layers": [
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "Reformatting CopyNode for Network Input voxel_coords",
+          "layer_type": "NoOp",
+          "precision": "unknown",
+          "category": "reformat_cast_qdq",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "Reformatting CopyNode for Network Input voxel_coords",
+            "LayerType": "NoOp",
+            "Inputs": [
+              {
+                "Name": "voxel_coords",
+                "Location": "Device",
+                "Dimensions": [
+                  9728,
+                  4
+                ],
+                "Format/Datatype": "Int32"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "Reformatted voxel_coords",
+                "Location": "Device",
+                "Dimensions": [
+                  9728,
+                  4
+                ],
+                "Format/Datatype": "Int32"
+              }
+            ],
+            "TacticValue": "0x0000000000000000",
+            "StreamId": 0,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "Reformatting CopyNode for Network Input valid_voxel_mask",
+          "layer_type": "Reformat",
+          "precision": "fp16",
+          "category": "reformat_cast_qdq",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "Reformatting CopyNode for Network Input valid_voxel_mask",
+            "LayerType": "Reformat",
+            "Inputs": [
+              {
+                "Name": "valid_voxel_mask",
+                "Location": "Device",
+                "Dimensions": [
+                  9728
+                ],
+                "Format/Datatype": "Float"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "Reformatted valid_voxel_mask",
+                "Location": "Device",
+                "Dimensions": [
+                  9728
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "ParameterType": "Reformat",
+            "Origin": "REFORMAT",
+            "TacticValue": "0x0000000000000000",
+            "StreamId": 0,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "Reformatting CopyNode for Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+          "layer_type": "Reformat",
+          "precision": "fp16",
+          "category": "reformat_cast_qdq",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "Reformatting CopyNode for Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+            "LayerType": "Reformat",
+            "Inputs": [
+              {
+                "Name": "voxel_features",
+                "Location": "Device",
+                "Dimensions": [
+                  9728,
+                  32,
+                  4
+                ],
+                "Format/Datatype": "Float"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+                "Location": "Device",
+                "Dimensions": [
+                  9728,
+                  32,
+                  4
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "ParameterType": "Reformat",
+            "Origin": "REFORMAT",
+            "TacticValue": "0x00000000000003e8",
+            "StreamId": 0,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "entry^bb^signal^1_myl3_0",
+          "layer_type": "signal",
+          "precision": "unknown",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "entry^bb^signal^1_myl3_0",
+            "LayerType": "signal",
+            "Inputs": [],
+            "Outputs": [],
+            "TacticName": "",
+            "StreamId": 0,
+            "EventId": 3,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "entry^bb^wait^2_myl3_1",
+          "layer_type": "wait",
+          "precision": "unknown",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "entry^bb^wait^2_myl3_1",
+            "LayerType": "wait",
+            "Inputs": [],
+            "Outputs": [],
+            "TacticName": "",
+            "StreamId": 2,
+            "EventId": 3,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "entry^bb^wait^1_myl3_2",
+          "layer_type": "wait",
+          "precision": "unknown",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "entry^bb^wait^1_myl3_2",
+            "LayerType": "wait",
+            "Inputs": [],
+            "Outputs": [],
+            "TacticName": "",
+            "StreamId": 1,
+            "EventId": 3,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__myl_Repl_myl3_3",
+          "layer_type": "kgen",
+          "precision": "fp16",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__myl_Repl_myl3_3",
+            "LayerType": "kgen",
+            "Inputs": [],
+            "Outputs": [
+              {
+                "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "TacticName": "__myl_Repl_0x0f4b0d3a2124beb631b9cfe7f1d7774a",
+            "StreamId": 0,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_4",
+          "layer_type": "kgen",
+          "precision": "unknown",
+          "category": "reformat_cast_qdq",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_4",
+            "LayerType": "kgen",
+            "Inputs": [],
+            "Outputs": [
+              {
+                "Name": "__myln_k_arg__bb1_9",
+                "Dimensions": [
+                  32
+                ],
+                "Format/Datatype": "Int32"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_8",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1,
+                  3
+                ],
+                "Format/Datatype": "Int32"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_7",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1,
+                  3
+                ],
+                "Format/Datatype": "Int32"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_6",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1,
+                  3
+                ],
+                "Format/Datatype": "Int32"
+              }
+            ],
+            "TacticName": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_0xe8f9523976650d7177352a043a7c6382",
+            "StreamId": 1,
+            "Metadata": "[ONNX Layer: Range_210]\u001f[ONNX Layer: Reshape_215]\u001f[ONNX Layer: Reshape_213]\u001f[ONNX Layer: /pillar_vfe/Expand_3]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_3]\u001f[ONNX Layer: /pillar_vfe/Concat]\u001f[ONNX Layer: /pillar_vfe/Expand_2]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_2]\u001f[ONNX Layer: /pillar_vfe/Concat_4]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_11]\u001f[ONNX Layer: /pillar_vfe/Expand_11]\u001f[ONNX Layer: /pillar_vfe/Concat_2]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_7]\u001f[ONNX Layer: /pillar_vfe/Expand_7]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_1]\u001f[ONNX Layer: /pillar_vfe/Expand_1]\u001f[ONNX Layer: Range_203]"
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__mye31311_myl3_5",
+          "layer_type": "signal",
+          "precision": "unknown",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__mye31311_myl3_5",
+            "LayerType": "signal",
+            "Inputs": [],
+            "Outputs": [],
+            "TacticName": "",
+            "StreamId": 1,
+            "EventId": 1,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__myl_MoveMoveSlicReshCastReshSlicReshSlicReshCastReshSlicReshCastReshSlicReshSlicReshMulMulMulEtc_myl3_6",
+          "layer_type": "kgen",
+          "precision": "fp16",
+          "category": "reformat_cast_qdq",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__myl_MoveMoveSlicReshCastReshSlicReshSlicReshCastReshSlicReshCastReshSlicReshSlicReshMulMulMulEtc_myl3_6",
+            "LayerType": "kgen",
+            "Inputs": [
+              {
+                "Name": "Reformatted voxel_coords",
+                "Dimensions": [
+                  9728,
+                  4
+                ],
+                "Format/Datatype": "Int32"
+              },
+              {
+                "Name": "Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+                "Dimensions": [
+                  9728,
+                  32,
+                  4
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "__myln_k_arg__bb1_10",
+                "Dimensions": [
+                  9728,
+                  32,
+                  4
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_13",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_12",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_11",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "TacticName": "__myl_MoveMoveSlicReshCastReshSlicReshSlicReshCastReshSlicReshCastReshSlicReshSlicReshMulMulMulEtc_0x441dbffda322de4faefb905554f20948",
+            "StreamId": 0,
+            "Metadata": "[ONNX Layer: /pillar_vfe/Gather_7]\u001f[ONNX Layer: /pillar_vfe/Cast_3]\u001f[ONNX Layer: /pillar_vfe/Mul_8]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_8]\u001f[ONNX Layer: /pillar_vfe/Add_6]\u001f[ONNX Layer: /pillar_vfe/Gather_1]\u001f[ONNX Layer: /pillar_vfe/Cast_1]\u001f[ONNX Layer: /pillar_vfe/Mul]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze]\u001f[ONNX Layer: /pillar_vfe/Add_3]\u001f[ONNX Layer: /pillar_vfe/Gather]\u001f[ONNX Layer: /pillar_vfe/Sub_1]\u001f[ONNX Layer: /pillar_vfe/Reshape_1]\u001f[ONNX Layer: /pillar_vfe/Gather_6]\u001f[ONNX Layer: /pillar_vfe/Sub_3]\u001f[ONNX Layer: /pillar_vfe/Reshape_3]\u001f[ONNX Layer: /pillar_vfe/Gather_3]\u001f[ONNX Layer: /pillar_vfe/Sub_2]\u001f[ONNX Layer: /pillar_vfe/Reshape_2]\u001f[ONNX Layer: /pillar_vfe/Add]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_4]\u001f[ONNX Layer: /pillar_vfe/Mul_4]\u001f[ONNX Layer: /pillar_vfe/Cast_2]\u001f[ONNX Layer: /pillar_vfe/Gather_4]"
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__mye31313_myl3_7",
+          "layer_type": "wait",
+          "precision": "unknown",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__mye31313_myl3_7",
+            "LayerType": "wait",
+            "Inputs": [],
+            "Outputs": [],
+            "TacticName": "",
+            "StreamId": 0,
+            "EventId": 1,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__myl_Scat_myl3_8",
+          "layer_type": "kgen",
+          "precision": "fp16",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__myl_Scat_myl3_8",
+            "LayerType": "kgen",
+            "Inputs": [
+              {
+                "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_6",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1,
+                  3
+                ],
+                "Format/Datatype": "Int32"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_11",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "TacticName": "__myl_Scat_0xccd3b2f026609986b2c4c3add231cea2",
+            "StreamId": 0,
+            "Metadata": "[ONNX Layer: /pillar_vfe/ScatterND]"
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__myl_Scat_myl3_9",
+          "layer_type": "kgen",
+          "precision": "fp16",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__myl_Scat_myl3_9",
+            "LayerType": "kgen",
+            "Inputs": [
+              {
+                "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_8",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1,
+                  3
+                ],
+                "Format/Datatype": "Int32"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_13",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "TacticName": "__myl_Scat_0xccd3b2f026609986b2c4c3add231cea2",
+            "StreamId": 0,
+            "Metadata": "[ONNX Layer: /pillar_vfe/ScatterND_1]"
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__myl_Scat_myl3_10",
+          "layer_type": "kgen",
+          "precision": "fp16",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__myl_Scat_myl3_10",
+            "LayerType": "kgen",
+            "Inputs": [
+              {
+                "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_7",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1,
+                  3
+                ],
+                "Format/Datatype": "Int32"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_12",
+                "Dimensions": [
+                  9728,
+                  32,
+                  1
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "TacticName": "__myl_Scat_0xfd7c7ec6d1d240bf9a89d99cb75a7df5",
+            "StreamId": 0,
+            "Metadata": "[ONNX Layer: /pillar_vfe/ScatterND_2]"
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__myl_SlicSum_myl3_11",
+          "layer_type": "kgen",
+          "precision": "fp16",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__myl_SlicSum_myl3_11",
+            "LayerType": "kgen",
+            "Inputs": [
+              {
+                "Name": "Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+                "Dimensions": [
+                  9728,
+                  32,
+                  4
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "__myln_k_arg__bb1_17",
+                "Dimensions": [
+                  9728,
+                  1,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_18",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "TacticName": "__myl_SlicSum_0x2c26dd377799d8f7cf946c57b367eb25",
+            "StreamId": 2,
+            "Metadata": "[ONNX Layer: /pillar_vfe/Slice]\u001f[ONNX Layer: /pillar_vfe/ReduceSum]"
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__mye31315_myl3_12",
+          "layer_type": "signal",
+          "precision": "unknown",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__mye31315_myl3_12",
+            "LayerType": "signal",
+            "Inputs": [],
+            "Outputs": [],
+            "TacticName": "",
+            "StreamId": 2,
+            "EventId": 2,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__mye31317_myl3_13",
+          "layer_type": "wait",
+          "precision": "unknown",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__mye31317_myl3_13",
+            "LayerType": "wait",
+            "Inputs": [],
+            "Outputs": [],
+            "TacticName": "",
+            "StreamId": 0,
+            "EventId": 2,
+            "Metadata": ""
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_14",
+          "layer_type": "kgen",
+          "precision": "fp16",
+          "category": "reformat_cast_qdq",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_14",
+            "LayerType": "kgen",
+            "Inputs": [
+              {
+                "Name": "__myln_k_arg__bb1_9",
+                "Dimensions": [
+                  32
+                ],
+                "Format/Datatype": "Int32"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_18",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_10",
+                "Dimensions": [
+                  9728,
+                  32,
+                  4
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+                "Dimensions": [
+                  9728,
+                  32,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "__myln_k_arg__bb1_17",
+                "Dimensions": [
+                  9728,
+                  1,
+                  3
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "Reformatted valid_voxel_mask",
+                "Dimensions": [
+                  9728
+                ],
+                "Format/Datatype": "Half"
+              },
+              {
+                "Name": "voxel_num_points",
+                "Dimensions": [
+                  9728
+                ],
+                "Format/Datatype": "Int32"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "/pillar_vfe/Mul_12_output_0'.1",
+                "Dimensions": [
+                  9728,
+                  32,
+                  10
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "TacticName": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_0x8db800642ed10ec26f457295a02d1c78",
+            "StreamId": 0,
+            "Metadata": "[ONNX Layer: /Where]\u001f[ONNX Layer: /Greater]\u001f[ONNX Layer: /pillar_vfe/Cast]\u001f[ONNX Layer: /pillar_vfe/Reshape]\u001f[ONNX Layer: /pillar_vfe/Div]\u001f[ONNX Layer: /pillar_vfe/Cast_6]\u001f[ONNX Layer: /pillar_vfe/Concat_6]\u001f[ONNX Layer: /pillar_vfe/Mul_12]\u001f[ONNX Layer: /pillar_vfe/Sub]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_13]\u001f[ONNX Layer: /pillar_vfe/Greater]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_12]\u001f[ONNX Layer: /pillar_vfe/Reshape_4]"
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_15",
+          "layer_type": "gemm",
+          "precision": "fp16",
+          "category": "PillarVFE/PFN",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_15",
+            "LayerType": "gemm",
+            "Inputs": [
+              {
+                "Name": "/pillar_vfe/Mul_12_output_0'.1",
+                "Dimensions": [
+                  311296,
+                  10
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "__mye30794",
+                "Dimensions": [
+                  311296,
+                  64
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "TacticName": "sm80_xmma_gemm_f16f16_f16f16_f16_nn_n_tilesize256x64x32_stage3_warpsize4x1x1_tensor16x8x16_aligna4_alignc4",
+            "StreamId": 0,
+            "Metadata": "[ONNX Layer: /pillar_vfe/pfn_layers.0/linear/MatMul]"
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_16",
+          "layer_type": "kgen",
+          "precision": "fp16",
+          "category": "other",
+          "latency_ms": 0.0,
+          "raw": {
+            "Name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_16",
+            "LayerType": "kgen",
+            "Inputs": [
+              {
+                "Name": "__mye30794",
+                "Dimensions": [
+                  9728,
+                  32,
+                  64
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "Outputs": [
+              {
+                "Name": "__myln_k_arg__bb1_21",
+                "Dimensions": [
+                  9728,
+                  1,
+                  64
+                ],
+                "Format/Datatype": "Half"
+              }
+            ],
+            "TacticName": "__myl_TranReshMulAddReshMoveTranReluMaxr_0xb78ec802c363ec63a903e176b8344ec2",
+            "StreamId": 0,
+            "Metadata": "[ONNX Layer: /pillar_vfe/pfn_layers.0/Transpose]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/norm/BatchNormalization]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/Transpose_1]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/ReduceMax]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/Relu]"
+          }
+        }
+      ],
+      "answers": {
+        "int8_engine_really_uses_int8": true,
+        "just_renamed_fp16_engine": false,
+        "plugin_causes_large_fallback": false,
+        "main_latency_layers": [
+          "reformat_cast_qdq",
+          "reformat_cast_qdq",
+          "reformat_cast_qdq",
+          "other",
+          "other"
+        ],
+        "int8_speedup_space": true
+      }
+    },
+    {
+      "calibration_frames": 200,
+      "engine_precision_tag": "int8_calib200",
+      "per_engine": [
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib200.json",
+          "num_layers": 132,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 1,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 35,
+            "Reformat / Cast / Quantize / Dequantize layers count": 23,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp32": 1,
+                "fp16": 11,
+                "int8": 9
+              },
+              "other": {
+                "unknown": 19,
+                "fp16": 19
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 5,
+                "fp16": 1
+              },
+              "gemm_matmul": {
+                "fp16": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 1,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib200.json",
+          "num_layers": 135,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 1,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 35,
+            "Reformat / Cast / Quantize / Dequantize layers count": 23,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp32": 1,
+                "fp16": 11,
+                "int8": 9
+              },
+              "other": {
+                "unknown": 22,
+                "fp16": 19
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 5,
+                "fp16": 1
+              },
+              "gemm_matmul": {
+                "fp16": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 2,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib200.json",
+          "num_layers": 0,
+          "counts": {
+            "INT8 Conv layers count": 0,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 0,
+            "Reformat / Cast / Quantize / Dequantize layers count": 0,
+            "category_precision": {}
+          }
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 3,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib200.json",
+          "num_layers": 0,
+          "counts": {
+            "INT8 Conv layers count": 0,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 0,
+            "Reformat / Cast / Quantize / Dequantize layers count": 0,
+            "category_precision": {}
+          }
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 0,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib200.json",
+          "num_layers": 0,
+          "counts": {
+            "INT8 Conv layers count": 0,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 0,
+            "Reformat / Cast / Quantize / Dequantize layers count": 0,
+            "category_precision": {}
+          }
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 1,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib200.json",
+          "num_layers": 109,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 22,
+            "Reformat / Cast / Quantize / Dequantize layers count": 13,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp16": 4,
+                "int8": 7
+              },
+              "other": {
+                "unknown": 10,
+                "fp16": 7,
+                "fp32": 8
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 6
+              },
+              "gemm_matmul": {
+                "fp32": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 2,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib200.json",
+          "num_layers": 109,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 22,
+            "Reformat / Cast / Quantize / Dequantize layers count": 13,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp16": 4,
+                "int8": 7
+              },
+              "other": {
+                "unknown": 10,
+                "fp16": 7,
+                "fp32": 8
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 6
+              },
+              "gemm_matmul": {
+                "fp32": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 3,
+          "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib200.json",
+          "num_layers": 109,
+          "counts": {
+            "INT8 Conv layers count": 71,
+            "FP16 Conv layers count": 0,
+            "FP32 Conv layers count": 0,
+            "INT8 GEMM / MatMul layers count": 0,
+            "FP16/FP32 fallback layers": 22,
+            "Reformat / Cast / Quantize / Dequantize layers count": 13,
+            "category_precision": {
+              "reformat_cast_qdq": {
+                "unknown": 2,
+                "fp16": 4,
+                "int8": 7
+              },
+              "other": {
+                "unknown": 10,
+                "fp16": 7,
+                "fp32": 8
+              },
+              "PillarVFE/PFN": {
+                "fp16": 1
+              },
+              "plugin": {
+                "fp16": 1
+              },
+              "BEV_backbone": {
+                "int8": 60
+              },
+              "detection_head": {
+                "int8": 6
+              },
+              "gemm_matmul": {
+                "fp32": 1
+              },
+              "shrink_conv": {
+                "int8": 2
+              }
+            }
+          }
+        }
+      ],
+      "counts": {
+        "INT8 Conv layers count": 355,
+        "FP16 Conv layers count": 2,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 136,
+        "Reformat / Cast / Quantize / Dequantize layers count": 85,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 10,
+            "fp32": 2,
+            "fp16": 34,
+            "int8": 39
+          },
+          "other": {
+            "unknown": 71,
+            "fp16": 59,
+            "fp32": 24
+          },
+          "PillarVFE/PFN": {
+            "fp16": 5
+          },
+          "plugin": {
+            "fp16": 5
+          },
+          "BEV_backbone": {
+            "int8": 300
+          },
+          "detection_head": {
+            "int8": 28,
+            "fp16": 2
+          },
+          "gemm_matmul": {
+            "fp16": 2,
+            "fp32": 3
+          },
+          "shrink_conv": {
+            "int8": 10
+          }
+        }
+      },
+      "PointPillarScatterTRT precision": [
+        "fp16"
+      ],
+      "PointPillarScatterTRT io_dtypes": [
+        {
+          "fixed_N": 1,
+          "bucket_id": 0,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Float"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        },
+        {
+          "fixed_N": 1,
+          "bucket_id": 1,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Float"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 1,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Half"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 2,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Half"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        },
+        {
+          "fixed_N": 2,
+          "bucket_id": 3,
+          "name": "/PointPillarScatterTRT",
+          "input_dtypes": [
+            "Half",
+            "Int32",
+            "Half"
+          ],
+          "output_dtypes": [
+            "Half"
+          ]
+        }
+      ],
+      "PillarVFE / PFN precision": {
+        "fp16": 5
+      },
+      "BEV backbone precision": {
+        "int8": 300
+      },
+      "shrink_conv precision": {
+        "int8": 10
+      },
+      "detection head precision": {
+        "int8": 28,
+        "fp16": 2
+      },
+      "plugin precision": {
+        "fp16": 5
+      },
+      "top 20 latency layers": [
+        {
+          "name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_19",
+          "layer_type": "",
+          "latency_ms": 0.254624,
+          "category": "Other",
+          "raw": {
+            "name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_19",
+            "timeMs": 31.3282,
+            "averageMs": 0.254701,
+            "medianMs": 0.254624,
+            "percentage": 14.0888
+          }
+        },
+        {
+          "name": "/PointPillarScatterTRT",
+          "layer_type": "",
+          "latency_ms": 0.071936,
+          "category": "PointPillarScatterTRT",
+          "raw": {
+            "name": "/PointPillarScatterTRT",
+            "timeMs": 10.2631,
+            "averageMs": 0.0834396,
+            "medianMs": 0.071936,
+            "percentage": 4.61548
+          }
+        },
+        {
+          "name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_18",
+          "layer_type": "",
+          "latency_ms": 0.065856,
+          "category": "PillarVFE / PFN",
+          "raw": {
+            "name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_18",
+            "timeMs": 8.11072,
+            "averageMs": 0.0659408,
+            "medianMs": 0.065856,
+            "percentage": 3.64753
+          }
+        },
+        {
+          "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl69_8",
+          "layer_type": "",
+          "latency_ms": 0.061312,
+          "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+          "raw": {
+            "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl69_8",
+            "timeMs": 7.54598,
+            "averageMs": 0.0613495,
+            "medianMs": 0.061312,
+            "percentage": 3.39356
+          }
+        },
+        {
+          "name": "/shrink_conv/layers.0/double_conv/double_conv.0/Conv + /shrink_conv/layers.0/double_conv/double_conv.1/Relu",
+          "layer_type": "",
+          "latency_ms": 0.044896,
+          "category": "BEV backbone Conv",
+          "raw": {
+            "name": "/shrink_conv/layers.0/double_conv/double_conv.0/Conv + /shrink_conv/layers.0/double_conv/double_conv.1/Relu",
+            "timeMs": 5.53136,
+            "averageMs": 0.0449704,
+            "medianMs": 0.044896,
+            "percentage": 2.48755
+          }
+        },
+        {
+          "name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_17",
+          "layer_type": "",
+          "latency_ms": 0.035456,
+          "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+          "raw": {
+            "name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_17",
+            "timeMs": 4.35642,
+            "averageMs": 0.035418,
+            "medianMs": 0.035456,
+            "percentage": 1.95915
+          }
+        },
+        {
+          "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl69_6",
+          "layer_type": "",
+          "latency_ms": 0.035392,
+          "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+          "raw": {
+            "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl69_6",
+            "timeMs": 4.35648,
+            "averageMs": 0.0354185,
+            "medianMs": 0.035392,
+            "percentage": 1.95918
+          }
+        },
+        {
+          "name": "Reformatting CopyNode for Output Tensor 0 to /PointPillarScatterTRT",
+          "layer_type": "",
+          "latency_ms": 0.035104,
+          "category": "PointPillarScatterTRT",
+          "raw": {
+            "name": "Reformatting CopyNode for Output Tensor 0 to /PointPillarScatterTRT",
+            "timeMs": 5.2383,
+            "averageMs": 0.0425878,
+            "medianMs": 0.035104,
+            "percentage": 2.35575
+          }
+        },
+        {
+          "name": "/shrink_conv/layers.0/double_conv/double_conv.2/Conv + /shrink_conv/layers.0/double_conv/double_conv.3/Relu",
+          "layer_type": "",
+          "latency_ms": 0.03424,
+          "category": "BEV backbone Conv",
+          "raw": {
+            "name": "/shrink_conv/layers.0/double_conv/double_conv.2/Conv + /shrink_conv/layers.0/double_conv/double_conv.3/Relu",
+            "timeMs": 4.2144,
+            "averageMs": 0.0342634,
+            "medianMs": 0.03424,
+            "percentage": 1.89529
+          }
+        },
+        {
+          "name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_6",
+          "layer_type": "",
+          "latency_ms": 0.027072,
+          "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+          "raw": {
+            "name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_6",
+            "timeMs": 3.11667,
+            "averageMs": 0.0253388,
+            "medianMs": 0.027072,
+            "percentage": 1.40162
+          }
+        },
+        {
+          "name": "__myl_SlicSum_myl3_14",
+          "layer_type": "",
+          "latency_ms": 0.023328,
+          "category": "Other",
+          "raw": {
+            "name": "__myl_SlicSum_myl3_14",
+            "timeMs": 2.94109,
+            "averageMs": 0.0239113,
+            "medianMs": 0.023328,
+            "percentage": 1.32266
+          }
+        },
+        {
+          "name": "__myl_Repl_myl3_4",
+          "layer_type": "",
+          "latency_ms": 0.022976,
+          "category": "Other",
+          "raw": {
+            "name": "__myl_Repl_myl3_4",
+            "timeMs": 2.58848,
+            "averageMs": 0.0210446,
+            "medianMs": 0.022976,
+            "percentage": 1.16408
+          }
+        },
+        {
+          "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl69_4",
+          "layer_type": "",
+          "latency_ms": 0.022208,
+          "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+          "raw": {
+            "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl69_4",
+            "timeMs": 2.73626,
+            "averageMs": 0.022246,
+            "medianMs": 0.022208,
+            "percentage": 1.23054
+          }
+        },
+        {
+          "name": "/layer1/layer1.0/conv2/Conv + /layer1/layer1.0/relu_1/Relu",
+          "layer_type": "",
+          "latency_ms": 0.02096,
+          "category": "BEV backbone Conv",
+          "raw": {
+            "name": "/layer1/layer1.0/conv2/Conv + /layer1/layer1.0/relu_1/Relu",
+            "timeMs": 2.58298,
+            "averageMs": 0.0209998,
+            "medianMs": 0.02096,
+            "percentage": 1.16161
+          }
+        },
+        {
+          "name": "/layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu",
+          "layer_type": "",
+          "latency_ms": 0.020384,
+          "category": "BEV backbone Conv",
+          "raw": {
+            "name": "/layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu",
+            "timeMs": 2.51584,
+            "averageMs": 0.020454,
+            "medianMs": 0.020384,
+            "percentage": 1.13142
+          }
+        },
+        {
+          "name": "/layer1/layer1.0/conv1/Conv + /layer1/layer1.0/relu/Relu",
+          "layer_type": "",
+          "latency_ms": 0.018368,
+          "category": "BEV backbone Conv",
+          "raw": {
+            "name": "/layer1/layer1.0/conv1/Conv + /layer1/layer1.0/relu/Relu",
+            "timeMs": 2.27107,
+            "averageMs": 0.018464,
+            "medianMs": 0.018368,
+            "percentage": 1.02134
+          }
+        },
+        {
+          "name": "/layer0/layer0.0/conv2/Conv",
+          "layer_type": "",
+          "latency_ms": 0.017952,
+          "category": "BEV backbone Conv",
+          "raw": {
+            "name": "/layer0/layer0.0/conv2/Conv",
+            "timeMs": 2.21478,
+            "averageMs": 0.0180064,
+            "medianMs": 0.017952,
+            "percentage": 0.996026
+          }
+        },
+        {
+          "name": "/layer0/layer0.0/conv2_1/Conv + /layer0/layer0.0/relu_3/Relu",
+          "layer_type": "",
+          "latency_ms": 0.017792,
+          "category": "BEV backbone Conv",
+          "raw": {
+            "name": "/layer0/layer0.0/conv2_1/Conv + /layer0/layer0.0/relu_3/Relu",
+            "timeMs": 2.20346,
+            "averageMs": 0.0179143,
+            "medianMs": 0.017792,
+            "percentage": 0.990932
+          }
+        },
+        {
+          "name": "/layer0/layer0.1/conv2_1/Conv + /layer0/layer0.1/relu_3/Relu",
+          "layer_type": "",
+          "latency_ms": 0.017536,
+          "category": "BEV backbone Conv",
+          "raw": {
+            "name": "/layer0/layer0.1/conv2_1/Conv + /layer0/layer0.1/relu_3/Relu",
+            "timeMs": 2.16742,
+            "averageMs": 0.0176213,
+            "medianMs": 0.017536,
+            "percentage": 0.974727
+          }
+        },
+        {
+          "name": "/layer0/layer0.2/conv2_1/Conv + /layer0/layer0.2/relu_3/Relu",
+          "layer_type": "",
+          "latency_ms": 0.017536,
+          "category": "BEV backbone Conv",
+          "raw": {
+            "name": "/layer0/layer0.2/conv2_1/Conv + /layer0/layer0.2/relu_3/Relu",
+            "timeMs": 2.16534,
+            "averageMs": 0.0176044,
+            "medianMs": 0.017536,
+            "percentage": 0.973792
+          }
+        }
+      ],
+      "answers": {
+        "int8_engine_really_uses_int8": true,
+        "just_renamed_fp16_engine": false,
+        "plugin_causes_large_fallback": false,
+        "main_latency_layers": [
+          "reformat_cast_qdq",
+          "reformat_cast_qdq",
+          "reformat_cast_qdq",
+          "reformat_cast_qdq",
+          "other"
+        ],
+        "int8_speedup_space": true
+      },
+      "runtime_layer_profile_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trt_layer_profile_dynamic_agent_dim_N2_fixed_k_plugin_int8_calib200.json",
+      "runtime_layer_profile_scope": "representative N2 bucket1 real-input trtexec profile",
+      "runtime_layer_category_totals_ms": {
+        "BEV backbone Conv": 0.8789439999999998,
+        "Other": 0.38083200000000006,
+        "Shape/Gather/Slice/Reshape/Shuffle/Reformat": 0.261728,
+        "PointPillarScatterTRT": 0.10704,
+        "PillarVFE / PFN": 0.079168,
+        "Head Conv": 0.037408000000000004,
+        "valid_voxel_mask": 0.006944
+      }
+    }
+  ],
+  "mixed_precision_report": {
+    "calibration_frames": 200,
+    "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+    "precision_strategy": "mixed_heads_fp16",
+    "per_engine": [
+      {
+        "fixed_N": 1,
+        "bucket_id": 0,
+        "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib200_mixed_heads_fp16.json",
+        "num_layers": 136,
+        "counts": {
+          "INT8 Conv layers count": 69,
+          "FP16 Conv layers count": 9,
+          "FP32 Conv layers count": 0,
+          "INT8 GEMM / MatMul layers count": 0,
+          "FP16/FP32 fallback layers": 43,
+          "Reformat / Cast / Quantize / Dequantize layers count": 27,
+          "category_precision": {
+            "reformat_cast_qdq": {
+              "unknown": 2,
+              "fp32": 1,
+              "fp16": 14,
+              "int8": 10
+            },
+            "other": {
+              "unknown": 19,
+              "fp16": 19
+            },
+            "PillarVFE/PFN": {
+              "fp16": 1
+            },
+            "plugin": {
+              "fp16": 1
+            },
+            "BEV_backbone": {
+              "int8": 60
+            },
+            "detection_head": {
+              "fp16": 6
+            },
+            "gemm_matmul": {
+              "fp16": 1
+            },
+            "shrink_conv": {
+              "int8": 2
+            }
+          }
+        }
+      },
+      {
+        "fixed_N": 1,
+        "bucket_id": 1,
+        "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib200_mixed_heads_fp16.json",
+        "num_layers": 138,
+        "counts": {
+          "INT8 Conv layers count": 69,
+          "FP16 Conv layers count": 9,
+          "FP32 Conv layers count": 0,
+          "INT8 GEMM / MatMul layers count": 0,
+          "FP16/FP32 fallback layers": 42,
+          "Reformat / Cast / Quantize / Dequantize layers count": 26,
+          "category_precision": {
+            "reformat_cast_qdq": {
+              "unknown": 2,
+              "fp16": 14,
+              "int8": 10
+            },
+            "other": {
+              "unknown": 22,
+              "fp16": 19
+            },
+            "PillarVFE/PFN": {
+              "fp16": 1
+            },
+            "plugin": {
+              "fp16": 1
+            },
+            "BEV_backbone": {
+              "int8": 60
+            },
+            "detection_head": {
+              "fp16": 6
+            },
+            "gemm_matmul": {
+              "fp16": 1
+            },
+            "shrink_conv": {
+              "int8": 2
+            }
+          }
+        }
+      },
+      {
+        "fixed_N": 1,
+        "bucket_id": 2,
+        "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib200_mixed_heads_fp16.json",
+        "num_layers": 0,
+        "counts": {
+          "INT8 Conv layers count": 0,
+          "FP16 Conv layers count": 0,
+          "FP32 Conv layers count": 0,
+          "INT8 GEMM / MatMul layers count": 0,
+          "FP16/FP32 fallback layers": 0,
+          "Reformat / Cast / Quantize / Dequantize layers count": 0,
+          "category_precision": {}
+        }
+      },
+      {
+        "fixed_N": 1,
+        "bucket_id": 3,
+        "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib200_mixed_heads_fp16.json",
+        "num_layers": 0,
+        "counts": {
+          "INT8 Conv layers count": 0,
+          "FP16 Conv layers count": 0,
+          "FP32 Conv layers count": 0,
+          "INT8 GEMM / MatMul layers count": 0,
+          "FP16/FP32 fallback layers": 0,
+          "Reformat / Cast / Quantize / Dequantize layers count": 0,
+          "category_precision": {}
+        }
+      },
+      {
+        "fixed_N": 2,
+        "bucket_id": 0,
+        "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib200_mixed_heads_fp16.json",
+        "num_layers": 0,
+        "counts": {
+          "INT8 Conv layers count": 0,
+          "FP16 Conv layers count": 0,
+          "FP32 Conv layers count": 0,
+          "INT8 GEMM / MatMul layers count": 0,
+          "FP16/FP32 fallback layers": 0,
+          "Reformat / Cast / Quantize / Dequantize layers count": 0,
+          "category_precision": {}
+        }
+      },
+      {
+        "fixed_N": 2,
+        "bucket_id": 1,
+        "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib200_mixed_heads_fp16.json",
+        "num_layers": 119,
+        "counts": {
+          "INT8 Conv layers count": 69,
+          "FP16 Conv layers count": 9,
+          "FP32 Conv layers count": 0,
+          "INT8 GEMM / MatMul layers count": 0,
+          "FP16/FP32 fallback layers": 35,
+          "Reformat / Cast / Quantize / Dequantize layers count": 23,
+          "category_precision": {
+            "reformat_cast_qdq": {
+              "unknown": 2,
+              "fp16": 11,
+              "int8": 10
+            },
+            "other": {
+              "unknown": 10,
+              "fp16": 7,
+              "fp32": 8
+            },
+            "PillarVFE/PFN": {
+              "fp16": 1
+            },
+            "plugin": {
+              "fp16": 1
+            },
+            "BEV_backbone": {
+              "int8": 60
+            },
+            "detection_head": {
+              "fp16": 6
+            },
+            "gemm_matmul": {
+              "fp32": 1
+            },
+            "shrink_conv": {
+              "int8": 2
+            }
+          }
+        }
+      },
+      {
+        "fixed_N": 2,
+        "bucket_id": 2,
+        "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib200_mixed_heads_fp16.json",
+        "num_layers": 119,
+        "counts": {
+          "INT8 Conv layers count": 69,
+          "FP16 Conv layers count": 9,
+          "FP32 Conv layers count": 0,
+          "INT8 GEMM / MatMul layers count": 0,
+          "FP16/FP32 fallback layers": 35,
+          "Reformat / Cast / Quantize / Dequantize layers count": 23,
+          "category_precision": {
+            "reformat_cast_qdq": {
+              "unknown": 2,
+              "fp16": 11,
+              "int8": 10
+            },
+            "other": {
+              "unknown": 10,
+              "fp16": 7,
+              "fp32": 8
+            },
+            "PillarVFE/PFN": {
+              "fp16": 1
+            },
+            "plugin": {
+              "fp16": 1
+            },
+            "BEV_backbone": {
+              "int8": 60
+            },
+            "detection_head": {
+              "fp16": 6
+            },
+            "gemm_matmul": {
+              "fp32": 1
+            },
+            "shrink_conv": {
+              "int8": 2
+            }
+          }
+        }
+      },
+      {
+        "fixed_N": 2,
+        "bucket_id": 3,
+        "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib200_mixed_heads_fp16/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib200_mixed_heads_fp16.json",
+        "num_layers": 120,
+        "counts": {
+          "INT8 Conv layers count": 66,
+          "FP16 Conv layers count": 13,
+          "FP32 Conv layers count": 0,
+          "INT8 GEMM / MatMul layers count": 0,
+          "FP16/FP32 fallback layers": 40,
+          "Reformat / Cast / Quantize / Dequantize layers count": 24,
+          "category_precision": {
+            "reformat_cast_qdq": {
+              "unknown": 2,
+              "fp16": 12,
+              "int8": 10
+            },
+            "other": {
+              "unknown": 10,
+              "fp16": 7,
+              "fp32": 8
+            },
+            "PillarVFE/PFN": {
+              "fp16": 1
+            },
+            "plugin": {
+              "fp16": 1
+            },
+            "BEV_backbone": {
+              "int8": 56,
+              "fp16": 4
+            },
+            "detection_head": {
+              "fp16": 6
+            },
+            "gemm_matmul": {
+              "fp32": 1
+            },
+            "shrink_conv": {
+              "int8": 2
+            }
+          }
+        }
+      }
+    ],
+    "counts": {
+      "INT8 Conv layers count": 342,
+      "FP16 Conv layers count": 49,
+      "FP32 Conv layers count": 0,
+      "INT8 GEMM / MatMul layers count": 0,
+      "FP16/FP32 fallback layers": 195,
+      "Reformat / Cast / Quantize / Dequantize layers count": 123,
+      "category_precision": {
+        "reformat_cast_qdq": {
+          "unknown": 10,
+          "fp32": 1,
+          "fp16": 62,
+          "int8": 50
+        },
+        "other": {
+          "unknown": 71,
+          "fp16": 59,
+          "fp32": 24
+        },
+        "PillarVFE/PFN": {
+          "fp16": 5
+        },
+        "plugin": {
+          "fp16": 5
+        },
+        "BEV_backbone": {
+          "int8": 296,
+          "fp16": 4
+        },
+        "detection_head": {
+          "fp16": 30
+        },
+        "gemm_matmul": {
+          "fp16": 2,
+          "fp32": 3
+        },
+        "shrink_conv": {
+          "int8": 10
+        }
+      }
+    },
+    "PointPillarScatterTRT precision": [
+      "fp16"
+    ],
+    "PointPillarScatterTRT io_dtypes": [
+      {
+        "fixed_N": 1,
+        "bucket_id": 0,
+        "name": "/PointPillarScatterTRT",
+        "input_dtypes": [
+          "Half",
+          "Int32",
+          "Float"
+        ],
+        "output_dtypes": [
+          "Half"
+        ]
+      },
+      {
+        "fixed_N": 1,
+        "bucket_id": 1,
+        "name": "/PointPillarScatterTRT",
+        "input_dtypes": [
+          "Half",
+          "Int32",
+          "Half"
+        ],
+        "output_dtypes": [
+          "Half"
+        ]
+      },
+      {
+        "fixed_N": 2,
+        "bucket_id": 1,
+        "name": "/PointPillarScatterTRT",
+        "input_dtypes": [
+          "Half",
+          "Int32",
+          "Half"
+        ],
+        "output_dtypes": [
+          "Half"
+        ]
+      },
+      {
+        "fixed_N": 2,
+        "bucket_id": 2,
+        "name": "/PointPillarScatterTRT",
+        "input_dtypes": [
+          "Half",
+          "Int32",
+          "Half"
+        ],
+        "output_dtypes": [
+          "Half"
+        ]
+      },
+      {
+        "fixed_N": 2,
+        "bucket_id": 3,
+        "name": "/PointPillarScatterTRT",
+        "input_dtypes": [
+          "Half",
+          "Int32",
+          "Half"
+        ],
+        "output_dtypes": [
+          "Half"
+        ]
+      }
+    ],
+    "PillarVFE / PFN precision": {
+      "fp16": 5
+    },
+    "BEV backbone precision": {
+      "int8": 296,
+      "fp16": 4
+    },
+    "shrink_conv precision": {
+      "int8": 10
+    },
+    "detection head precision": {
+      "fp16": 30
+    },
+    "plugin precision": {
+      "fp16": 5
+    },
+    "top 20 latency layers": [
+      {
+        "name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_19",
+        "layer_type": "",
+        "latency_ms": 0.254944,
+        "category": "Other",
+        "raw": {
+          "name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_19",
+          "timeMs": 30.5954,
+          "averageMs": 0.254961,
+          "medianMs": 0.254944,
+          "percentage": 13.6007
+        }
+      },
+      {
+        "name": "/PointPillarScatterTRT",
+        "layer_type": "",
+        "latency_ms": 0.072736,
+        "category": "PointPillarScatterTRT",
+        "raw": {
+          "name": "/PointPillarScatterTRT",
+          "timeMs": 10.0446,
+          "averageMs": 0.0837053,
+          "medianMs": 0.072736,
+          "percentage": 4.4652
+        }
+      },
+      {
+        "name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_18",
+        "layer_type": "",
+        "latency_ms": 0.065888,
+        "category": "PillarVFE / PFN",
+        "raw": {
+          "name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_18",
+          "timeMs": 7.90371,
+          "averageMs": 0.0658643,
+          "medianMs": 0.065888,
+          "percentage": 3.51348
+        }
+      },
+      {
+        "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_8",
+        "layer_type": "",
+        "latency_ms": 0.061408,
+        "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+        "raw": {
+          "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_8",
+          "timeMs": 7.3726,
+          "averageMs": 0.0614384,
+          "medianMs": 0.061408,
+          "percentage": 3.27738
+        }
+      },
+      {
+        "name": "/shrink_conv/layers.0/double_conv/double_conv.0/Conv + /shrink_conv/layers.0/double_conv/double_conv.1/Relu",
+        "layer_type": "",
+        "latency_ms": 0.045232,
+        "category": "BEV backbone Conv",
+        "raw": {
+          "name": "/shrink_conv/layers.0/double_conv/double_conv.0/Conv + /shrink_conv/layers.0/double_conv/double_conv.1/Relu",
+          "timeMs": 5.43625,
+          "averageMs": 0.0453021,
+          "medianMs": 0.045232,
+          "percentage": 2.41661
+        }
+      },
+      {
+        "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_6",
+        "layer_type": "",
+        "latency_ms": 0.035776,
+        "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+        "raw": {
+          "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_6",
+          "timeMs": 4.29414,
+          "averageMs": 0.0357845,
+          "medianMs": 0.035776,
+          "percentage": 1.9089
+        }
+      },
+      {
+        "name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_17",
+        "layer_type": "",
+        "latency_ms": 0.03528,
+        "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+        "raw": {
+          "name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_17",
+          "timeMs": 4.23286,
+          "averageMs": 0.0352739,
+          "medianMs": 0.03528,
+          "percentage": 1.88166
+        }
+      },
+      {
+        "name": "Reformatting CopyNode for Output Tensor 0 to /PointPillarScatterTRT",
+        "layer_type": "",
+        "latency_ms": 0.035136,
+        "category": "PointPillarScatterTRT",
+        "raw": {
+          "name": "Reformatting CopyNode for Output Tensor 0 to /PointPillarScatterTRT",
+          "timeMs": 4.94032,
+          "averageMs": 0.0411693,
+          "medianMs": 0.035136,
+          "percentage": 2.19615
+        }
+      },
+      {
+        "name": "/shrink_conv/layers.0/double_conv/double_conv.2/Conv + /shrink_conv/layers.0/double_conv/double_conv.3/Relu",
+        "layer_type": "",
+        "latency_ms": 0.034272,
+        "category": "BEV backbone Conv",
+        "raw": {
+          "name": "/shrink_conv/layers.0/double_conv/double_conv.2/Conv + /shrink_conv/layers.0/double_conv/double_conv.3/Relu",
+          "timeMs": 4.11546,
+          "averageMs": 0.0342955,
+          "medianMs": 0.034272,
+          "percentage": 1.82947
+        }
+      },
+      {
+        "name": "__myl_SlicSum_myl3_14",
+        "layer_type": "",
+        "latency_ms": 0.023808,
+        "category": "Other",
+        "raw": {
+          "name": "__myl_SlicSum_myl3_14",
+          "timeMs": 2.86621,
+          "averageMs": 0.0238851,
+          "medianMs": 0.023808,
+          "percentage": 1.27413
+        }
+      },
+      {
+        "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_4",
+        "layer_type": "",
+        "latency_ms": 0.02232,
+        "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+        "raw": {
+          "name": "__myl_MoveGridNegExpAddDivAddGridEqlReplSeleSlicSlicMaxSubExpSlicSlicAddDivMulIsnaReplSeleMulSlicEtc_myl75_4",
+          "timeMs": 2.68134,
+          "averageMs": 0.0223445,
+          "medianMs": 0.02232,
+          "percentage": 1.19195
+        }
+      },
+      {
+        "name": "/layer1/layer1.0/conv2/Conv + /layer1/layer1.0/relu_1/Relu",
+        "layer_type": "",
+        "latency_ms": 0.021008,
+        "category": "BEV backbone Conv",
+        "raw": {
+          "name": "/layer1/layer1.0/conv2/Conv + /layer1/layer1.0/relu_1/Relu",
+          "timeMs": 2.52426,
+          "averageMs": 0.0210355,
+          "medianMs": 0.021008,
+          "percentage": 1.12212
+        }
+      },
+      {
+        "name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_6",
+        "layer_type": "",
+        "latency_ms": 0.0208,
+        "category": "Shape/Gather/Slice/Reshape/Shuffle/Reformat",
+        "raw": {
+          "name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_6",
+          "timeMs": 2.8983,
+          "averageMs": 0.0241525,
+          "medianMs": 0.0208,
+          "percentage": 1.2884
+        }
+      },
+      {
+        "name": "/layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu",
+        "layer_type": "",
+        "latency_ms": 0.020256,
+        "category": "BEV backbone Conv",
+        "raw": {
+          "name": "/layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu",
+          "timeMs": 2.43206,
+          "averageMs": 0.0202672,
+          "medianMs": 0.020256,
+          "percentage": 1.08114
+        }
+      },
+      {
+        "name": "/layer1/layer1.0/conv1/Conv + /layer1/layer1.0/relu/Relu",
+        "layer_type": "",
+        "latency_ms": 0.018848,
+        "category": "BEV backbone Conv",
+        "raw": {
+          "name": "/layer1/layer1.0/conv1/Conv + /layer1/layer1.0/relu/Relu",
+          "timeMs": 2.26541,
+          "averageMs": 0.0188784,
+          "medianMs": 0.018848,
+          "percentage": 1.00705
+        }
+      },
+      {
+        "name": "__myl_Repl_myl3_4",
+        "layer_type": "",
+        "latency_ms": 0.018112,
+        "category": "Other",
+        "raw": {
+          "name": "__myl_Repl_myl3_4",
+          "timeMs": 2.40522,
+          "averageMs": 0.0200435,
+          "medianMs": 0.018112,
+          "percentage": 1.0692
+        }
+      },
+      {
+        "name": "/layer0/layer0.1/conv2_1/Conv + /layer0/layer0.1/relu_3/Relu",
+        "layer_type": "",
+        "latency_ms": 0.01776,
+        "category": "BEV backbone Conv",
+        "raw": {
+          "name": "/layer0/layer0.1/conv2_1/Conv + /layer0/layer0.1/relu_3/Relu",
+          "timeMs": 2.13162,
+          "averageMs": 0.0177635,
+          "medianMs": 0.01776,
+          "percentage": 0.947579
+        }
+      },
+      {
+        "name": "/layer0/layer0.0/conv2_1/Conv + /layer0/layer0.0/relu_3/Relu",
+        "layer_type": "",
+        "latency_ms": 0.01768,
+        "category": "BEV backbone Conv",
+        "raw": {
+          "name": "/layer0/layer0.0/conv2_1/Conv + /layer0/layer0.0/relu_3/Relu",
+          "timeMs": 2.12541,
+          "averageMs": 0.0177117,
+          "medianMs": 0.01768,
+          "percentage": 0.944819
+        }
+      },
+      {
+        "name": "/layer0/layer0.0/conv2/Conv",
+        "layer_type": "",
+        "latency_ms": 0.017664,
+        "category": "BEV backbone Conv",
+        "raw": {
+          "name": "/layer0/layer0.0/conv2/Conv",
+          "timeMs": 2.11546,
+          "averageMs": 0.0176288,
+          "medianMs": 0.017664,
+          "percentage": 0.940395
+        }
+      },
+      {
+        "name": "/layer1/layer1.1/conv2/Conv + /layer1/layer1.1/relu_1/Relu",
+        "layer_type": "",
+        "latency_ms": 0.017664,
+        "category": "BEV backbone Conv",
+        "raw": {
+          "name": "/layer1/layer1.1/conv2/Conv + /layer1/layer1.1/relu_1/Relu",
+          "timeMs": 2.12243,
+          "averageMs": 0.0176869,
+          "medianMs": 0.017664,
+          "percentage": 0.943496
+        }
+      }
+    ],
+    "answers": {
+      "int8_engine_really_uses_int8": true,
+      "just_renamed_fp16_engine": false,
+      "plugin_causes_large_fallback": false,
+      "main_latency_layers": [
+        "reformat_cast_qdq",
+        "reformat_cast_qdq",
+        "reformat_cast_qdq",
+        "reformat_cast_qdq",
+        "other"
+      ],
+      "int8_speedup_space": true
+    },
+    "runtime_layer_profile_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trt_layer_profile_dynamic_agent_dim_N2_fixed_k_plugin_int8_calib200_mixed_heads_fp16.json",
+    "runtime_layer_profile_scope": "representative N2 bucket1 real-input trtexec profile",
+    "runtime_layer_category_totals_ms": {
+      "BEV backbone Conv": 0.8728799999999999,
+      "Other": 0.379264,
+      "Shape/Gather/Slice/Reshape/Shuffle/Reformat": 0.31819200000000003,
+      "PointPillarScatterTRT": 0.107872,
+      "PillarVFE / PFN": 0.0796,
+      "Head Conv": 0.054624000000000006,
+      "valid_voxel_mask": 0.007056
+    }
+  },
+  "heal_opencood_source_modified": false,
+  "default_path": "dynamic_agent_dim + fixed-K bucket router + PointPillarScatterTRT",
+  "padded_agent_static_role": "optional baseline only"
+}

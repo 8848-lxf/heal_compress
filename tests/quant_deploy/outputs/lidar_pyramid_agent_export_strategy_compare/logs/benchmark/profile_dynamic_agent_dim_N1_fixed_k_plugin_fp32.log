@@ -1,0 +1,222 @@
+=== COMMAND ===
+/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec --loadEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.engine --staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so --shapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23040 --loadInputs=voxel_features:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_features.raw,voxel_coords:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_coords.raw,voxel_num_points:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_num_points.raw,pairwise_t_matrix:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/pairwise_t_matrix.raw,valid_voxel_mask:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/valid_voxel_mask.raw --dumpProfile --profilingVerbosity=detailed --exportProfile=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32.json --warmUp=200 --iterations=50 --duration=3 --avgRuns=1 --percentile=50,90,95 --useSpinWait
+
+=== STDOUT ===
+&&&& RUNNING TensorRT.trtexec [TensorRT v100900] [b34] # /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec --loadEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.engine --staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so --shapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23040 --loadInputs=voxel_features:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_features.raw,voxel_coords:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_coords.raw,voxel_num_points:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_num_points.raw,pairwise_t_matrix:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/pairwise_t_matrix.raw,valid_voxel_mask:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/valid_voxel_mask.raw --dumpProfile --profilingVerbosity=detailed --exportProfile=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32.json --warmUp=200 --iterations=50 --duration=3 --avgRuns=1 --percentile=50,90,95 --useSpinWait
+[06/28/2026-04:59:27] [I] TF32 is enabled by default. Add --noTF32 flag to further improve accuracy with some performance cost.
+[06/28/2026-04:59:27] [I] === Model Options ===
+[06/28/2026-04:59:27] [I] Format: *
+[06/28/2026-04:59:27] [I] Model: 
+[06/28/2026-04:59:27] [I] Output:
+[06/28/2026-04:59:27] [I] 
+[06/28/2026-04:59:27] [I] === System Options ===
+[06/28/2026-04:59:27] [I] Device: 0
+[06/28/2026-04:59:27] [I] DLACore: 
+[06/28/2026-04:59:27] [I] Plugins: tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so
+[06/28/2026-04:59:27] [I] setPluginsToSerialize:
+[06/28/2026-04:59:27] [I] dynamicPlugins:
+[06/28/2026-04:59:27] [I] ignoreParsedPluginLibs: 0
+[06/28/2026-04:59:27] [I] 
+[06/28/2026-04:59:27] [I] === Inference Options ===
+[06/28/2026-04:59:27] [I] Batch: Explicit
+[06/28/2026-04:59:27] [I] Input inference shape : valid_voxel_mask=23040
+[06/28/2026-04:59:27] [I] Input inference shape : pairwise_t_matrix=1x1x1x4x4
+[06/28/2026-04:59:27] [I] Input inference shape : voxel_coords=23040x4
+[06/28/2026-04:59:27] [I] Input inference shape : voxel_num_points=23040
+[06/28/2026-04:59:27] [I] Input inference shape : voxel_features=23040x32x4
+[06/28/2026-04:59:27] [I] Iterations: 50
+[06/28/2026-04:59:27] [I] Duration: 3s (+ 200ms warm up)
+[06/28/2026-04:59:27] [I] Sleep time: 0ms
+[06/28/2026-04:59:27] [I] Idle time: 0ms
+[06/28/2026-04:59:27] [I] Inference Streams: 1
+[06/28/2026-04:59:27] [I] ExposeDMA: Disabled
+[06/28/2026-04:59:27] [I] Data transfers: Enabled
+[06/28/2026-04:59:27] [I] Spin-wait: Enabled
+[06/28/2026-04:59:27] [I] Multithreading: Disabled
+[06/28/2026-04:59:27] [I] CUDA Graph: Disabled
+[06/28/2026-04:59:27] [I] Separate profiling: Disabled
+[06/28/2026-04:59:27] [I] Time Deserialize: Disabled
+[06/28/2026-04:59:27] [I] Time Refit: Disabled
+[06/28/2026-04:59:27] [I] NVTX verbosity: 2
+[06/28/2026-04:59:27] [I] Persistent Cache Ratio: 0
+[06/28/2026-04:59:27] [I] Optimization Profile Index: 0
+[06/28/2026-04:59:27] [I] Weight Streaming Budget: 100.000000%
+[06/28/2026-04:59:27] [I] Inputs:
+[06/28/2026-04:59:27] [I] valid_voxel_mask<-/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/valid_voxel_mask.raw
+[06/28/2026-04:59:27] [I] pairwise_t_matrix<-/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/pairwise_t_matrix.raw
+[06/28/2026-04:59:27] [I] voxel_coords<-/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_coords.raw
+[06/28/2026-04:59:27] [I] voxel_num_points<-/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_num_points.raw
+[06/28/2026-04:59:27] [I] voxel_features<-/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_features.raw
+[06/28/2026-04:59:27] [I] Debug Tensor Save Destinations:
+[06/28/2026-04:59:27] [I] === Reporting Options ===
+[06/28/2026-04:59:27] [I] Verbose: Disabled
+[06/28/2026-04:59:27] [I] Averages: 1 inferences
+[06/28/2026-04:59:27] [I] Percentiles: 50,90,95
+[06/28/2026-04:59:27] [I] Dump refittable layers:Disabled
+[06/28/2026-04:59:27] [I] Dump output: Disabled
+[06/28/2026-04:59:27] [I] Profile: Enabled
+[06/28/2026-04:59:27] [I] Export timing to JSON file: 
+[06/28/2026-04:59:27] [I] Export output to JSON file: 
+[06/28/2026-04:59:27] [I] Export profile to JSON file: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32.json
+[06/28/2026-04:59:27] [I] 
+[06/28/2026-04:59:27] [I] === Device Information ===
+[06/28/2026-04:59:27] [I] Available Devices: 
+[06/28/2026-04:59:27] [I]   Device 0: "NVIDIA GeForce RTX 4090" UUID: GPU-b5a7ab32-fb96-3347-e5d7-cabce043a05e
+[06/28/2026-04:59:27] [I] Selected Device: NVIDIA GeForce RTX 4090
+[06/28/2026-04:59:27] [I] Selected Device ID: 0
+[06/28/2026-04:59:27] [I] Selected Device UUID: GPU-b5a7ab32-fb96-3347-e5d7-cabce043a05e
+[06/28/2026-04:59:27] [I] Compute Capability: 8.9
+[06/28/2026-04:59:27] [I] SMs: 128
+[06/28/2026-04:59:27] [I] Device Global Memory: 24080 MiB
+[06/28/2026-04:59:27] [I] Shared Memory per SM: 100 KiB
+[06/28/2026-04:59:27] [I] Memory Bus Width: 384 bits (ECC disabled)
+[06/28/2026-04:59:27] [I] Application Compute Clock Rate: 2.52 GHz
+[06/28/2026-04:59:27] [I] Application Memory Clock Rate: 10.501 GHz
+[06/28/2026-04:59:27] [I] 
+[06/28/2026-04:59:27] [I] Note: The application clock rates do not reflect the actual clock rates that the GPU is currently running at.
+[06/28/2026-04:59:27] [I] 
+[06/28/2026-04:59:27] [I] TensorRT version: 10.9.0
+[06/28/2026-04:59:27] [I] Loading standard plugins
+[06/28/2026-04:59:27] [I] Loading supplied plugin library: tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so
+[06/28/2026-04:59:27] [I] [TRT] Loaded engine size: 29 MiB
+[06/28/2026-04:59:27] [I] Engine deserialized in 0.210366 sec.
+[06/28/2026-04:59:27] [I] [TRT] [MS] Running engine with multi stream info
+[06/28/2026-04:59:27] [I] [TRT] [MS] Number of aux streams is 3
+[06/28/2026-04:59:27] [I] [TRT] [MS] Number of total worker streams is 4
+[06/28/2026-04:59:27] [I] [TRT] [MS] The main stream provided by execute/enqueue calls is the first worker stream
+[06/28/2026-04:59:27] [I] [TRT] [MemUsageChange] TensorRT-managed allocation in IExecutionContext creation: CPU +0, GPU +328, now: CPU 0, GPU 356 (MiB)
+[06/28/2026-04:59:27] [I] Setting persistentCacheLimit to 0 bytes.
+[06/28/2026-04:59:27] [I] Created execution context with device memory size: 326.428 MiB
+[06/28/2026-04:59:27] [I] Using values loaded from /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_features.raw for input voxel_features
+[06/28/2026-04:59:27] [I] Input binding for voxel_features with dimensions 23040x32x4 is created.
+[06/28/2026-04:59:27] [I] Using values loaded from /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_coords.raw for input voxel_coords
+[06/28/2026-04:59:27] [I] Input binding for voxel_coords with dimensions 23040x4 is created.
+[06/28/2026-04:59:27] [I] Using values loaded from /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_num_points.raw for input voxel_num_points
+[06/28/2026-04:59:27] [I] Input binding for voxel_num_points with dimensions 23040 is created.
+[06/28/2026-04:59:27] [I] Using values loaded from /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/pairwise_t_matrix.raw for input pairwise_t_matrix
+[06/28/2026-04:59:27] [I] Input binding for pairwise_t_matrix with dimensions 1x1x1x4x4 is created.
+[06/28/2026-04:59:27] [I] Using values loaded from /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/valid_voxel_mask.raw for input valid_voxel_mask
+[06/28/2026-04:59:27] [I] Input binding for valid_voxel_mask with dimensions 23040 is created.
+[06/28/2026-04:59:27] [I] Output binding for cls_preds with dimensions 1x2x128x256 is created.
+[06/28/2026-04:59:27] [I] Output binding for reg_preds with dimensions 1x14x128x256 is created.
+[06/28/2026-04:59:27] [I] Output binding for dir_preds with dimensions 1x4x128x256 is created.
+[06/28/2026-04:59:27] [I] Starting inference
+[06/28/2026-04:59:31] [I] The e2e network timing is not reported since it is inaccurate due to the extra synchronizations when the profiler is enabled.
+[06/28/2026-04:59:31] [I] To show e2e network timing report, add --separateProfileRun to profile layer timing in a separate run or remove --dumpProfile to disable the profiler.
+[06/28/2026-04:59:31] [I] 
+[06/28/2026-04:59:31] [I] === Profile (419 iterations ) ===
+[06/28/2026-04:59:31] [I]    Time(ms)     Avg.(ms)   Median(ms)   Time(%)   Layer
+[06/28/2026-04:59:31] [I]       15.59       0.0372       0.0379       0.6   __myl_Repl_myl2_4
+[06/28/2026-04:59:31] [I]       19.63       0.0468       0.0430       0.7   __myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl2_6
+[06/28/2026-04:59:31] [I]        9.70       0.0232       0.0225       0.4   __myl_MoveMoveSlicReshCastReshSlicReshSlicReshCastReshSlicReshCastReshSlicReshSlicReshMulMulMulEtc_myl2_8
+[06/28/2026-04:59:31] [I]        4.57       0.0109       0.0111       0.2   __myl_Scat_myl2_11
+[06/28/2026-04:59:31] [I]        4.32       0.0103       0.0102       0.2   __myl_Scat_myl2_12
+[06/28/2026-04:59:31] [I]        4.13       0.0099       0.0102       0.2   __myl_Scat_myl2_13
+[06/28/2026-04:59:31] [I]       16.92       0.0404       0.0348       0.6   __myl_SlicSum_myl2_14
+[06/28/2026-04:59:31] [I]       24.16       0.0577       0.0573       0.9   __myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl2_17
+[06/28/2026-04:59:31] [I]       95.91       0.2289       0.2284       3.5   /pillar_vfe/pfn_layers_0/linear/MatMul_myl2_18
+[06/28/2026-04:59:31] [I]      114.84       0.2741       0.2744       4.2   __myl_TranReshMulAddReshMoveTranReluMaxr_myl2_19
+[06/28/2026-04:59:31] [I]        3.75       0.0090       0.0092       0.1   __myl_Resh_myl2_20
+[06/28/2026-04:59:31] [I]       19.70       0.0470       0.0389       0.7   /PointPillarScatterTRT
+[06/28/2026-04:59:31] [I]       24.44       0.0583       0.0584       0.9   /layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu
+[06/28/2026-04:59:31] [I]      104.45       0.2493       0.0410       3.9   /layer0/layer0.0/conv2/Conv
+[06/28/2026-04:59:31] [I]        6.95       0.0166       0.0164       0.3   /layer0/layer0.0/downsample/downsample.0/Conv + /layer0/layer0.0/Add + /layer0/layer0.0/relu_1/Relu
+[06/28/2026-04:59:31] [I]       16.62       0.0397       0.0399       0.6   /layer0/layer0.1/conv1/Conv + /layer0/layer0.1/relu/Relu
+[06/28/2026-04:59:31] [I]       17.38       0.0415       0.0410       0.6   /layer0/layer0.1/conv2/Conv + /layer0/layer0.1/Add + /layer0/layer0.1/relu_1/Relu
+[06/28/2026-04:59:31] [I]       17.48       0.0417       0.0420       0.6   /layer0/layer0.2/conv1/Conv + /layer0/layer0.2/relu/Relu
+[06/28/2026-04:59:31] [I]       17.23       0.0411       0.0410       0.6   /layer0/layer0.2/conv2/Conv + /layer0/layer0.2/Add + /layer0/layer0.2/relu_1/Relu
+[06/28/2026-04:59:31] [I]        4.82       0.0115       0.0082       0.2   Reformatting CopyNode for Output Tensor 0 to /layer0/layer0.2/conv2/Conv + /layer0/layer0.2/Add + /layer0/layer0.2/relu_1/Relu
+[06/28/2026-04:59:31] [I]        9.50       0.0227       0.0225       0.4   /layer0/layer0.0/conv1_1/Conv + /layer0/layer0.0/relu_2/Relu
+[06/28/2026-04:59:31] [I]       26.91       0.0642       0.0645       1.0   /layer0/layer0.0/conv2_1/Conv + /layer0/layer0.0/relu_3/Relu
+[06/28/2026-04:59:31] [I]        8.21       0.0196       0.0195       0.3   /layer0/layer0.0/conv3/Conv + /layer0/layer0.0_1/Add + /layer0/layer0.0/relu_4/Relu
+[06/28/2026-04:59:31] [I]       10.30       0.0246       0.0246       0.4   /layer0/layer0.1/conv1_1/Conv + /layer0/layer0.1/relu_2/Relu
+[06/28/2026-04:59:31] [I]       26.55       0.0634       0.0625       1.0   /layer0/layer0.1/conv2_1/Conv + /layer0/layer0.1/relu_3/Relu
+[06/28/2026-04:59:31] [I]        8.22       0.0196       0.0195       0.3   /layer0/layer0.1/conv3/Conv + /layer0/layer0.1_1/Add + /layer0/layer0.1/relu_4/Relu
+[06/28/2026-04:59:31] [I]       10.23       0.0244       0.0246       0.4   /layer0/layer0.2/conv1_1/Conv + /layer0/layer0.2/relu_2/Relu
+[06/28/2026-04:59:31] [I]       26.73       0.0638       0.0635       1.0   /layer0/layer0.2/conv2_1/Conv + /layer0/layer0.2/relu_3/Relu
+[06/28/2026-04:59:31] [I]        8.16       0.0195       0.0195       0.3   /layer0/layer0.2/conv3/Conv + /layer0/layer0.2_1/Add + /layer0/layer0.2/relu_4/Relu
+[06/28/2026-04:59:31] [I]        3.70       0.0088       0.0092       0.1   /single_head_0/Conv
+[06/28/2026-04:59:31] [I]        4.61       0.0110       0.0113       0.2   /layer1/layer1.0/downsample/downsample.0/Conv
+[06/28/2026-04:59:31] [I]       17.55       0.0419       0.0420       0.6   /layer1/layer1.0/conv1/Conv + /layer1/layer1.0/relu/Relu
+[06/28/2026-04:59:31] [I]       16.29       0.0389       0.0389       0.6   /layer1/layer1.0/conv2/Conv + /layer1/layer1.0/relu_1/Relu
+[06/28/2026-04:59:31] [I]        8.21       0.0196       0.0194       0.3   /layer1/layer1.0/conv3/Conv + /layer1/layer1.0/Add + /layer1/layer1.0/relu_2/Relu
+[06/28/2026-04:59:31] [I]       10.58       0.0253       0.0225       0.4   /layer1/layer1.1/conv1/Conv + /layer1/layer1.1/relu/Relu
+[06/28/2026-04:59:31] [I]       15.08       0.0360       0.0358       0.6   /layer1/layer1.1/conv2/Conv + /layer1/layer1.1/relu_1/Relu
+[06/28/2026-04:59:31] [I]        7.71       0.0184       0.0174       0.3   /layer1/layer1.1/conv3/Conv + /layer1/layer1.1/Add + /layer1/layer1.1/relu_2/Relu
+[06/28/2026-04:59:31] [I]       48.37       0.1154       0.0225       1.8   /layer1/layer1.2/conv1/Conv + /layer1/layer1.2/relu/Relu
+[06/28/2026-04:59:31] [I]      446.66       1.0660       0.2888      16.5   /layer1/layer1.2/conv2/Conv + /layer1/layer1.2/relu_1/Relu
+[06/28/2026-04:59:31] [I]        8.82       0.0211       0.0205       0.3   /layer1/layer1.2/conv3/Conv + /layer1/layer1.2/Add + /layer1/layer1.2/relu_2/Relu
+[06/28/2026-04:59:31] [I]        8.25       0.0197       0.0195       0.3   /layer1/layer1.3/conv1/Conv + /layer1/layer1.3/relu/Relu
+[06/28/2026-04:59:31] [I]       15.05       0.0359       0.0358       0.6   /layer1/layer1.3/conv2/Conv + /layer1/layer1.3/relu_1/Relu
+[06/28/2026-04:59:31] [I]        7.69       0.0184       0.0184       0.3   /layer1/layer1.3/conv3/Conv + /layer1/layer1.3/Add + /layer1/layer1.3/relu_2/Relu
+[06/28/2026-04:59:31] [I]        9.36       0.0223       0.0225       0.3   /layer1/layer1.4/conv1/Conv + /layer1/layer1.4/relu/Relu
+[06/28/2026-04:59:31] [I]       14.77       0.0353       0.0348       0.5   /layer1/layer1.4/conv2/Conv + /layer1/layer1.4/relu_1/Relu
+[06/28/2026-04:59:31] [I]        7.63       0.0182       0.0174       0.3   /layer1/layer1.4/conv3/Conv + /layer1/layer1.4/Add + /layer1/layer1.4/relu_2/Relu
+[06/28/2026-04:59:31] [I]        2.75       0.0066       0.0061       0.1   /single_head_1/Conv
+[06/28/2026-04:59:31] [I]        4.28       0.0102       0.0102       0.2   /layer2/layer2.0/downsample/downsample.0/Conv
+[06/28/2026-04:59:31] [I]       14.27       0.0341       0.0338       0.5   /layer2/layer2.0/conv1/Conv + /layer2/layer2.0/relu/Relu
+[06/28/2026-04:59:31] [I]        9.89       0.0236       0.0236       0.4   /layer2/layer2.0/conv2/Conv + /layer2/layer2.0/relu_1/Relu
+[06/28/2026-04:59:31] [I]        9.81       0.0234       0.0236       0.4   /layer2/layer2.0/conv3/Conv + /layer2/layer2.0/Add + /layer2/layer2.0/relu_2/Relu
+[06/28/2026-04:59:31] [I]        8.08       0.0193       0.0195       0.3   /layer2/layer2.1/conv1/Conv + /layer2/layer2.1/relu/Relu
+[06/28/2026-04:59:31] [I]        7.65       0.0183       0.0174       0.3   /layer2/layer2.1/conv2/Conv + /layer2/layer2.1/relu_1/Relu
+[06/28/2026-04:59:31] [I]        9.82       0.0234       0.0236       0.4   /layer2/layer2.1/conv3/Conv + /layer2/layer2.1/Add + /layer2/layer2.1/relu_2/Relu
+[06/28/2026-04:59:31] [I]        8.06       0.0192       0.0195       0.3   /layer2/layer2.2/conv1/Conv + /layer2/layer2.2/relu/Relu
+[06/28/2026-04:59:31] [I]        7.28       0.0174       0.0174       0.3   /layer2/layer2.2/conv2/Conv + /layer2/layer2.2/relu_1/Relu
+[06/28/2026-04:59:31] [I]        9.82       0.0234       0.0236       0.4   /layer2/layer2.2/conv3/Conv + /layer2/layer2.2/Add + /layer2/layer2.2/relu_2/Relu
+[06/28/2026-04:59:31] [I]        8.06       0.0192       0.0195       0.3   /layer2/layer2.3/conv1/Conv + /layer2/layer2.3/relu/Relu
+[06/28/2026-04:59:31] [I]        7.38       0.0176       0.0174       0.3   /layer2/layer2.3/conv2/Conv + /layer2/layer2.3/relu_1/Relu
+[06/28/2026-04:59:31] [I]        9.83       0.0235       0.0236       0.4   /layer2/layer2.3/conv3/Conv + /layer2/layer2.3/Add + /layer2/layer2.3/relu_2/Relu
+[06/28/2026-04:59:31] [I]        8.03       0.0192       0.0195       0.3   /layer2/layer2.4/conv1/Conv + /layer2/layer2.4/relu/Relu
+[06/28/2026-04:59:31] [I]        7.31       0.0174       0.0174       0.3   /layer2/layer2.4/conv2/Conv + /layer2/layer2.4/relu_1/Relu
+[06/28/2026-04:59:31] [I]        9.80       0.0234       0.0236       0.4   /layer2/layer2.4/conv3/Conv + /layer2/layer2.4/Add + /layer2/layer2.4/relu_2/Relu
+[06/28/2026-04:59:31] [I]        8.00       0.0191       0.0195       0.3   /layer2/layer2.5/conv1/Conv + /layer2/layer2.5/relu/Relu
+[06/28/2026-04:59:31] [I]        7.52       0.0179       0.0174       0.3   /layer2/layer2.5/conv2/Conv + /layer2/layer2.5/relu_1/Relu
+[06/28/2026-04:59:31] [I]        9.79       0.0234       0.0236       0.4   /layer2/layer2.5/conv3/Conv + /layer2/layer2.5/Add + /layer2/layer2.5/relu_2/Relu
+[06/28/2026-04:59:31] [I]        7.97       0.0190       0.0195       0.3   /layer2/layer2.6/conv1/Conv + /layer2/layer2.6/relu/Relu
+[06/28/2026-04:59:31] [I]        7.27       0.0174       0.0174       0.3   /layer2/layer2.6/conv2/Conv + /layer2/layer2.6/relu_1/Relu
+[06/28/2026-04:59:31] [I]        9.84       0.0235       0.0236       0.4   /layer2/layer2.6/conv3/Conv + /layer2/layer2.6/Add + /layer2/layer2.6/relu_2/Relu
+[06/28/2026-04:59:31] [I]        8.15       0.0194       0.0195       0.3   /layer2/layer2.7/conv1/Conv + /layer2/layer2.7/relu/Relu
+[06/28/2026-04:59:31] [I]        7.31       0.0175       0.0174       0.3   /layer2/layer2.7/conv2/Conv + /layer2/layer2.7/relu_1/Relu
+[06/28/2026-04:59:31] [I]        9.82       0.0234       0.0236       0.4   /layer2/layer2.7/conv3/Conv + /layer2/layer2.7/Add + /layer2/layer2.7/relu_2/Relu
+[06/28/2026-04:59:31] [I]        2.45       0.0058       0.0061       0.1   /single_head_2/Conv
+[06/28/2026-04:59:31] [I]        1.98       0.0047       0.0051       0.1   Reformatting CopyNode for Input Tensor 1 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}
+[06/28/2026-04:59:31] [I]        2.38       0.0057       0.0061       0.1   Reformatting CopyNode for Input Tensor 2 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}
+[06/28/2026-04:59:31] [I]        5.95       0.0142       0.0154       0.2   Reformatting CopyNode for Input Tensor 3 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}
+[06/28/2026-04:59:31] [I]        2.13       0.0051       0.0051       0.1   __myl_GathGathSlicReshSlicReshSlicSlicReshSlicReshSlicReshSlicReshSlicDivMulDivMulMulReshDivReshEtc_myl92_0
+[06/28/2026-04:59:31] [I]        2.82       0.0067       0.0072       0.1   /MatMul_2+/MatMul_1+/MatMul_myl92_1
+[06/28/2026-04:59:31] [I]        1.48       0.0035       0.0031       0.1   __myl_Resh_myl92_2
+[06/28/2026-04:59:31] [I]        5.07       0.0121       0.0123       0.2   __myl_MoveGrid_myl92_3
+[06/28/2026-04:59:31] [I]        1.70       0.0041       0.0041       0.1   __myl_NegExpAddDivAddGrid_myl92_4
+[06/28/2026-04:59:31] [I]        1.61       0.0038       0.0041       0.1   __myl_EqlReplSeleMaxrSubExpSumDivIsnaReplSele_myl92_5
+[06/28/2026-04:59:31] [I]        8.00       0.0191       0.0195       0.3   __myl_MulSum_myl92_6
+[06/28/2026-04:59:31] [I]        1.49       0.0036       0.0031       0.1   __myl_Resh_myl92_7
+[06/28/2026-04:59:31] [I]        7.71       0.0184       0.0184       0.3   __myl_MoveGrid_myl92_8
+[06/28/2026-04:59:31] [I]        1.70       0.0041       0.0041       0.1   __myl_NegExpAddDivAddGrid_myl92_10
+[06/28/2026-04:59:31] [I]        1.64       0.0039       0.0041       0.1   __myl_EqlReplSeleMaxrSubExpSumDivIsnaReplSele_myl92_11
+[06/28/2026-04:59:31] [I]       14.35       0.0343       0.0338       0.5   __myl_MulSum_myl92_15
+[06/28/2026-04:59:31] [I]        1.68       0.0040       0.0041       0.1   __myl_Resh_myl92_16
+[06/28/2026-04:59:31] [I]       24.10       0.0575       0.0573       0.9   __myl_MoveGrid_myl92_17
+[06/28/2026-04:59:31] [I]        1.90       0.0045       0.0041       0.1   __myl_NegExpAddDivAddGrid_myl92_19
+[06/28/2026-04:59:31] [I]        1.92       0.0046       0.0042       0.1   __myl_EqlReplSeleMaxrSubExpSumDivIsnaReplSele_myl92_20
+[06/28/2026-04:59:31] [I]       27.56       0.0658       0.0656       1.0   __myl_MulSum_myl92_24
+[06/28/2026-04:59:31] [I]        2.17       0.0052       0.0051       0.1   Reformatting CopyNode for Output Tensor 1 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}
+[06/28/2026-04:59:31] [I]       10.85       0.0259       0.0256       0.4   /deblocks.0/deblocks.0.0/ConvTranspose + /deblocks.0/deblocks.0.1/BatchNormalization + /deblocks.0/deblocks.0.2/Relu
+[06/28/2026-04:59:31] [I]       19.46       0.0465       0.0458       0.7   /deblocks.1/deblocks.1.0/ConvTranspose + /deblocks.1/deblocks.1.1/BatchNormalization + /deblocks.1/deblocks.1.2/Relu
+[06/28/2026-04:59:31] [I]        4.87       0.0116       0.0113       0.2   Reformatting CopyNode for Output Tensor 0 to /deblocks.1/deblocks.1.0/ConvTranspose + /deblocks.1/deblocks.1.1/BatchNormalization + /deblocks.1/deblocks.1.2/Relu
+[06/28/2026-04:59:31] [I]       38.74       0.0925       0.0891       1.4   /deblocks.2/deblocks.2.0/ConvTranspose + /deblocks.2/deblocks.2.1/BatchNormalization + /deblocks.2/deblocks.2.2/Relu
+[06/28/2026-04:59:31] [I]      310.45       0.7409       0.7413      11.5   /shrink_conv/layers.0/double_conv/double_conv.0/Conv + /shrink_conv/layers.0/double_conv/double_conv.1/Relu
+[06/28/2026-04:59:31] [I]      632.66       1.5099       0.8714      23.4   /shrink_conv/layers.0/double_conv/double_conv.2/Conv + /shrink_conv/layers.0/double_conv/double_conv.3/Relu
+[06/28/2026-04:59:31] [I]        7.67       0.0183       0.0183       0.3   /dir_head/Conv
+[06/28/2026-04:59:31] [I]        7.01       0.0167       0.0164       0.3   /reg_head/Conv
+[06/28/2026-04:59:31] [I]        7.01       0.0167       0.0164       0.3   /cls_head/Conv
+[06/28/2026-04:59:31] [I]     2706.05       6.4584       6.2830     100.0   Total
+[06/28/2026-04:59:31] [I] 
+&&&& PASSED TensorRT.trtexec [TensorRT v100900] [b34] # /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec --loadEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/fp32/lidar_pyramid_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_fp32.engine --staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so --shapes=voxel_features:23040x32x4,voxel_coords:23040x4,voxel_num_points:23040,pairwise_t_matrix:1x1x1x4x4,valid_voxel_mask:23040 --loadInputs=voxel_features:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_features.raw,voxel_coords:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_coords.raw,voxel_num_points:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/voxel_num_points.raw,pairwise_t_matrix:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/pairwise_t_matrix.raw,valid_voxel_mask:/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trtexec_profile_inputs_trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32/valid_voxel_mask.raw --dumpProfile --profilingVerbosity=detailed --exportProfile=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/trt_layer_profile_dynamic_agent_dim_N1_fixed_k_plugin_fp32.json --warmUp=200 --iterations=50 --duration=3 --avgRuns=1 --percentile=50,90,95 --useSpinWait
+
+
+=== STDERR ===
+[06/28/2026-04:59:31] [W] The engine uses 3 auxiliary streams, so the "Total" latency may not be accurate because some layers may have run in parallel!
+
+
+=== ELAPSED_SECONDS ===
+4.734

@@ -1,0 +1,48 @@
+{
+  "plugin_src_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt",
+  "source_files": {
+    "cpp": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt/pointpillar_scatter_plugin.cpp",
+    "cu": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt/pointpillar_scatter_kernel.cu",
+    "header": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt/pointpillar_scatter_plugin.h"
+  },
+  "audited_methods": {
+    "supportsFormatCombination": true,
+    "enqueue": true,
+    "configurePlugin": true,
+    "getOutputDataType": true,
+    "getOutputDimensions": true
+  },
+  "plugin_supports_int8_io": false,
+  "plugin_supports_fp16_io": true,
+  "plugin_supports_fp32_io": true,
+  "expected_plugin_precision_in_int8_engine": "fp16",
+  "int8_engine_requires_reformat_around_plugin": true,
+  "risk_level": "medium",
+  "recommended_int8_strategy": "Use native TensorRT INT8 calibration first and allow this plugin to run as an FP16/FP32 precision island. Audit the INT8 engine layer info for Reformat/Quantize/Dequantize around PointPillarScatterTRT. If AP drops, protect heads and the plugin in FP16 before moving to Q/DQ or ModelOpt.",
+  "valid_voxel_mask_dtype": {
+    "onnx_expected": "float32 in the dynamic fixed-K ONNX inputs",
+    "plugin_accepts": [
+      "fp32",
+      "fp16",
+      "int32",
+      "bool"
+    ]
+  },
+  "voxel_coords_dtype": "int32",
+  "int8_fallback_assessment": {
+    "plugin_has_int8_kernel": false,
+    "output_dtype_follows_feature_input": true,
+    "tensorRT_can_fallback": "expected, if the builder can insert quantize/dequantize or reformat tensors around a plugin with FP32/FP16 formats",
+    "needs_layer_audit": true
+  },
+  "implementation_notes": {
+    "uses_serialized_num_agents_for_output_dim": true,
+    "true_dynamic_N_single_engine_supported": false,
+    "enqueue_feature_dispatch": "half/float only"
+  },
+  "snippets": {
+    "supportsFormatCombination": "PointPillarScatterPlugin::supportsFormatCombination(\n    int32_t pos,\n    PluginTensorDesc const* inOut,\n    int32_t nbInputs,\n    int32_t nbOutputs) noexcept\n{\n    assert(nbInputs == 3 && nbOutputs == 1);\n    if (pos == 0)\n    {\n        return isFp(inOut[pos].type) && inOut[pos].format == TensorFormat::kLINEAR;\n    }\n    if (pos == 1)\n    {\n        return inOut[pos].type == DataType::kINT32 && inOut[pos].format == TensorFormat::kLINEAR;\n    }\n    if (pos == 2)\n    {\n        return (inOut[pos].type == DataType::kFLOAT || inOut[pos].type == DataType::kHALF\n                   || inOut[pos].type == DataType::kINT32 || inOut[pos].type == DataType::kBOOL)\n            && inOut[pos].format == TensorFormat::kLINEAR;\n    }\n    return inOut[pos].type == inOut[0].type && inOut[pos].format == TensorFormat::kLINEAR;\n}",
+    "getOutputDataType": "PointPillarScatterPlugin::getOutputDataType(int32_t, DataType const* inputTypes, int32_t) const noexcept\n{\n    return inputTypes[0];\n}",
+    "getOutputDimensions": "PointPillarScatterPlugin::getOutputDimensions(\n    int32_t,\n    DimsExprs const* inputs,\n    int32_t nbInputs,\n    IExprBuilder& exprBuilder) noexcept\n{\n    assert(nbInputs == 3);\n    DimsExprs out{};\n    out.nbDims = 4;\n    out.d[0] = exprBuilder.constant(mParams.numAgents);\n    out.d[1] = inputs[0].d[1];\n    out.d[2] = exprBuilder.constant(mParams.height);\n    out.d[3] = exprBuilder.constant(mParams.width);\n    return out;\n}"
+  }
+}

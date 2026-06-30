@@ -1,0 +1,13 @@
+{
+  "prune_ratio_target": 0.01,
+  "prune_ratio_actual_params": 0.0238,
+  "params_before": 5464791,
+  "params_after": 5334647,
+  "size_before_mb": 20.85,
+  "size_after_mb": 20.35,
+  "num_operations": 8,
+  "skipped_groups": 43,
+  "applied_groups": 4,
+  "legality_issues": [],
+  "framework": "general_tp"
+}

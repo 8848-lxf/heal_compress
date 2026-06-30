@@ -1,0 +1,19 @@
+{
+  "GridSample": [],
+  "AffineGrid": [
+    {
+      "name": "aten::affine_grid_generator",
+      "source": "torch.onnx.export_error"
+    }
+  ],
+  "Scatter": [],
+  "Gather": [],
+  "NonZero": [],
+  "Inverse": [],
+  "unsupported_ops": [
+    {
+      "source": "torch.onnx.export",
+      "line": "Exporting the operator 'aten::affine_grid_generator' to ONNX opset version 17 is not supported. Please feel free to request support or submit a pull request on PyTorch GitHub: https://github.com/pytorch/pytorch/issues."
+    }
+  ]
+}

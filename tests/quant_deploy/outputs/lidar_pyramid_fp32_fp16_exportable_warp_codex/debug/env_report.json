@@ -1,0 +1,27 @@
+{
+  "python_executable": "/home/lixingfeng/miniconda3/envs/modelopt/bin/python",
+  "conda_prefix": "/home/lixingfeng/miniconda3/envs/modelopt",
+  "TRT_ROOT": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+  "LD_LIBRARY_PATH": "/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/cv2/../../lib64:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusparselt/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/curand/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusolver/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cublas/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cuda_cupti/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/nvshmem/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cu13/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusparse/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/nvtx/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cudnn/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cufft/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/nccl/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cuda_nvrtc/lib:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/torch/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib:/home/lixingfeng/miniconda3/envs/modelopt/lib64:/usr/local/cuda/lib64:/usr/local/cuda/lib64",
+  "CUDA_VISIBLE_DEVICES": null,
+  "torch_available": true,
+  "torch_version": "2.4.0+cu118",
+  "cuda_available": false,
+  "cuda_device_count": 0,
+  "gpu_names": [],
+  "tensorrt_available": true,
+  "tensorrt_version": "10.9.0.34",
+  "modelopt_available": false,
+  "modelopt_error": "ModuleNotFoundError(\"No module named 'modelopt'\")",
+  "modelopt_version": null,
+  "trtexec": {
+    "trtexec_found": true,
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+    "checked_paths": [
+      "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+    ],
+    "suggestion": null
+  },
+  "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+}

@@ -1,0 +1,571 @@
+{
+  "strategy": "dynamic_agent_single_engine_maxK",
+  "calibration_split": "train",
+  "calibration_frames": 50,
+  "calibration_npz_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_50",
+  "fixed_K": 29696,
+  "observed_shapes_count": 50,
+  "observed_shapes": [
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        1,
+        1,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        1,
+        1,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        1,
+        1,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    },
+    {
+      "voxel_features": [
+        29696,
+        32,
+        4
+      ],
+      "voxel_coords": [
+        29696,
+        4
+      ],
+      "voxel_num_points": [
+        29696
+      ],
+      "pairwise_t_matrix": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "valid_voxel_mask": [
+        29696
+      ]
+    }
+  ],
+  "profile": {
+    "voxel_features": {
+      "min": [
+        29696,
+        32,
+        4
+      ],
+      "opt": [
+        29696,
+        32,
+        4
+      ],
+      "max": [
+        29696,
+        32,
+        4
+      ]
+    },
+    "voxel_coords": {
+      "min": [
+        29696,
+        4
+      ],
+      "opt": [
+        29696,
+        4
+      ],
+      "max": [
+        29696,
+        4
+      ]
+    },
+    "voxel_num_points": {
+      "min": [
+        29696
+      ],
+      "opt": [
+        29696
+      ],
+      "max": [
+        29696
+      ]
+    },
+    "pairwise_t_matrix": {
+      "min": [
+        1,
+        1,
+        1,
+        4,
+        4
+      ],
+      "opt": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "max": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ]
+    },
+    "valid_voxel_mask": {
+      "min": [
+        29696
+      ],
+      "opt": [
+        29696
+      ],
+      "max": [
+        29696
+      ]
+    }
+  },
+  "no_bucket_router": true,
+  "no_N_engine_router": true,
+  "true_dynamic_N": true
+}

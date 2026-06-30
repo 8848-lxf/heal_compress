@@ -1,0 +1,133 @@
+{
+  "precision": "fp16",
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp16.engine",
+  "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/layerinfo_fixed_k_scatter_plugin_bucket3_fp16.json",
+  "profile_shapes": {
+    "voxel_features": {
+      "min": [
+        24064,
+        32,
+        4
+      ],
+      "opt": [
+        24064,
+        32,
+        4
+      ],
+      "max": [
+        24064,
+        32,
+        4
+      ]
+    },
+    "voxel_coords": {
+      "min": [
+        24064,
+        4
+      ],
+      "opt": [
+        24064,
+        4
+      ],
+      "max": [
+        24064,
+        4
+      ]
+    },
+    "voxel_num_points": {
+      "min": [
+        24064
+      ],
+      "opt": [
+        24064
+      ],
+      "max": [
+        24064
+      ]
+    },
+    "valid_agent_mask": {
+      "min": [
+        1,
+        2
+      ],
+      "opt": [
+        1,
+        2
+      ],
+      "max": [
+        1,
+        2
+      ]
+    },
+    "pairwise_t_matrix": {
+      "min": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "opt": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ],
+      "max": [
+        1,
+        2,
+        2,
+        4,
+        4
+      ]
+    },
+    "valid_voxel_mask": {
+      "min": [
+        24064
+      ],
+      "opt": [
+        24064
+      ],
+      "max": [
+        24064
+      ]
+    }
+  },
+  "trtexec": {
+    "trtexec_found": true,
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+    "checked_paths": [
+      "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+    ],
+    "suggestion": null
+  },
+  "build_success": true,
+  "error": null,
+  "command": [
+    "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
+    "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp16.engine",
+    "--profilingVerbosity=detailed",
+    "--dumpLayerInfo",
+    "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/layerinfo_fixed_k_scatter_plugin_bucket3_fp16.json",
+    "--verbose",
+    "--minShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,valid_agent_mask:1x2,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:24064",
+    "--optShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,valid_agent_mask:1x2,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:24064",
+    "--maxShapes=voxel_features:24064x32x4,voxel_coords:24064x4,voxel_num_points:24064,valid_agent_mask:1x2,pairwise_t_matrix:1x2x2x4x4,valid_voxel_mask:24064",
+    "--staticPlugins=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+    "--fp16",
+    "--skipInference"
+  ],
+  "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_fixed_k_scatter_plugin_bucket3_fp16.log",
+  "returncode": 0,
+  "unsupported_ops": [
+    {
+      "line": "[06/29/2026-00:06:48] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+      "op": "PointPillarScatterTRT."
+    }
+  ],
+  "failed_nodes": [],
+  "engine_size_MB": 14.159732818603516
+}

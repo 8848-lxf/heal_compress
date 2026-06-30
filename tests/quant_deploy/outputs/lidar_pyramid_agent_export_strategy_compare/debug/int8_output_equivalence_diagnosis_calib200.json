@@ -1,0 +1,729 @@
+{
+  "success": true,
+  "calibration_frames": 200,
+  "engine_precision_tag": "int8_calib200",
+  "num_frames": 10,
+  "frames": [
+    {
+      "frame_id": 0,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.11803436279296875,
+            "mean_abs": 0.0068094427697360516,
+            "cosine": 0.999998009484985
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 6.057229995727539,
+            "mean_abs": 0.5147062540054321,
+            "cosine": 0.9904691795860457
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 6.089906692504883,
+            "mean_abs": 0.5149526596069336,
+            "cosine": 0.9904577645558668
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.03308054804801941,
+            "mean_abs": 0.0009017828269861639,
+            "cosine": 0.9999763962170477
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.7096095085144043,
+            "mean_abs": 0.05760064721107483,
+            "cosine": 0.8615632811276068
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.7107717990875244,
+            "mean_abs": 0.05760515481233597,
+            "cosine": 0.8614742362945874
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.08638715744018555,
+            "mean_abs": 0.003503994317725301,
+            "cosine": 0.9999640352830601
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 6.370122909545898,
+            "mean_abs": 0.23569191992282867,
+            "cosine": 0.8125755084432561
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 6.372295379638672,
+            "mean_abs": 0.23575858771800995,
+            "cosine": 0.8124418479752137
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.46491190791130066,
+        "int8_max_score": 0.8840786814689636,
+        "int8_scores_over_0_1": 197
+      }
+    },
+    {
+      "frame_id": 1,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.23641347885131836,
+            "mean_abs": 0.0071746576577425,
+            "cosine": 0.9999974648060758
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 7.182610034942627,
+            "mean_abs": 0.532501220703125,
+            "cosine": 0.9897506884985036
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 7.23596715927124,
+            "mean_abs": 0.5326613187789917,
+            "cosine": 0.9897396657146752
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.044195517897605896,
+            "mean_abs": 0.0009165644296444952,
+            "cosine": 0.9999734292256708
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.7828415632247925,
+            "mean_abs": 0.05934211239218712,
+            "cosine": 0.8506539880563654
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.7918747663497925,
+            "mean_abs": 0.05936003848910332,
+            "cosine": 0.8504758940068686
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.1543715000152588,
+            "mean_abs": 0.0035679040011018515,
+            "cosine": 0.999956587364376
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.964166164398193,
+            "mean_abs": 0.23958534002304077,
+            "cosine": 0.806249229651315
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 6.016604900360107,
+            "mean_abs": 0.2397731989622116,
+            "cosine": 0.8059899689322813
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.45491543412208557,
+        "int8_max_score": 0.8916025757789612,
+        "int8_scores_over_0_1": 147
+      }
+    },
+    {
+      "frame_id": 2,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.15544366836547852,
+            "mean_abs": 0.0073880478739738464,
+            "cosine": 0.9999975154058472
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 8.665044784545898,
+            "mean_abs": 0.5382905006408691,
+            "cosine": 0.9898191593716118
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 8.695853233337402,
+            "mean_abs": 0.5381346940994263,
+            "cosine": 0.9898280156920606
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.03662508726119995,
+            "mean_abs": 0.0009577191667631269,
+            "cosine": 0.9999726771640752
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.8868658542633057,
+            "mean_abs": 0.06099235266447067,
+            "cosine": 0.8476119468473523
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.8869283199310303,
+            "mean_abs": 0.0609789714217186,
+            "cosine": 0.8475328556248264
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.08467202633619308,
+            "mean_abs": 0.003655525855720043,
+            "cosine": 0.9999601906356018
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 6.209676742553711,
+            "mean_abs": 0.24341729283332825,
+            "cosine": 0.7966466455980777
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 6.213951110839844,
+            "mean_abs": 0.24348564445972443,
+            "cosine": 0.7966300740938376
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.40489596128463745,
+        "int8_max_score": 0.8913849592208862,
+        "int8_scores_over_0_1": 162
+      }
+    },
+    {
+      "frame_id": 3,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.15485811233520508,
+            "mean_abs": 0.006907785311341286,
+            "cosine": 0.9999979291332338
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 9.221548080444336,
+            "mean_abs": 0.5380252599716187,
+            "cosine": 0.9897450238927663
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 9.212610244750977,
+            "mean_abs": 0.5379039645195007,
+            "cosine": 0.9897481702402527
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.04622364044189453,
+            "mean_abs": 0.0009108300437219441,
+            "cosine": 0.9999761243371756
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.804445743560791,
+            "mean_abs": 0.060602400451898575,
+            "cosine": 0.848613679566688
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.8088037967681885,
+            "mean_abs": 0.060583021491765976,
+            "cosine": 0.8485525497702794
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.08546826988458633,
+            "mean_abs": 0.0035814999137073755,
+            "cosine": 0.9999633795938517
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 4.793399810791016,
+            "mean_abs": 0.2416875809431076,
+            "cosine": 0.8053736192686071
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 4.800139427185059,
+            "mean_abs": 0.24171897768974304,
+            "cosine": 0.8052862487697852
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.44977810978889465,
+        "int8_max_score": 0.8962517380714417,
+        "int8_scores_over_0_1": 209
+      }
+    },
+    {
+      "frame_id": 4,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.12400436401367188,
+            "mean_abs": 0.0067126136273145676,
+            "cosine": 0.9999978952175554
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 6.815051555633545,
+            "mean_abs": 0.5285132527351379,
+            "cosine": 0.990576110684384
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 6.833241939544678,
+            "mean_abs": 0.5287579894065857,
+            "cosine": 0.9905675603010706
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.030778050422668457,
+            "mean_abs": 0.0009401862625963986,
+            "cosine": 0.9999740162870847
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.6516776084899902,
+            "mean_abs": 0.05952795222401619,
+            "cosine": 0.8519343252523575
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.648369550704956,
+            "mean_abs": 0.05953297019004822,
+            "cosine": 0.8518081243349066
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.08772513270378113,
+            "mean_abs": 0.0036036563105881214,
+            "cosine": 0.999962236374557
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 4.198782920837402,
+            "mean_abs": 0.23923541605472565,
+            "cosine": 0.8124047284772667
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 4.216599464416504,
+            "mean_abs": 0.23936060070991516,
+            "cosine": 0.8121992436977765
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.46069052815437317,
+        "int8_max_score": 0.8986531496047974,
+        "int8_scores_over_0_1": 156
+      }
+    },
+    {
+      "frame_id": 5,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.16138076782226562,
+            "mean_abs": 0.007342539727687836,
+            "cosine": 0.9999975194326737
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 9.495315551757812,
+            "mean_abs": 0.517163097858429,
+            "cosine": 0.9905497673585222
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 9.46420669555664,
+            "mean_abs": 0.5173134803771973,
+            "cosine": 0.990545645169338
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.033955544233322144,
+            "mean_abs": 0.000944692175835371,
+            "cosine": 0.9999743154986515
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 2.0395798683166504,
+            "mean_abs": 0.060359202325344086,
+            "cosine": 0.840518789990258
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 2.044560670852661,
+            "mean_abs": 0.06037337705492973,
+            "cosine": 0.8403664151902412
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.12028729915618896,
+            "mean_abs": 0.0037573156878352165,
+            "cosine": 0.9999539999748328
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.9600510597229,
+            "mean_abs": 0.23582550883293152,
+            "cosine": 0.809473167064108
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.953391075134277,
+            "mean_abs": 0.23582717776298523,
+            "cosine": 0.8093723677356361
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.4564788341522217,
+        "int8_max_score": 0.902993381023407,
+        "int8_scores_over_0_1": 194
+      }
+    },
+    {
+      "frame_id": 6,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.13759326934814453,
+            "mean_abs": 0.006798737216740847,
+            "cosine": 0.999998200478025
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.02593994140625,
+            "mean_abs": 0.47304803133010864,
+            "cosine": 0.9919567529402251
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.022582054138184,
+            "mean_abs": 0.4737884998321533,
+            "cosine": 0.9919340103008761
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.02854083478450775,
+            "mean_abs": 0.0009489484946243465,
+            "cosine": 0.9999764216552172
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.5860099792480469,
+            "mean_abs": 0.06243481859564781,
+            "cosine": 0.8468214524566687
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.5847117900848389,
+            "mean_abs": 0.06234952434897423,
+            "cosine": 0.8470616031236787
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.06659191846847534,
+            "mean_abs": 0.003271929221227765,
+            "cosine": 0.9999631111997196
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 4.174009799957275,
+            "mean_abs": 0.2178519070148468,
+            "cosine": 0.8300763251454295
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 4.163697242736816,
+            "mean_abs": 0.21786920726299286,
+            "cosine": 0.8300538383892638
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.14989106357097626,
+        "int8_max_score": 0.7878906726837158,
+        "int8_scores_over_0_1": 42
+      }
+    },
+    {
+      "frame_id": 7,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.093597412109375,
+            "mean_abs": 0.006924999877810478,
+            "cosine": 0.999998244033878
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.754463195800781,
+            "mean_abs": 0.4935038685798645,
+            "cosine": 0.9912724735436664
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.772216796875,
+            "mean_abs": 0.494209349155426,
+            "cosine": 0.9912550405651581
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.03342920541763306,
+            "mean_abs": 0.0010244360892102122,
+            "cosine": 0.9999727110141766
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.3770431280136108,
+            "mean_abs": 0.06305809319019318,
+            "cosine": 0.8535113633162766
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.3779267072677612,
+            "mean_abs": 0.06297851353883743,
+            "cosine": 0.8538331058040418
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.06800186634063721,
+            "mean_abs": 0.0034576915204524994,
+            "cosine": 0.9999575731164564
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 3.9446263313293457,
+            "mean_abs": 0.2169550508260727,
+            "cosine": 0.8327062528774407
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 3.9768035411834717,
+            "mean_abs": 0.21703322231769562,
+            "cosine": 0.8327424893684956
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.1421373188495636,
+        "int8_max_score": 0.7306224703788757,
+        "int8_scores_over_0_1": 52
+      }
+    },
+    {
+      "frame_id": 8,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.1532602310180664,
+            "mean_abs": 0.0069711399264633656,
+            "cosine": 0.9999977892192652
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.477721214294434,
+            "mean_abs": 0.47424355149269104,
+            "cosine": 0.9919331428376484
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.5116071701049805,
+            "mean_abs": 0.474911630153656,
+            "cosine": 0.9919159341865905
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.05460032820701599,
+            "mean_abs": 0.001022589742206037,
+            "cosine": 0.9999701793583594
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 2.086688995361328,
+            "mean_abs": 0.06279216706752777,
+            "cosine": 0.8515066172845165
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 2.087301015853882,
+            "mean_abs": 0.06275580823421478,
+            "cosine": 0.8515970141440146
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.07685346901416779,
+            "mean_abs": 0.0034202891401946545,
+            "cosine": 0.9999573651245716
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.5869879722595215,
+            "mean_abs": 0.22102487087249756,
+            "cosine": 0.8260556733366248
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.592022895812988,
+            "mean_abs": 0.22120758891105652,
+            "cosine": 0.8259565063467911
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.12171833962202072,
+        "int8_max_score": 0.7573397159576416,
+        "int8_scores_over_0_1": 31
+      }
+    },
+    {
+      "frame_id": 9,
+      "record_len": 1,
+      "engine_precision_tag": "int8_calib200",
+      "outputs": {
+        "cls_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.17036914825439453,
+            "mean_abs": 0.006686734966933727,
+            "cosine": 0.9999979062072997
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.625967979431152,
+            "mean_abs": 0.49569809436798096,
+            "cosine": 0.9911397794316696
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 5.637923240661621,
+            "mean_abs": 0.49619895219802856,
+            "cosine": 0.9911209996041911
+          }
+        },
+        "reg_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.0423504114151001,
+            "mean_abs": 0.0010176377836614847,
+            "cosine": 0.9999729002326457
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 2.00972318649292,
+            "mean_abs": 0.0652497261762619,
+            "cosine": 0.8438166347801198
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 1.9942755699157715,
+            "mean_abs": 0.06518341600894928,
+            "cosine": 0.8439371306232163
+          }
+        },
+        "dir_preds": {
+          "FP32 vs FP16": {
+            "shape_match": true,
+            "max_abs": 0.16766023635864258,
+            "mean_abs": 0.003339998424053192,
+            "cosine": 0.999959551746255
+          },
+          "FP32 vs INT8": {
+            "shape_match": true,
+            "max_abs": 3.9142203330993652,
+            "mean_abs": 0.22938579320907593,
+            "cosine": 0.8102122338998446
+          },
+          "FP16 vs INT8": {
+            "shape_match": true,
+            "max_abs": 3.911283016204834,
+            "mean_abs": 0.22950968146324158,
+            "cosine": 0.8102214512533317
+          }
+        }
+      },
+      "topk_score_distribution": {
+        "int8_topk_score_mean": 0.1500173658132553,
+        "int8_max_score": 0.796845555305481,
+        "int8_scores_over_0_1": 59
+      }
+    }
+  ],
+  "diagnosis": "Inspect per-head FP32/FP16/INT8 drift; large cls drift suggests activation calibration or head precision protection."
+}

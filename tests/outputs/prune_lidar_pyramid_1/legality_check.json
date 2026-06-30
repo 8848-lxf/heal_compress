@@ -1,0 +1,32 @@
+{
+  "legality_passed": false,
+  "forward_passed": false,
+  "issues": [
+    {
+      "layer": "backbone_m1.resnet.layer0.0.conv2",
+      "issue": "basic_resnet_conv2_input_mismatch",
+      "expected": 48,
+      "actual": 64
+    },
+    {
+      "layer": "backbone_m1.resnet.layer0.1.conv1",
+      "issue": "basic_resnet_successor_input_mismatch",
+      "expected": 48,
+      "actual": 64,
+      "dependency": "previous BasicBlock output"
+    },
+    {
+      "layer": "shrink_conv.layers.0.double_conv.0",
+      "issue": "concat_input_mismatch",
+      "expected": 384,
+      "actual": 336,
+      "dependency": "pyramid_backbone.deblocks[*].0 concat(dim=1)"
+    },
+    {
+      "layer": "model",
+      "issue": "forward_failed",
+      "error": "CUDA error: device-side assert triggered\nCUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.\nFor debugging consider passing CUDA_LAUNCH_BLOCKING=1.\nCompile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.\n"
+    }
+  ],
+  "output_keys": []
+}

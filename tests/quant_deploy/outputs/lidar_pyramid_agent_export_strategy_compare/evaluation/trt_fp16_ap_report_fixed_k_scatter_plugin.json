@@ -1,0 +1,4576 @@
+{
+  "precision": "fp16",
+  "success": true,
+  "num_frames": 50,
+  "actual_frames": 50,
+  "skipped_frames": 0,
+  "AP@0.30": 0.8722,
+  "AP@0.50": 0.8523,
+  "AP@0.70": 0.731,
+  "ap_0_3": 0.8722,
+  "ap_0_5": 0.8523,
+  "ap_0_7": 0.731,
+  "mAP": 0.8185,
+  "map": 0.8185,
+  "forward_mean_ms": 5.580700300633907,
+  "forward_p50_ms": 3.789518028497696,
+  "forward_p90_ms": 5.1620397716760635,
+  "forward_p95_ms": 6.634550169110298,
+  "postprocess_mean_ms": 5.630845092236996,
+  "postprocess_p50_ms": 5.367601290345192,
+  "total_mean_ms": 11.211545392870903,
+  "total_p50_ms": 9.51705314218998,
+  "latency_summary": {
+    "num_frames": 50,
+    "overall": {
+      "input_prepare_ms": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "dtype_cast_ms": {
+        "mean": 0.031055621802806854,
+        "p50": 0.028990209102630615,
+        "p90": 0.04135258495807648,
+        "p95": 0.05000084638595581,
+        "max": 0.0779367983341217
+      },
+      "contiguous_ms": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "h2d_copy_ms": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "input_device_copy_ms": {
+        "mean": 0.13895362615585327,
+        "p50": 0.12363679707050323,
+        "p90": 0.1890026032924652,
+        "p95": 0.228172168135643,
+        "max": 0.3343261778354645
+      },
+      "set_input_shape_ms": {
+        "mean": 0.0031397491693496704,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.032922253012657166,
+        "max": 0.09009242057800293
+      },
+      "output_shape_query_ms": {
+        "mean": 0.06620712578296661,
+        "p50": 0.06022118031978607,
+        "p90": 0.09750574827194214,
+        "p95": 0.1039411872625351,
+        "max": 0.15597231686115265
+      },
+      "bind_address_ms": {
+        "mean": 0.018090270459651947,
+        "p50": 0.01524016261100769,
+        "p90": 0.021884217858314514,
+        "p95": 0.027719885110855103,
+        "max": 0.09973719716072083
+      },
+      "execute_async_ms": {
+        "mean": 2.431608955860138,
+        "p50": 2.1780478954315186,
+        "p90": 2.318336009979248,
+        "p95": 4.055039882659912,
+        "max": 9.782272338867188
+      },
+      "synchronize_ms": {
+        "mean": 1.103764846920967,
+        "p50": 1.218654215335846,
+        "p90": 1.4515724033117294,
+        "p95": 1.4608707278966904,
+        "max": 1.4837179332971573
+      },
+      "d2h_copy_ms": {
+        "mean": 0.5636574700474739,
+        "p50": 0.4816912114620209,
+        "p90": 0.6829127669334412,
+        "p95": 1.2411996722221375,
+        "max": 1.9287504255771637
+      },
+      "output_wrap_ms": {
+        "mean": 0.0040387362241744995,
+        "p50": 0.0038370490074157715,
+        "p90": 0.006241723895072937,
+        "p95": 0.007588416337966919,
+        "max": 0.009840354323387146
+      },
+      "alloc_ms": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "total_runner_ms": {
+        "mean": 5.580700300633907,
+        "p50": 3.789518028497696,
+        "p90": 5.1620397716760635,
+        "p95": 6.634550169110298,
+        "max": 80.40033280849457
+      },
+      "execute_ms": {
+        "mean": 2.431608955860138,
+        "p50": 2.1780478954315186,
+        "p90": 2.318336009979248,
+        "p95": 4.055039882659912,
+        "max": 9.782272338867188
+      }
+    },
+    "by_record_len": {
+      "1": {
+        "record_len": 1,
+        "num_frames": 14,
+        "input_prepare_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "dtype_cast_ms": {
+          "mean": 0.03195128270557949,
+          "p50": 0.0347476452589035,
+          "p90": 0.04809349775314331,
+          "p95": 0.04809349775314331,
+          "max": 0.05000084638595581
+        },
+        "contiguous_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "h2d_copy_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "input_device_copy_ms": {
+          "mean": 0.14075982783521926,
+          "p50": 0.13655610382556915,
+          "p90": 0.20493939518928528,
+          "p95": 0.20493939518928528,
+          "max": 0.228172168135643
+        },
+        "set_input_shape_ms": {
+          "mean": 0.0024266274912016733,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.033972784876823425
+        },
+        "output_shape_query_ms": {
+          "mean": 0.06452282624585289,
+          "p50": 0.05954131484031677,
+          "p90": 0.09750574827194214,
+          "p95": 0.09750574827194214,
+          "max": 0.1039411872625351
+        },
+        "bind_address_ms": {
+          "mean": 0.017402560583182743,
+          "p50": 0.017682090401649475,
+          "p90": 0.026766210794448853,
+          "p95": 0.026766210794448853,
+          "max": 0.027719885110855103
+        },
+        "execute_async_ms": {
+          "mean": 2.4793005926268443,
+          "p50": 1.9159040451049805,
+          "p90": 1.9904639720916748,
+          "p95": 1.9904639720916748,
+          "max": 9.782272338867188
+        },
+        "synchronize_ms": {
+          "mean": 0.9183182514139584,
+          "p50": 0.9026769548654556,
+          "p90": 1.1728834360837936,
+          "p95": 1.1728834360837936,
+          "max": 1.1916384100914001
+        },
+        "d2h_copy_ms": {
+          "mean": 0.48182372535978046,
+          "p50": 0.45713968575000763,
+          "p90": 0.5673393607139587,
+          "p95": 0.5673393607139587,
+          "max": 0.6579607725143433
+        },
+        "output_wrap_ms": {
+          "mean": 0.0043061694928577966,
+          "p50": 0.004481524229049683,
+          "p90": 0.006241723895072937,
+          "p95": 0.006241723895072937,
+          "max": 0.007906928658485413
+        },
+        "alloc_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "total_runner_ms": {
+          "mean": 4.136400696422372,
+          "p50": 3.683006390929222,
+          "p90": 4.40848246216774,
+          "p95": 4.40848246216774,
+          "max": 11.63054071366787
+        },
+        "execute_ms": {
+          "mean": 2.4793005926268443,
+          "p50": 1.9159040451049805,
+          "p90": 1.9904639720916748,
+          "p95": 1.9904639720916748,
+          "max": 9.782272338867188
+        }
+      },
+      "2": {
+        "record_len": 2,
+        "num_frames": 36,
+        "input_prepare_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "dtype_cast_ms": {
+          "mean": 0.030707309229506388,
+          "p50": 0.028990209102630615,
+          "p90": 0.04135258495807648,
+          "p95": 0.0485982745885849,
+          "max": 0.0779367983341217
+        },
+        "contiguous_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "h2d_copy_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "input_device_copy_ms": {
+          "mean": 0.13825121439165539,
+          "p50": 0.12363679707050323,
+          "p90": 0.1816488802433014,
+          "p95": 0.19087456166744232,
+          "max": 0.3343261778354645
+        },
+        "set_input_shape_ms": {
+          "mean": 0.003417074266407225,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.09009242057800293
+        },
+        "output_shape_query_ms": {
+          "mean": 0.06686213115851085,
+          "p50": 0.061511993408203125,
+          "p90": 0.09928829967975616,
+          "p95": 0.10254606604576111,
+          "max": 0.15597231686115265
+        },
+        "bind_address_ms": {
+          "mean": 0.01835771318938997,
+          "p50": 0.01524016261100769,
+          "p90": 0.02168118953704834,
+          "p95": 0.021884217858314514,
+          "max": 0.09973719716072083
+        },
+        "execute_async_ms": {
+          "mean": 2.413062208228641,
+          "p50": 2.1872639656066895,
+          "p90": 2.352128028869629,
+          "p95": 3.123199939727783,
+          "max": 7.318528175354004
+        },
+        "synchronize_ms": {
+          "mean": 1.175882967395915,
+          "p50": 1.303417608141899,
+          "p90": 1.4527812600135803,
+          "p95": 1.4608707278966904,
+          "max": 1.4837179332971573
+        },
+        "d2h_copy_ms": {
+          "mean": 0.5954817040926881,
+          "p50": 0.5015172064304352,
+          "p90": 1.1556446552276611,
+          "p95": 1.2411996722221375,
+          "max": 1.9287504255771637
+        },
+        "output_wrap_ms": {
+          "mean": 0.0039347343974643284,
+          "p50": 0.003693625330924988,
+          "p90": 0.00632554292678833,
+          "p95": 0.006776303052902222,
+          "max": 0.009840354323387146
+        },
+        "alloc_ms": {
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "total_runner_ms": {
+          "mean": 6.142372368938393,
+          "p50": 3.888992592692375,
+          "p90": 5.723835900425911,
+          "p95": 5.826681852340698,
+          "max": 80.40033280849457
+        },
+        "execute_ms": {
+          "mean": 2.413062208228641,
+          "p50": 2.1872639656066895,
+          "p90": 2.352128028869629,
+          "p95": 3.123199939727783,
+          "max": 7.318528175354004
+        }
+      }
+    }
+  },
+  "frames": [
+    {
+      "frame_id": 0,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 8578,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 8578,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.035392120480537415,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.13655610382556915,
+      "set_input_shape_ms": 0.033972784876823425,
+      "output_shape_query_ms": 0.04151463508605957,
+      "bind_address_ms": 0.027719885110855103,
+      "execute_ms": 9.782272338867188,
+      "execute_async_ms": 9.782272338867188,
+      "synchronize_ms": 0.23494288325309753,
+      "d2h_copy_ms": 0.4391949623823166,
+      "output_wrap_ms": 0.007906928658485413,
+      "total_runner_ms": 11.63054071366787,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 1,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 8756,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 8756,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.026458874344825745,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.10575167834758759,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.05954131484031677,
+      "bind_address_ms": 0.014351680874824524,
+      "execute_ms": 1.9097599983215332,
+      "execute_async_ms": 1.9097599983215332,
+      "synchronize_ms": 0.9631533175706863,
+      "d2h_copy_ms": 0.4588775336742401,
+      "output_wrap_ms": 0.0039637088775634766,
+      "total_runner_ms": 3.3154040575027466,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 2,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 8923,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 8923,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.019256025552749634,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.08668750524520874,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.043371692299842834,
+      "bind_address_ms": 0.01132674515247345,
+      "execute_ms": 1.8821120262145996,
+      "execute_async_ms": 1.8821120262145996,
+      "synchronize_ms": 1.0990668088197708,
+      "d2h_copy_ms": 0.4225820302963257,
+      "output_wrap_ms": 0.0038370490074157715,
+      "total_runner_ms": 3.0472613871097565,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 3,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9011,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9011,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.03764405846595764,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.1890026032924652,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.07446669042110443,
+      "bind_address_ms": 0.01844950020313263,
+      "execute_ms": 1.9363839626312256,
+      "execute_async_ms": 1.9363839626312256,
+      "synchronize_ms": 0.9026769548654556,
+      "d2h_copy_ms": 0.5163811147212982,
+      "output_wrap_ms": 0.005116686224937439,
+      "total_runner_ms": 3.840763121843338,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 4,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9010,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9010,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.04809349775314331,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.20493939518928528,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.1039411872625351,
+      "bind_address_ms": 0.026766210794448853,
+      "execute_ms": 1.9701759815216064,
+      "execute_async_ms": 1.9701759815216064,
+      "synchronize_ms": 0.6250143051147461,
+      "d2h_copy_ms": 0.6579607725143433,
+      "output_wrap_ms": 0.006241723895072937,
+      "total_runner_ms": 4.40848246216774,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 5,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9020,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9020,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.0347476452589035,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.14790520071983337,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.07373839616775513,
+      "bind_address_ms": 0.017682090401649475,
+      "execute_ms": 1.9904639720916748,
+      "execute_async_ms": 1.9904639720916748,
+      "synchronize_ms": 0.8261222392320633,
+      "d2h_copy_ms": 0.5564950406551361,
+      "output_wrap_ms": 0.004652887582778931,
+      "total_runner_ms": 3.789518028497696,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 6,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9520,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9520,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.02627633512020111,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.10417774319648743,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.0458545982837677,
+      "bind_address_ms": 0.012049451470375061,
+      "execute_ms": 1.8759679794311523,
+      "execute_async_ms": 1.8759679794311523,
+      "synchronize_ms": 1.1540818959474564,
+      "d2h_copy_ms": 0.39635226130485535,
+      "output_wrap_ms": 0.00254996120929718,
+      "total_runner_ms": 3.1373947858810425,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 7,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9542,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9542,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.05000084638595581,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.228172168135643,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.09750574827194214,
+      "bind_address_ms": 0.024041160941123962,
+      "execute_ms": 1.9444799423217773,
+      "execute_async_ms": 1.9444799423217773,
+      "synchronize_ms": 0.7847175002098083,
+      "d2h_copy_ms": 0.5673393607139587,
+      "output_wrap_ms": 0.0057015568017959595,
+      "total_runner_ms": 4.1939616203308105,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 8,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9544,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9544,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.020349398255348206,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.09446963667869568,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04655681550502777,
+      "bind_address_ms": 0.012064352631568909,
+      "execute_ms": 1.8872319459915161,
+      "execute_async_ms": 1.8872319459915161,
+      "synchronize_ms": 1.1709239333868027,
+      "d2h_copy_ms": 0.3878846764564514,
+      "output_wrap_ms": 0.0020526349544525146,
+      "total_runner_ms": 3.114117309451103,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 9,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9431,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9431,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.016978010535240173,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.08322484791278839,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.046232715249061584,
+      "bind_address_ms": 0.010648742318153381,
+      "execute_ms": 1.8821120262145996,
+      "execute_async_ms": 1.8821120262145996,
+      "synchronize_ms": 1.1916384100914001,
+      "d2h_copy_ms": 0.4391297698020935,
+      "output_wrap_ms": 0.002074986696243286,
+      "total_runner_ms": 3.047194331884384,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 10,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9377,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9377,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.016996636986732483,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.08463114500045776,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04363059997558594,
+      "bind_address_ms": 0.011309981346130371,
+      "execute_ms": 1.871840000152588,
+      "execute_async_ms": 1.871840000152588,
+      "synchronize_ms": 1.1728834360837936,
+      "d2h_copy_ms": 0.4190150648355484,
+      "output_wrap_ms": 0.0019297003746032715,
+      "total_runner_ms": 3.03829088807106,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 11,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9396,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9396,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.038895756006240845,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.17024017870426178,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.07719174027442932,
+      "bind_address_ms": 0.018805265426635742,
+      "execute_ms": 1.9322880506515503,
+      "execute_async_ms": 1.9322880506515503,
+      "synchronize_ms": 0.8893497288227081,
+      "d2h_copy_ms": 0.510040670633316,
+      "output_wrap_ms": 0.004481524229049683,
+      "total_runner_ms": 3.84640134871006,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 12,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9270,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9270,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.039029866456985474,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.17663836479187012,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.07867254316806793,
+      "bind_address_ms": 0.01996941864490509,
+      "execute_ms": 1.9292160272598267,
+      "execute_async_ms": 1.9292160272598267,
+      "synchronize_ms": 0.8761975914239883,
+      "d2h_copy_ms": 0.5171392112970352,
+      "output_wrap_ms": 0.0046510249376297,
+      "total_runner_ms": 3.8172733038663864,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 13,
+      "record_len": 1,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 9594,
+      "fixed_K": 9728,
+      "bucket_id": 0,
+      "valid_voxel_count": 9594,
+      "valid_mask_shape": [
+        9728
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.03719888627529144,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.15824101865291595,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.07110089063644409,
+      "bind_address_ms": 0.01845136284828186,
+      "execute_ms": 1.9159040451049805,
+      "execute_async_ms": 1.9159040451049805,
+      "synchronize_ms": 0.9656865149736404,
+      "d2h_copy_ms": 0.45713968575000763,
+      "output_wrap_ms": 0.005125999450683594,
+      "total_runner_ms": 3.683006390929222,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 14,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 20646,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 20646,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.0698436051607132,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.3343261778354645,
+      "set_input_shape_ms": 0.09009242057800293,
+      "output_shape_query_ms": 0.12377835810184479,
+      "bind_address_ms": 0.09973719716072083,
+      "execute_ms": 7.318528175354004,
+      "execute_async_ms": 7.318528175354004,
+      "synchronize_ms": 0.024203211069107056,
+      "d2h_copy_ms": 1.2411996722221375,
+      "output_wrap_ms": 0.009840354323387146,
+      "total_runner_ms": 80.40033280849457,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 15,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 20743,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 20743,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.03465823829174042,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.17068162560462952,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.08079968392848969,
+      "bind_address_ms": 0.019181519746780396,
+      "execute_ms": 2.1821439266204834,
+      "execute_async_ms": 2.1821439266204834,
+      "synchronize_ms": 1.1918768286705017,
+      "d2h_copy_ms": 0.5505699664354324,
+      "output_wrap_ms": 0.003917142748832703,
+      "total_runner_ms": 4.148952662944794,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 16,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 20912,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 20912,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.022055581212043762,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.09918771684169769,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.054001808166503906,
+      "bind_address_ms": 0.013090670108795166,
+      "execute_ms": 2.158400058746338,
+      "execute_async_ms": 2.158400058746338,
+      "synchronize_ms": 1.4289617538452148,
+      "d2h_copy_ms": 0.4420671612024307,
+      "output_wrap_ms": 0.0027045607566833496,
+      "total_runner_ms": 3.506770357489586,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 17,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 21208,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 21208,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.029481947422027588,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.14283694326877594,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.0791698694229126,
+      "bind_address_ms": 0.01914799213409424,
+      "execute_ms": 2.174976110458374,
+      "execute_async_ms": 2.174976110458374,
+      "synchronize_ms": 1.2747645378112793,
+      "d2h_copy_ms": 0.5173049867153168,
+      "output_wrap_ms": 0.00385381281375885,
+      "total_runner_ms": 4.1263774037361145,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 18,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 21150,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 21150,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.019492581486701965,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.09420141577720642,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.046873465180397034,
+      "bind_address_ms": 0.010771676898002625,
+      "execute_ms": 2.1534719467163086,
+      "execute_async_ms": 2.1534719467163086,
+      "synchronize_ms": 1.4608707278966904,
+      "d2h_copy_ms": 0.44196657836437225,
+      "output_wrap_ms": 0.002376735210418701,
+      "total_runner_ms": 3.3959057182073593,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 19,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 21681,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 21681,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.018786638975143433,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.09670108556747437,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.045474618673324585,
+      "bind_address_ms": 0.011207535862922668,
+      "execute_ms": 2.1534719467163086,
+      "execute_async_ms": 2.1534719467163086,
+      "synchronize_ms": 1.4837179332971573,
+      "d2h_copy_ms": 0.43766945600509644,
+      "output_wrap_ms": 0.002169981598854065,
+      "total_runner_ms": 3.3947210758924484,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 20,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22440,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22440,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.031033530831336975,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.14313682913780212,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.07367879152297974,
+      "bind_address_ms": 0.018853694200515747,
+      "execute_ms": 2.1861441135406494,
+      "execute_async_ms": 2.1861441135406494,
+      "synchronize_ms": 1.2714117765426636,
+      "d2h_copy_ms": 0.5641765892505646,
+      "output_wrap_ms": 0.0047031790018081665,
+      "total_runner_ms": 4.046643152832985,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 21,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22638,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22638,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.04050694406032562,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.1816488802433014,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.07393769919872284,
+      "bind_address_ms": 0.017054378986358643,
+      "execute_ms": 2.189311981201172,
+      "execute_async_ms": 2.189311981201172,
+      "synchronize_ms": 1.2061260640621185,
+      "d2h_copy_ms": 0.5038958042860031,
+      "output_wrap_ms": 0.004868954420089722,
+      "total_runner_ms": 4.111234098672867,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 22,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22452,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22452,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.025657936930656433,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.10547973215579987,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04958733916282654,
+      "bind_address_ms": 0.012265518307685852,
+      "execute_ms": 2.1585919857025146,
+      "execute_async_ms": 2.1585919857025146,
+      "synchronize_ms": 1.3986248522996902,
+      "d2h_copy_ms": 0.4161689430475235,
+      "output_wrap_ms": 0.0032652169466018677,
+      "total_runner_ms": 3.504713997244835,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 23,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22768,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22768,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.0779367983341217,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.2717282623052597,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.052206218242645264,
+      "bind_address_ms": 0.021884217858314514,
+      "execute_ms": 2.1780478954315186,
+      "execute_async_ms": 2.1780478954315186,
+      "synchronize_ms": 1.428673043847084,
+      "d2h_copy_ms": 0.4308074712753296,
+      "output_wrap_ms": 0.002775341272354126,
+      "total_runner_ms": 4.625208675861359,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 24,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22506,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22506,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.019686296582221985,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.096125528216362,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04493817687034607,
+      "bind_address_ms": 0.010933727025985718,
+      "execute_ms": 2.163680076599121,
+      "execute_async_ms": 2.163680076599121,
+      "synchronize_ms": 1.4527812600135803,
+      "d2h_copy_ms": 0.4287734627723694,
+      "output_wrap_ms": 0.0021401792764663696,
+      "total_runner_ms": 3.414727747440338,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 25,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22712,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22712,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.020503997802734375,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.09689666330814362,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04556775093078613,
+      "bind_address_ms": 0.011825934052467346,
+      "execute_ms": 2.155519962310791,
+      "execute_async_ms": 2.155519962310791,
+      "synchronize_ms": 1.4731884002685547,
+      "d2h_copy_ms": 0.44436752796173096,
+      "output_wrap_ms": 0.0024102628231048584,
+      "total_runner_ms": 3.4292899072170258,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 26,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22673,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22673,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.028736889362335205,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.12363679707050323,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.05907565355300903,
+      "bind_address_ms": 0.015018507838249207,
+      "execute_ms": 2.1913599967956543,
+      "execute_async_ms": 2.1913599967956543,
+      "synchronize_ms": 1.3092923909425735,
+      "d2h_copy_ms": 0.47124363481998444,
+      "output_wrap_ms": 0.0038370490074157715,
+      "total_runner_ms": 3.756847232580185,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 27,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22667,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22667,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.02919696271419525,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.14332309365272522,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.10254606604576111,
+      "bind_address_ms": 0.019939616322517395,
+      "execute_ms": 2.210815906524658,
+      "execute_async_ms": 2.210815906524658,
+      "synchronize_ms": 1.2528784573078156,
+      "d2h_copy_ms": 0.5591176450252533,
+      "output_wrap_ms": 0.004306435585021973,
+      "total_runner_ms": 4.133984446525574,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 28,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22612,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22612,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.02306140959262848,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.10909140110015869,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.06022118031978607,
+      "bind_address_ms": 0.01449882984161377,
+      "execute_ms": 2.1872639656066895,
+      "execute_async_ms": 2.1872639656066895,
+      "synchronize_ms": 1.3527106493711472,
+      "d2h_copy_ms": 0.6829127669334412,
+      "output_wrap_ms": 0.00311434268951416,
+      "total_runner_ms": 3.8399603217840195,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 29,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22731,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22731,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.04110299050807953,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.17635896801948547,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.09393878281116486,
+      "bind_address_ms": 0.02033822238445282,
+      "execute_ms": 2.352128028869629,
+      "execute_async_ms": 2.352128028869629,
+      "synchronize_ms": 0.5103312432765961,
+      "d2h_copy_ms": 1.9287504255771637,
+      "output_wrap_ms": 0.006776303052902222,
+      "total_runner_ms": 5.826681852340698,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 30,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23198,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23198,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.031288713216781616,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.15118718147277832,
+      "set_input_shape_ms": 0.032922253012657166,
+      "output_shape_query_ms": 0.04209578037261963,
+      "bind_address_ms": 0.028617680072784424,
+      "execute_ms": 3.123199939727783,
+      "execute_async_ms": 3.123199939727783,
+      "synchronize_ms": 0.1807883381843567,
+      "d2h_copy_ms": 0.5146786570549011,
+      "output_wrap_ms": 0.0046603381633758545,
+      "total_runner_ms": 5.1620397716760635,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 31,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22700,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22700,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.017909333109855652,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.08930079638957977,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.045843422412872314,
+      "bind_address_ms": 0.011824071407318115,
+      "execute_ms": 2.164736032485962,
+      "execute_async_ms": 2.164736032485962,
+      "synchronize_ms": 1.4524217694997787,
+      "d2h_copy_ms": 0.39890967309474945,
+      "output_wrap_ms": 0.00237487256526947,
+      "total_runner_ms": 3.4243687987327576,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 32,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22921,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22921,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.03050081431865692,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.12275204062461853,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.06689317524433136,
+      "bind_address_ms": 0.018503516912460327,
+      "execute_ms": 2.190335988998413,
+      "execute_async_ms": 2.190335988998413,
+      "synchronize_ms": 1.2256354093551636,
+      "d2h_copy_ms": 0.5015172064304352,
+      "output_wrap_ms": 0.005282461643218994,
+      "total_runner_ms": 4.041431471705437,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 33,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22956,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22956,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.023795291781425476,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.11721067130565643,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.05863606929779053,
+      "bind_address_ms": 0.013766810297966003,
+      "execute_ms": 2.1729280948638916,
+      "execute_async_ms": 2.1729280948638916,
+      "synchronize_ms": 1.4023203402757645,
+      "d2h_copy_ms": 0.4909001290798187,
+      "output_wrap_ms": 0.0031758099794387817,
+      "total_runner_ms": 3.7102941423654556,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 34,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23111,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23111,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.03469735383987427,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.16060471534729004,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.0688210129737854,
+      "bind_address_ms": 0.015949830412864685,
+      "execute_ms": 2.2208640575408936,
+      "execute_async_ms": 2.2208640575408936,
+      "synchronize_ms": 1.2468546628952026,
+      "d2h_copy_ms": 0.4816912114620209,
+      "output_wrap_ms": 0.004630535840988159,
+      "total_runner_ms": 3.9634183049201965,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 35,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22891,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22891,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.01955963671207428,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.10424293577671051,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04589185118675232,
+      "bind_address_ms": 0.013204291462898254,
+      "execute_ms": 2.1780478954315186,
+      "execute_async_ms": 2.1780478954315186,
+      "synchronize_ms": 1.3639666140079498,
+      "d2h_copy_ms": 0.40216557681560516,
+      "output_wrap_ms": 0.0027101486921310425,
+      "total_runner_ms": 3.490567207336426,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 36,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23254,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23254,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.031046569347381592,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.14196336269378662,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.0764504075050354,
+      "bind_address_ms": 0.018863007426261902,
+      "execute_ms": 2.195456027984619,
+      "execute_async_ms": 2.195456027984619,
+      "synchronize_ms": 1.218654215335846,
+      "d2h_copy_ms": 0.5512405186891556,
+      "output_wrap_ms": 0.004472211003303528,
+      "total_runner_ms": 4.072956740856171,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 37,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22924,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22924,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.020420178771018982,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.10108575224876404,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04941225051879883,
+      "bind_address_ms": 0.012392178177833557,
+      "execute_ms": 2.174976110458374,
+      "execute_async_ms": 2.174976110458374,
+      "synchronize_ms": 1.4515724033117294,
+      "d2h_copy_ms": 0.4250574856996536,
+      "output_wrap_ms": 0.002507120370864868,
+      "total_runner_ms": 3.474680706858635,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 38,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22875,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22875,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.028990209102630615,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.11575408279895782,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.06289221346378326,
+      "bind_address_ms": 0.015139579772949219,
+      "execute_ms": 2.184191942214966,
+      "execute_async_ms": 2.184191942214966,
+      "synchronize_ms": 1.321868970990181,
+      "d2h_copy_ms": 0.5021635442972183,
+      "output_wrap_ms": 0.0033229589462280273,
+      "total_runner_ms": 3.713862970471382,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 39,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22907,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22907,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.03518909215927124,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.15764683485031128,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.0664927065372467,
+      "bind_address_ms": 0.017018988728523254,
+      "execute_ms": 2.1872639656066895,
+      "execute_async_ms": 2.1872639656066895,
+      "synchronize_ms": 1.3223644345998764,
+      "d2h_copy_ms": 0.47759898006916046,
+      "output_wrap_ms": 0.004472211003303528,
+      "total_runner_ms": 3.888992592692375,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 40,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23304,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23304,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.02236291766166687,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.11965073645114899,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.061511993408203125,
+      "bind_address_ms": 0.013884156942367554,
+      "execute_ms": 2.2231040000915527,
+      "execute_async_ms": 2.2231040000915527,
+      "synchronize_ms": 1.1518169194459915,
+      "d2h_copy_ms": 0.4104878753423691,
+      "output_wrap_ms": 0.003376975655555725,
+      "total_runner_ms": 3.682617098093033,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 41,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22940,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22940,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.022644177079200745,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.1038089394569397,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.059606507420539856,
+      "bind_address_ms": 0.014757737517356873,
+      "execute_ms": 2.1821439266204834,
+      "execute_async_ms": 2.1821439266204834,
+      "synchronize_ms": 1.3762786984443665,
+      "d2h_copy_ms": 0.41577406227588654,
+      "output_wrap_ms": 0.0029318034648895264,
+      "total_runner_ms": 3.621382638812065,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 42,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22985,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22985,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.03625452518463135,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.15647895634174347,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.06993673741817474,
+      "bind_address_ms": 0.017773360013961792,
+      "execute_ms": 2.200511932373047,
+      "execute_async_ms": 2.200511932373047,
+      "synchronize_ms": 1.2879017740488052,
+      "d2h_copy_ms": 0.5300119519233704,
+      "output_wrap_ms": 0.004252418875694275,
+      "total_runner_ms": 3.992166370153427,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 43,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23119,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23119,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.021910294890403748,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.10555796325206757,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.057013705372810364,
+      "bind_address_ms": 0.013900920748710632,
+      "execute_ms": 2.1780478954315186,
+      "execute_async_ms": 2.1780478954315186,
+      "synchronize_ms": 1.3611596077680588,
+      "d2h_copy_ms": 0.44918060302734375,
+      "output_wrap_ms": 0.002862885594367981,
+      "total_runner_ms": 3.581039607524872,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 44,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23282,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23282,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.021399930119514465,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.10466761887073517,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.05870312452316284,
+      "bind_address_ms": 0.01387670636177063,
+      "execute_ms": 2.1881918907165527,
+      "execute_async_ms": 2.1881918907165527,
+      "synchronize_ms": 1.303417608141899,
+      "d2h_copy_ms": 0.4377570003271103,
+      "output_wrap_ms": 0.0028014183044433594,
+      "total_runner_ms": 3.623461350798607,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 45,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23041,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23041,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.036519020795822144,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.1659635454416275,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.06544217467308044,
+      "bind_address_ms": 0.017022714018821716,
+      "execute_ms": 2.190335988998413,
+      "execute_async_ms": 2.190335988998413,
+      "synchronize_ms": 1.1962708085775375,
+      "d2h_copy_ms": 0.5093645304441452,
+      "output_wrap_ms": 0.004602596163749695,
+      "total_runner_ms": 3.959525376558304,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 46,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23194,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23194,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.04135258495807648,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.19087456166744232,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.15597231686115265,
+      "bind_address_ms": 0.02168118953704834,
+      "execute_ms": 2.318336009979248,
+      "execute_async_ms": 2.318336009979248,
+      "synchronize_ms": 0.8547492325305939,
+      "d2h_copy_ms": 1.4880653470754623,
+      "output_wrap_ms": 0.00632554292678833,
+      "total_runner_ms": 5.723835900425911,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 47,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 22937,
+      "fixed_K": 23040,
+      "bucket_id": 1,
+      "valid_voxel_count": 22937,
+      "valid_mask_shape": [
+        23040
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.0485982745885849,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.15491805970668793,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.09928829967975616,
+      "bind_address_ms": 0.018185004591941833,
+      "execute_ms": 4.055039882659912,
+      "execute_async_ms": 4.055039882659912,
+      "synchronize_ms": 0.11382810771465302,
+      "d2h_copy_ms": 1.1556446552276611,
+      "output_wrap_ms": 0.007588416337966919,
+      "total_runner_ms": 6.634550169110298,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 48,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23465,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23465,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.027041882276535034,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.1299697905778885,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.062132254242897034,
+      "bind_address_ms": 0.01524016261100769,
+      "execute_ms": 2.243583917617798,
+      "execute_async_ms": 2.243583917617798,
+      "synchronize_ms": 0.6995685398578644,
+      "d2h_copy_ms": 0.6843898445367813,
+      "output_wrap_ms": 0.003693625330924988,
+      "total_runner_ms": 4.044504836201668,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    },
+    {
+      "frame_id": 49,
+      "record_len": 2,
+      "precision": "fp16",
+      "scheme": "fixed_k_scatter_plugin",
+      "original_num_voxels": 23367,
+      "fixed_K": 23552,
+      "bucket_id": 2,
+      "valid_voxel_count": 23367,
+      "valid_mask_shape": [
+        23552
+      ],
+      "whether_valid_mask_used": true,
+      "ap_valid": true,
+      "dtype_cast_ms": 0.022239983081817627,
+      "contiguous_ms": 0.0,
+      "h2d_copy_ms": 0.0,
+      "input_device_copy_ms": 0.09804405272006989,
+      "set_input_shape_ms": 0.0,
+      "output_shape_query_ms": 0.04820525646209717,
+      "bind_address_ms": 0.01352652907371521,
+      "execute_ms": 2.1850879192352295,
+      "execute_async_ms": 2.1850879192352295,
+      "synchronize_ms": 1.2799352407455444,
+      "d2h_copy_ms": 0.5497504025697708,
+      "output_wrap_ms": 0.0025462359189987183,
+      "total_runner_ms": 3.657357767224312,
+      "d2h_copies": 3,
+      "bytes_d2h": 2621440,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "valid_agent_mask": [
+          1,
+          2
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "output_shapes": {
+        "cls_preds": [
+          1,
+          2,
+          128,
+          256
+        ],
+        "reg_preds": [
+          1,
+          14,
+          128,
+          256
+        ],
+        "dir_preds": [
+          1,
+          4,
+          128,
+          256
+        ]
+      }
+    }
+  ],
+  "buckets": [
+    {
+      "bucket_id": 0,
+      "min_voxels": 1,
+      "opt_voxels": 9728,
+      "max_voxels": 9728,
+      "num_frames": 14,
+      "voxel_count_min": 8578,
+      "voxel_count_max": 9594
+    },
+    {
+      "bucket_id": 1,
+      "min_voxels": 9729,
+      "opt_voxels": 23040,
+      "max_voxels": 23040,
+      "num_frames": 26,
+      "voxel_count_min": 20646,
+      "voxel_count_max": 22985
+    },
+    {
+      "bucket_id": 2,
+      "min_voxels": 23041,
+      "opt_voxels": 23552,
+      "max_voxels": 23552,
+      "num_frames": 10,
+      "voxel_count_min": 23041,
+      "voxel_count_max": 23465
+    },
+    {
+      "bucket_id": 3,
+      "min_voxels": 23553,
+      "opt_voxels": 23553,
+      "max_voxels": 24064,
+      "num_frames": 0,
+      "voxel_count_min": null,
+      "voxel_count_max": null
+    }
+  ],
+  "router_allocation_report": {
+    "route_counts": {
+      "0": 14,
+      "1": 26,
+      "2": 10,
+      "3": 0
+    },
+    "runners": {
+      "0": {
+        "context_created_per_run": false,
+        "stream_created_per_run": false,
+        "context_create_count": 1,
+        "stream_create_count": 1,
+        "run_count": 14,
+        "input_buffer_reallocation_count": 6,
+        "output_buffer_reallocation_count": 3,
+        "set_input_shape_call_count": 6,
+        "output_shape_query_call_count": 42,
+        "number_of_h2d_copies": 0,
+        "number_of_d2d_input_copies": 84,
+        "number_of_d2h_copies": 0,
+        "total_bytes_h2d": 0,
+        "total_bytes_d2d_input": 73002608,
+        "total_bytes_d2h": 0,
+        "input_buffer_reallocated_per_frame": false,
+        "output_buffer_reallocated_per_frame": false,
+        "set_input_shape_called_per_frame": false,
+        "output_shape_query_called_per_frame": true,
+        "input_buffers": {
+          "voxel_features": {
+            "shape": [
+              1245184
+            ],
+            "dtype": "torch.float32",
+            "numel": 1245184
+          },
+          "voxel_coords": {
+            "shape": [
+              38912
+            ],
+            "dtype": "torch.int32",
+            "numel": 38912
+          },
+          "voxel_num_points": {
+            "shape": [
+              9728
+            ],
+            "dtype": "torch.int32",
+            "numel": 9728
+          },
+          "valid_agent_mask": {
+            "shape": [
+              2
+            ],
+            "dtype": "torch.float32",
+            "numel": 2
+          },
+          "pairwise_t_matrix": {
+            "shape": [
+              64
+            ],
+            "dtype": "torch.float32",
+            "numel": 64
+          },
+          "valid_voxel_mask": {
+            "shape": [
+              9728
+            ],
+            "dtype": "torch.float32",
+            "numel": 9728
+          }
+        },
+        "output_buffers": {
+          "cls_preds": {
+            "shape": [
+              65536
+            ],
+            "dtype": "torch.float32",
+            "numel": 65536
+          },
+          "reg_preds": {
+            "shape": [
+              458752
+            ],
+            "dtype": "torch.float32",
+            "numel": 458752
+          },
+          "dir_preds": {
+            "shape": [
+              131072
+            ],
+            "dtype": "torch.float32",
+            "numel": 131072
+          }
+        }
+      },
+      "1": {
+        "context_created_per_run": false,
+        "stream_created_per_run": false,
+        "context_create_count": 1,
+        "stream_create_count": 1,
+        "run_count": 26,
+        "input_buffer_reallocation_count": 6,
+        "output_buffer_reallocation_count": 3,
+        "set_input_shape_call_count": 6,
+        "output_shape_query_call_count": 78,
+        "number_of_h2d_copies": 0,
+        "number_of_d2d_input_copies": 156,
+        "number_of_d2h_copies": 0,
+        "total_bytes_h2d": 0,
+        "total_bytes_d2d_input": 321092304,
+        "total_bytes_d2h": 0,
+        "input_buffer_reallocated_per_frame": false,
+        "output_buffer_reallocated_per_frame": false,
+        "set_input_shape_called_per_frame": false,
+        "output_shape_query_called_per_frame": true,
+        "input_buffers": {
+          "voxel_features": {
+            "shape": [
+              2949120
+            ],
+            "dtype": "torch.float32",
+            "numel": 2949120
+          },
+          "voxel_coords": {
+            "shape": [
+              92160
+            ],
+            "dtype": "torch.int32",
+            "numel": 92160
+          },
+          "voxel_num_points": {
+            "shape": [
+              23040
+            ],
+            "dtype": "torch.int32",
+            "numel": 23040
+          },
+          "valid_agent_mask": {
+            "shape": [
+              2
+            ],
+            "dtype": "torch.float32",
+            "numel": 2
+          },
+          "pairwise_t_matrix": {
+            "shape": [
+              64
+            ],
+            "dtype": "torch.float32",
+            "numel": 64
+          },
+          "valid_voxel_mask": {
+            "shape": [
+              23040
+            ],
+            "dtype": "torch.float32",
+            "numel": 23040
+          }
+        },
+        "output_buffers": {
+          "cls_preds": {
+            "shape": [
+              65536
+            ],
+            "dtype": "torch.float32",
+            "numel": 65536
+          },
+          "reg_preds": {
+            "shape": [
+              458752
+            ],
+            "dtype": "torch.float32",
+            "numel": 458752
+          },
+          "dir_preds": {
+            "shape": [
+              131072
+            ],
+            "dtype": "torch.float32",
+            "numel": 131072
+          }
+        }
+      },
+      "2": {
+        "context_created_per_run": false,
+        "stream_created_per_run": false,
+        "context_create_count": 1,
+        "stream_create_count": 1,
+        "run_count": 10,
+        "input_buffer_reallocation_count": 6,
+        "output_buffer_reallocation_count": 3,
+        "set_input_shape_call_count": 6,
+        "output_shape_query_call_count": 30,
+        "number_of_h2d_copies": 0,
+        "number_of_d2d_input_copies": 60,
+        "number_of_d2h_copies": 0,
+        "total_bytes_h2d": 0,
+        "total_bytes_d2d_input": 126241360,
+        "total_bytes_d2h": 0,
+        "input_buffer_reallocated_per_frame": false,
+        "output_buffer_reallocated_per_frame": false,
+        "set_input_shape_called_per_frame": false,
+        "output_shape_query_called_per_frame": true,
+        "input_buffers": {
+          "voxel_features": {
+            "shape": [
+              3014656
+            ],
+            "dtype": "torch.float32",
+            "numel": 3014656
+          },
+          "voxel_coords": {
+            "shape": [
+              94208
+            ],
+            "dtype": "torch.int32",
+            "numel": 94208
+          },
+          "voxel_num_points": {
+            "shape": [
+              23552
+            ],
+            "dtype": "torch.int32",
+            "numel": 23552
+          },
+          "valid_agent_mask": {
+            "shape": [
+              2
+            ],
+            "dtype": "torch.float32",
+            "numel": 2
+          },
+          "pairwise_t_matrix": {
+            "shape": [
+              64
+            ],
+            "dtype": "torch.float32",
+            "numel": 64
+          },
+          "valid_voxel_mask": {
+            "shape": [
+              23552
+            ],
+            "dtype": "torch.float32",
+            "numel": 23552
+          }
+        },
+        "output_buffers": {
+          "cls_preds": {
+            "shape": [
+              65536
+            ],
+            "dtype": "torch.float32",
+            "numel": 65536
+          },
+          "reg_preds": {
+            "shape": [
+              458752
+            ],
+            "dtype": "torch.float32",
+            "numel": 458752
+          },
+          "dir_preds": {
+            "shape": [
+              131072
+            ],
+            "dtype": "torch.float32",
+            "numel": 131072
+          }
+        }
+      }
+    }
+  },
+  "output_names": [
+    "cls_preds",
+    "reg_preds",
+    "dir_preds"
+  ],
+  "pyramid_forward_export_mode": "fixed_k_scatter_plugin",
+  "router": "fixed_k_bucket_by_num_voxels",
+  "whether_valid_mask_used": true,
+  "ap_valid": true
+}

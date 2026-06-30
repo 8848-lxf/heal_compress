@@ -1,0 +1,45 @@
+{
+  "onnx_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/onnx/fp32/lidar_pyramid_fp32_dynamic.onnx",
+  "fp32_engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp32/lidar_pyramid_fp32.engine",
+  "selected_full_intermediate_outputs": [
+    "/layer0/layer0.2/relu_4/Relu_output_0",
+    "/Cast_output_0",
+    "/GridSample_output_0",
+    "/layer1/layer1.4/relu_2/Relu_output_0",
+    "/Cast_1_output_0",
+    "/GridSample_2_output_0",
+    "/layer2/layer2.7/relu_2/Relu_output_0",
+    "/Cast_2_output_0",
+    "/GridSample_4_output_0",
+    "/encoder_m1/scatter/Constant_output_0",
+    "/encoder_m1/scatter/Concat_output_0",
+    "/encoder_m1/scatter/Reshape_output_0",
+    "/encoder_m1/scatter/ScatterND_output_0",
+    "/encoder_m1/scatter/Reshape_1_output_0"
+  ],
+  "input_hashes": {
+    "voxel_features": "2143f2297d627f7f40fb1e151a167b46fc77ca3aed2e3ea29f2adbc33fe5108b",
+    "voxel_coords": "8777059fa1a22b4ae1c4d59d76a491e6afd877369c5d48057a0065e9f699a73c",
+    "voxel_num_points": "975b136b67fefe09995997566bf86d40d6f5c25acf29e34e655f25553cd4126b",
+    "record_len": "96d4915936ea48bac483e8cbceb480ec84f1636040a6a801fd03664ff2f1b4c2",
+    "pairwise_t_matrix": "6dd2981c965d6a986e52e50a4a32e42ae57c0e1c423d2ae8bfddc306530633d9"
+  },
+  "io_mapping_bug_found": false,
+  "first_mismatch_stage": "BEV warp grid construction",
+  "original_subgraph_first_mismatch_stage": "BEV backbone / pyramid backbone",
+  "inverse_or_solve_present": false,
+  "gridsample_trt_equivalent": true,
+  "scatternd_trt_equivalent": true,
+  "gridsample_report_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/gridsample_trt_check.json",
+  "scatternd_report_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/scatternd_trt_check.json",
+  "backbone_detail_report_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/backbone_detail_bisect_report.json",
+  "plugin_assessment": {
+    "plugin_needed": false,
+    "plugin_needed_reason": "First mismatch stage is BEV warp grid construction, which does not map to an existing camera plugin recommendation.",
+    "need_bevwarp_plugin": false,
+    "need_bevpool_plugin": false,
+    "need_inverse_plugin": false,
+    "need_pointpillar_scatter_plugin": false,
+    "recommended_plugin": null
+  }
+}

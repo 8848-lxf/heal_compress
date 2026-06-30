@@ -1,0 +1,13 @@
+{
+  "implemented": true,
+  "build_success": true,
+  "benchmark_success": true,
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_fixed_pyramid_wrapper_gpu/artifacts/engines/fp32/lidar_pyramid_fp32.engine",
+  "engine_size_MB": 64.13281631469727,
+  "forward_p50_ms": 4.01904,
+  "forward_p90_ms": 4.03052,
+  "forward_p95_ms": 4.03418,
+  "fps": 248.81563756518966,
+  "speedup_vs_fp32": 1.0,
+  "error": null
+}

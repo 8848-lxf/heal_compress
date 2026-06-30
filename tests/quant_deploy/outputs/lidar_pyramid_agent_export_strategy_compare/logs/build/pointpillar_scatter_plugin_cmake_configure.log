@@ -1,0 +1,14 @@
+=== COMMAND ===
+cmake -S /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt -B /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build -DTRT_ROOT=/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118 -DCMAKE_CUDA_ARCHITECTURES=89
+
+=== STDOUT ===
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build
+
+
+=== STDERR ===
+
+
+=== ELAPSED_SECONDS ===
+0.058

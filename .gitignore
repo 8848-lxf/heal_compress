@@ -1,65 +1,10 @@
-tests/outputs/prune_lidar_pyramid_25/pruned_model.pth
-*.pth
-*.ckpt
-*.onnx
-__pycache__/
-*.pyc
-
 # Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Experiment outputs and model artifacts
-*.pth
-*.pt
-*.ckpt
-*.onnx
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Large model / deployment artifacts
-*.pth
-*.pt
-*.ckpt
-*.onnx
-*.engine
-*.plan
-*.trt
-
-# Experiment outputs: ignore all by default
-tests/outputs/*
-
-# Keep this evaluation output for this branch
-!tests/outputs/l1_grouped_conv_ablation_20260625_013602/
-!tests/outputs/l1_grouped_conv_ablation_20260625_013602/eval/
-!tests/outputs/l1_grouped_conv_ablation_20260625_013602/eval/**
-
-# Quant deploy outputs
-
-# Large model / deployment artifacts
-*.pth
-*.pt
-*.ckpt
-*.onnx
-*.engine
-*.plan
-*.trt
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Keep all quant deploy files for full quant deploy test branch
-!tests/quant_deploy/
-!tests/quant_deploy/**
-!tests/quant_deploy/outputs/
-!tests/quant_deploy/outputs/**
-!tests/quant_deploy/plugins/
-!tests/quant_deploy/plugins/**
-
-# Model weights
+# Model weights / checkpoints
 *.pth
 *.pt
 *.ckpt
@@ -74,81 +19,16 @@ __pycache__/
 *.raw
 *.so
 
-# Python cache
-__pycache__/
-*.pyc
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Model weights
-*.pth
-*.pt
-*.ckpt
-*.safetensors
-*.weights
-
-# Deployment artifacts
-*.onnx
-*.engine
-*.plan
-*.trt
-*.raw
-*.so
-
-# Generated experiment outputs
-tests/outputs/
-tests/quant_deploy/outputs/
-
-# Generated outputs are maintained locally
-tests/quant_deploy/outputs/
-tests/outputs/
-
-# Large generated artifacts
-*.onnx
-*.engine
-*.plan
-*.trt
-*.raw
-*.so
-*.pth
-*.pt
-*.ckpt
-*.safetensors
-*.weights
+# Calibration / numpy dumps
 *.npz
 *.npy
-
-# Python cache
-__pycache__/
-*.pyc
-tests/quant_deploy/outputs
-tests/outputs
-tests_back/
-heal_tests
-heal_tests/
-
-# Large model / deployment artifacts
-*.pth
-*.pt
-*.ckpt
-*.safetensors
-*.weights
-*.onnx
-*.engine
-*.plan
-*.trt
-*.raw
-*.so
-*.npz
-*.npy
-
-# Python cache
-__pycache__/
-*.pyc
 
 # Local backup / external data symlink
 tests_back/
 heal_tests
 heal_tests/
+
+# Note:
+# Do NOT ignore tests/outputs/ or tests/quant_deploy/outputs/.
+# Lightweight result files under outputs, such as json/csv/log/md/txt, may be committed.
+.gitignore.bak.*

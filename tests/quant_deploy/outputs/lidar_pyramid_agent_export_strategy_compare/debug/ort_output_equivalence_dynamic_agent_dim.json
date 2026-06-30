@@ -1,0 +1,68 @@
+{
+  "success": true,
+  "comparison": "onnxruntime_fp32_vs_pytorch",
+  "report_source": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_dynamic_agent_dim_smoke/evaluation/trt_output_equivalence_dynamic_agent_dim.json",
+  "data": {
+    "num_frames": 1,
+    "output_names": [
+      "cls_preds",
+      "reg_preds",
+      "dir_preds"
+    ],
+    "outputs": {
+      "cls_preds": {
+        "max_abs_error": 0.014967918395996094,
+        "mean_abs_error": 0.0009308296999961385,
+        "relative_error": 0.0001697307483614346,
+        "numel": 65536,
+        "shape_mismatches": []
+      },
+      "reg_preds": {
+        "max_abs_error": 0.003674030303955078,
+        "mean_abs_error": 0.0001290296059930997,
+        "relative_error": 0.0008667928451144936,
+        "numel": 458752,
+        "shape_mismatches": []
+      },
+      "dir_preds": {
+        "max_abs_error": 0.006213188171386719,
+        "mean_abs_error": 0.0005258930609386425,
+        "relative_error": 0.0010436809908945562,
+        "numel": 131072,
+        "shape_mismatches": []
+      }
+    },
+    "by_record_len": {
+      "0": {
+        "record_len": 0,
+        "agent_count": 0,
+        "num_frames": 1,
+        "outputs": {
+          "cls_preds": {
+            "max_abs_error": 0.014967918395996094,
+            "mean_abs_error": 0.0009308296999961385,
+            "relative_error": 0.0001697307483614346,
+            "numel": 65536,
+            "shape_mismatches": []
+          },
+          "reg_preds": {
+            "max_abs_error": 0.003674030303955078,
+            "mean_abs_error": 0.0001290296059930997,
+            "relative_error": 0.0008667928451144936,
+            "numel": 458752,
+            "shape_mismatches": []
+          },
+          "dir_preds": {
+            "max_abs_error": 0.006213188171386719,
+            "mean_abs_error": 0.0005258930609386425,
+            "relative_error": 0.0010436809908945562,
+            "numel": 131072,
+            "shape_mismatches": []
+          }
+        }
+      }
+    },
+    "success": true,
+    "comparison": "onnxruntime_fp32_vs_pytorch"
+  }
+}

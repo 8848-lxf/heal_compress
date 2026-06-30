@@ -1,0 +1,22 @@
+{
+  "precision": "fp16",
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_pillar_squeeze_fix_gpu/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+  "num_frames": 10,
+  "warmup_frames": 2,
+  "forward_mean_ms": null,
+  "forward_p50_ms": null,
+  "forward_p90_ms": null,
+  "forward_p95_ms": null,
+  "forward_min_ms": null,
+  "forward_max_ms": null,
+  "fps": null,
+  "engine_size_MB": null,
+  "latency_scope": "engine_forward_only",
+  "data_loading_time_ms": null,
+  "data_to_gpu_time_ms": null,
+  "forward_time_ms": null,
+  "postprocess_time_ms": null,
+  "total_time_ms": null,
+  "success": false,
+  "error": "engine file does not exist: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_pillar_squeeze_fix_gpu/artifacts/engines/fp16/lidar_pyramid_fp16.engine"
+}

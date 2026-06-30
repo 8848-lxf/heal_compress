@@ -1,0 +1,26 @@
+{
+  "precision": "fp32",
+  "success": true,
+  "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/artifacts/engines/fp32/lidar_pyramid_fp32.engine",
+  "num_frames": 50,
+  "actual_frames": 50,
+  "skipped_frames": 0,
+  "ap_0_3": 0.0,
+  "ap_0_5": 0.0,
+  "ap_0_7": 0.0,
+  "map": 0.0,
+  "forward_mean_ms": 192.43747394531965,
+  "forward_p50_ms": 182.63446353375912,
+  "forward_p90_ms": 230.2551120519638,
+  "postprocess_mean_ms": 11.823915876448154,
+  "postprocess_p50_ms": 5.806613713502884,
+  "total_mean_ms": 204.2613898217678,
+  "total_p50_ms": 190.53635001182556,
+  "output_names": [
+    "cls_preds",
+    "reg_preds",
+    "dir_preds"
+  ],
+  "previous_trt_ap_zero_invalidated": true,
+  "invalid_reason": "pairwise_t_matrix dtype binding mismatch"
+}

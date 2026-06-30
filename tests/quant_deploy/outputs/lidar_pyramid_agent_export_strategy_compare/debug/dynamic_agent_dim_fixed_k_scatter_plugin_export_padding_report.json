@@ -1,0 +1,13 @@
+{
+  "original_num_voxels": 20646,
+  "fixed_K": 29696,
+  "fixed_num_agents": 2,
+  "valid_voxel_count": 20646,
+  "valid_voxel_mask_shape": [
+    29696
+  ],
+  "ap_valid": true,
+  "whether_valid_mask_used": true,
+  "true_dynamic_agent_dim": false,
+  "per_N_engine_routing": true
+}

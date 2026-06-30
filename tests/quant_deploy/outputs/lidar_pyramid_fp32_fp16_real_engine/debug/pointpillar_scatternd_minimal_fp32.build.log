@@ -1,0 +1,321 @@
+/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec --onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal.onnx --saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal_fp32.engine --profilingVerbosity=detailed --dumpLayerInfo --exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal_layerinfo.json --verbose --noTF32 --skipInference
+
+&&&& RUNNING TensorRT.trtexec [TensorRT v100900] [b34] # /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec --onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal.onnx --saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal_fp32.engine --profilingVerbosity=detailed --dumpLayerInfo --exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal_layerinfo.json --verbose --noTF32 --skipInference
+[06/27/2026-09:12:12] [I] TF32 is enabled by default. Add --noTF32 flag to further improve accuracy with some performance cost.
+[06/27/2026-09:12:12] [I] === Model Options ===
+[06/27/2026-09:12:12] [I] Format: ONNX
+[06/27/2026-09:12:12] [I] Model: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal.onnx
+[06/27/2026-09:12:12] [I] Output:
+[06/27/2026-09:12:12] [I] === Build Options ===
+[06/27/2026-09:12:12] [I] Memory Pools: workspace: default, dlaSRAM: default, dlaLocalDRAM: default, dlaGlobalDRAM: default, tacticSharedMem: default
+[06/27/2026-09:12:12] [I] avgTiming: 8
+[06/27/2026-09:12:12] [I] Precision: FP32
+[06/27/2026-09:12:12] [I] LayerPrecisions: 
+[06/27/2026-09:12:12] [I] Layer Device Types: 
+[06/27/2026-09:12:12] [I] Calibration: 
+[06/27/2026-09:12:12] [I] Refit: Disabled
+[06/27/2026-09:12:12] [I] Strip weights: Disabled
+[06/27/2026-09:12:12] [I] Version Compatible: Disabled
+[06/27/2026-09:12:12] [I] ONNX Plugin InstanceNorm: Disabled
+[06/27/2026-09:12:12] [I] TensorRT runtime: full
+[06/27/2026-09:12:12] [I] Lean DLL Path: 
+[06/27/2026-09:12:12] [I] Tempfile Controls: { in_memory: allow, temporary: allow }
+[06/27/2026-09:12:12] [I] Exclude Lean Runtime: Disabled
+[06/27/2026-09:12:12] [I] Sparsity: Disabled
+[06/27/2026-09:12:12] [I] Safe mode: Disabled
+[06/27/2026-09:12:12] [I] Build DLA standalone loadable: Disabled
+[06/27/2026-09:12:12] [I] Allow GPU fallback for DLA: Disabled
+[06/27/2026-09:12:12] [I] DirectIO mode: Disabled
+[06/27/2026-09:12:12] [I] Restricted mode: Disabled
+[06/27/2026-09:12:12] [I] Skip inference: Enabled
+[06/27/2026-09:12:12] [I] Save engine: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal_fp32.engine
+[06/27/2026-09:12:12] [I] Load engine: 
+[06/27/2026-09:12:12] [I] Profiling verbosity: 2
+[06/27/2026-09:12:12] [I] Tactic sources: Using default tactic sources
+[06/27/2026-09:12:12] [I] timingCacheMode: local
+[06/27/2026-09:12:12] [I] timingCacheFile: 
+[06/27/2026-09:12:12] [I] Enable Compilation Cache: Enabled
+[06/27/2026-09:12:12] [I] Enable Monitor Memory: Disabled
+[06/27/2026-09:12:12] [I] errorOnTimingCacheMiss: Disabled
+[06/27/2026-09:12:12] [I] Preview Features: Use default preview flags.
+[06/27/2026-09:12:12] [I] MaxAuxStreams: -1
+[06/27/2026-09:12:12] [I] BuilderOptimizationLevel: -1
+[06/27/2026-09:12:12] [I] MaxTactics: -1
+[06/27/2026-09:12:12] [I] Calibration Profile Index: 0
+[06/27/2026-09:12:12] [I] Weight Streaming: Disabled
+[06/27/2026-09:12:12] [I] Runtime Platform: Same As Build
+[06/27/2026-09:12:12] [I] Debug Tensors: 
+[06/27/2026-09:12:12] [I] Input(s)s format: fp32:CHW
+[06/27/2026-09:12:12] [I] Output(s)s format: fp32:CHW
+[06/27/2026-09:12:12] [I] Input build shapes: model
+[06/27/2026-09:12:12] [I] Input calibration shapes: model
+[06/27/2026-09:12:12] [I] === System Options ===
+[06/27/2026-09:12:12] [I] Device: 0
+[06/27/2026-09:12:12] [I] DLACore: 
+[06/27/2026-09:12:12] [I] Plugins:
+[06/27/2026-09:12:12] [I] setPluginsToSerialize:
+[06/27/2026-09:12:12] [I] dynamicPlugins:
+[06/27/2026-09:12:12] [I] ignoreParsedPluginLibs: 0
+[06/27/2026-09:12:12] [I] 
+[06/27/2026-09:12:12] [I] === Inference Options ===
+[06/27/2026-09:12:12] [I] Batch: Explicit
+[06/27/2026-09:12:12] [I] Input inference shapes: model
+[06/27/2026-09:12:12] [I] Iterations: 10
+[06/27/2026-09:12:12] [I] Duration: 3s (+ 200ms warm up)
+[06/27/2026-09:12:12] [I] Sleep time: 0ms
+[06/27/2026-09:12:12] [I] Idle time: 0ms
+[06/27/2026-09:12:12] [I] Inference Streams: 1
+[06/27/2026-09:12:12] [I] ExposeDMA: Disabled
+[06/27/2026-09:12:12] [I] Data transfers: Enabled
+[06/27/2026-09:12:12] [I] Spin-wait: Disabled
+[06/27/2026-09:12:12] [I] Multithreading: Disabled
+[06/27/2026-09:12:12] [I] CUDA Graph: Disabled
+[06/27/2026-09:12:12] [I] Separate profiling: Disabled
+[06/27/2026-09:12:12] [I] Time Deserialize: Disabled
+[06/27/2026-09:12:12] [I] Time Refit: Disabled
+[06/27/2026-09:12:12] [I] NVTX verbosity: 2
+[06/27/2026-09:12:12] [I] Persistent Cache Ratio: 0
+[06/27/2026-09:12:12] [I] Optimization Profile Index: 0
+[06/27/2026-09:12:12] [I] Weight Streaming Budget: 100.000000%
+[06/27/2026-09:12:12] [I] Inputs:
+[06/27/2026-09:12:12] [I] Debug Tensor Save Destinations:
+[06/27/2026-09:12:12] [I] === Reporting Options ===
+[06/27/2026-09:12:12] [I] Verbose: Enabled
+[06/27/2026-09:12:12] [I] Averages: 10 inferences
+[06/27/2026-09:12:12] [I] Percentiles: 90,95,99
+[06/27/2026-09:12:12] [I] Dump refittable layers:Disabled
+[06/27/2026-09:12:12] [I] Dump output: Disabled
+[06/27/2026-09:12:12] [I] Profile: Disabled
+[06/27/2026-09:12:12] [I] Export timing to JSON file: 
+[06/27/2026-09:12:12] [I] Export output to JSON file: 
+[06/27/2026-09:12:12] [I] Export profile to JSON file: 
+[06/27/2026-09:12:12] [I] 
+[06/27/2026-09:12:12] [I] === Device Information ===
+[06/27/2026-09:12:12] [I] Available Devices: 
+[06/27/2026-09:12:12] [I]   Device 0: "NVIDIA GeForce RTX 4090" UUID: GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23
+[06/27/2026-09:12:12] [I]   Device 1: "NVIDIA GeForce RTX 4090" UUID: GPU-b5a7ab32-fb96-3347-e5d7-cabce043a05e
+[06/27/2026-09:12:12] [I]   Device 2: "NVIDIA GeForce RTX 4090" UUID: GPU-a48f7dfe-6461-7cce-7b24-60c4951b6c48
+[06/27/2026-09:12:12] [I]   Device 3: "NVIDIA GeForce RTX 4090" UUID: GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad
+[06/27/2026-09:12:12] [I]   Device 4: "NVIDIA GeForce RTX 4090" UUID: GPU-166702d7-bf30-18e0-83ff-83b316d37c0e
+[06/27/2026-09:12:12] [I]   Device 5: "NVIDIA GeForce RTX 4090" UUID: GPU-d4b8342a-7038-f567-ce40-a4705b23854b
+[06/27/2026-09:12:12] [I]   Device 6: "NVIDIA GeForce RTX 4090" UUID: GPU-d98c7029-672d-47b6-acc2-8c5936495349
+[06/27/2026-09:12:12] [I]   Device 7: "NVIDIA GeForce RTX 4090" UUID: GPU-a4b5f0d9-c77c-2c99-b4c3-1b3811b835e3
+[06/27/2026-09:12:12] [I] Selected Device: NVIDIA GeForce RTX 4090
+[06/27/2026-09:12:12] [I] Selected Device ID: 0
+[06/27/2026-09:12:12] [I] Selected Device UUID: GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23
+[06/27/2026-09:12:12] [I] Compute Capability: 8.9
+[06/27/2026-09:12:12] [I] SMs: 128
+[06/27/2026-09:12:12] [I] Device Global Memory: 24080 MiB
+[06/27/2026-09:12:12] [I] Shared Memory per SM: 100 KiB
+[06/27/2026-09:12:12] [I] Memory Bus Width: 384 bits (ECC disabled)
+[06/27/2026-09:12:12] [I] Application Compute Clock Rate: 2.52 GHz
+[06/27/2026-09:12:12] [I] Application Memory Clock Rate: 10.501 GHz
+[06/27/2026-09:12:12] [I] 
+[06/27/2026-09:12:12] [I] Note: The application clock rates do not reflect the actual clock rates that the GPU is currently running at.
+[06/27/2026-09:12:12] [I] 
+[06/27/2026-09:12:12] [I] TensorRT version: 10.9.0
+[06/27/2026-09:12:12] [I] Loading standard plugins
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::ROIAlign_TRT version 2
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::BatchedNMSDynamic_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::BatchedNMS_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::BatchTilePlugin_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::Clip_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::CoordConvAC version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::CropAndResizeDynamic version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::CropAndResize version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::DecodeBbox3DPlugin version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::DetectionLayer_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::EfficientNMS_Explicit_TF_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::EfficientNMS_Implicit_TF_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::EfficientNMS_ONNX_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::EfficientNMS_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::FlattenConcat_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::GenerateDetection_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::GridAnchor_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::GridAnchorRect_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::InstanceNormalization_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::InstanceNormalization_TRT version 2
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::InstanceNormalization_TRT version 3
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::LReLU_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::ModulatedDeformConv2d version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::MultilevelCropAndResize_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::MultilevelProposeROI_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::MultiscaleDeformableAttnPlugin_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::NMSDynamic_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::NMS_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::Normalize_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::PillarScatterPlugin version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::PriorBox_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::ProposalDynamic version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::ProposalLayer_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::Proposal version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::PyramidROIAlign_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::Region_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::Reorg_TRT version 2
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::Reorg_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::ResizeNearest_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::ROIAlign_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::RPROI_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::ScatterElements version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::ScatterElements version 2
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::ScatterND version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::SpecialSlice_TRT version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::Split version 1
+[06/27/2026-09:12:12] [V] [TRT] Registered plugin creator - ::VoxelGeneratorPlugin version 1
+[06/27/2026-09:12:13] [I] [TRT] [MemUsageChange] Init CUDA: CPU +34, GPU +0, now: CPU 42, GPU 7517 (MiB)
+[06/27/2026-09:12:13] [V] [TRT] Trying to load shared library libnvinfer_builder_resource.so.10.9.0
+[06/27/2026-09:12:13] [V] [TRT] Loaded shared library libnvinfer_builder_resource.so.10.9.0
+[06/27/2026-09:12:17] [I] [TRT] [MemUsageChange] Init builder kernel library: CPU +2302, GPU +438, now: CPU 2502, GPU 7955 (MiB)
+[06/27/2026-09:12:17] [V] [TRT] CUDA lazy loading is enabled.
+[06/27/2026-09:12:17] [I] Start parsing network model.
+[06/27/2026-09:12:17] [I] [TRT] ----------------------------------------------------------------
+[06/27/2026-09:12:17] [I] [TRT] Input filename:   /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal.onnx
+[06/27/2026-09:12:17] [I] [TRT] ONNX IR version:  0.0.10
+[06/27/2026-09:12:17] [I] [TRT] Opset version:    17
+[06/27/2026-09:12:17] [I] [TRT] Producer name:    
+[06/27/2026-09:12:17] [I] [TRT] Producer version: 
+[06/27/2026-09:12:17] [I] [TRT] Domain:           
+[06/27/2026-09:12:17] [I] [TRT] Model version:    0
+[06/27/2026-09:12:17] [I] [TRT] Doc string:       
+[06/27/2026-09:12:17] [I] [TRT] ----------------------------------------------------------------
+[06/27/2026-09:12:17] [V] [TRT] Adding network input: data with dtype: float32, dimensions: (64, 131072)
+[06/27/2026-09:12:17] [V] [TRT] Registering tensor: data for ONNX tensor: data
+[06/27/2026-09:12:17] [V] [TRT] Adding network input: indices with dtype: int64, dimensions: (64, 8578, 2)
+[06/27/2026-09:12:17] [V] [TRT] Registering tensor: indices for ONNX tensor: indices
+[06/27/2026-09:12:17] [V] [TRT] Adding network input: updates with dtype: float32, dimensions: (64, 8578)
+[06/27/2026-09:12:17] [V] [TRT] Registering tensor: updates for ONNX tensor: updates
+[06/27/2026-09:12:17] [V] [TRT] Static check for parsing node: PointPillarScatterND [ScatterND]
+[06/27/2026-09:12:17] [V] [TRT] Parsing node: PointPillarScatterND [ScatterND]
+[06/27/2026-09:12:17] [V] [TRT] Searching for input: data
+[06/27/2026-09:12:17] [V] [TRT] Searching for input: indices
+[06/27/2026-09:12:17] [V] [TRT] Searching for input: updates
+[06/27/2026-09:12:17] [V] [TRT] PointPillarScatterND [ScatterND] inputs: [data -> (64, 131072)[FLOAT]], [indices -> (64, 8578, 2)[INT64]], [updates -> (64, 8578)[FLOAT]], 
+[06/27/2026-09:12:17] [V] [TRT] Registering layer: PointPillarScatterND for ONNX node: PointPillarScatterND
+[06/27/2026-09:12:17] [V] [TRT] Registering tensor: output_0 for ONNX tensor: output
+[06/27/2026-09:12:17] [V] [TRT] PointPillarScatterND [ScatterND] outputs: [output -> (64, 131072)[FLOAT]], 
+[06/27/2026-09:12:17] [V] [TRT] Marking output_0 as output: output
+[06/27/2026-09:12:17] [I] Finished parsing network model. Parse time: 0.000865125
+[06/27/2026-09:12:17] [V] [TRT] could not open /sys/fs/cgroup/memory/memory.limit_in_bytes or /sys/fs/cgroup/memory.max
+[06/27/2026-09:12:17] [V] [TRT] Original: 2 layers
+[06/27/2026-09:12:17] [V] [TRT] After dead-layer removal: 2 layers
+[06/27/2026-09:12:17] [V] [TRT] SYMBOLIC CHECKS
+[06/27/2026-09:12:17] [V] [TRT] GRAPH NODES
+[06/27/2026-09:12:17] [V] [TRT] CAST (Unnamed Layer* 0) [Cast]
+[06/27/2026-09:12:17] [V] [TRT]     Input 0
+[06/27/2026-09:12:17] [V] [TRT]         64	64
+[06/27/2026-09:12:17] [V] [TRT]         8578	8578
+[06/27/2026-09:12:17] [V] [TRT]         2	2
+[06/27/2026-09:12:17] [V] [TRT]     Output 0
+[06/27/2026-09:12:17] [V] [TRT]         64	64
+[06/27/2026-09:12:17] [V] [TRT]         8578	8578
+[06/27/2026-09:12:17] [V] [TRT]         2	2
+[06/27/2026-09:12:17] [V] [TRT] SCATTER PointPillarScatterND
+[06/27/2026-09:12:17] [V] [TRT]     Input 0
+[06/27/2026-09:12:17] [V] [TRT]         64	64
+[06/27/2026-09:12:17] [V] [TRT]         131072	131072
+[06/27/2026-09:12:17] [V] [TRT]     Input 1
+[06/27/2026-09:12:17] [V] [TRT]         64	64
+[06/27/2026-09:12:17] [V] [TRT]         8578	8578
+[06/27/2026-09:12:17] [V] [TRT]         2	2
+[06/27/2026-09:12:17] [V] [TRT]     Input 2
+[06/27/2026-09:12:17] [V] [TRT]         64	64
+[06/27/2026-09:12:17] [V] [TRT]         8578	8578
+[06/27/2026-09:12:17] [V] [TRT]     Output 0
+[06/27/2026-09:12:17] [V] [TRT]         64	64
+[06/27/2026-09:12:17] [V] [TRT]         131072	131072
+[06/27/2026-09:12:17] [V] [TRT] Graph construction completed in 0.000195592 seconds.
+[06/27/2026-09:12:17] [V] [TRT] After adding DebugOutput nodes: 2 layers
+[06/27/2026-09:12:17] [V] [TRT] After Myelin optimization: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] Applying ScaleNodes fusions.
+[06/27/2026-09:12:17] [V] [TRT] After scale fusion: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] After dupe layer removal: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] After final dead-layer removal: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] After tensor merging: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] After vertical fusions: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] After dupe layer removal: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] After final dead-layer removal: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] After tensor merging: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] After slice removal: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] After concat removal: 1 layers
+[06/27/2026-09:12:17] [V] [TRT] Trying to split Reshape and strided tensor
+[06/27/2026-09:12:17] [V] [TRT] Graph optimization time: 0.000211364 seconds.
+[06/27/2026-09:12:17] [V] [TRT] Building graph using backend strategy 2
+[06/27/2026-09:12:17] [I] [TRT] Local timing cache in use. Profiling results in this builder pass will not be stored.
+[06/27/2026-09:12:17] [V] [TRT] Constructing optimization profile number 0 [1/1].
+[06/27/2026-09:12:17] [V] [TRT] Applying generic optimizations to the graph for inference.
+[06/27/2026-09:12:17] [V] [TRT] Reserving memory for host IO tensors. Host: 0 bytes
+[06/27/2026-09:12:17] [V] [TRT] =============== Computing costs for {ForeignNode[(Unnamed Layer* 0) [Cast]...PointPillarScatterND]}
+[06/27/2026-09:12:17] [V] [TRT] ForeignNode {ForeignNode[(Unnamed Layer* 0) [Cast]...PointPillarScatterND]} metadata: [ONNX Layer: PointPillarScatterND]
+[06/27/2026-09:12:17] [V] [TRT] *************** Autotuning format combination: Float(131072,1), Int64(17156,2,1), Float(8578,1) -> Float(131072,1) ***************
+[06/27/2026-09:12:17] [V] [TRT] --------------- Timing Runner: {ForeignNode[(Unnamed Layer* 0) [Cast]...PointPillarScatterND]} (Myelin[0x80000023])
+[06/27/2026-09:12:17] [I] [TRT] Compiler backend is used during engine build.
+[06/27/2026-09:12:18] [V] [TRT]  (foreignNode) Set user's cuda kernel library
+[06/27/2026-09:12:18] [V] [TRT] Subgraph compilation completed in 0.404 seconds.
+[06/27/2026-09:12:18] [V] [TRT] Tactic: 0x0000000000000000 Time: 0.0729234
+[06/27/2026-09:12:18] [V] [TRT] {ForeignNode[(Unnamed Layer* 0) [Cast]...PointPillarScatterND]} (Myelin[0x80000023]) profiling completed in 0.412272 seconds. Fastest Tactic: 0x0000000000000000 Time: 0.0729234
+[06/27/2026-09:12:18] [V] [TRT] >>>>>>>>>>>>>>> Chose Runner Type: Myelin Tactic: 0x0000000000000000
+[06/27/2026-09:12:18] [V] [TRT] =============== Computing reformatting costs for available format set
+[06/27/2026-09:12:18] [V] [TRT] =============== Computing reformatting costs for available format set
+[06/27/2026-09:12:18] [V] [TRT] =============== Computing reformatting costs for available format set
+[06/27/2026-09:12:18] [V] [TRT] =============== Computing reformatting costs for available format set
+[06/27/2026-09:12:18] [V] [TRT] Formats and tactics selection completed in 0.412684 seconds.
+[06/27/2026-09:12:18] [V] [TRT] After reformat layers: 1 layers
+[06/27/2026-09:12:18] [V] [TRT] Total number of blocks in pre-optimized block assignment: 1
+[06/27/2026-09:12:18] [I] [TRT] Detected 3 inputs and 1 output network tensors.
+[06/27/2026-09:12:18] [V] [TRT] Layer: {ForeignNode[(Unnamed Layer* 0) [Cast]...PointPillarScatterND]} Host Persistent: 80 bytes Device Persistent: 0 bytes Scratch Memory: 4391936 bytes
+[06/27/2026-09:12:18] [V] [TRT] Skipped printing memory information for 0 layers with 0 memory size i.e. Host Persistent + Device Persistent + Scratch Memory == 0.
+[06/27/2026-09:12:18] [I] [TRT] Total Host Persistent Memory: 80 bytes
+[06/27/2026-09:12:18] [I] [TRT] Total Device Persistent Memory: 0 bytes
+[06/27/2026-09:12:18] [I] [TRT] Max Scratch Memory: 4391936 bytes
+[06/27/2026-09:12:18] [I] [TRT] [BlockAssignment] Started assigning block shifts. This will take 1 steps to complete.
+[06/27/2026-09:12:18] [I] [TRT] [BlockAssignment] Algorithm ShiftNTopDown took 0.006322ms to assign 1 blocks to 1 nodes requiring 4391936 bytes.
+[06/27/2026-09:12:18] [V] [TRT] Total number of blocks in optimized block assignment: 1
+[06/27/2026-09:12:18] [I] [TRT] Total Activation Memory: 4391936 bytes
+[06/27/2026-09:12:18] [I] [TRT] Total Weights Memory: 0 bytes
+[06/27/2026-09:12:18] [V] [TRT] Total number of generated kernels selected for the engine: 0
+[06/27/2026-09:12:18] [I] [TRT] Compiler backend is used during engine execution.
+[06/27/2026-09:12:18] [V] [TRT] Disabling unused tactic source: EDGE_MASK_CONVOLUTIONS
+[06/27/2026-09:12:18] [V] [TRT] Disabling unused tactic source: JIT_CONVOLUTIONS
+[06/27/2026-09:12:18] [I] [TRT] Engine generation completed in 0.419309 seconds.
+[06/27/2026-09:12:18] [V] [TRT] Layers:
+Name: entry^bb^signal^1_myl0_0, LayerType: signal, Inputs: [], Outputs: [], TacticName: , StreamId: 0, EventId: 2, Metadata: 
+Name: entry^bb^wait^1_myl0_1, LayerType: wait, Inputs: [], Outputs: [], TacticName: , StreamId: 1, EventId: 2, Metadata: 
+Name: __myl_Move_myl0_2, LayerType: kgen, Inputs: [ { Name: data, Dimensions: [64,131072], Format/Datatype: Float }], Outputs: [ { Name: output, Dimensions: [64,131072], Format/Datatype: Float }], TacticName: __myl_Move_0xaccf7a76f2801bb2af4ee290949c0105, StreamId: 0, Metadata: [ONNX Layer: PointPillarScatterND]
+Name: __myl_Cast_myl0_3, LayerType: kgen, Inputs: [ { Name: indices, Dimensions: [64,8578,2], Format/Datatype: Int64 }], Outputs: [ { Name: __myln_k_arg__bb1_5, Dimensions: [64,8578,2], Format/Datatype: Int32 }], TacticName: __myl_Cast_0xbcc367402acc13c8b4c3111a537c610f, StreamId: 1, Metadata: 
+Name: __mye33_myl0_4, LayerType: signal, Inputs: [], Outputs: [], TacticName: , StreamId: 1, EventId: 1, Metadata: 
+Name: __mye35_myl0_5, LayerType: wait, Inputs: [], Outputs: [], TacticName: , StreamId: 0, EventId: 1, Metadata: 
+Name: __myl_Scat_myl0_6, LayerType: kgen, Inputs: [ { Name: output, Dimensions: [64,131072], Format/Datatype: Float }, { Name: __myln_k_arg__bb1_5, Dimensions: [64,8578,2], Format/Datatype: Int32 }, { Name: updates, Dimensions: [64,8578], Format/Datatype: Float }], Outputs: [ { Name: output, Dimensions: [64,131072], Format/Datatype: Float }], TacticName: __myl_Scat_0x0c71755e95d02e936dbc655ac8203811, StreamId: 0, Metadata: [ONNX Layer: PointPillarScatterND]
+
+Bindings:
+data
+indices
+updates
+output
+[06/27/2026-09:12:18] [I] [TRT] [MemUsageStats] Peak memory usage of TRT CPU/GPU memory allocators: CPU 0 MiB, GPU 79 MiB
+[06/27/2026-09:12:18] [V] [TRT] Adding 1 engine(s) to plan file.
+[06/27/2026-09:12:18] [V] [TRT] Adding 1 engine weights(s) to plan file.
+[06/27/2026-09:12:18] [I] Engine built in 0.422121 sec.
+[06/27/2026-09:12:18] [I] Created engine with size: 0.0192757 MiB
+[06/27/2026-09:12:18] [I] [TRT] Loaded engine size: 0 MiB
+[06/27/2026-09:12:18] [V] [TRT] Deserialization required 71 microseconds.
+[06/27/2026-09:12:18] [I] Engine deserialized in 0.000106661 sec.
+[06/27/2026-09:12:18] [I] Layer Information:
+[06/27/2026-09:12:18] [I] Layers:
+Name: entry^bb^signal^1_myl0_0, LayerType: signal, Inputs: [], Outputs: [], TacticName: , StreamId: 0, EventId: 2, Metadata: 
+Name: entry^bb^wait^1_myl0_1, LayerType: wait, Inputs: [], Outputs: [], TacticName: , StreamId: 1, EventId: 2, Metadata: 
+Name: __myl_Move_myl0_2, LayerType: kgen, Inputs: [ { Name: data, Dimensions: [64,131072], Format/Datatype: Float }], Outputs: [ { Name: output, Dimensions: [64,131072], Format/Datatype: Float }], TacticName: __myl_Move_0xaccf7a76f2801bb2af4ee290949c0105, StreamId: 0, Metadata: [ONNX Layer: PointPillarScatterND]
+Name: __myl_Cast_myl0_3, LayerType: kgen, Inputs: [ { Name: indices, Dimensions: [64,8578,2], Format/Datatype: Int64 }], Outputs: [ { Name: __myln_k_arg__bb1_5, Dimensions: [64,8578,2], Format/Datatype: Int32 }], TacticName: __myl_Cast_0xbcc367402acc13c8b4c3111a537c610f, StreamId: 1, Metadata: 
+Name: __mye33_myl0_4, LayerType: signal, Inputs: [], Outputs: [], TacticName: , StreamId: 1, EventId: 1, Metadata: 
+Name: __mye35_myl0_5, LayerType: wait, Inputs: [], Outputs: [], TacticName: , StreamId: 0, EventId: 1, Metadata: 
+Name: __myl_Scat_myl0_6, LayerType: kgen, Inputs: [ { Name: output, Dimensions: [64,131072], Format/Datatype: Float }, { Name: __myln_k_arg__bb1_5, Dimensions: [64,8578,2], Format/Datatype: Int32 }, { Name: updates, Dimensions: [64,8578], Format/Datatype: Float }], Outputs: [ { Name: output, Dimensions: [64,131072], Format/Datatype: Float }], TacticName: __myl_Scat_0x0c71755e95d02e936dbc655ac8203811, StreamId: 0, Metadata: [ONNX Layer: PointPillarScatterND]
+
+Bindings:
+data
+indices
+updates
+output
+[06/27/2026-09:12:18] [I] Skipped inference phase since --skipInference is added.
+&&&& PASSED TensorRT.trtexec [TensorRT v100900] [b34] # /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec --onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal.onnx --saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal_fp32.engine --profilingVerbosity=detailed --dumpLayerInfo --exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_real_engine/debug/pointpillar_scatternd_minimal_layerinfo.json --verbose --noTF32 --skipInference
+
+
+[06/27/2026-09:12:17] [W] [TRT] ModelImporter.cpp:459: Make sure input indices has Int64 binding.

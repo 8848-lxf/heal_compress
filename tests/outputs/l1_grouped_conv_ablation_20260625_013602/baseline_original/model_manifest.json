@@ -1,0 +1,23 @@
+{
+  "model_name": "baseline_original",
+  "checkpoint_type": "original",
+  "source_checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+  "checkpoint_path": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
+  "target_prune_ratio": 0.0,
+  "actual_prune_ratio": 0.0,
+  "importance_mode": "not_available",
+  "selection_mode": "not_available",
+  "group_conv_selection_mode": "not_available",
+  "group_conv_prune_mode": "not_available",
+  "group_conv_align": 8,
+  "align": 16,
+  "protect_residual_add": true,
+  "allow_remove_groups": false,
+  "gpu_id": "auto",
+  "selected_gpu_id": 3,
+  "device": "cuda:3",
+  "structure_legal": true,
+  "forward_sanity_check": true,
+  "status": "success",
+  "failure_reason": ""
+}

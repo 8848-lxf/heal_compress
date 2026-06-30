@@ -1,0 +1,31 @@
+{
+  "precision": "fp16",
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_fixed_pyramid_wrapper_gpu/artifacts/engines/fp16/lidar_pyramid_fp16.engine",
+  "num_frames": 10,
+  "warmup_frames": 2,
+  "forward_mean_ms": 1.33814,
+  "forward_p50_ms": 1.3374,
+  "forward_p90_ms": 1.34204,
+  "forward_p95_ms": 1.34357,
+  "forward_min_ms": 1.32693,
+  "forward_max_ms": 2.65515,
+  "fps": 747.7194556602363,
+  "engine_size_MB": 30.353626251220703,
+  "latency_scope": "engine_forward_only",
+  "data_loading_time_ms": null,
+  "data_to_gpu_time_ms": null,
+  "forward_time_ms": null,
+  "postprocess_time_ms": null,
+  "total_time_ms": null,
+  "success": true,
+  "error": null,
+  "trtexec": {
+    "trtexec_found": true,
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+    "checked_paths": [
+      "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
+    ],
+    "suggestion": null
+  }
+}

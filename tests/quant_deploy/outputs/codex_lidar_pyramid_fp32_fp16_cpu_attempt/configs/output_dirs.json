@@ -1,0 +1,13 @@
+{
+  "dirs": {
+    "configs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_lidar_pyramid_fp32_fp16_cpu_attempt/configs",
+    "onnx": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_lidar_pyramid_fp32_fp16_cpu_attempt/artifacts/onnx",
+    "engines": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_lidar_pyramid_fp32_fp16_cpu_attempt/artifacts/engines",
+    "calibration": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_lidar_pyramid_fp32_fp16_cpu_attempt/calibration",
+    "benchmark": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_lidar_pyramid_fp32_fp16_cpu_attempt/benchmark",
+    "evaluation": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_lidar_pyramid_fp32_fp16_cpu_attempt/evaluation",
+    "logs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_lidar_pyramid_fp32_fp16_cpu_attempt/logs",
+    "summary": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_lidar_pyramid_fp32_fp16_cpu_attempt/summary",
+    "debug": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_lidar_pyramid_fp32_fp16_cpu_attempt/debug"
+  }
+}

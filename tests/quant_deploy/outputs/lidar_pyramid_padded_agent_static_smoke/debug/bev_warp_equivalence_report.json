@@ -1,0 +1,10 @@
+{
+  "max_abs_error": 1.3709068298339844e-06,
+  "mean_abs_error": 1.5535302111402416e-07,
+  "relative_error": 3.4643008814454947e-07,
+  "align_corners": false,
+  "H": 6,
+  "W": 8,
+  "N": 2,
+  "C": 3
+}

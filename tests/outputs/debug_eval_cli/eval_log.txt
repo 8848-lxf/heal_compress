@@ -1,0 +1,39 @@
+[2026-06-24 00:11:54] INFO - Args: {"original_checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth", "pruned_checkpoint": "tests/outputs/prune_lidar_pyramid_25_l1/pruned_model.pth", "model_config": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml", "heal_root": "/home/lixingfeng/UniAD_examine/HEAL", "rounds": 1, "gup_id": "cpu", "device": null, "output_dir": "tests/outputs/debug_eval_cli", "max_frames": 1, "warmup_frames": 0, "eval_original": false, "eval_pruned": true}
+[2026-06-24 00:11:54] INFO - Using device: cpu
+[2026-06-24 00:12:03] INFO - Start pruned round 1: checkpoint=tests/outputs/prune_lidar_pyramid_25_l1/pruned_model.pth size=20.842MB gpu=cpu dataset_frames=1789 max_frames=1 warmup=0
+[2026-06-24 00:12:04] ERROR - pruned round 1 frame 0 failed: The size of tensor a (64) must match the size of tensor b (48) at non-singleton dimension 1
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/test_prune_and_eval.py", line 234, in evaluate_one_model
+    output, fwd_ms = timed_call(lambda: model(batch_data["ego"]), device)
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/test_prune_and_eval.py", line 96, in timed_call
+    out = fn()
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/test_prune_and_eval.py", line 234, in <lambda>
+    output, fwd_ms = timed_call(lambda: model(batch_data["ego"]), device)
+  File "/home/lixingfeng/anaconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/lixingfeng/UniAD_examine/HEAL/opencood/models/heter_pyramid_collab.py", line 146, in forward
+    feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
+  File "/home/lixingfeng/anaconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/lixingfeng/UniAD_examine/HEAL/opencood/models/sub_modules/base_bev_backbone_resnet.py", line 91, in forward
+    x = self.resnet(spatial_features)  # tuple of features
+  File "/home/lixingfeng/anaconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/lixingfeng/UniAD_examine/HEAL/opencood/models/sub_modules/resblock.py", line 219, in forward
+    return self._forward_impl(x)
+  File "/home/lixingfeng/UniAD_examine/HEAL/opencood/models/sub_modules/resblock.py", line 211, in _forward_impl
+    x = eval(f"self.layer{i}")(x)
+  File "/home/lixingfeng/anaconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/lixingfeng/anaconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/nn/modules/container.py", line 217, in forward
+    input = module(input)
+  File "/home/lixingfeng/anaconda3/envs/univ2x-opt/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/lixingfeng/UniAD_examine/HEAL/opencood/models/sub_modules/resblock.py", line 61, in forward
+    out += identity
+RuntimeError: The size of tensor a (64) must match the size of tensor b (48) at non-singleton dimension 1
+[2026-06-24 00:12:04] ERROR - pruned round 1 frame 1 failed: The size of tensor a (64) must match the size of tensor b (48) at non-singleton dimension 1
+[2026-06-24 00:12:04] ERROR - pruned round 1 frame 2 failed: The size of tensor a (64) must match the size of tensor b (48) at non-singleton dimension 1
+[2026-06-24 00:12:04] ERROR - pruned round 1 aborted after 3 consecutive failures before any successful frame. First failure: The size of tensor a (64) must match the size of tensor b (48) at non-singleton dimension 1
+[2026-06-24 00:12:04] INFO - pruned round 1 timing: total mean=0.000ms p50=0.000ms | forward mean=0.000ms p50=0.000ms | postprocess mean=0.000ms p50=0.000ms
+[2026-06-24 00:12:04] INFO - pruned round 1 AP: AP@0.03=0.000000 AP@0.30=0.000000 AP@0.50=0.000000 AP@0.70=0.000000

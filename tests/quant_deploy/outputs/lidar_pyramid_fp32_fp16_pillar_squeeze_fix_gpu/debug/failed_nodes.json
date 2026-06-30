@@ -1,0 +1,92 @@
+[
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 881 [SequenceEmpty -> \"/model/SequenceEmpty_output_0\"]:",
+    "number": "881",
+    "op": "SequenceEmpty"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 890 [SequenceInsert -> \"/model/SequenceInsert_1_output_0\"]:",
+    "number": "890",
+    "op": "SequenceInsert"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 892 [SequenceAt -> \"/model/SequenceAt_output_0\"]:",
+    "number": "892",
+    "op": "SequenceAt"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 910 [SequenceEmpty -> \"/model/SequenceEmpty_1_output_0\"]:",
+    "number": "910",
+    "op": "SequenceEmpty"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 919 [SequenceInsert -> \"/model/SequenceInsert_3_output_0\"]:",
+    "number": "919",
+    "op": "SequenceInsert"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 921 [SequenceAt -> \"/model/SequenceAt_1_output_0\"]:",
+    "number": "921",
+    "op": "SequenceAt"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1067 [SequenceEmpty -> \"/model/SequenceEmpty_2_output_0\"]:",
+    "number": "1067",
+    "op": "SequenceEmpty"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1076 [SequenceInsert -> \"/model/SequenceInsert_5_output_0\"]:",
+    "number": "1076",
+    "op": "SequenceInsert"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1078 [SequenceAt -> \"/model/SequenceAt_2_output_0\"]:",
+    "number": "1078",
+    "op": "SequenceAt"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1096 [SequenceEmpty -> \"/model/SequenceEmpty_3_output_0\"]:",
+    "number": "1096",
+    "op": "SequenceEmpty"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1105 [SequenceInsert -> \"/model/SequenceInsert_7_output_0\"]:",
+    "number": "1105",
+    "op": "SequenceInsert"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1107 [SequenceAt -> \"/model/SequenceAt_3_output_0\"]:",
+    "number": "1107",
+    "op": "SequenceAt"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1252 [SequenceEmpty -> \"/model/SequenceEmpty_4_output_0\"]:",
+    "number": "1252",
+    "op": "SequenceEmpty"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1261 [SequenceInsert -> \"/model/SequenceInsert_9_output_0\"]:",
+    "number": "1261",
+    "op": "SequenceInsert"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1263 [SequenceAt -> \"/model/SequenceAt_4_output_0\"]:",
+    "number": "1263",
+    "op": "SequenceAt"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1281 [SequenceEmpty -> \"/model/SequenceEmpty_5_output_0\"]:",
+    "number": "1281",
+    "op": "SequenceEmpty"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1290 [SequenceInsert -> \"/model/SequenceInsert_11_output_0\"]:",
+    "number": "1290",
+    "op": "SequenceInsert"
+  },
+  {
+    "line": "[06/25/2026-08:56:18] [E] [TRT] ModelImporter.cpp:961: While parsing node number 1292 [SequenceAt -> \"/model/SequenceAt_5_output_0\"]:",
+    "number": "1292",
+    "op": "SequenceAt"
+  }
+]

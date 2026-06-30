@@ -1,0 +1,25 @@
+{
+  "precision": "fp16",
+  "success": true,
+  "engine_path": "tests/quant_deploy/outputs/lidar_pyramid_padded_agent_static_smoke/artifacts/engines/fp16/lidar_pyramid_padded_agent_static_fp16.engine",
+  "num_frames": 50,
+  "actual_frames": 50,
+  "skipped_frames": 0,
+  "ap_0_3": 0.8723,
+  "ap_0_5": 0.8524,
+  "ap_0_7": 0.7323,
+  "map": 0.819,
+  "forward_mean_ms": 181.5735351666808,
+  "forward_p50_ms": 176.65230110287666,
+  "forward_p90_ms": 219.42611038684845,
+  "postprocess_mean_ms": 30.18990743905306,
+  "postprocess_p50_ms": 17.61029288172722,
+  "total_mean_ms": 211.76344260573387,
+  "total_p50_ms": 198.81762564182281,
+  "output_names": [
+    "cls_preds",
+    "reg_preds",
+    "dir_preds"
+  ],
+  "pyramid_forward_export_mode": "padded_agent_static"
+}

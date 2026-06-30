@@ -1,0 +1,1200 @@
+{
+  "calibration_frames": 50,
+  "engine_precision_tag": "int8_calib50",
+  "per_engine": [
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket0_int8_calib50.json",
+      "num_layers": 131,
+      "counts": {
+        "INT8 Conv layers count": 71,
+        "FP16 Conv layers count": 1,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 34,
+        "Reformat / Cast / Quantize / Dequantize layers count": 22,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp16": 11,
+            "int8": 9
+          },
+          "other": {
+            "unknown": 19,
+            "fp16": 19
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 60
+          },
+          "detection_head": {
+            "int8": 5,
+            "fp16": 1
+          },
+          "gemm_matmul": {
+            "fp16": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 1,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket1_int8_calib50.json",
+      "num_layers": 135,
+      "counts": {
+        "INT8 Conv layers count": 71,
+        "FP16 Conv layers count": 1,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 35,
+        "Reformat / Cast / Quantize / Dequantize layers count": 23,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp32": 1,
+            "fp16": 11,
+            "int8": 9
+          },
+          "other": {
+            "unknown": 22,
+            "fp16": 19
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 60
+          },
+          "detection_head": {
+            "int8": 5,
+            "fp16": 1
+          },
+          "gemm_matmul": {
+            "fp16": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 2,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket2_int8_calib50.json",
+      "num_layers": 0,
+      "counts": {
+        "INT8 Conv layers count": 0,
+        "FP16 Conv layers count": 0,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 0,
+        "Reformat / Cast / Quantize / Dequantize layers count": 0,
+        "category_precision": {}
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 3,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N1/int8_calib50/layerinfo_dynamic_agent_dim_N1_fixed_k_scatter_plugin_bucket3_int8_calib50.json",
+      "num_layers": 0,
+      "counts": {
+        "INT8 Conv layers count": 0,
+        "FP16 Conv layers count": 0,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 0,
+        "Reformat / Cast / Quantize / Dequantize layers count": 0,
+        "category_precision": {}
+      }
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 0,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket0_int8_calib50.json",
+      "num_layers": 0,
+      "counts": {
+        "INT8 Conv layers count": 0,
+        "FP16 Conv layers count": 0,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 0,
+        "Reformat / Cast / Quantize / Dequantize layers count": 0,
+        "category_precision": {}
+      }
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 1,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_int8_calib50.json",
+      "num_layers": 109,
+      "counts": {
+        "INT8 Conv layers count": 71,
+        "FP16 Conv layers count": 0,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 22,
+        "Reformat / Cast / Quantize / Dequantize layers count": 13,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp16": 4,
+            "int8": 7
+          },
+          "other": {
+            "unknown": 10,
+            "fp16": 7,
+            "fp32": 8
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 60
+          },
+          "detection_head": {
+            "int8": 6
+          },
+          "gemm_matmul": {
+            "fp32": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 2,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket2_int8_calib50.json",
+      "num_layers": 109,
+      "counts": {
+        "INT8 Conv layers count": 71,
+        "FP16 Conv layers count": 0,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 22,
+        "Reformat / Cast / Quantize / Dequantize layers count": 13,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp16": 4,
+            "int8": 7
+          },
+          "other": {
+            "unknown": 10,
+            "fp16": 7,
+            "fp32": 8
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 60
+          },
+          "detection_head": {
+            "int8": 6
+          },
+          "gemm_matmul": {
+            "fp32": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 3,
+      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_dim_fixed_k_scatter_plugin/N2/int8_calib50/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket3_int8_calib50.json",
+      "num_layers": 109,
+      "counts": {
+        "INT8 Conv layers count": 71,
+        "FP16 Conv layers count": 0,
+        "FP32 Conv layers count": 0,
+        "INT8 GEMM / MatMul layers count": 0,
+        "FP16/FP32 fallback layers": 22,
+        "Reformat / Cast / Quantize / Dequantize layers count": 13,
+        "category_precision": {
+          "reformat_cast_qdq": {
+            "unknown": 2,
+            "fp16": 4,
+            "int8": 7
+          },
+          "other": {
+            "unknown": 10,
+            "fp16": 7,
+            "fp32": 8
+          },
+          "PillarVFE/PFN": {
+            "fp16": 1
+          },
+          "plugin": {
+            "fp16": 1
+          },
+          "BEV_backbone": {
+            "int8": 60
+          },
+          "detection_head": {
+            "int8": 6
+          },
+          "gemm_matmul": {
+            "fp32": 1
+          },
+          "shrink_conv": {
+            "int8": 2
+          }
+        }
+      }
+    }
+  ],
+  "counts": {
+    "INT8 Conv layers count": 355,
+    "FP16 Conv layers count": 2,
+    "FP32 Conv layers count": 0,
+    "INT8 GEMM / MatMul layers count": 0,
+    "FP16/FP32 fallback layers": 135,
+    "Reformat / Cast / Quantize / Dequantize layers count": 84,
+    "category_precision": {
+      "reformat_cast_qdq": {
+        "unknown": 10,
+        "fp16": 34,
+        "int8": 39,
+        "fp32": 1
+      },
+      "other": {
+        "unknown": 71,
+        "fp16": 59,
+        "fp32": 24
+      },
+      "PillarVFE/PFN": {
+        "fp16": 5
+      },
+      "plugin": {
+        "fp16": 5
+      },
+      "BEV_backbone": {
+        "int8": 300
+      },
+      "detection_head": {
+        "int8": 28,
+        "fp16": 2
+      },
+      "gemm_matmul": {
+        "fp16": 2,
+        "fp32": 3
+      },
+      "shrink_conv": {
+        "int8": 10
+      }
+    }
+  },
+  "PointPillarScatterTRT precision": [
+    "fp16"
+  ],
+  "PointPillarScatterTRT io_dtypes": [
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Half"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 1,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Float"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 1,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Half"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 2,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Half"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    },
+    {
+      "fixed_N": 2,
+      "bucket_id": 3,
+      "name": "/PointPillarScatterTRT",
+      "input_dtypes": [
+        "Half",
+        "Int32",
+        "Half"
+      ],
+      "output_dtypes": [
+        "Half"
+      ]
+    }
+  ],
+  "PillarVFE / PFN precision": {
+    "fp16": 5
+  },
+  "BEV backbone precision": {
+    "int8": 300
+  },
+  "shrink_conv precision": {
+    "int8": 10
+  },
+  "detection head precision": {
+    "int8": 28,
+    "fp16": 2
+  },
+  "plugin precision": {
+    "fp16": 5
+  },
+  "top 20 latency layers": [
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "Reformatting CopyNode for Network Input voxel_coords",
+      "layer_type": "NoOp",
+      "precision": "unknown",
+      "category": "reformat_cast_qdq",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "Reformatting CopyNode for Network Input voxel_coords",
+        "LayerType": "NoOp",
+        "Inputs": [
+          {
+            "Name": "voxel_coords",
+            "Location": "Device",
+            "Dimensions": [
+              9728,
+              4
+            ],
+            "Format/Datatype": "Int32"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "Reformatted voxel_coords",
+            "Location": "Device",
+            "Dimensions": [
+              9728,
+              4
+            ],
+            "Format/Datatype": "Int32"
+          }
+        ],
+        "TacticValue": "0x0000000000000000",
+        "StreamId": 0,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "Reformatting CopyNode for Network Input valid_voxel_mask",
+      "layer_type": "Reformat",
+      "precision": "fp16",
+      "category": "reformat_cast_qdq",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "Reformatting CopyNode for Network Input valid_voxel_mask",
+        "LayerType": "Reformat",
+        "Inputs": [
+          {
+            "Name": "valid_voxel_mask",
+            "Location": "Device",
+            "Dimensions": [
+              9728
+            ],
+            "Format/Datatype": "Float"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "Reformatted valid_voxel_mask",
+            "Location": "Device",
+            "Dimensions": [
+              9728
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "ParameterType": "Reformat",
+        "Origin": "REFORMAT",
+        "TacticValue": "0x0000000000000000",
+        "StreamId": 0,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "Reformatting CopyNode for Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+      "layer_type": "Reformat",
+      "precision": "fp16",
+      "category": "reformat_cast_qdq",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "Reformatting CopyNode for Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+        "LayerType": "Reformat",
+        "Inputs": [
+          {
+            "Name": "voxel_features",
+            "Location": "Device",
+            "Dimensions": [
+              9728,
+              32,
+              4
+            ],
+            "Format/Datatype": "Float"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+            "Location": "Device",
+            "Dimensions": [
+              9728,
+              32,
+              4
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "ParameterType": "Reformat",
+        "Origin": "REFORMAT",
+        "TacticValue": "0x00000000000003e8",
+        "StreamId": 0,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "entry^bb^signal^1_myl3_0",
+      "layer_type": "signal",
+      "precision": "unknown",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "entry^bb^signal^1_myl3_0",
+        "LayerType": "signal",
+        "Inputs": [],
+        "Outputs": [],
+        "TacticName": "",
+        "StreamId": 0,
+        "EventId": 3,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "entry^bb^wait^2_myl3_1",
+      "layer_type": "wait",
+      "precision": "unknown",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "entry^bb^wait^2_myl3_1",
+        "LayerType": "wait",
+        "Inputs": [],
+        "Outputs": [],
+        "TacticName": "",
+        "StreamId": 2,
+        "EventId": 3,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "entry^bb^wait^1_myl3_2",
+      "layer_type": "wait",
+      "precision": "unknown",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "entry^bb^wait^1_myl3_2",
+        "LayerType": "wait",
+        "Inputs": [],
+        "Outputs": [],
+        "TacticName": "",
+        "StreamId": 1,
+        "EventId": 3,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__myl_Repl_myl3_3",
+      "layer_type": "kgen",
+      "precision": "fp16",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__myl_Repl_myl3_3",
+        "LayerType": "kgen",
+        "Inputs": [],
+        "Outputs": [
+          {
+            "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "TacticName": "__myl_Repl_0x0f4b0d3a2124beb631b9cfe7f1d7774a",
+        "StreamId": 0,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_4",
+      "layer_type": "kgen",
+      "precision": "unknown",
+      "category": "reformat_cast_qdq",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_4",
+        "LayerType": "kgen",
+        "Inputs": [],
+        "Outputs": [
+          {
+            "Name": "__myln_k_arg__bb1_9",
+            "Dimensions": [
+              32
+            ],
+            "Format/Datatype": "Int32"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_8",
+            "Dimensions": [
+              9728,
+              32,
+              1,
+              3
+            ],
+            "Format/Datatype": "Int32"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_7",
+            "Dimensions": [
+              9728,
+              32,
+              1,
+              3
+            ],
+            "Format/Datatype": "Int32"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_6",
+            "Dimensions": [
+              9728,
+              32,
+              1,
+              3
+            ],
+            "Format/Datatype": "Int32"
+          }
+        ],
+        "TacticName": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_0xe8f9523976650d7177352a043a7c6382",
+        "StreamId": 1,
+        "Metadata": "[ONNX Layer: Range_210]\u001f[ONNX Layer: Reshape_215]\u001f[ONNX Layer: Reshape_213]\u001f[ONNX Layer: /pillar_vfe/Expand_3]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_3]\u001f[ONNX Layer: /pillar_vfe/Concat]\u001f[ONNX Layer: /pillar_vfe/Expand_2]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_2]\u001f[ONNX Layer: /pillar_vfe/Concat_4]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_11]\u001f[ONNX Layer: /pillar_vfe/Expand_11]\u001f[ONNX Layer: /pillar_vfe/Concat_2]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_7]\u001f[ONNX Layer: /pillar_vfe/Expand_7]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_1]\u001f[ONNX Layer: /pillar_vfe/Expand_1]\u001f[ONNX Layer: Range_203]"
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__mye31311_myl3_5",
+      "layer_type": "signal",
+      "precision": "unknown",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__mye31311_myl3_5",
+        "LayerType": "signal",
+        "Inputs": [],
+        "Outputs": [],
+        "TacticName": "",
+        "StreamId": 1,
+        "EventId": 1,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__myl_MoveMoveSlicReshCastReshSlicReshSlicReshCastReshSlicReshCastReshSlicReshSlicReshMulMulMulEtc_myl3_6",
+      "layer_type": "kgen",
+      "precision": "fp16",
+      "category": "reformat_cast_qdq",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__myl_MoveMoveSlicReshCastReshSlicReshSlicReshCastReshSlicReshCastReshSlicReshSlicReshMulMulMulEtc_myl3_6",
+        "LayerType": "kgen",
+        "Inputs": [
+          {
+            "Name": "Reformatted voxel_coords",
+            "Dimensions": [
+              9728,
+              4
+            ],
+            "Format/Datatype": "Int32"
+          },
+          {
+            "Name": "Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+            "Dimensions": [
+              9728,
+              32,
+              4
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "__myln_k_arg__bb1_10",
+            "Dimensions": [
+              9728,
+              32,
+              4
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_13",
+            "Dimensions": [
+              9728,
+              32,
+              1
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_12",
+            "Dimensions": [
+              9728,
+              32,
+              1
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_11",
+            "Dimensions": [
+              9728,
+              32,
+              1
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "TacticName": "__myl_MoveMoveSlicReshCastReshSlicReshSlicReshCastReshSlicReshCastReshSlicReshSlicReshMulMulMulEtc_0x441dbffda322de4faefb905554f20948",
+        "StreamId": 0,
+        "Metadata": "[ONNX Layer: /pillar_vfe/Gather_7]\u001f[ONNX Layer: /pillar_vfe/Cast_3]\u001f[ONNX Layer: /pillar_vfe/Mul_8]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_8]\u001f[ONNX Layer: /pillar_vfe/Add_6]\u001f[ONNX Layer: /pillar_vfe/Gather_1]\u001f[ONNX Layer: /pillar_vfe/Cast_1]\u001f[ONNX Layer: /pillar_vfe/Mul]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze]\u001f[ONNX Layer: /pillar_vfe/Add_3]\u001f[ONNX Layer: /pillar_vfe/Gather]\u001f[ONNX Layer: /pillar_vfe/Sub_1]\u001f[ONNX Layer: /pillar_vfe/Reshape_1]\u001f[ONNX Layer: /pillar_vfe/Gather_6]\u001f[ONNX Layer: /pillar_vfe/Sub_3]\u001f[ONNX Layer: /pillar_vfe/Reshape_3]\u001f[ONNX Layer: /pillar_vfe/Gather_3]\u001f[ONNX Layer: /pillar_vfe/Sub_2]\u001f[ONNX Layer: /pillar_vfe/Reshape_2]\u001f[ONNX Layer: /pillar_vfe/Add]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_4]\u001f[ONNX Layer: /pillar_vfe/Mul_4]\u001f[ONNX Layer: /pillar_vfe/Cast_2]\u001f[ONNX Layer: /pillar_vfe/Gather_4]"
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__mye31313_myl3_7",
+      "layer_type": "wait",
+      "precision": "unknown",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__mye31313_myl3_7",
+        "LayerType": "wait",
+        "Inputs": [],
+        "Outputs": [],
+        "TacticName": "",
+        "StreamId": 0,
+        "EventId": 1,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__myl_Scat_myl3_8",
+      "layer_type": "kgen",
+      "precision": "fp16",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__myl_Scat_myl3_8",
+        "LayerType": "kgen",
+        "Inputs": [
+          {
+            "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_6",
+            "Dimensions": [
+              9728,
+              32,
+              1,
+              3
+            ],
+            "Format/Datatype": "Int32"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_11",
+            "Dimensions": [
+              9728,
+              32,
+              1
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "TacticName": "__myl_Scat_0xccd3b2f026609986b2c4c3add231cea2",
+        "StreamId": 0,
+        "Metadata": "[ONNX Layer: /pillar_vfe/ScatterND]"
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__myl_Scat_myl3_9",
+      "layer_type": "kgen",
+      "precision": "fp16",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__myl_Scat_myl3_9",
+        "LayerType": "kgen",
+        "Inputs": [
+          {
+            "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_8",
+            "Dimensions": [
+              9728,
+              32,
+              1,
+              3
+            ],
+            "Format/Datatype": "Int32"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_13",
+            "Dimensions": [
+              9728,
+              32,
+              1
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "TacticName": "__myl_Scat_0xccd3b2f026609986b2c4c3add231cea2",
+        "StreamId": 0,
+        "Metadata": "[ONNX Layer: /pillar_vfe/ScatterND_1]"
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__myl_Scat_myl3_10",
+      "layer_type": "kgen",
+      "precision": "fp16",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__myl_Scat_myl3_10",
+        "LayerType": "kgen",
+        "Inputs": [
+          {
+            "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_7",
+            "Dimensions": [
+              9728,
+              32,
+              1,
+              3
+            ],
+            "Format/Datatype": "Int32"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_12",
+            "Dimensions": [
+              9728,
+              32,
+              1
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "TacticName": "__myl_Scat_0xfd7c7ec6d1d240bf9a89d99cb75a7df5",
+        "StreamId": 0,
+        "Metadata": "[ONNX Layer: /pillar_vfe/ScatterND_2]"
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__myl_SlicSum_myl3_11",
+      "layer_type": "kgen",
+      "precision": "fp16",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__myl_SlicSum_myl3_11",
+        "LayerType": "kgen",
+        "Inputs": [
+          {
+            "Name": "Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+            "Dimensions": [
+              9728,
+              32,
+              4
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "__myln_k_arg__bb1_17",
+            "Dimensions": [
+              9728,
+              1,
+              3
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_18",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "TacticName": "__myl_SlicSum_0x2c26dd377799d8f7cf946c57b367eb25",
+        "StreamId": 2,
+        "Metadata": "[ONNX Layer: /pillar_vfe/Slice]\u001f[ONNX Layer: /pillar_vfe/ReduceSum]"
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__mye31315_myl3_12",
+      "layer_type": "signal",
+      "precision": "unknown",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__mye31315_myl3_12",
+        "LayerType": "signal",
+        "Inputs": [],
+        "Outputs": [],
+        "TacticName": "",
+        "StreamId": 2,
+        "EventId": 2,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__mye31317_myl3_13",
+      "layer_type": "wait",
+      "precision": "unknown",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__mye31317_myl3_13",
+        "LayerType": "wait",
+        "Inputs": [],
+        "Outputs": [],
+        "TacticName": "",
+        "StreamId": 0,
+        "EventId": 2,
+        "Metadata": ""
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_14",
+      "layer_type": "kgen",
+      "precision": "fp16",
+      "category": "reformat_cast_qdq",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_14",
+        "LayerType": "kgen",
+        "Inputs": [
+          {
+            "Name": "__myln_k_arg__bb1_9",
+            "Dimensions": [
+              32
+            ],
+            "Format/Datatype": "Int32"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_18",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_10",
+            "Dimensions": [
+              9728,
+              32,
+              4
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "/pillar_vfe/ScatterND_2_output_0'.1",
+            "Dimensions": [
+              9728,
+              32,
+              3
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "__myln_k_arg__bb1_17",
+            "Dimensions": [
+              9728,
+              1,
+              3
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "Reformatted valid_voxel_mask",
+            "Dimensions": [
+              9728
+            ],
+            "Format/Datatype": "Half"
+          },
+          {
+            "Name": "voxel_num_points",
+            "Dimensions": [
+              9728
+            ],
+            "Format/Datatype": "Int32"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "/pillar_vfe/Mul_12_output_0'.1",
+            "Dimensions": [
+              9728,
+              32,
+              10
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "TacticName": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_0x8db800642ed10ec26f457295a02d1c78",
+        "StreamId": 0,
+        "Metadata": "[ONNX Layer: /Where]\u001f[ONNX Layer: /Greater]\u001f[ONNX Layer: /pillar_vfe/Cast]\u001f[ONNX Layer: /pillar_vfe/Reshape]\u001f[ONNX Layer: /pillar_vfe/Div]\u001f[ONNX Layer: /pillar_vfe/Cast_6]\u001f[ONNX Layer: /pillar_vfe/Concat_6]\u001f[ONNX Layer: /pillar_vfe/Mul_12]\u001f[ONNX Layer: /pillar_vfe/Sub]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_13]\u001f[ONNX Layer: /pillar_vfe/Greater]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_12]\u001f[ONNX Layer: /pillar_vfe/Reshape_4]"
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_15",
+      "layer_type": "gemm",
+      "precision": "fp16",
+      "category": "PillarVFE/PFN",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_15",
+        "LayerType": "gemm",
+        "Inputs": [
+          {
+            "Name": "/pillar_vfe/Mul_12_output_0'.1",
+            "Dimensions": [
+              311296,
+              10
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "__mye30794",
+            "Dimensions": [
+              311296,
+              64
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "TacticName": "sm80_xmma_gemm_f16f16_f16f16_f16_nn_n_tilesize256x64x32_stage3_warpsize4x1x1_tensor16x8x16_aligna4_alignc4",
+        "StreamId": 0,
+        "Metadata": "[ONNX Layer: /pillar_vfe/pfn_layers.0/linear/MatMul]"
+      }
+    },
+    {
+      "fixed_N": 1,
+      "bucket_id": 0,
+      "name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_16",
+      "layer_type": "kgen",
+      "precision": "fp16",
+      "category": "other",
+      "latency_ms": 0.0,
+      "raw": {
+        "Name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_16",
+        "LayerType": "kgen",
+        "Inputs": [
+          {
+            "Name": "__mye30794",
+            "Dimensions": [
+              9728,
+              32,
+              64
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "__myln_k_arg__bb1_21",
+            "Dimensions": [
+              9728,
+              1,
+              64
+            ],
+            "Format/Datatype": "Half"
+          }
+        ],
+        "TacticName": "__myl_TranReshMulAddReshMoveTranReluMaxr_0xb78ec802c363ec63a903e176b8344ec2",
+        "StreamId": 0,
+        "Metadata": "[ONNX Layer: /pillar_vfe/pfn_layers.0/Transpose]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/norm/BatchNormalization]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/Transpose_1]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/ReduceMax]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/Relu]"
+      }
+    }
+  ],
+  "answers": {
+    "int8_engine_really_uses_int8": true,
+    "just_renamed_fp16_engine": false,
+    "plugin_causes_large_fallback": false,
+    "main_latency_layers": [
+      "reformat_cast_qdq",
+      "reformat_cast_qdq",
+      "reformat_cast_qdq",
+      "other",
+      "other"
+    ],
+    "int8_speedup_space": true
+  }
+}

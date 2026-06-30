@@ -1,0 +1,22 @@
+{
+  "selection_mode": "constrained_global",
+  "group_conv_selection_mode": "shared_local_mean",
+  "num_dependency_scopes": 32,
+  "num_coupled_channel_units": 7383,
+  "num_atomic_prune_units": 1695,
+  "num_protected_coupled_channel_units": 1428,
+  "num_protected_atomic_units": 1428,
+  "num_selected_coupled_channel_units": 1960,
+  "num_selected_atomic_units": 175,
+  "num_concrete_pruning_groups": 10,
+  "target_prune_ratio": 0.25,
+  "actual_prune_ratio": 0.2669862397299366,
+  "grouped_conv_num_scopes": 16,
+  "grouped_conv_shared_local_mean_used": 16,
+  "grouped_conv_independent_topk_used": 0,
+  "grouped_conv_remove_groups_used": 0,
+  "num_grouped_conv_align_violations": 0,
+  "num_residual_protected": 3,
+  "structure_legal": true,
+  "forward_sanity_check": true
+}

@@ -1,0 +1,1435 @@
+{
+  "plugin_compiled": true,
+  "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+  "plugin_loaded_during_engine_build": true,
+  "plugin_loaded_during_engine_deserialize": true,
+  "onnx_contains_pointpillar_scatter_plugin_node": true,
+  "engine_contains_pointpillar_scatter_plugin_layer": true,
+  "valid_voxel_mask_is_engine_input": true,
+  "valid_voxel_mask_consumed_by_plugin": true,
+  "current_fixed_k_results_are_plugin_results": true,
+  "plugin_shared_library": {
+    "plugin_source_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt",
+    "plugin_source_dir_exists": true,
+    "plugin_compiled": true,
+    "plugin_shared_library_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+    "plugin_candidates": [
+      "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so"
+    ],
+    "build_report": null,
+    "ldd": {
+      "command": [
+        "ldd",
+        "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so"
+      ],
+      "returncode": 0,
+      "success": true,
+      "output": "/bin/bash: /home/lixingfeng/anaconda3/envs/modelopt/lib/libtinfo.so.6: no version information available (required by /bin/bash)\n\tlinux-vdso.so.1 (0x00007ffdd35a8000)\n\tlibnvinfer.so.10 => /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/lib/libnvinfer.so.10 (0x00007f82fc253000)\n\tlibcudart.so.11.0 => /home/lixingfeng/anaconda3/envs/univ2x-opt/lib/libcudart.so.11.0 (0x00007f82fbe00000)\n\tlibstdc++.so.6 => /home/lixingfeng/anaconda3/envs/univ2x-opt/lib/libstdc++.so.6 (0x00007f82fbc0b000)\n\tlibgcc_s.so.1 => /home/lixingfeng/anaconda3/envs/univ2x-opt/lib/libgcc_s.so.1 (0x00007f82fc231000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f82fb9e2000)\n\tlibpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x00007f82fc21c000)\n\tlibdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f82fc217000)\n\tlibrt.so.1 => /lib/x86_64-linux-gnu/librt.so.1 (0x00007f82fc210000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f82fc129000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f830b0f1000)\n"
+    },
+    "nm_D": {
+      "command": [
+        "nm",
+        "-D",
+        "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so"
+      ],
+      "returncode": 0,
+      "success": true,
+      "output": "                 U __assert_fail@GLIBC_2.2.5\n                 U __cudaInitModule@libcudart.so.11.0\n                 U cudaLaunchKernel@libcudart.so.11.0\n                 U __cudaPopCallConfiguration@libcudart.so.11.0\n                 U __cudaPushCallConfiguration@libcudart.so.11.0\n                 U __cudaRegisterFatBinary@libcudart.so.11.0\n                 U __cudaRegisterFatBinaryEnd@libcudart.so.11.0\n                 U __cudaRegisterFunction@libcudart.so.11.0\n0000000000006084 T __cudaRegisterLinkedBinary_adb1768b_29_pointpillar_scatter_kernel_cu_29b30875\n                 U __cudaUnregisterFatBinary@libcudart.so.11.0\n                 U __cxa_atexit@GLIBC_2.2.5\n                 w __cxa_finalize@GLIBC_2.2.5\n                 U exit@GLIBC_2.2.5\n0000000000012018 D __fatbinwrap_adb1768b_29_pointpillar_scatter_kernel_cu_29b30875\n0000000000006060 T getCreators\n                 U getPluginRegistry\n                 w __gmon_start__\n                 U __gxx_personality_v0@CXXABI_1.3\n000000000000947d V hostRefConstantArrayExternalLinkage\n000000000000947c V hostRefConstantArrayInternalLinkage\n000000000000947b V hostRefDeviceArrayExternalLinkage\n000000000000947a V hostRefDeviceArrayInternalLinkage\n0000000000009479 V hostRefKernelArrayExternalLinkage\n0000000000009320 V hostRefKernelArrayInternalLinkage\n                 w _ITM_deregisterTMCloneTable\n                 w _ITM_registerTMCloneTable\n                 U memcpy@GLIBC_2.14\n0000000000006050 T setLoggerFinder\n                 U __stack_chk_fail@GLIBC_2.4\n                 U strcmp@GLIBC_2.2.5\n                 U strlen@GLIBC_2.2.5\n                 U _Unwind_Resume@GCC_3.0\n                 U _ZdlPvm@CXXABI_1.3.9\n000000000000514f T _ZN23pointpillar_scatter_trt24launchPointPillarScatterEPKvS1_S1_PviiiiiN8nvinfer18DataTypeES4_S4_P11CUstream_st\n00000000000044d0 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin10initializeEv\n00000000000044b0 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin15attachToContextEP12cudnnContextP13cublasContextPN8nvinfer15v_1_013IGpuAllocatorE\n0000000000004900 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin15configurePluginEPKN8nvinfer123DynamicPluginTensorDescEiS4_i\n00000000000044c0 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin17detachFromContextEv\n0000000000004800 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin18setPluginNamespaceEPKc\n0000000000004500 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin19getOutputDimensionsEiPKN8nvinfer19DimsExprsEiRNS1_12IExprBuilderE\n0000000000004680 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin25supportsFormatCombinationEiPKN8nvinfer116PluginTensorDescEii\n0000000000004780 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin7destroyEv\n00000000000045c0 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin7enqueueEPKN8nvinfer116PluginTensorDescES4_PKPKvPKPvS9_P11CUstream_st\n00000000000044c0 T _ZN23pointpillar_scatter_trt24PointPillarScatterPlugin9terminateEv\n0000000000004a70 T _ZN23pointpillar_scatter_trt24PointPillarScatterPluginC1ENS_24PointPillarScatterParamsE\n0000000000004c70 T _ZN23pointpillar_scatter_trt24PointPillarScatterPluginC1EPKvm\n0000000000004a70 T _ZN23pointpillar_scatter_trt24PointPillarScatterPluginC2ENS_24PointPillarScatterParamsE\n0000000000004c70 T _ZN23pointpillar_scatter_trt24PointPillarScatterPluginC2EPKvm\n0000000000004b00 T _ZN23pointpillar_scatter_trt31PointPillarScatterPluginCreator12createPluginEPKcPKN8nvinfer121PluginFieldCollectionE\n00000000000044e0 T _ZN23pointpillar_scatter_trt31PointPillarScatterPluginCreator13getFieldNamesEv\n0000000000004d30 T _ZN23pointpillar_scatter_trt31PointPillarScatterPluginCreator17deserializePluginEPKcPKvm\n0000000000004630 T _ZN23pointpillar_scatter_trt31PointPillarScatterPluginCreator18setPluginNamespaceEPKc\n0000000000004f60 T _ZN23pointpillar_scatter_trt31PointPillarScatterPluginCreatorC1Ev\n0000000000004f60 T _ZN23pointpillar_scatter_trt31PointPillarScatterPluginCreatorC2Ev\n0000000000005106 T _ZN23pointpillar_scatter_trt62_GLOBAL__N__adb1768b_29_pointpillar_scatter_kernel_cu_29b3087510zeroKernelI6__halfEEvPT_l\n0000000000005f7e W _ZN23pointpillar_scatter_trt62_GLOBAL__N__adb1768b_29_pointpillar_scatter_kernel_cu_29b3087510zeroKernelIfEEvPT_l\n0000000000005bd9 W _ZN23pointpillar_scatter_trt62_GLOBAL__N__adb1768b_29_pointpillar_scatter_kernel_cu_29b3087511launchTypedI6__halfEEvPKvS4_S4_PviiiiiN8nvinfer18DataTypeEP11CUstream_st\n0000000000005d7e W _ZN23pointpillar_scatter_trt62_GLOBAL__N__adb1768b_29_pointpillar_scatter_kernel_cu_29b3087511launchTypedIfEEvPKvS3_S3_PviiiiiN8nvinfer18DataTypeEP11CUstream_st\n0000000000005f23 W _ZN23pointpillar_scatter_trt62_GLOBAL__N__adb1768b_29_pointpillar_scatter_kernel_cu_29b3087513scatterKernelI6__halfEEvPKT_PKiPKvPS3_iiiiiN8nvinfer18DataTypeE\n0000000000005fa4 W _ZN23pointpillar_scatter_trt62_GLOBAL__N__adb1768b_29_pointpillar_scatter_kernel_cu_29b3087513scatterKernelIfEEvPKT_PKiPKvPS2_iiiiiN8nvinfer18DataTypeE\n000000000000512c T _ZN23pointpillar_scatter_trt62_GLOBAL__N__adb1768b_29_pointpillar_scatter_kernel_cu_29b308759maskValidEPKviN8nvinfer18DataTypeE\n0000000000005ba8 W _ZN4dim3C1Ejjj\n0000000000005ba8 W _ZN4dim3C2Ejjj\n0000000000004440 T _ZNK23pointpillar_scatter_trt24PointPillarScatterPlugin12getNbOutputsEv\n0000000000004480 T _ZNK23pointpillar_scatter_trt24PointPillarScatterPlugin13getPluginTypeEv\n0000000000004490 T _ZNK23pointpillar_scatter_trt24PointPillarScatterPlugin16getPluginVersionEv\n0000000000004450 T _ZNK23pointpillar_scatter_trt24PointPillarScatterPlugin16getWorkspaceSizeEPKN8nvinfer116PluginTensorDescEiS4_i\n00000000000044a0 T _ZNK23pointpillar_scatter_trt24PointPillarScatterPlugin17getOutputDataTypeEiPKN8nvinfer18DataTypeEi\n0000000000004470 T _ZNK23pointpillar_scatter_trt24PointPillarScatterPlugin18getPluginNamespaceEv\n0000000000004460 T _ZNK23pointpillar_scatter_trt24PointPillarScatterPlugin20getSerializationSizeEv\n0000000000004aa0 T _ZNK23pointpillar_scatter_trt24PointPillarScatterPlugin5cloneEv\n00000000000045b0 T _ZNK23pointpillar_scatter_trt24PointPillarScatterPlugin9serializeEPv\n0000000000004480 T _ZNK23pointpillar_scatter_trt31PointPillarScatterPluginCreator13getPluginNameEv\n0000000000004490 T _ZNK23pointpillar_scatter_trt31PointPillarScatterPluginCreator16getPluginVersionEv\n00000000000044f0 T _ZNK23pointpillar_scatter_trt31PointPillarScatterPluginCreator18getPluginNamespaceEv\n                 U _ZNKSt5ctypeIcE13_M_widen_initEv@GLIBCXX_3.4.11\n                 U _ZNSo3putEc@GLIBCXX_3.4\n                 U _ZNSo5flushEv@GLIBCXX_3.4\n0000000000004d80 W _ZNSt6vectorIN8nvinfer111PluginFieldESaIS1_EE17_M_realloc_insertIJS1_EEEvN9__gnu_cxx17__normal_iteratorIPS1_S3_EEDpOT_\n                 U _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_disposeEv@GLIBCXX_3.4.21\n                 U _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm@GLIBCXX_3.4.21\n                 U _ZNSt8ios_base4InitC1Ev@GLIBCXX_3.4\n                 U _ZNSt8ios_base4InitD1Ev@GLIBCXX_3.4\n                 U _Znwm@GLIBCXX_3.4\n                 U _ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l@GLIBCXX_3.4.9\n                 U _ZSt16__throw_bad_castv@GLIBCXX_3.4\n                 U _ZSt20__throw_length_errorPKc@GLIBCXX_3.4\n                 U _ZSt4cerr@GLIBCXX_3.4\n0000000000011a80 V _ZTIN23pointpillar_scatter_trt24PointPillarScatterPluginE\n0000000000011a98 V _ZTIN23pointpillar_scatter_trt31PointPillarScatterPluginCreatorE\n0000000000011a38 V _ZTIN8nvinfer112IPluginV2ExtE\n0000000000011a68 V _ZTIN8nvinfer119IPluginV2DynamicExtE\n0000000000011a00 V _ZTIN8nvinfer119IVersionedInterfaceE\n0000000000011a50 V _ZTIN8nvinfer15v_1_014IPluginCreatorE\n0000000000011a10 V _ZTIN8nvinfer15v_1_023IPluginCreatorInterfaceE\n0000000000011a28 V _ZTIN8nvinfer19IPluginV2E\n00000000000074c0 V _ZTSN23pointpillar_scatter_trt24PointPillarScatterPluginE\n0000000000007500 V _ZTSN23pointpillar_scatter_trt31PointPillarScatterPluginCreatorE\n0000000000007410 V _ZTSN8nvinfer112IPluginV2ExtE\n0000000000007480 V _ZTSN8nvinfer119IPluginV2DynamicExtE\n0000000000007380 V _ZTSN8nvinfer119IVersionedInterfaceE\n0000000000007440 V _ZTSN8nvinfer15v_1_014IPluginCreatorE\n00000000000073c0 V _ZTSN8nvinfer15v_1_023IPluginCreatorInterfaceE\n00000000000073f0 V _ZTSN8nvinfer19IPluginV2E\n                 U _ZTVN10__cxxabiv117__class_type_infoE@CXXABI_1.3\n                 U _ZTVN10__cxxabiv120__si_class_type_infoE@CXXABI_1.3\n0000000000011ab0 V _ZTVN23pointpillar_scatter_trt24PointPillarScatterPluginE\n0000000000011bb0 V _ZTVN23pointpillar_scatter_trt31PointPillarScatterPluginCreatorE\n"
+    },
+    "strings_contains_pointpillar": true,
+    "symbols_contain_plugin_creator": true,
+    "symbols_contain_enqueue": true
+  },
+  "onnx": {
+    "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
+    "exists": true,
+    "graph_inputs": [
+      {
+        "name": "voxel_features",
+        "dtype": "FLOAT",
+        "shape": [
+          "fixed_k_num_voxels",
+          32,
+          4
+        ]
+      },
+      {
+        "name": "voxel_coords",
+        "dtype": "INT32",
+        "shape": [
+          "fixed_k_num_voxels",
+          4
+        ]
+      },
+      {
+        "name": "voxel_num_points",
+        "dtype": "INT32",
+        "shape": [
+          "fixed_k_num_voxels"
+        ]
+      },
+      {
+        "name": "valid_agent_mask",
+        "dtype": "FLOAT",
+        "shape": [
+          "batch",
+          2
+        ]
+      },
+      {
+        "name": "pairwise_t_matrix",
+        "dtype": "DOUBLE",
+        "shape": [
+          "batch",
+          "max_cav",
+          "max_cav",
+          4,
+          4
+        ]
+      },
+      {
+        "name": "valid_voxel_mask",
+        "dtype": "FLOAT",
+        "shape": [
+          "fixed_k_num_voxels"
+        ]
+      }
+    ],
+    "valid_voxel_mask_is_graph_input": true,
+    "onnx_contains_pointpillar_scatter_plugin_node": true,
+    "plugin_nodes": [
+      {
+        "name": "/PointPillarScatterTRT",
+        "op_type": "PointPillarScatterTRT",
+        "domain": "",
+        "inputs": [
+          "/pillar_vfe/Squeeze_output_0",
+          "voxel_coords",
+          "valid_voxel_mask"
+        ],
+        "outputs": [
+          "/PointPillarScatterTRT_output_0"
+        ],
+        "attributes": {
+          "height": 256,
+          "num_agents": 2,
+          "plugin_namespace": "",
+          "plugin_version": "1",
+          "width": 512
+        }
+      }
+    ],
+    "custom_op_domains": []
+  },
+  "engines": {
+    "engine_root": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin",
+    "num_engines": 8,
+    "engines": [
+      {
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket0_fp16.engine",
+        "size_MB": 17.58377456665039,
+        "layerinfo": {
+          "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/layerinfo_fixed_k_scatter_plugin_bucket0_fp16.json",
+          "exists": true,
+          "contains_plugin": true,
+          "matches": [
+            "  \"Name\": \"/PointPillarScatterTRT\",",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\",",
+            "  \"PluginType\": \"PointPillarScatterTRT\",",
+            "  \"Metadata\": \"[ONNX Layer: /PointPillarScatterTRT]\"",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\","
+          ]
+        },
+        "python_inspector": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket0_fp16.engine",
+          "exists": true,
+          "plugin_loaded_during_engine_deserialize": true,
+          "deserialize_success": true,
+          "engine_contains_pointpillar_scatter_plugin_layer": true,
+          "valid_voxel_mask_is_engine_input": true,
+          "io_tensors": [
+            {
+              "name": "voxel_features",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                9728,
+                32,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "voxel_coords",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                9728,
+                4
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "voxel_num_points",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                9728
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "valid_agent_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "pairwise_t_matrix",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "valid_voxel_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                9728
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "cls_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                2,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "reg_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                14,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "dir_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                4,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "inspector_contains_plugin": true,
+          "error": null,
+          "engine_inspector_text_prefix": "{\"Layers\": [{\n  \"Name\": \"Reformatting CopyNode for Network Input voxel_coords\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_agent_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_voxel_mask\",\n  \"LayerType\": \"Reformat\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728],\n    \"Format/Datatype\": \"Half\"\n  }],\n  \"ParameterType\": \"Reformat\",\n  \"Origin\": \"REFORMAT\",\n  \"TacticValue\": \"0x00000000000003e8\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}\",\n  \"LayerType\": \"Reformat\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_features\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728,32,4],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728,32,4],\n    \"Format/Datatype\": \"Half\"\n  }],\n  \"ParameterTy"
+        },
+        "engine_strings_contains_plugin": true
+      },
+      {
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket1_fp16.engine",
+        "size_MB": 22.824382781982422,
+        "layerinfo": {
+          "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/layerinfo_fixed_k_scatter_plugin_bucket1_fp16.json",
+          "exists": true,
+          "contains_plugin": true,
+          "matches": [
+            "  \"Name\": \"/PointPillarScatterTRT\",",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\",",
+            "  \"PluginType\": \"PointPillarScatterTRT\",",
+            "  \"Metadata\": \"[ONNX Layer: /PointPillarScatterTRT]\"",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\","
+          ]
+        },
+        "python_inspector": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket1_fp16.engine",
+          "exists": true,
+          "plugin_loaded_during_engine_deserialize": true,
+          "deserialize_success": true,
+          "engine_contains_pointpillar_scatter_plugin_layer": true,
+          "valid_voxel_mask_is_engine_input": true,
+          "io_tensors": [
+            {
+              "name": "voxel_features",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23040,
+                32,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "voxel_coords",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23040,
+                4
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "voxel_num_points",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23040
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "valid_agent_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "pairwise_t_matrix",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "valid_voxel_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23040
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "cls_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                2,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "reg_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                14,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "dir_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                4,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "inspector_contains_plugin": true,
+          "error": null,
+          "engine_inspector_text_prefix": "{\"Layers\": [{\n  \"Name\": \"Reformatting CopyNode for Network Input voxel_coords\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_agent_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_voxel_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}\",\n  \"LayerType\": \"Reformat\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_features\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040,32,4],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040,32,4],\n    \"Format/Datatype\": \"Half\"\n  }],\n  \"ParameterType\": \"Reformat\",\n  \"Origin\": \"REFORMAT\",\n  \"TacticVa"
+        },
+        "engine_strings_contains_plugin": true
+      },
+      {
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket2_fp16.engine",
+        "size_MB": 23.046092987060547,
+        "layerinfo": {
+          "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/layerinfo_fixed_k_scatter_plugin_bucket2_fp16.json",
+          "exists": true,
+          "contains_plugin": true,
+          "matches": [
+            "  \"Name\": \"/PointPillarScatterTRT\",",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\",",
+            "  \"PluginType\": \"PointPillarScatterTRT\",",
+            "  \"Metadata\": \"[ONNX Layer: /PointPillarScatterTRT]\"",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\","
+          ]
+        },
+        "python_inspector": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket2_fp16.engine",
+          "exists": true,
+          "plugin_loaded_during_engine_deserialize": true,
+          "deserialize_success": true,
+          "engine_contains_pointpillar_scatter_plugin_layer": true,
+          "valid_voxel_mask_is_engine_input": true,
+          "io_tensors": [
+            {
+              "name": "voxel_features",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23552,
+                32,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "voxel_coords",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23552,
+                4
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "voxel_num_points",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23552
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "valid_agent_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "pairwise_t_matrix",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "valid_voxel_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23552
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "cls_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                2,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "reg_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                14,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "dir_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                4,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "inspector_contains_plugin": true,
+          "error": null,
+          "engine_inspector_text_prefix": "{\"Layers\": [{\n  \"Name\": \"Reformatting CopyNode for Network Input voxel_coords\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_agent_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_voxel_mask\",\n  \"LayerType\": \"Reformat\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552],\n    \"Format/Datatype\": \"Half\"\n  }],\n  \"ParameterType\": \"Reformat\",\n  \"Origin\": \"REFORMAT\",\n  \"TacticValue\": \"0x00000000000003e8\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}\",\n  \"LayerType\": \"Reformat\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_features\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552,32,4],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552,32,4],\n    \"Format/Datatype\": \"Half\"\n  }],\n  \"Param"
+        },
+        "engine_strings_contains_plugin": true
+      },
+      {
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp16.engine",
+        "size_MB": 23.281665802001953,
+        "layerinfo": {
+          "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/layerinfo_fixed_k_scatter_plugin_bucket3_fp16.json",
+          "exists": true,
+          "contains_plugin": true,
+          "matches": [
+            "  \"Name\": \"/PointPillarScatterTRT\",",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\",",
+            "  \"PluginType\": \"PointPillarScatterTRT\",",
+            "  \"Metadata\": \"[ONNX Layer: /PointPillarScatterTRT]\"",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\","
+          ]
+        },
+        "python_inspector": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp16.engine",
+          "exists": true,
+          "plugin_loaded_during_engine_deserialize": true,
+          "deserialize_success": true,
+          "engine_contains_pointpillar_scatter_plugin_layer": true,
+          "valid_voxel_mask_is_engine_input": true,
+          "io_tensors": [
+            {
+              "name": "voxel_features",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                24064,
+                32,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "voxel_coords",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                24064,
+                4
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "voxel_num_points",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                24064
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "valid_agent_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "pairwise_t_matrix",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "valid_voxel_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                24064
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "cls_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                2,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "reg_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                14,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "dir_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                4,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "inspector_contains_plugin": true,
+          "error": null,
+          "engine_inspector_text_prefix": "{\"Layers\": [{\n  \"Name\": \"Reformatting CopyNode for Network Input voxel_coords\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_agent_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_voxel_mask\",\n  \"LayerType\": \"Reformat\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064],\n    \"Format/Datatype\": \"Half\"\n  }],\n  \"ParameterType\": \"Reformat\",\n  \"Origin\": \"REFORMAT\",\n  \"TacticValue\": \"0x00000000000003e8\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}\",\n  \"LayerType\": \"Reformat\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_features\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064,32,4],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064,32,4],\n    \"Format/Datatype\": \"Half\"\n  }],\n  \"Param"
+        },
+        "engine_strings_contains_plugin": true
+      },
+      {
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket0_fp32.engine",
+        "size_MB": 30.41745376586914,
+        "layerinfo": {
+          "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/layerinfo_fixed_k_scatter_plugin_bucket0_fp32.json",
+          "exists": true,
+          "contains_plugin": true,
+          "matches": [
+            "  \"Name\": \"/PointPillarScatterTRT\",",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\",",
+            "  \"PluginType\": \"PointPillarScatterTRT\",",
+            "  \"Metadata\": \"[ONNX Layer: /PointPillarScatterTRT]\"",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\","
+          ]
+        },
+        "python_inspector": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket0_fp32.engine",
+          "exists": true,
+          "plugin_loaded_during_engine_deserialize": true,
+          "deserialize_success": true,
+          "engine_contains_pointpillar_scatter_plugin_layer": true,
+          "valid_voxel_mask_is_engine_input": true,
+          "io_tensors": [
+            {
+              "name": "voxel_features",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                9728,
+                32,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "voxel_coords",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                9728,
+                4
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "voxel_num_points",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                9728
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "valid_agent_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "pairwise_t_matrix",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "valid_voxel_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                9728
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "cls_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                2,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "reg_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                14,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "dir_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                4,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "inspector_contains_plugin": true,
+          "error": null,
+          "engine_inspector_text_prefix": "{\"Layers\": [{\n  \"Name\": \"Reformatting CopyNode for Network Input voxel_coords\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_agent_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_voxel_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [9728],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^signal^1_myl3_0\",\n  \"LayerType\": \"signal\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 0,\n  \"EventId\": 3,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^2_myl3_1\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 2,\n  \"EventId\": 3,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^1_myl3_2\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 1,\n  \"EventId\": 3,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"__myl_Repl_myl3_3\",\n  \"LayerType\": \"kgen\",\n  \"Inputs\": [],\n  \"Outputs\": [\n  {\n    \"Name\": \"/pillar_v"
+        },
+        "engine_strings_contains_plugin": true
+      },
+      {
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket1_fp32.engine",
+        "size_MB": 29.865779876708984,
+        "layerinfo": {
+          "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/layerinfo_fixed_k_scatter_plugin_bucket1_fp32.json",
+          "exists": true,
+          "contains_plugin": true,
+          "matches": [
+            "  \"Name\": \"/PointPillarScatterTRT\",",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\",",
+            "  \"PluginType\": \"PointPillarScatterTRT\",",
+            "  \"Metadata\": \"[ONNX Layer: /PointPillarScatterTRT]\"",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\","
+          ]
+        },
+        "python_inspector": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket1_fp32.engine",
+          "exists": true,
+          "plugin_loaded_during_engine_deserialize": true,
+          "deserialize_success": true,
+          "engine_contains_pointpillar_scatter_plugin_layer": true,
+          "valid_voxel_mask_is_engine_input": true,
+          "io_tensors": [
+            {
+              "name": "voxel_features",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23040,
+                32,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "voxel_coords",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23040,
+                4
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "voxel_num_points",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23040
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "valid_agent_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "pairwise_t_matrix",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "valid_voxel_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23040
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "cls_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                2,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "reg_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                14,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "dir_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                4,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "inspector_contains_plugin": true,
+          "error": null,
+          "engine_inspector_text_prefix": "{\"Layers\": [{\n  \"Name\": \"Reformatting CopyNode for Network Input voxel_coords\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_agent_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_voxel_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23040],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^signal^1_myl3_0\",\n  \"LayerType\": \"signal\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 0,\n  \"EventId\": 4,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^3_myl3_1\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 3,\n  \"EventId\": 4,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^2_myl3_2\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 2,\n  \"EventId\": 4,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^1_myl3_3\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\":"
+        },
+        "engine_strings_contains_plugin": true
+      },
+      {
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket2_fp32.engine",
+        "size_MB": 29.980098724365234,
+        "layerinfo": {
+          "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/layerinfo_fixed_k_scatter_plugin_bucket2_fp32.json",
+          "exists": true,
+          "contains_plugin": true,
+          "matches": [
+            "  \"Name\": \"/PointPillarScatterTRT\",",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\",",
+            "  \"PluginType\": \"PointPillarScatterTRT\",",
+            "  \"Metadata\": \"[ONNX Layer: /PointPillarScatterTRT]\"",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\","
+          ]
+        },
+        "python_inspector": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket2_fp32.engine",
+          "exists": true,
+          "plugin_loaded_during_engine_deserialize": true,
+          "deserialize_success": true,
+          "engine_contains_pointpillar_scatter_plugin_layer": true,
+          "valid_voxel_mask_is_engine_input": true,
+          "io_tensors": [
+            {
+              "name": "voxel_features",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23552,
+                32,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "voxel_coords",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23552,
+                4
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "voxel_num_points",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23552
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "valid_agent_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "pairwise_t_matrix",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "valid_voxel_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                23552
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "cls_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                2,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "reg_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                14,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "dir_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                4,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "inspector_contains_plugin": true,
+          "error": null,
+          "engine_inspector_text_prefix": "{\"Layers\": [{\n  \"Name\": \"Reformatting CopyNode for Network Input voxel_coords\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_agent_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_voxel_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [23552],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^signal^1_myl3_0\",\n  \"LayerType\": \"signal\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 0,\n  \"EventId\": 4,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^3_myl3_1\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 3,\n  \"EventId\": 4,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^2_myl3_2\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 2,\n  \"EventId\": 4,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^1_myl3_3\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\":"
+        },
+        "engine_strings_contains_plugin": true
+      },
+      {
+        "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp32.engine",
+        "size_MB": 29.92935562133789,
+        "layerinfo": {
+          "path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/layerinfo_fixed_k_scatter_plugin_bucket3_fp32.json",
+          "exists": true,
+          "contains_plugin": true,
+          "matches": [
+            "  \"Name\": \"/PointPillarScatterTRT\",",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\",",
+            "  \"PluginType\": \"PointPillarScatterTRT\",",
+            "  \"Metadata\": \"[ONNX Layer: /PointPillarScatterTRT]\"",
+            "    \"Name\": \"/PointPillarScatterTRT_output_0\","
+          ]
+        },
+        "python_inspector": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp32.engine",
+          "exists": true,
+          "plugin_loaded_during_engine_deserialize": true,
+          "deserialize_success": true,
+          "engine_contains_pointpillar_scatter_plugin_layer": true,
+          "valid_voxel_mask_is_engine_input": true,
+          "io_tensors": [
+            {
+              "name": "voxel_features",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                24064,
+                32,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "voxel_coords",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                24064,
+                4
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "voxel_num_points",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                24064
+              ],
+              "dtype": "DataType.INT32"
+            },
+            {
+              "name": "valid_agent_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "pairwise_t_matrix",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                1,
+                2,
+                2,
+                4,
+                4
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "valid_voxel_mask",
+              "mode": "TensorIOMode.INPUT",
+              "shape": [
+                24064
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "cls_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                2,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "reg_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                14,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            },
+            {
+              "name": "dir_preds",
+              "mode": "TensorIOMode.OUTPUT",
+              "shape": [
+                1,
+                4,
+                128,
+                256
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "inspector_contains_plugin": true,
+          "error": null,
+          "engine_inspector_text_prefix": "{\"Layers\": [{\n  \"Name\": \"Reformatting CopyNode for Network Input voxel_coords\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted voxel_coords\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064,4],\n    \"Format/Datatype\": \"Int32\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_agent_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_agent_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [1,2],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"Reformatting CopyNode for Network Input valid_voxel_mask\",\n  \"LayerType\": \"NoOp\",\n  \"Inputs\": [\n  {\n    \"Name\": \"valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"Outputs\": [\n  {\n    \"Name\": \"Reformatted valid_voxel_mask\",\n    \"Location\": \"Device\",\n    \"Dimensions\": [24064],\n    \"Format/Datatype\": \"Float\"\n  }],\n  \"TacticValue\": \"0x0000000000000000\",\n  \"StreamId\": 0,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^signal^1_myl3_0\",\n  \"LayerType\": \"signal\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 0,\n  \"EventId\": 4,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^3_myl3_1\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 3,\n  \"EventId\": 4,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^2_myl3_2\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\": \"\",\n  \"StreamId\": 2,\n  \"EventId\": 4,\n  \"Metadata\": \"\"\n},{\n  \"Name\": \"entry^bb^wait^1_myl3_3\",\n  \"LayerType\": \"wait\",\n  \"Inputs\": [],\n  \"Outputs\": [],\n  \"TacticName\":"
+        },
+        "engine_strings_contains_plugin": true
+      }
+    ],
+    "engine_contains_pointpillar_scatter_plugin_layer": true,
+    "valid_voxel_mask_is_engine_input": true
+  },
+  "plugin_equivalence": {
+    "success": true,
+    "precisions": {
+      "fp32": {
+        "success": true,
+        "precision": "fp32",
+        "plugin_build": {
+          "plugin_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt",
+          "build_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build",
+          "plugin_so": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "success": true,
+          "error": null
+        },
+        "engine_build": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/plugins/pointpillar_scatter_fp32.engine",
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/pointpillar_scatter_plugin_fp32.onnx",
+          "plugin_so": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "success": true,
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/pointpillar_scatter_plugin_fp32.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/plugins/pointpillar_scatter_fp32.engine",
+            "--staticPlugins=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--profilingVerbosity=detailed",
+            "--skipInference",
+            "--verbose",
+            "--noTF32"
+          ],
+          "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_pointpillar_scatter_plugin_fp32.log",
+          "engine_size_MB": 0.003459930419921875
+        },
+        "sample": {
+          "frame_id": 0,
+          "record_len": 1,
+          "original_num_voxels": 8578,
+          "fixed_K": 9728,
+          "num_agents": 2,
+          "height": 256,
+          "width": 512,
+          "channels": 64
+        },
+        "duplicate_coords": {
+          "num_valid_voxels": 8578,
+          "num_unique_bev_indices": 8578,
+          "num_duplicate_bev_indices": 0,
+          "max_duplicate_count": 1,
+          "duplicates": []
+        },
+        "trt_profile": {
+          "dtype_cast_ms": 0.0,
+          "contiguous_ms": 0.0,
+          "h2d_copy_ms": 0.0,
+          "input_device_copy_ms": 0.29218755662441254,
+          "set_input_shape_ms": 0.07060542702674866,
+          "bind_address_ms": 0.0531170517206192,
+          "execute_async_ms": 0.42393600940704346,
+          "synchronize_ms": 0.009067356586456299,
+          "d2h_copy_ms": 0.0,
+          "output_wrap_ms": 0.005075708031654358,
+          "input_buffer_reallocated": true,
+          "output_buffer_reallocated": true,
+          "set_input_shape_calls": 3,
+          "output_shape_query_calls": 1,
+          "h2d_copies": 0,
+          "d2d_input_copies": 3,
+          "d2h_copies": 0,
+          "bytes_h2d": 0,
+          "bytes_d2d_input": 2684928,
+          "bytes_d2h": 0,
+          "input_shapes": {
+            "pillar_features": [
+              9728,
+              64
+            ],
+            "voxel_coords": [
+              9728,
+              4
+            ],
+            "valid_voxel_mask": [
+              9728
+            ]
+          },
+          "output_shapes": {
+            "spatial_features": [
+              2,
+              64,
+              256,
+              512
+            ]
+          },
+          "output_shape_query_ms": 0.041253864765167236,
+          "total_runner_ms": 3.313245251774788,
+          "allocation_report": {
+            "context_created_per_run": false,
+            "stream_created_per_run": false,
+            "context_create_count": 1,
+            "stream_create_count": 1,
+            "run_count": 1,
+            "input_buffer_reallocation_count": 3,
+            "output_buffer_reallocation_count": 1,
+            "set_input_shape_call_count": 3,
+            "output_shape_query_call_count": 1,
+            "number_of_h2d_copies": 0,
+            "number_of_d2d_input_copies": 3,
+            "number_of_d2h_copies": 0,
+            "total_bytes_h2d": 0,
+            "total_bytes_d2d_input": 2684928,
+            "total_bytes_d2h": 0,
+            "input_buffer_reallocated_per_frame": true,
+            "output_buffer_reallocated_per_frame": true,
+            "set_input_shape_called_per_frame": true,
+            "output_shape_query_called_per_frame": true,
+            "input_buffers": {
+              "pillar_features": {
+                "shape": [
+                  622592
+                ],
+                "dtype": "torch.float32",
+                "numel": 622592
+              },
+              "voxel_coords": {
+                "shape": [
+                  38912
+                ],
+                "dtype": "torch.int32",
+                "numel": 38912
+              },
+              "valid_voxel_mask": {
+                "shape": [
+                  9728
+                ],
+                "dtype": "torch.float32",
+                "numel": 9728
+              }
+            },
+            "output_buffers": {
+              "spatial_features": {
+                "shape": [
+                  16777216
+                ],
+                "dtype": "torch.float32",
+                "numel": 16777216
+              }
+            }
+          }
+        },
+        "trt_elapsed_ms": 3.4242533147335052,
+        "outputs": {
+          "spatial_features": {
+            "max_abs_error": 0.0,
+            "mean_abs_error": 0.0,
+            "relative_error": 0.0,
+            "numel": 16777216,
+            "shape_mismatches": []
+          }
+        },
+        "max_abs_error": 0.0,
+        "mean_abs_error": 0.0,
+        "relative_error": 0.0,
+        "candidate_all_finite": true,
+        "reference_all_finite": true,
+        "equivalent": true,
+        "invalid_padded_voxel_affects_spatial_features": false
+      },
+      "fp16": {
+        "success": true,
+        "precision": "fp16",
+        "plugin_build": {
+          "plugin_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt",
+          "build_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build",
+          "plugin_so": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "success": true,
+          "error": null
+        },
+        "engine_build": {
+          "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/plugins/pointpillar_scatter_fp16.engine",
+          "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/pointpillar_scatter_plugin_fp16.onnx",
+          "plugin_so": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+          "success": true,
+          "error": null,
+          "trtexec": {
+            "trtexec_found": true,
+            "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+            "checked_paths": [
+              "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            ],
+            "suggestion": null
+          },
+          "command": [
+            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+            "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/pointpillar_scatter_plugin_fp16.onnx",
+            "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/plugins/pointpillar_scatter_fp16.engine",
+            "--staticPlugins=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+            "--profilingVerbosity=detailed",
+            "--skipInference",
+            "--verbose",
+            "--fp16"
+          ],
+          "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_pointpillar_scatter_plugin_fp16.log",
+          "engine_size_MB": 0.003459930419921875
+        },
+        "sample": {
+          "frame_id": 0,
+          "record_len": 1,
+          "original_num_voxels": 8578,
+          "fixed_K": 9728,
+          "num_agents": 2,
+          "height": 256,
+          "width": 512,
+          "channels": 64
+        },
+        "duplicate_coords": {
+          "num_valid_voxels": 8578,
+          "num_unique_bev_indices": 8578,
+          "num_duplicate_bev_indices": 0,
+          "max_duplicate_count": 1,
+          "duplicates": []
+        },
+        "trt_profile": {
+          "dtype_cast_ms": 0.0,
+          "contiguous_ms": 0.0,
+          "h2d_copy_ms": 0.0,
+          "input_device_copy_ms": 0.1823827624320984,
+          "set_input_shape_ms": 0.05659833550453186,
+          "bind_address_ms": 0.04458427429199219,
+          "execute_async_ms": 0.35942399501800537,
+          "synchronize_ms": 0.007100403308868408,
+          "d2h_copy_ms": 0.0,
+          "output_wrap_ms": 0.003986060619354248,
+          "input_buffer_reallocated": true,
+          "output_buffer_reallocated": true,
+          "set_input_shape_calls": 3,
+          "output_shape_query_calls": 1,
+          "h2d_copies": 0,
+          "d2d_input_copies": 3,
+          "d2h_copies": 0,
+          "bytes_h2d": 0,
+          "bytes_d2d_input": 1420288,
+          "bytes_d2h": 0,
+          "input_shapes": {
+            "pillar_features": [
+              9728,
+              64
+            ],
+            "voxel_coords": [
+              9728,
+              4
+            ],
+            "valid_voxel_mask": [
+              9728
+            ]
+          },
+          "output_shapes": {
+            "spatial_features": [
+              2,
+              64,
+              256,
+              512
+            ]
+          },
+          "output_shape_query_ms": 0.034594908356666565,
+          "total_runner_ms": 3.705732524394989,
+          "allocation_report": {
+            "context_created_per_run": false,
+            "stream_created_per_run": false,
+            "context_create_count": 1,
+            "stream_create_count": 1,
+            "run_count": 1,
+            "input_buffer_reallocation_count": 3,
+            "output_buffer_reallocation_count": 1,
+            "set_input_shape_call_count": 3,
+            "output_shape_query_call_count": 1,
+            "number_of_h2d_copies": 0,
+            "number_of_d2d_input_copies": 3,
+            "number_of_d2h_copies": 0,
+            "total_bytes_h2d": 0,
+            "total_bytes_d2d_input": 1420288,
+            "total_bytes_d2h": 0,
+            "input_buffer_reallocated_per_frame": true,
+            "output_buffer_reallocated_per_frame": true,
+            "set_input_shape_called_per_frame": true,
+            "output_shape_query_called_per_frame": true,
+            "input_buffers": {
+              "pillar_features": {
+                "shape": [
+                  622592
+                ],
+                "dtype": "torch.float16",
+                "numel": 622592
+              },
+              "voxel_coords": {
+                "shape": [
+                  38912
+                ],
+                "dtype": "torch.int32",
+                "numel": 38912
+              },
+              "valid_voxel_mask": {
+                "shape": [
+                  9728
+                ],
+                "dtype": "torch.float16",
+                "numel": 9728
+              }
+            },
+            "output_buffers": {
+              "spatial_features": {
+                "shape": [
+                  16777216
+                ],
+                "dtype": "torch.float16",
+                "numel": 16777216
+              }
+            }
+          }
+        },
+        "trt_elapsed_ms": 3.7629175931215286,
+        "outputs": {
+          "spatial_features": {
+            "max_abs_error": 0.007808685302734375,
+            "mean_abs_error": 7.368168721190503e-06,
+            "relative_error": 0.0001749230060078186,
+            "numel": 16777216,
+            "shape_mismatches": []
+          }
+        },
+        "max_abs_error": 0.007808685302734375,
+        "mean_abs_error": 7.368168721190503e-06,
+        "relative_error": 0.0001749230060078186,
+        "candidate_all_finite": true,
+        "reference_all_finite": true,
+        "equivalent": true,
+        "invalid_padded_voxel_affects_spatial_features": false
+      }
+    },
+    "all_equivalent": true
+  },
+  "plugin_equivalence_fp32_max_abs_error": 0.0,
+  "plugin_equivalence_fp16_max_abs_error": 0.007808685302734375,
+  "invalid_padded_voxel_affects_spatial_features": false
+}

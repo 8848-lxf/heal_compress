@@ -1,0 +1,1122 @@
+{
+  "success": true,
+  "previous_results_under_gpu_contention_should_not_be_trusted": true,
+  "selected_gpu": 0,
+  "selected_gpu_physical_id": 0,
+  "CUDA_VISIBLE_DEVICES": "0",
+  "gpu_contention_detected": false,
+  "unreliable_latency": false,
+  "final_recommended_deployment_path": "dynamic_agent_dim fixed-K bucket router PointPillarScatterTRT FP16",
+  "gpu_report": {
+    "all_gpu_snapshot_before": [
+      {
+        "index": 0,
+        "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 0,
+        "memory_used_mb": 4,
+        "memory_total_mb": 24564,
+        "processes": [],
+        "process_count": 0
+      },
+      {
+        "index": 1,
+        "uuid": "GPU-b5a7ab32-fb96-3347-e5d7-cabce043a05e",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 0,
+        "memory_used_mb": 6,
+        "memory_total_mb": 24564,
+        "processes": [],
+        "process_count": 0
+      },
+      {
+        "index": 2,
+        "uuid": "GPU-a48f7dfe-6461-7cce-7b24-60c4951b6c48",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 0,
+        "memory_used_mb": 5,
+        "memory_total_mb": 24564,
+        "processes": [],
+        "process_count": 0
+      },
+      {
+        "index": 3,
+        "uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 95,
+        "memory_used_mb": 19111,
+        "memory_total_mb": 24564,
+        "processes": [
+          {
+            "gpu_uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+            "pid": 3441270,
+            "process_name": "python3",
+            "used_memory_mb": 19100
+          }
+        ],
+        "process_count": 1
+      },
+      {
+        "index": 4,
+        "uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 19,
+        "memory_used_mb": 1221,
+        "memory_total_mb": 24564,
+        "processes": [
+          {
+            "gpu_uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+            "pid": 3465698,
+            "process_name": "python3",
+            "used_memory_mb": 1210
+          }
+        ],
+        "process_count": 1
+      },
+      {
+        "index": 5,
+        "uuid": "GPU-d4b8342a-7038-f567-ce40-a4705b23854b",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 0,
+        "memory_used_mb": 4,
+        "memory_total_mb": 24564,
+        "processes": [],
+        "process_count": 0
+      },
+      {
+        "index": 6,
+        "uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 93,
+        "memory_used_mb": 12262,
+        "memory_total_mb": 24564,
+        "processes": [
+          {
+            "gpu_uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+            "pid": 1126393,
+            "process_name": "python",
+            "used_memory_mb": 12252
+          }
+        ],
+        "process_count": 1
+      },
+      {
+        "index": 7,
+        "uuid": "GPU-a4b5f0d9-c77c-2c99-b4c3-1b3811b835e3",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 0,
+        "memory_used_mb": 4,
+        "memory_total_mb": 24564,
+        "processes": [],
+        "process_count": 0
+      }
+    ],
+    "all_gpu_snapshot_after": [
+      {
+        "index": 0,
+        "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 0,
+        "memory_used_mb": 788,
+        "memory_total_mb": 24564,
+        "processes": [
+          {
+            "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+            "pid": 3468985,
+            "process_name": "python",
+            "used_memory_mb": 778
+          }
+        ],
+        "process_count": 1
+      },
+      {
+        "index": 1,
+        "uuid": "GPU-b5a7ab32-fb96-3347-e5d7-cabce043a05e",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 0,
+        "memory_used_mb": 6,
+        "memory_total_mb": 24564,
+        "processes": [],
+        "process_count": 0
+      },
+      {
+        "index": 2,
+        "uuid": "GPU-a48f7dfe-6461-7cce-7b24-60c4951b6c48",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 14,
+        "memory_used_mb": 1661,
+        "memory_total_mb": 24564,
+        "processes": [
+          {
+            "gpu_uuid": "GPU-a48f7dfe-6461-7cce-7b24-60c4951b6c48",
+            "pid": 3501531,
+            "process_name": "python3",
+            "used_memory_mb": 1650
+          }
+        ],
+        "process_count": 1
+      },
+      {
+        "index": 3,
+        "uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 96,
+        "memory_used_mb": 19111,
+        "memory_total_mb": 24564,
+        "processes": [
+          {
+            "gpu_uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+            "pid": 3441270,
+            "process_name": "python3",
+            "used_memory_mb": 19100
+          }
+        ],
+        "process_count": 1
+      },
+      {
+        "index": 4,
+        "uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 13,
+        "memory_used_mb": 1647,
+        "memory_total_mb": 24564,
+        "processes": [
+          {
+            "gpu_uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+            "pid": 3486590,
+            "process_name": "python3",
+            "used_memory_mb": 1636
+          }
+        ],
+        "process_count": 1
+      },
+      {
+        "index": 5,
+        "uuid": "GPU-d4b8342a-7038-f567-ce40-a4705b23854b",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 0,
+        "memory_used_mb": 4,
+        "memory_total_mb": 24564,
+        "processes": [],
+        "process_count": 0
+      },
+      {
+        "index": 6,
+        "uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 68,
+        "memory_used_mb": 12262,
+        "memory_total_mb": 24564,
+        "processes": [
+          {
+            "gpu_uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+            "pid": 1126393,
+            "process_name": "python",
+            "used_memory_mb": 12252
+          }
+        ],
+        "process_count": 1
+      },
+      {
+        "index": 7,
+        "uuid": "GPU-a4b5f0d9-c77c-2c99-b4c3-1b3811b835e3",
+        "name": "NVIDIA GeForce RTX 4090",
+        "utilization_gpu": 0,
+        "memory_used_mb": 4,
+        "memory_total_mb": 24564,
+        "processes": [],
+        "process_count": 0
+      }
+    ],
+    "selected_gpu": 0,
+    "selected_gpu_physical_id": 0,
+    "selected_gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+    "selected_gpu_reason": "selected lowest memory/util idle GPU: mem=4 MiB util=0%",
+    "CUDA_VISIBLE_DEVICES": "0",
+    "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+    "gpu_selection_method": "nvidia_smi_idle_selection",
+    "excluded_gpu_indices": "6",
+    "polling_interval": 30,
+    "selection_attempts": [
+      {
+        "time": "2026-06-29T19:10:58-0700",
+        "reason": "selected lowest memory/util idle GPU: mem=4 MiB util=0%",
+        "snapshots": [
+          {
+            "index": 0,
+            "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 4,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 1,
+            "uuid": "GPU-b5a7ab32-fb96-3347-e5d7-cabce043a05e",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 6,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 2,
+            "uuid": "GPU-a48f7dfe-6461-7cce-7b24-60c4951b6c48",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 5,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 3,
+            "uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 88,
+            "memory_used_mb": 19111,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+                "pid": 3441270,
+                "process_name": "python3",
+                "used_memory_mb": 19100
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 4,
+            "uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 19,
+            "memory_used_mb": 1221,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+                "pid": 3465698,
+                "process_name": "python3",
+                "used_memory_mb": 1210
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 5,
+            "uuid": "GPU-d4b8342a-7038-f567-ce40-a4705b23854b",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 4,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 6,
+            "uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 93,
+            "memory_used_mb": 12262,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+                "pid": 1126393,
+                "process_name": "python",
+                "used_memory_mb": 12252
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 7,
+            "uuid": "GPU-a4b5f0d9-c77c-2c99-b4c3-1b3811b835e3",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 4,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          }
+        ]
+      }
+    ],
+    "mode_traces": [
+      {
+        "selected_gpu": 0,
+        "selected_gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+        "polling_interval": 30,
+        "samples": [
+          {
+            "time": "2026-06-29T19:17:22-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 0,
+              "memory_used_mb": 430,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 528
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:17:52-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 0,
+              "memory_used_mb": 1574,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1564
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:18:22-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 7,
+              "memory_used_mb": 1606,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1596
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:18:54-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 0,
+              "memory_used_mb": 1606,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1596
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:19:24-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 5,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:19:54-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 1,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:20:25-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 6,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:20:55-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 2,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:21:26-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 6,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:21:56-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 0,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:22:27-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 6,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:22:58-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 6,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:23:28-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 2,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:23:58-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 0,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          },
+          {
+            "time": "2026-06-29T19:24:00-0700",
+            "snapshot": {
+              "index": 0,
+              "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+              "name": "NVIDIA GeForce RTX 4090",
+              "utilization_gpu": 6,
+              "memory_used_mb": 1608,
+              "memory_total_mb": 24564,
+              "processes": [
+                {
+                  "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                  "pid": 3468985,
+                  "process_name": "python",
+                  "used_memory_mb": 1598
+                }
+              ],
+              "process_count": 1
+            },
+            "other_processes": [],
+            "other_processes_detected": false,
+            "high_utilization": false
+          }
+        ],
+        "contention_events": [],
+        "other_processes_detected": false,
+        "other_processes": [],
+        "gpu_contention_detected": false,
+        "unreliable_latency": false,
+        "mode": "padded_agent_static_int8_train_calib200",
+        "nvidia_smi_before": [
+          {
+            "index": 0,
+            "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 4,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 1,
+            "uuid": "GPU-b5a7ab32-fb96-3347-e5d7-cabce043a05e",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 6,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 2,
+            "uuid": "GPU-a48f7dfe-6461-7cce-7b24-60c4951b6c48",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 5,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 3,
+            "uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 95,
+            "memory_used_mb": 19111,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+                "pid": 3441270,
+                "process_name": "python3",
+                "used_memory_mb": 19100
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 4,
+            "uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 19,
+            "memory_used_mb": 1221,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+                "pid": 3465698,
+                "process_name": "python3",
+                "used_memory_mb": 1210
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 5,
+            "uuid": "GPU-d4b8342a-7038-f567-ce40-a4705b23854b",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 4,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 6,
+            "uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 93,
+            "memory_used_mb": 12262,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+                "pid": 1126393,
+                "process_name": "python",
+                "used_memory_mb": 12252
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 7,
+            "uuid": "GPU-a4b5f0d9-c77c-2c99-b4c3-1b3811b835e3",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 4,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          }
+        ],
+        "nvidia_smi_after": [
+          {
+            "index": 0,
+            "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 6,
+            "memory_used_mb": 1608,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                "pid": 3468985,
+                "process_name": "python",
+                "used_memory_mb": 1598
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 1,
+            "uuid": "GPU-b5a7ab32-fb96-3347-e5d7-cabce043a05e",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 6,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 2,
+            "uuid": "GPU-a48f7dfe-6461-7cce-7b24-60c4951b6c48",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 20,
+            "memory_used_mb": 1661,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-a48f7dfe-6461-7cce-7b24-60c4951b6c48",
+                "pid": 3501531,
+                "process_name": "python3",
+                "used_memory_mb": 1650
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 3,
+            "uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 96,
+            "memory_used_mb": 19111,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-3f1b6c50-00bc-f851-01f0-6c9ff3471dad",
+                "pid": 3441270,
+                "process_name": "python3",
+                "used_memory_mb": 19100
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 4,
+            "uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 13,
+            "memory_used_mb": 1647,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-166702d7-bf30-18e0-83ff-83b316d37c0e",
+                "pid": 3486590,
+                "process_name": "python3",
+                "used_memory_mb": 1636
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 5,
+            "uuid": "GPU-d4b8342a-7038-f567-ce40-a4705b23854b",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 4,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          },
+          {
+            "index": 6,
+            "uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 68,
+            "memory_used_mb": 12262,
+            "memory_total_mb": 24564,
+            "processes": [
+              {
+                "gpu_uuid": "GPU-d98c7029-672d-47b6-acc2-8c5936495349",
+                "pid": 1126393,
+                "process_name": "python",
+                "used_memory_mb": 12252
+              }
+            ],
+            "process_count": 1
+          },
+          {
+            "index": 7,
+            "uuid": "GPU-a4b5f0d9-c77c-2c99-b4c3-1b3811b835e3",
+            "name": "NVIDIA GeForce RTX 4090",
+            "utilization_gpu": 0,
+            "memory_used_mb": 4,
+            "memory_total_mb": 24564,
+            "processes": [],
+            "process_count": 0
+          }
+        ],
+        "mode_start_check": {
+          "ok": true,
+          "checks": [
+            {
+              "time": "2026-06-29T19:17:21-0700",
+              "snapshot": {
+                "index": 0,
+                "uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                "name": "NVIDIA GeForce RTX 4090",
+                "utilization_gpu": 0,
+                "memory_used_mb": 430,
+                "memory_total_mb": 24564,
+                "processes": [
+                  {
+                    "gpu_uuid": "GPU-8c4f469e-d367-4cd9-52f0-b8645cd67a23",
+                    "pid": 3468985,
+                    "process_name": "python",
+                    "used_memory_mb": 420
+                  }
+                ],
+                "process_count": 1
+              },
+              "other_processes": []
+            }
+          ]
+        }
+      }
+    ],
+    "contention_events": [],
+    "other_processes_detected": false,
+    "other_processes": [],
+    "gpu_contention_detected": false,
+    "unreliable_latency": false,
+    "run_start_time": "2026-06-29T19:10:57-0700",
+    "run_end_time": "2026-06-29T19:24:01-0700"
+  },
+  "rows": [
+    {
+      "scheme": "padded_agent_static",
+      "engine_strategy": "padded_agent_static_fixed_k_plugin",
+      "precision": "int8",
+      "calibration": "train_calib200",
+      "full_val": true,
+      "total_val": 1789,
+      "evaluated": 1789,
+      "skipped": 0,
+      "engine_count": 4,
+      "dynamic_N": false,
+      "bucket_router": true,
+      "single_engine": false,
+      "AP@0.30": 0.6594,
+      "AP@0.50": 0.6184,
+      "AP@0.70": 0.4303,
+      "mAP": 0.5694,
+      "execute_p50": 1.5994880199432373,
+      "execute_p95": 1.789952039718628,
+      "forward_p50": 2.8149541467428207,
+      "forward_p95": 3.105565905570984,
+      "FPS": 355.245573416213,
+      "selected_gpu": 0,
+      "contention": false,
+      "reliable_latency": true,
+      "status": "success",
+      "notes": "AP over evaluated_samples; fixed_K=29696; skipped=0"
+    }
+  ],
+  "analysis": {
+    "single_engine_maxK_16ms_forward_p50_still_present": false,
+    "single_engine_maxK_vs_dynamic_bucket_fp16_forward_ratio": null,
+    "single_engine_maxK_fp16_mAP_delta_vs_dynamic_bucket_fp16": null,
+    "single_engine_slowdown_interpretation": "GPU contention is excluded when reliable_latency=true; remaining likely causes are fixed_K input copy/padding overhead, dynamic profile shape setup, TensorRT tactic choices, and dynamic-N plugin island overhead.",
+    "dynamic_bucket_fp16_fastest_high_precision": false,
+    "single_engine_maxK_fp16_acceptance": false,
+    "single_engine_maxK_as_engineering_simplification": "recommend as default FP16 deployment path when AP matches dynamic bucket and forward p50 slowdown stays within 10%; dynamic bucket remains the fastest FP16 reference",
+    "int8_changed_conclusion_after_full_val_idle_gpu": "see rows; accept only if mAP drop and latency criteria are met",
+    "int8_smallest_mAP_drop_mode": {
+      "scheme": "padded_agent_static",
+      "engine_strategy": "padded_agent_static_fixed_k_plugin",
+      "precision": "int8",
+      "calibration": "train_calib200",
+      "full_val": true,
+      "total_val": 1789,
+      "evaluated": 1789,
+      "skipped": 0,
+      "engine_count": 4,
+      "dynamic_N": false,
+      "bucket_router": true,
+      "single_engine": false,
+      "AP@0.30": 0.6594,
+      "AP@0.50": 0.6184,
+      "AP@0.70": 0.4303,
+      "mAP": 0.5694,
+      "execute_p50": 1.5994880199432373,
+      "execute_p95": 1.789952039718628,
+      "forward_p50": 2.8149541467428207,
+      "forward_p95": 3.105565905570984,
+      "FPS": 355.245573416213,
+      "selected_gpu": 0,
+      "contention": false,
+      "reliable_latency": true,
+      "status": "success",
+      "notes": "AP over evaluated_samples; fixed_K=29696; skipped=0"
+    },
+    "int8_fastest_latency_mode": {
+      "scheme": "padded_agent_static",
+      "engine_strategy": "padded_agent_static_fixed_k_plugin",
+      "precision": "int8",
+      "calibration": "train_calib200",
+      "full_val": true,
+      "total_val": 1789,
+      "evaluated": 1789,
+      "skipped": 0,
+      "engine_count": 4,
+      "dynamic_N": false,
+      "bucket_router": true,
+      "single_engine": false,
+      "AP@0.30": 0.6594,
+      "AP@0.50": 0.6184,
+      "AP@0.70": 0.4303,
+      "mAP": 0.5694,
+      "execute_p50": 1.5994880199432373,
+      "execute_p95": 1.789952039718628,
+      "forward_p50": 2.8149541467428207,
+      "forward_p95": 3.105565905570984,
+      "FPS": 355.245573416213,
+      "selected_gpu": 0,
+      "contention": false,
+      "reliable_latency": true,
+      "status": "success",
+      "notes": "AP over evaluated_samples; fixed_K=29696; skipped=0"
+    },
+    "int8_acceptable_speed_candidates": [],
+    "recommend_int8_as_deployment_candidate": false,
+    "recommend_int8_as_default_deployment": false,
+    "recommend_qdq_modelopt": "yes for INT8, especially single_engine_maxK where train_calib200 mAP drop exceeds 0.1; try mixed precision whitelist before full ModelOpt Q/DQ",
+    "fastest_fp32_mode": null,
+    "fastest_fp16_mode": null,
+    "fastest_int8_mode": {
+      "scheme": "padded_agent_static",
+      "engine_strategy": "padded_agent_static_fixed_k_plugin",
+      "precision": "int8",
+      "calibration": "train_calib200",
+      "full_val": true,
+      "total_val": 1789,
+      "evaluated": 1789,
+      "skipped": 0,
+      "engine_count": 4,
+      "dynamic_N": false,
+      "bucket_router": true,
+      "single_engine": false,
+      "AP@0.30": 0.6594,
+      "AP@0.50": 0.6184,
+      "AP@0.70": 0.4303,
+      "mAP": 0.5694,
+      "execute_p50": 1.5994880199432373,
+      "execute_p95": 1.789952039718628,
+      "forward_p50": 2.8149541467428207,
+      "forward_p95": 3.105565905570984,
+      "FPS": 355.245573416213,
+      "selected_gpu": 0,
+      "contention": false,
+      "reliable_latency": true,
+      "status": "success",
+      "notes": "AP over evaluated_samples; fixed_K=29696; skipped=0"
+    },
+    "best_ap_mode": {
+      "scheme": "padded_agent_static",
+      "engine_strategy": "padded_agent_static_fixed_k_plugin",
+      "precision": "int8",
+      "calibration": "train_calib200",
+      "full_val": true,
+      "total_val": 1789,
+      "evaluated": 1789,
+      "skipped": 0,
+      "engine_count": 4,
+      "dynamic_N": false,
+      "bucket_router": true,
+      "single_engine": false,
+      "AP@0.30": 0.6594,
+      "AP@0.50": 0.6184,
+      "AP@0.70": 0.4303,
+      "mAP": 0.5694,
+      "execute_p50": 1.5994880199432373,
+      "execute_p95": 1.789952039718628,
+      "forward_p50": 2.8149541467428207,
+      "forward_p95": 3.105565905570984,
+      "FPS": 355.245573416213,
+      "selected_gpu": 0,
+      "contention": false,
+      "reliable_latency": true,
+      "status": "success",
+      "notes": "AP over evaluated_samples; fixed_K=29696; skipped=0"
+    },
+    "recommended_deployment_path": "dynamic_agent_dim fixed-K bucket router PointPillarScatterTRT FP16"
+  }
+}

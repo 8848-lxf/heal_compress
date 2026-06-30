@@ -1,0 +1,8 @@
+[
+  {
+    "line": "[06/25/2026-08:21:55] [E] [TRT] ModelImporter.cpp:967: ERROR: onnxOpImporters.cpp:5889 In function importSqueeze:"
+  },
+  {
+    "line": "[12] Assertion failed: !isDynamic(shape): Cannot infer squeeze dimensions from a dynamic shape! Please re-export your model with the Squeeze axes input set."
+  }
+]

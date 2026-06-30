@@ -1,0 +1,51 @@
+{
+  "scheme": "dynamic_agent_single_engine_maxK",
+  "engine_strategy": "single TensorRT engine",
+  "precision": "fp32",
+  "calibration_mode": null,
+  "calibration_split": null,
+  "evaluation_split": "val",
+  "full_val": true,
+  "status": "success",
+  "total_val_samples": 1789,
+  "evaluated_samples": 1789,
+  "skipped_samples": [],
+  "skipped_ratio": 0.0,
+  "skip_reasons": {},
+  "AP@0.30": 0.8262,
+  "AP@0.50": 0.7815,
+  "AP@0.70": 0.6027,
+  "mAP": 0.7368,
+  "execute_ms": {
+    "p50": 5.406720161437988,
+    "p90": 5.4231038093566895,
+    "p95": 5.428224086761475,
+    "p99": 5.478240013122559,
+    "mean": 6.706247675546891,
+    "max": 161.19386291503906
+  },
+  "forward_ms": {
+    "p50": 6.48617185652256,
+    "p90": 6.574627012014389,
+    "p95": 6.6203586757183075,
+    "p99": 8.08059424161911,
+    "mean": 7.80768605626155,
+    "max": 162.26909682154655
+  },
+  "total_runner_ms": {
+    "p50": 6.48617185652256,
+    "p90": 6.574627012014389,
+    "p95": 6.6203586757183075,
+    "p99": 8.08059424161911,
+    "mean": 7.80768605626155,
+    "max": 162.26909682154655
+  },
+  "FPS": 154.17414495337337,
+  "engine_count": 1,
+  "engine_paths": [
+    "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/fp32/lidar_pyramid_dynamic_agent_single_engine_maxK_fp32.engine"
+  ],
+  "selected_gpu": 5,
+  "gpu_contention_detected": false,
+  "unreliable_latency": false
+}

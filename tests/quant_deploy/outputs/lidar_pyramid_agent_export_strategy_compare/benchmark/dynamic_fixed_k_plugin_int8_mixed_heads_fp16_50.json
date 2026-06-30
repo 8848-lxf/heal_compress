@@ -1,0 +1,44 @@
+{
+  "precision": "int8",
+  "precision_strategy": "mixed_heads_fp16",
+  "calibration_frames": 200,
+  "eval_frames": 50,
+  "execute_ms": {
+    "mean": 1.649094398021698,
+    "p50": 1.622912049293518,
+    "p90": 1.670240044593811,
+    "p95": 2.053407907485962,
+    "max": 6.321728229522705,
+    "p99": 6.321728229522705
+  },
+  "forward_ms": {
+    "p50": 2.6664920151233673,
+    "p90": 2.8598979115486145,
+    "p95": 3.7544183433055878,
+    "p99": 13.492472469806671,
+    "mean": 2.9903898388147354,
+    "max": 13.492472469806671
+  },
+  "total_runner_ms": {
+    "mean": 2.9903898388147354,
+    "p50": 2.6664920151233673,
+    "p90": 2.8598979115486145,
+    "p95": 3.7544183433055878,
+    "max": 13.492472469806671,
+    "p99": 13.492472469806671
+  },
+  "FPS": 375.024561981947,
+  "record_len_distribution": {
+    "1": 14,
+    "2": 36
+  },
+  "bucket_distribution": {
+    "0": 14,
+    "1": 26,
+    "2": 10
+  },
+  "engine_path": "bucket_router_multiple_int8_engines",
+  "engine_precision_tag": "int8_calib200_mixed_heads_fp16",
+  "success": true,
+  "error": null
+}

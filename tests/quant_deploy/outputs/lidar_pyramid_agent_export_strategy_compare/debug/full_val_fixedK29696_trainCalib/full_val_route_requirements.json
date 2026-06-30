@@ -1,0 +1,72 @@
+{
+  "evaluation_split": "val",
+  "total_val_samples": 1789,
+  "scanned_samples": 1789,
+  "required_buckets": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "required_dynamic_routes": [
+    [
+      1,
+      0
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "fixed_K": 29696,
+  "fixed_k_buckets": [
+    {
+      "bucket_id": 0,
+      "min_voxels": 1,
+      "opt_voxels": 9728,
+      "max_voxels": 9728
+    },
+    {
+      "bucket_id": 1,
+      "min_voxels": 9729,
+      "opt_voxels": 23040,
+      "max_voxels": 23040
+    },
+    {
+      "bucket_id": 2,
+      "min_voxels": 23041,
+      "opt_voxels": 23552,
+      "max_voxels": 23552
+    },
+    {
+      "bucket_id": 3,
+      "min_voxels": 23553,
+      "opt_voxels": 29696,
+      "max_voxels": 29696
+    }
+  ],
+  "record_len_distribution": {
+    "1": 171,
+    "2": 1618
+  },
+  "bucket_distribution": {
+    "0": 130,
+    "1": 853,
+    "2": 95,
+    "3": 711
+  },
+  "skipped_samples": [],
+  "skip_reasons": {}
+}

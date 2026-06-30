@@ -1,0 +1,72 @@
+{
+  "agent_export_mode": "dynamic_agent_dim_fixed_k_plugin",
+  "precision": "int8_calib200",
+  "num_frames": 200,
+  "actual_frames": 200,
+  "execute_ms": {
+    "mean": 1.5264283210039138,
+    "p50": 1.5445760488510132,
+    "p90": 1.5665919780731201,
+    "p95": 1.5968639850616455,
+    "max": 2.1333119869232178
+  },
+  "forward_ms": {
+    "p50": 2.5555528700351715,
+    "p90": 2.6416853070259094,
+    "p95": 2.750769257545471,
+    "p99": 3.3917538821697235,
+    "mean": 2.563158944249153,
+    "max": 4.10042330622673
+  },
+  "total_runner_ms": {
+    "mean": 2.563158944249153,
+    "p50": 2.5555528700351715,
+    "p90": 2.6416853070259094,
+    "p95": 2.750769257545471,
+    "max": 4.10042330622673
+  },
+  "forward_p50_ms": 2.5555528700351715,
+  "execute_p50_ms": 1.5445760488510132,
+  "fps": 391.3047590309635,
+  "record_len_distribution": {
+    "1": 20,
+    "2": 180
+  },
+  "bucket_distribution": {
+    "0": 16,
+    "1": 93,
+    "2": 50,
+    "3": 41
+  },
+  "fixed_k_buckets": [
+    {
+      "bucket_id": 0,
+      "min_voxels": 1,
+      "opt_voxels": 9728,
+      "max_voxels": 9728
+    },
+    {
+      "bucket_id": 1,
+      "min_voxels": 9729,
+      "opt_voxels": 23040,
+      "max_voxels": 23040
+    },
+    {
+      "bucket_id": 2,
+      "min_voxels": 23041,
+      "opt_voxels": 23552,
+      "max_voxels": 23552
+    },
+    {
+      "bucket_id": 3,
+      "min_voxels": 23553,
+      "opt_voxels": 24064,
+      "max_voxels": 24064
+    }
+  ],
+  "valid_voxel_mask_enabled": true,
+  "pointpillar_scatter_plugin_enabled": true,
+  "valid_agent_mask_enabled": false,
+  "true_dynamic_agent_dim": false,
+  "per_N_engine_routing": true
+}

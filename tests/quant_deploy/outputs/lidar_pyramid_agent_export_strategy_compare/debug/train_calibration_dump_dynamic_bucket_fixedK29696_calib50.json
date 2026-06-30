@@ -1,0 +1,2588 @@
+{
+  "strategy": "dynamic_bucket",
+  "calibration_split": "train",
+  "num_calibration_frames": 50,
+  "fixed_K": 29696,
+  "calibration_from_train": true,
+  "evaluation_from_val": false,
+  "calibration_eval_overlap": false,
+  "record_len_distribution": {
+    "1": 3,
+    "2": 47
+  },
+  "N_distribution": {
+    "1": 3,
+    "2": 47
+  },
+  "bucket_distribution": {
+    "1": 43,
+    "0": 1,
+    "3": 5,
+    "2": 1
+  },
+  "original_num_voxels_distribution": {
+    "min": 8910.0,
+    "p50": 19158.0,
+    "p90": 23483.0,
+    "p95": 27166.3,
+    "p99": 29221.449999999997,
+    "max": 29562.0,
+    "mean": 19548.24
+  },
+  "padding_ratio_distribution": {
+    "min": 0.003481657608695652,
+    "p50": 0.16848958333333333,
+    "p90": 0.18238715277777778,
+    "p95": 0.19850956357758617,
+    "p99": 0.5348606770833333,
+    "max": 0.536328125,
+    "mean": 0.16792961232514222
+  },
+  "K coverage distribution": {
+    "min": 8910.0,
+    "p50": 19158.0,
+    "p90": 23483.0,
+    "p95": 27166.3,
+    "p99": 29221.449999999997,
+    "max": 29562.0,
+    "mean": 19548.24
+  },
+  "K_coverage_distribution": {
+    "min": 8910.0,
+    "p50": 19158.0,
+    "p90": 23483.0,
+    "p95": 27166.3,
+    "p99": 29221.449999999997,
+    "max": 29562.0,
+    "mean": 19548.24
+  },
+  "sample_idx list": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49
+  ],
+  "sample_idx_list": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49
+  ],
+  "train_dataset_indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    76,
+    82,
+    339,
+    981,
+    1846,
+    4260,
+    4503
+  ],
+  "npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50",
+  "npz_file_count": 50,
+  "manifest_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/manifest.json",
+  "skipped_samples": [],
+  "skip_reasons": {},
+  "samples": [
+    {
+      "record_len": 1,
+      "N": 1,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 10752,
+      "padding_ratio": 0.5333333333333333,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000000_N1_bucket1.npz",
+      "sample_idx": 0,
+      "train_dataset_index": 0,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 1,
+      "N": 1,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 10683,
+      "padding_ratio": 0.536328125,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000001_N1_bucket1.npz",
+      "sample_idx": 1,
+      "train_dataset_index": 1,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 1,
+      "N": 1,
+      "bucket_id": 0,
+      "fixed_K": 9728,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 8910,
+      "padding_ratio": 0.08408717105263158,
+      "input_shapes": {
+        "voxel_features": [
+          9728,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          9728,
+          4
+        ],
+        "voxel_num_points": [
+          9728
+        ],
+        "pairwise_t_matrix": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          9728
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000002_N1_bucket0.npz",
+      "sample_idx": 2,
+      "train_dataset_index": 2,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19498,
+      "padding_ratio": 0.15373263888888888,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000003_N2_bucket1.npz",
+      "sample_idx": 3,
+      "train_dataset_index": 3,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19507,
+      "padding_ratio": 0.15334201388888888,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000004_N2_bucket1.npz",
+      "sample_idx": 4,
+      "train_dataset_index": 4,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19652,
+      "padding_ratio": 0.14704861111111112,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000005_N2_bucket1.npz",
+      "sample_idx": 5,
+      "train_dataset_index": 5,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19251,
+      "padding_ratio": 0.164453125,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000006_N2_bucket1.npz",
+      "sample_idx": 6,
+      "train_dataset_index": 6,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19374,
+      "padding_ratio": 0.15911458333333334,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000007_N2_bucket1.npz",
+      "sample_idx": 7,
+      "train_dataset_index": 7,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19335,
+      "padding_ratio": 0.16080729166666666,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000008_N2_bucket1.npz",
+      "sample_idx": 8,
+      "train_dataset_index": 8,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19352,
+      "padding_ratio": 0.16006944444444443,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000009_N2_bucket1.npz",
+      "sample_idx": 9,
+      "train_dataset_index": 9,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19289,
+      "padding_ratio": 0.16280381944444444,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000010_N2_bucket1.npz",
+      "sample_idx": 10,
+      "train_dataset_index": 10,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19408,
+      "padding_ratio": 0.15763888888888888,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000011_N2_bucket1.npz",
+      "sample_idx": 11,
+      "train_dataset_index": 11,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19051,
+      "padding_ratio": 0.17313368055555556,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000012_N2_bucket1.npz",
+      "sample_idx": 12,
+      "train_dataset_index": 12,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19234,
+      "padding_ratio": 0.16519097222222223,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000013_N2_bucket1.npz",
+      "sample_idx": 13,
+      "train_dataset_index": 13,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19028,
+      "padding_ratio": 0.17413194444444444,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000014_N2_bucket1.npz",
+      "sample_idx": 14,
+      "train_dataset_index": 14,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19182,
+      "padding_ratio": 0.16744791666666667,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000015_N2_bucket1.npz",
+      "sample_idx": 15,
+      "train_dataset_index": 15,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18978,
+      "padding_ratio": 0.17630208333333333,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000016_N2_bucket1.npz",
+      "sample_idx": 16,
+      "train_dataset_index": 16,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19178,
+      "padding_ratio": 0.16762152777777778,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000017_N2_bucket1.npz",
+      "sample_idx": 17,
+      "train_dataset_index": 17,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19072,
+      "padding_ratio": 0.17222222222222222,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000018_N2_bucket1.npz",
+      "sample_idx": 18,
+      "train_dataset_index": 18,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18940,
+      "padding_ratio": 0.1779513888888889,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000019_N2_bucket1.npz",
+      "sample_idx": 19,
+      "train_dataset_index": 19,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19165,
+      "padding_ratio": 0.1681857638888889,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000020_N2_bucket1.npz",
+      "sample_idx": 20,
+      "train_dataset_index": 20,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18840,
+      "padding_ratio": 0.18229166666666666,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000021_N2_bucket1.npz",
+      "sample_idx": 21,
+      "train_dataset_index": 21,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18874,
+      "padding_ratio": 0.18081597222222223,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000022_N2_bucket1.npz",
+      "sample_idx": 22,
+      "train_dataset_index": 22,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19143,
+      "padding_ratio": 0.169140625,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000023_N2_bucket1.npz",
+      "sample_idx": 23,
+      "train_dataset_index": 23,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18952,
+      "padding_ratio": 0.17743055555555556,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000024_N2_bucket1.npz",
+      "sample_idx": 24,
+      "train_dataset_index": 24,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19342,
+      "padding_ratio": 0.16050347222222222,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000025_N2_bucket1.npz",
+      "sample_idx": 25,
+      "train_dataset_index": 25,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19278,
+      "padding_ratio": 0.16328125,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000026_N2_bucket1.npz",
+      "sample_idx": 26,
+      "train_dataset_index": 26,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19022,
+      "padding_ratio": 0.17439236111111112,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000027_N2_bucket1.npz",
+      "sample_idx": 27,
+      "train_dataset_index": 27,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18818,
+      "padding_ratio": 0.18324652777777778,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000028_N2_bucket1.npz",
+      "sample_idx": 28,
+      "train_dataset_index": 28,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18989,
+      "padding_ratio": 0.17582465277777778,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000029_N2_bucket1.npz",
+      "sample_idx": 29,
+      "train_dataset_index": 29,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19021,
+      "padding_ratio": 0.1744357638888889,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000030_N2_bucket1.npz",
+      "sample_idx": 30,
+      "train_dataset_index": 30,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19060,
+      "padding_ratio": 0.17274305555555555,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000031_N2_bucket1.npz",
+      "sample_idx": 31,
+      "train_dataset_index": 31,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19151,
+      "padding_ratio": 0.16879340277777777,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000032_N2_bucket1.npz",
+      "sample_idx": 32,
+      "train_dataset_index": 32,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19057,
+      "padding_ratio": 0.17287326388888888,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000033_N2_bucket1.npz",
+      "sample_idx": 33,
+      "train_dataset_index": 33,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19241,
+      "padding_ratio": 0.16488715277777777,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000034_N2_bucket1.npz",
+      "sample_idx": 34,
+      "train_dataset_index": 34,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19093,
+      "padding_ratio": 0.17131076388888888,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000035_N2_bucket1.npz",
+      "sample_idx": 35,
+      "train_dataset_index": 35,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18857,
+      "padding_ratio": 0.18155381944444443,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000036_N2_bucket1.npz",
+      "sample_idx": 36,
+      "train_dataset_index": 36,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18657,
+      "padding_ratio": 0.190234375,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000037_N2_bucket1.npz",
+      "sample_idx": 37,
+      "train_dataset_index": 37,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19123,
+      "padding_ratio": 0.17000868055555557,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000038_N2_bucket1.npz",
+      "sample_idx": 38,
+      "train_dataset_index": 38,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19064,
+      "padding_ratio": 0.17256944444444444,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000039_N2_bucket1.npz",
+      "sample_idx": 39,
+      "train_dataset_index": 39,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19258,
+      "padding_ratio": 0.16414930555555557,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000040_N2_bucket1.npz",
+      "sample_idx": 40,
+      "train_dataset_index": 40,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 18970,
+      "padding_ratio": 0.17664930555555555,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000041_N2_bucket1.npz",
+      "sample_idx": 41,
+      "train_dataset_index": 41,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 19309,
+      "padding_ratio": 0.1619357638888889,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000042_N2_bucket1.npz",
+      "sample_idx": 42,
+      "train_dataset_index": 42,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 3,
+      "fixed_K": 29696,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 23600,
+      "padding_ratio": 0.2052801724137931,
+      "input_shapes": {
+        "voxel_features": [
+          29696,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          29696,
+          4
+        ],
+        "voxel_num_points": [
+          29696
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          29696
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000043_N2_bucket3.npz",
+      "sample_idx": 43,
+      "train_dataset_index": 76,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 2,
+      "fixed_K": 23552,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 23470,
+      "padding_ratio": 0.003481657608695652,
+      "input_shapes": {
+        "voxel_features": [
+          23552,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23552,
+          4
+        ],
+        "voxel_num_points": [
+          23552
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23552
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000044_N2_bucket2.npz",
+      "sample_idx": 44,
+      "train_dataset_index": 82,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 1,
+      "fixed_K": 23040,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 21687,
+      "padding_ratio": 0.05872395833333333,
+      "input_shapes": {
+        "voxel_features": [
+          23040,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          23040,
+          4
+        ],
+        "voxel_num_points": [
+          23040
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          23040
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000045_N2_bucket1.npz",
+      "sample_idx": 45,
+      "train_dataset_index": 339,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 3,
+      "fixed_K": 29696,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 27457,
+      "padding_ratio": 0.07539735991379311,
+      "input_shapes": {
+        "voxel_features": [
+          29696,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          29696,
+          4
+        ],
+        "voxel_num_points": [
+          29696
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          29696
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000046_N2_bucket3.npz",
+      "sample_idx": 46,
+      "train_dataset_index": 981,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 3,
+      "fixed_K": 29696,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 26811,
+      "padding_ratio": 0.09715113146551724,
+      "input_shapes": {
+        "voxel_features": [
+          29696,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          29696,
+          4
+        ],
+        "voxel_num_points": [
+          29696
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          29696
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000047_N2_bucket3.npz",
+      "sample_idx": 47,
+      "train_dataset_index": 1846,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 3,
+      "fixed_K": 29696,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 29562,
+      "padding_ratio": 0.00451239224137931,
+      "input_shapes": {
+        "voxel_features": [
+          29696,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          29696,
+          4
+        ],
+        "voxel_num_points": [
+          29696
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          29696
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000048_N2_bucket3.npz",
+      "sample_idx": 48,
+      "train_dataset_index": 4260,
+      "scenario_id": null,
+      "frame_id": null
+    },
+    {
+      "record_len": 2,
+      "N": 2,
+      "bucket_id": 3,
+      "fixed_K": 29696,
+      "global_fixed_K_full_cover": 29696,
+      "original_num_voxels": 28867,
+      "padding_ratio": 0.02791621767241379,
+      "input_shapes": {
+        "voxel_features": [
+          29696,
+          32,
+          4
+        ],
+        "voxel_coords": [
+          29696,
+          4
+        ],
+        "voxel_num_points": [
+          29696
+        ],
+        "pairwise_t_matrix": [
+          1,
+          2,
+          2,
+          4,
+          4
+        ],
+        "valid_voxel_mask": [
+          29696
+        ]
+      },
+      "input_dtypes": {
+        "voxel_features": "float32",
+        "voxel_coords": "int32",
+        "voxel_num_points": "int32",
+        "pairwise_t_matrix": "float32",
+        "valid_voxel_mask": "float32"
+      },
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_dynamic_bucket_fixedK29696_50/sample_000049_N2_bucket3.npz",
+      "sample_idx": 49,
+      "train_dataset_index": 4503,
+      "scenario_id": null,
+      "frame_id": null
+    }
+  ],
+  "selected_train_indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    76,
+    82,
+    339,
+    981,
+    1846,
+    4260,
+    4503
+  ],
+  "input_names": [
+    "voxel_features",
+    "voxel_coords",
+    "voxel_num_points",
+    "pairwise_t_matrix",
+    "valid_voxel_mask"
+  ],
+  "input_shapes": {
+    "voxel_features": [
+      23040,
+      32,
+      4
+    ],
+    "voxel_coords": [
+      23040,
+      4
+    ],
+    "voxel_num_points": [
+      23040
+    ],
+    "pairwise_t_matrix": [
+      1,
+      1,
+      1,
+      4,
+      4
+    ],
+    "valid_voxel_mask": [
+      23040
+    ]
+  },
+  "input_dtypes": {
+    "voxel_features": "float32",
+    "voxel_coords": "int32",
+    "voxel_num_points": "int32",
+    "pairwise_t_matrix": "float32",
+    "valid_voxel_mask": "float32"
+  },
+  "fixed_k_buckets": [
+    {
+      "bucket_id": 0,
+      "min_voxels": 1,
+      "opt_voxels": 9728,
+      "max_voxels": 9728
+    },
+    {
+      "bucket_id": 1,
+      "min_voxels": 9729,
+      "opt_voxels": 23040,
+      "max_voxels": 23040
+    },
+    {
+      "bucket_id": 2,
+      "min_voxels": 23041,
+      "opt_voxels": 23552,
+      "max_voxels": 23552
+    },
+    {
+      "bucket_id": 3,
+      "min_voxels": 23553,
+      "opt_voxels": 29696,
+      "max_voxels": 29696
+    }
+  ]
+}

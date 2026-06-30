@@ -1,0 +1,55 @@
+{
+  "strategy": "dynamic_agent_single_engine_maxK",
+  "precision": "fp16",
+  "calibration_split": null,
+  "evaluation_split": "val",
+  "calibration_frames": null,
+  "eval_frames": 50,
+  "single_engine": true,
+  "engine_count": 1,
+  "execute_ms": {
+    "mean": 6.21655993938446,
+    "p50": 1.8143359422683716,
+    "p90": 1.8222399950027466,
+    "p95": 1.9512959718704224,
+    "p99": 118.71772766113281,
+    "max": 118.71772766113281
+  },
+  "forward_ms": {
+    "mean": 20.199254602193832,
+    "p50": 16.694746911525726,
+    "p90": 16.86914637684822,
+    "p95": 17.171330749988556,
+    "p99": 133.61383602023125,
+    "max": 133.61383602023125
+  },
+  "total_runner_ms": {
+    "mean": 20.199254602193832,
+    "p50": 16.694746911525726,
+    "p90": 16.86914637684822,
+    "p95": 17.171330749988556,
+    "p99": 133.61383602023125,
+    "max": 133.61383602023125
+  },
+  "shape_setup_ms": {
+    "mean": 0.001279190182685852,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p95": 0.0,
+    "p99": 0.041019171476364136,
+    "max": 0.041019171476364136
+  },
+  "padding_ms": {
+    "mean": 1.592424362897873,
+    "p50": 1.5979818999767303,
+    "p90": 2.0658373832702637,
+    "p95": 2.0952709019184113,
+    "p99": 2.691451460123062,
+    "max": 2.691451460123062
+  },
+  "FPS": 59.899081148071765,
+  "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/dynamic_agent_single_engine_maxK/fp16/lidar_pyramid_dynamic_agent_single_engine_maxK_fp16.engine",
+  "mAP_drop_vs_single_engine_FP16_same_val_set": 0.0,
+  "mAP_drop_vs_multi_engine_FP16_same_val_set": 0.0003,
+  "AP@0.70_drop_vs_FP16": 0.0
+}

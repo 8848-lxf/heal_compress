@@ -1,0 +1,8 @@
+hypes_yaml=/tmp/missing_lidar_pyramid.yaml
+checkpoint=/tmp/missing_lidar_pyramid.pth
+device=cpu
+Traceback (most recent call last):
+  File "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/export_lidar_pyramid_onnx.py", line 276, in export_lidar_pyramid_onnx
+    raise FileNotFoundError(f"hypes_yaml is required and does not exist: {hypes_yaml}")
+FileNotFoundError: hypes_yaml is required and does not exist: /tmp/missing_lidar_pyramid.yaml
+

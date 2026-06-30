@@ -1,0 +1,321 @@
+{
+  "success": true,
+  "precision": "fp32",
+  "audit": {
+    "plugin_cpp": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt/pointpillar_scatter_plugin.cpp",
+    "supports_legacy_3_input": true,
+    "supports_dynamicN_4_input": true,
+    "uses_outputDesc_runtime_agents_in_enqueue": true,
+    "serialized_num_agents_still_present_for_legacy": true,
+    "plugin_supports_runtime_N": true,
+    "valid_voxel_mask_dtype_path": "kFLOAT/kHALF/kINT32/kBOOL supported in supportsFormatCombination and kernel maskValid",
+    "voxel_coords_dtype": "int32",
+    "INT8_IO_supported": false
+  },
+  "plugin_build": {
+    "plugin_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt",
+    "build_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build",
+    "plugin_so": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+    "success": true,
+    "error": null
+  },
+  "engine_build": {
+    "success": true,
+    "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/plugins/pointpillar_scatter_dynamicN_fp32.engine",
+    "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/pointpillar_scatter_dynamicN_fp32.onnx",
+    "plugin_so": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+    "trtexec": {
+      "trtexec_found": true,
+      "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+      "checked_paths": [
+        "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+      ],
+      "suggestion": null
+    },
+    "error": null,
+    "command": [
+      "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/debug/pointpillar_scatter_dynamicN_fp32.onnx",
+      "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/plugins/pointpillar_scatter_dynamicN_fp32.engine",
+      "--staticPlugins=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
+      "--exportLayerInfo=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/plugins/layerinfo_pointpillar_scatter_dynamicN_fp32.json",
+      "--dumpLayerInfo",
+      "--profilingVerbosity=detailed",
+      "--skipInference",
+      "--minShapes=pillar_features:32x4,voxel_coords:32x4,valid_voxel_mask:32,pairwise_t_matrix:1x1x1x4x4",
+      "--optShapes=pillar_features:32x4,voxel_coords:32x4,valid_voxel_mask:32,pairwise_t_matrix:1x2x2x4x4",
+      "--maxShapes=pillar_features:32x4,voxel_coords:32x4,valid_voxel_mask:32,pairwise_t_matrix:1x2x2x4x4",
+      "--noTF32"
+    ],
+    "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_pointpillar_scatter_dynamicN_fp32.log",
+    "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/plugins/layerinfo_pointpillar_scatter_dynamicN_fp32.json"
+  },
+  "same_engine_tested_for_N1_and_N2": true,
+  "runtime_dynamic_N_supported": true,
+  "padding_voxel_affects_output": false,
+  "coords_agent_index_oob_safe": true,
+  "frames": [
+    {
+      "N": 1,
+      "expected_shape": [
+        1,
+        4,
+        6,
+        8
+      ],
+      "candidate_shape": [
+        1,
+        4,
+        6,
+        8
+      ],
+      "max_abs_error": 0.0,
+      "mean_abs_error": 0.0,
+      "equivalent": true,
+      "trt_profile": {
+        "dtype_cast_ms": 0.0,
+        "contiguous_ms": 0.0,
+        "h2d_copy_ms": 0.0,
+        "input_device_copy_ms": 0.18753856420516968,
+        "set_input_shape_ms": 0.06571412086486816,
+        "bind_address_ms": 0.04165433347225189,
+        "execute_async_ms": 0.342303991317749,
+        "synchronize_ms": 0.006800517439842224,
+        "d2h_copy_ms": 0.0,
+        "output_wrap_ms": 0.004781410098075867,
+        "input_buffer_reallocated": true,
+        "output_buffer_reallocated": true,
+        "set_input_shape_calls": 4,
+        "output_shape_query_calls": 1,
+        "h2d_copies": 0,
+        "d2d_input_copies": 4,
+        "d2h_copies": 0,
+        "bytes_h2d": 0,
+        "bytes_d2d_input": 1216,
+        "bytes_d2h": 0,
+        "input_shapes": {
+          "pillar_features": [
+            32,
+            4
+          ],
+          "voxel_coords": [
+            32,
+            4
+          ],
+          "valid_voxel_mask": [
+            32
+          ],
+          "pairwise_t_matrix": [
+            1,
+            1,
+            1,
+            4,
+            4
+          ]
+        },
+        "output_shapes": {
+          "spatial_features": [
+            1,
+            4,
+            6,
+            8
+          ]
+        },
+        "output_shape_query_ms": 0.040821731090545654,
+        "total_runner_ms": 2.570943906903267,
+        "allocation_report": {
+          "context_created_per_run": false,
+          "stream_created_per_run": false,
+          "context_create_count": 1,
+          "stream_create_count": 1,
+          "run_count": 1,
+          "input_buffer_reallocation_count": 4,
+          "output_buffer_reallocation_count": 1,
+          "set_input_shape_call_count": 4,
+          "output_shape_query_call_count": 1,
+          "number_of_h2d_copies": 0,
+          "number_of_d2d_input_copies": 4,
+          "number_of_d2h_copies": 0,
+          "total_bytes_h2d": 0,
+          "total_bytes_d2d_input": 1216,
+          "total_bytes_d2h": 0,
+          "input_buffer_reallocated_per_frame": true,
+          "output_buffer_reallocated_per_frame": true,
+          "set_input_shape_called_per_frame": true,
+          "output_shape_query_called_per_frame": true,
+          "input_buffers": {
+            "pillar_features": {
+              "shape": [
+                128
+              ],
+              "dtype": "torch.float32",
+              "numel": 128
+            },
+            "voxel_coords": {
+              "shape": [
+                128
+              ],
+              "dtype": "torch.int32",
+              "numel": 128
+            },
+            "valid_voxel_mask": {
+              "shape": [
+                32
+              ],
+              "dtype": "torch.float32",
+              "numel": 32
+            },
+            "pairwise_t_matrix": {
+              "shape": [
+                64
+              ],
+              "dtype": "torch.float32",
+              "numel": 64
+            }
+          },
+          "output_buffers": {
+            "spatial_features": {
+              "shape": [
+                192
+              ],
+              "dtype": "torch.float32",
+              "numel": 192
+            }
+          }
+        }
+      }
+    },
+    {
+      "N": 2,
+      "expected_shape": [
+        2,
+        4,
+        6,
+        8
+      ],
+      "candidate_shape": [
+        2,
+        4,
+        6,
+        8
+      ],
+      "max_abs_error": 0.0,
+      "mean_abs_error": 0.0,
+      "equivalent": true,
+      "trt_profile": {
+        "dtype_cast_ms": 0.0,
+        "contiguous_ms": 0.0,
+        "h2d_copy_ms": 0.0,
+        "input_device_copy_ms": 0.10392628610134125,
+        "set_input_shape_ms": 0.017199665307998657,
+        "bind_address_ms": 0.01553259789943695,
+        "execute_async_ms": 0.09097599983215332,
+        "synchronize_ms": 0.005496665835380554,
+        "d2h_copy_ms": 0.0,
+        "output_wrap_ms": 0.0032279640436172485,
+        "input_buffer_reallocated": false,
+        "output_buffer_reallocated": true,
+        "set_input_shape_calls": 1,
+        "output_shape_query_calls": 1,
+        "h2d_copies": 0,
+        "d2d_input_copies": 4,
+        "d2h_copies": 0,
+        "bytes_h2d": 0,
+        "bytes_d2d_input": 1408,
+        "bytes_d2h": 0,
+        "input_shapes": {
+          "pillar_features": [
+            32,
+            4
+          ],
+          "voxel_coords": [
+            32,
+            4
+          ],
+          "valid_voxel_mask": [
+            32
+          ],
+          "pairwise_t_matrix": [
+            1,
+            2,
+            2,
+            4,
+            4
+          ]
+        },
+        "output_shapes": {
+          "spatial_features": [
+            2,
+            4,
+            6,
+            8
+          ]
+        },
+        "output_shape_query_ms": 0.02927519381046295,
+        "total_runner_ms": 0.9291116148233414,
+        "allocation_report": {
+          "context_created_per_run": false,
+          "stream_created_per_run": false,
+          "context_create_count": 1,
+          "stream_create_count": 1,
+          "run_count": 2,
+          "input_buffer_reallocation_count": 4,
+          "output_buffer_reallocation_count": 2,
+          "set_input_shape_call_count": 5,
+          "output_shape_query_call_count": 2,
+          "number_of_h2d_copies": 0,
+          "number_of_d2d_input_copies": 8,
+          "number_of_d2h_copies": 0,
+          "total_bytes_h2d": 0,
+          "total_bytes_d2d_input": 2624,
+          "total_bytes_d2h": 0,
+          "input_buffer_reallocated_per_frame": true,
+          "output_buffer_reallocated_per_frame": true,
+          "set_input_shape_called_per_frame": true,
+          "output_shape_query_called_per_frame": true,
+          "input_buffers": {
+            "pillar_features": {
+              "shape": [
+                128
+              ],
+              "dtype": "torch.float32",
+              "numel": 128
+            },
+            "voxel_coords": {
+              "shape": [
+                128
+              ],
+              "dtype": "torch.int32",
+              "numel": 128
+            },
+            "valid_voxel_mask": {
+              "shape": [
+                32
+              ],
+              "dtype": "torch.float32",
+              "numel": 32
+            },
+            "pairwise_t_matrix": {
+              "shape": [
+                64
+              ],
+              "dtype": "torch.float32",
+              "numel": 64
+            }
+          },
+          "output_buffers": {
+            "spatial_features": {
+              "shape": [
+                384
+              ],
+              "dtype": "torch.float32",
+              "numel": 384
+            }
+          }
+        }
+      }
+    }
+  ],
+  "equivalent": true
+}

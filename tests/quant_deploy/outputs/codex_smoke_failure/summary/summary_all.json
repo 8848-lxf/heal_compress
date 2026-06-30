@@ -1,0 +1,74 @@
+{
+  "model": "lidar_pyramid",
+  "checkpoint": "/tmp/missing_lidar_pyramid.pth",
+  "hypes_yaml": "/tmp/missing_lidar_pyramid.yaml",
+  "output_root": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure",
+  "dirs": {
+    "configs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/configs",
+    "onnx": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/artifacts/onnx",
+    "engines": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/artifacts/engines",
+    "calibration": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/calibration",
+    "benchmark": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/benchmark",
+    "evaluation": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/evaluation",
+    "logs": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/logs",
+    "summary": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/summary",
+    "debug": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/debug"
+  },
+  "onnx_path": null,
+  "onnx_export": {
+    "success": false,
+    "error": "hypes_yaml is required and does not exist: /tmp/missing_lidar_pyramid.yaml",
+    "export_boundary": "full_model",
+    "opset": 17
+  },
+  "precisions": {
+    "fp32": {
+      "implemented": true,
+      "build_success": false,
+      "benchmark_success": false,
+      "engine_path": null,
+      "engine_size_MB": null,
+      "forward_p50_ms": null,
+      "forward_p90_ms": null,
+      "forward_p95_ms": null,
+      "fps": null,
+      "speedup_vs_fp32": null,
+      "error": "skipped because ONNX export failed: hypes_yaml is required and does not exist: /tmp/missing_lidar_pyramid.yaml"
+    },
+    "fp16": {
+      "implemented": true,
+      "build_success": false,
+      "benchmark_success": false,
+      "engine_path": null,
+      "engine_size_MB": null,
+      "forward_p50_ms": null,
+      "forward_p90_ms": null,
+      "forward_p95_ms": null,
+      "fps": null,
+      "speedup_vs_fp32": null,
+      "error": "skipped because ONNX export failed: hypes_yaml is required and does not exist: /tmp/missing_lidar_pyramid.yaml"
+    },
+    "int8": {
+      "implemented": false,
+      "build_success": false,
+      "benchmark_success": false,
+      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/artifacts/engines/int8/lidar_pyramid_int8_qdq.engine",
+      "engine_size_MB": null,
+      "forward_p50_ms": null,
+      "forward_p90_ms": null,
+      "forward_p95_ms": null,
+      "fps": null,
+      "speedup_vs_fp32": null,
+      "error": "INT8 deployment is not implemented yet. The current implementation supports fp32/fp16 engine build and reserves the INT8 Q/DQ interface for future extension."
+    }
+  },
+  "detected_special_ops": {
+    "GridSample": [],
+    "AffineGrid": [],
+    "Scatter": [],
+    "Inverse": [],
+    "unsupported_ops": []
+  },
+  "evaluation_status": "not_run",
+  "evaluation_reason": "current stage only benchmarks TensorRT engine forward latency"
+}
