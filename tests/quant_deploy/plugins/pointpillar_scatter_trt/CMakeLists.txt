@@ -27,8 +27,16 @@ endif()
 find_package(CUDAToolkit REQUIRED)
 
 find_path(TENSORRT_INCLUDE_DIR NvInfer.h HINTS ${TRT_ROOT}/include REQUIRED)
-find_library(TENSORRT_LIB nvinfer HINTS ${TRT_ROOT}/lib ${TRT_ROOT}/lib64 REQUIRED)
-find_library(TENSORRT_PLUGIN_LIB nvinfer_plugin HINTS ${TRT_ROOT}/lib ${TRT_ROOT}/lib64 REQUIRED)
+find_library(TENSORRT_LIB nvinfer HINTS
+    ${TRT_ROOT}/lib
+    ${TRT_ROOT}/lib64
+    ${TRT_ROOT}/targets/x86_64-linux-gnu/lib
+    REQUIRED)
+find_library(TENSORRT_PLUGIN_LIB nvinfer_plugin HINTS
+    ${TRT_ROOT}/lib
+    ${TRT_ROOT}/lib64
+    ${TRT_ROOT}/targets/x86_64-linux-gnu/lib
+    REQUIRED)
 
 add_library(pointpillar_scatter_trt SHARED
     pointpillar_scatter_plugin.cpp

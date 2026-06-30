@@ -100,3 +100,55 @@ __pycache__/
 # Generated experiment outputs
 tests/outputs/
 tests/quant_deploy/outputs/
+
+# Generated outputs are maintained locally
+tests/quant_deploy/outputs/
+tests/outputs/
+
+# Large generated artifacts
+*.onnx
+*.engine
+*.plan
+*.trt
+*.raw
+*.so
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.weights
+*.npz
+*.npy
+
+# Python cache
+__pycache__/
+*.pyc
+tests/quant_deploy/outputs
+tests/outputs
+tests_back/
+heal_tests
+heal_tests/
+
+# Large model / deployment artifacts
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.weights
+*.onnx
+*.engine
+*.plan
+*.trt
+*.raw
+*.so
+*.npz
+*.npy
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local backup / external data symlink
+tests_back/
+heal_tests
+heal_tests/

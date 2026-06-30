@@ -123,6 +123,7 @@ def eval_modes(*, fixed_k: int = FIXED_K, dynamic_int8_calibration_split: str | 
     modes = [
         EvalMode("padded_agent_static_fp32", "padded_agent_static", "padded_agent_static_fixed_k_plugin", "fp32", None, None, "router", "padded_agent_static_fixed_k_plugin", "fp32", None, None, False, True, False, False, fixed_k, fixed_k),
         EvalMode("padded_agent_static_fp16", "padded_agent_static", "padded_agent_static_fixed_k_plugin", "fp16", None, None, "router", "padded_agent_static_fixed_k_plugin", "fp16", None, None, False, True, False, False, fixed_k, fixed_k),
+        EvalMode("padded_agent_static_int8_train_calib200", "padded_agent_static", "padded_agent_static_fixed_k_plugin", "int8", "train_calib200", "train", "router", "padded_agent_static_fixed_k_plugin", "int8_train_calib200", None, None, False, True, False, False, fixed_k, fixed_k),
         EvalMode("dynamic_bucket_fp32", "dynamic_agent_dim", "dynamic_agent_dim_bucket_fixed_k_plugin", "fp32", None, None, "router", "dynamic_agent_dim_fixed_k_plugin", "fp32", None, None, False, True, True, False, fixed_k, fixed_k),
         EvalMode("dynamic_bucket_fp16", "dynamic_agent_dim", "dynamic_agent_dim_bucket_fixed_k_plugin", "fp16", None, None, "router", "dynamic_agent_dim_fixed_k_plugin", "fp16", None, None, False, True, True, False, fixed_k, fixed_k),
         EvalMode("dynamic_bucket_int8_calib50", "dynamic_agent_dim", "dynamic_agent_dim_bucket_int8", "int8", "train_calib50" if dynamic_int8_calibration_split == "train" else "calib50", dynamic_int8_calibration_split, "router", "dynamic_agent_dim_fixed_k_plugin", "int8_calib50", None, None, False, True, True, False, fixed_k, fixed_k),
@@ -187,7 +188,15 @@ def _engine_paths_for_mode(dirs: dict[str, Path], mode: EvalMode, route_requirem
     required: list[Path] = []
     if mode.router_mode == "padded_agent_static_fixed_k_plugin":
         for bucket_id in sorted(route_requirements["required_buckets"]):
-            required.append(_fixed_k_plugin_bucket_engine_path(dirs, str(mode.router_precision), int(bucket_id)))
+            if str(mode.router_precision) == "int8_train_calib200":
+                required.append(
+                    dirs["engines"]
+                    / "padded_agent_static"
+                    / "int8_train_calib200"
+                    / f"lidar_pyramid_padded_agent_static_fixedK{int(mode.fixed_K)}_int8_train_calib200_bucket{int(bucket_id)}.engine"
+                )
+            else:
+                required.append(_fixed_k_plugin_bucket_engine_path(dirs, str(mode.router_precision), int(bucket_id)))
     else:
         for fixed_n, bucket_id in sorted(route_requirements["required_dynamic_routes"]):
             required.append(_dynamic_engine_path(dirs, str(mode.router_precision), int(fixed_n), int(bucket_id)))

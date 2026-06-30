@@ -451,6 +451,15 @@ class AgentModeFixedKRouter:
 
     def _engine_path(self, fixed_n: int, bucket_id: int) -> Path:
         if self.agent_export_mode == "padded_agent_static_fixed_k_plugin":
+            if self.precision == "int8_train_calib200":
+                ns = self.dirs["engines"].name
+                fixed_k = ns.replace("fixedK", "") if ns.startswith("fixedK") else str(max(int(bucket["max_voxels"]) for bucket in self.buckets))
+                return (
+                    self.dirs["engines"]
+                    / "padded_agent_static"
+                    / "int8_train_calib200"
+                    / f"lidar_pyramid_padded_agent_static_fixedK{fixed_k}_int8_train_calib200_bucket{int(bucket_id)}.engine"
+                )
             return _fixed_k_plugin_bucket_engine_path(self.dirs, self.precision, bucket_id)
         return _dynamic_engine_path(self.dirs, self.precision, fixed_n, bucket_id)
 

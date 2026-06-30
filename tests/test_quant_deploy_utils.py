@@ -46,6 +46,58 @@ from analyze_voxel_k_coverage import ceil_to_multiple, k_distribution_summary, r
 from dump_train_calibration_npz_for_all_strategies import enforce_train_split, file_sha256, write_calibration_manifest
 
 
+def test_engine_size_inventory_counts_recursive_route_engines(tmp_path):
+    from summarize_engine_file_sizes import ENGINE_LAYOUTS, collect_engine_inventory, compute_size_ratios
+
+    output_root = tmp_path / "run"
+    fixed_k_root = output_root / "artifacts" / "engines" / "fixedK29696"
+    single_fp16 = fixed_k_root / "dynamic_agent_single_engine_maxK" / "fp16" / "single.engine"
+    dynamic_n1 = fixed_k_root / "dynamic_agent_dim_fixed_k_scatter_plugin" / "N1" / "fp16" / "bucket0.engine"
+    dynamic_n2 = fixed_k_root / "dynamic_agent_dim_fixed_k_scatter_plugin" / "N2" / "fp16" / "bucket1.engine"
+    padded_fp16 = fixed_k_root / "fixed_k_scatter_plugin" / "fp16" / "padded.engine"
+    for path, size in [(single_fp16, 4), (dynamic_n1, 3), (dynamic_n2, 5), (padded_fp16, 2)]:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x" * size)
+
+    rows = collect_engine_inventory(output_root, fixed_k=29696, layouts=ENGINE_LAYOUTS)
+    rows = compute_size_ratios(rows)
+    by_key = {(row["scheme"], row["precision"], row["calibration"]): row for row in rows}
+
+    dynamic = by_key[("dynamic_agent_dim", "fp16", None)]
+    single = by_key[("dynamic_agent_single_engine_maxK", "fp16", None)]
+    padded = by_key[("padded_agent_static", "fp16", None)]
+
+    assert dynamic["engine_count"] == 2
+    assert dynamic["total_engine_size_bytes"] == 8
+    assert single["engine_count"] == 1
+    assert padded["engine_count"] == 1
+    assert dynamic["total_size_ratio_vs_single_engine_maxK_same_precision"] == 2.0
+    assert single["total_size_ratio_vs_dynamic_bucket_same_precision"] == 0.5
+
+
+def test_agent_mode_router_uses_padded_static_int8_train_calib200_path(tmp_path):
+    from agent_mode_fixed_k_plugin_ablation import AgentModeFixedKRouter
+
+    dirs = {
+        "engines": tmp_path / "artifacts" / "engines" / "fixedK29696",
+    }
+    router = AgentModeFixedKRouter(
+        agent_export_mode="padded_agent_static_fixed_k_plugin",
+        precision="int8_train_calib200",
+        buckets=[{"bucket_id": 1, "max_voxels": 29696}],
+        device=torch.device("cpu"),
+        dirs=dirs,
+    )
+
+    path = router._engine_path(2, 1)
+
+    assert path.parts[-3:] == (
+        "padded_agent_static",
+        "int8_train_calib200",
+        "lidar_pyramid_padded_agent_static_fixedK29696_int8_train_calib200_bucket1.engine",
+    )
+
+
 def test_create_quant_deploy_run_dirs_uses_required_layout(tmp_path):
     dirs = create_quant_deploy_run_dirs(
         output_dir=tmp_path / "quant_outputs",
@@ -319,6 +371,7 @@ def test_full_val_mode_names_and_latency_stats_include_p99():
     names = {mode.key: mode_report_name(mode) for mode in eval_modes()}
     summary = full_val_stats([3.0, 1.0, 2.0])
 
+    assert names["padded_agent_static_int8_train_calib200"] == "padded_agent_static_int8_train_calib200_full_val.json"
     assert names["single_engine_maxK_int8_train_calib200"] == "single_engine_maxK_int8_train_calib200_full_val.json"
     assert names["dynamic_bucket_fp16"] == "dynamic_bucket_fp16_full_val.json"
     assert summary["p50"] == 2.0
@@ -329,6 +382,10 @@ def test_full_val_modes_can_use_fixedk_train_calibration_namespace():
     modes = {mode.key: mode for mode in eval_modes(fixed_k=29696, dynamic_int8_calibration_split="train")}
 
     assert modes["dynamic_bucket_fp16"].fixed_K == 29696
+    assert modes["padded_agent_static_int8_train_calib200"].scheme == "padded_agent_static"
+    assert modes["padded_agent_static_int8_train_calib200"].precision == "int8"
+    assert modes["padded_agent_static_int8_train_calib200"].calibration_split == "train"
+    assert modes["padded_agent_static_int8_train_calib200"].router_precision == "int8_train_calib200"
     assert modes["dynamic_bucket_int8_calib200"].calibration_split == "train"
     assert modes["dynamic_bucket_int8_calib200"].calibration_mode == "train_calib200"
     assert modes["single_engine_maxK_int8_train_calib200"].fixed_K == 29696

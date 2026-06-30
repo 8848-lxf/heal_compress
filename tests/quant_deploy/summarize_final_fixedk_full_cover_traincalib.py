@@ -11,11 +11,13 @@ if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from quant_deploy_utils import DEFAULT_OUTPUT_DIR, ensure_quant_deploy_run_dirs, read_json, save_json
+from summarize_engine_file_sizes import PADDED_INT8_SKIP_REASON, build_analysis, build_report as build_engine_size_report
 
 
 NEW_MODE_FILES = [
     ("padded_agent_static", "padded_agent_static_fixed_k_plugin", "fp32", None, "padded_agent_static_fp32_full_val.json"),
     ("padded_agent_static", "padded_agent_static_fixed_k_plugin", "fp16", None, "padded_agent_static_fp16_full_val.json"),
+    ("padded_agent_static", "padded_agent_static_fixed_k_plugin", "int8", "train_calib200", "padded_agent_static_int8_train_calib200_full_val.json"),
     ("dynamic_agent_dim", "dynamic_agent_dim_bucket_fixed_k_plugin", "fp32", None, "dynamic_bucket_fp32_full_val.json"),
     ("dynamic_agent_dim", "dynamic_agent_dim_bucket_fixed_k_plugin", "fp16", None, "dynamic_bucket_fp16_full_val.json"),
     ("dynamic_agent_dim", "dynamic_agent_dim_bucket_int8", "int8", "train_calib50", "dynamic_bucket_int8_calib50_full_val.json"),
@@ -30,6 +32,7 @@ NEW_MODE_FILES = [
 OLD_MODE_FILES = [
     ("padded_agent_static", "padded_agent_static_fixed_k_plugin", "fp32", None, "padded_agent_static_fp32_full_val.json"),
     ("padded_agent_static", "padded_agent_static_fixed_k_plugin", "fp16", None, "padded_agent_static_fp16_full_val.json"),
+    ("padded_agent_static", "padded_agent_static_fixed_k_plugin", "int8", "train_calib200", "padded_agent_static_int8_train_calib200_full_val.json"),
     ("dynamic_agent_dim", "dynamic_agent_dim_bucket_fixed_k_plugin", "fp32", None, "dynamic_bucket_fp32_full_val.json"),
     ("dynamic_agent_dim", "dynamic_agent_dim_bucket_fixed_k_plugin", "fp16", None, "dynamic_bucket_fp16_full_val.json"),
     ("dynamic_agent_dim", "dynamic_agent_dim_bucket_int8", "int8", "calib50", "dynamic_bucket_int8_calib50_full_val.json"),
@@ -107,6 +110,9 @@ def _row_from_report(
         "skipped": skipped_count,
         "skipped_ratio": skipped_ratio,
         "engine_count": report.get("engine_count"),
+        "engine_paths": report.get("engine_paths") or ([report.get("engine_path")] if report.get("engine_path") else []),
+        "total_engine_size_MB": report.get("total_engine_size_MB"),
+        "deployment_package_size_MB": report.get("deployment_package_size_MB"),
         "AP@0.30": report.get("AP@0.30"),
         "AP@0.50": report.get("AP@0.50"),
         "AP@0.70": report.get("AP@0.70"),
@@ -152,11 +158,56 @@ def _best(rows: list[dict[str, Any]], metric: str, *, precision: str | None = No
     return sorted(candidates, key=lambda row: float(row[metric]), reverse=reverse)[0]
 
 
+def _size_key(row: dict[str, Any]) -> tuple[str, str, str | None]:
+    return str(row.get("scheme")), str(row.get("precision")), row.get("calibration")
+
+
+def _load_or_build_size_report(dirs: dict[str, Path], fixed_k: int, full_val_tag: str) -> dict[str, Any]:
+    path = dirs["summary"] / "engine_file_size_and_deployment_package_report.json"
+    report = read_json(path, default=None)
+    if isinstance(report, dict) and int(report.get("fixed_K") or 0) == int(fixed_k):
+        return report
+    report = build_engine_size_report(dirs["output_root"], fixed_k=int(fixed_k), full_val_tag=full_val_tag)
+    save_json(report, dirs["debug"] / "engine_file_size_inventory_fixedK29696.json")
+    save_json(report, path)
+    return report
+
+
+def _merge_engine_sizes(rows: list[dict[str, Any]], size_report: dict[str, Any], *, only_fixed_k: int) -> None:
+    inventory = size_report.get("inventory") if isinstance(size_report, dict) else None
+    if not isinstance(inventory, list):
+        return
+    size_by_key = {
+        (str(row.get("scheme")), str(row.get("precision")), row.get("calibration")): row
+        for row in inventory
+        if isinstance(row, dict)
+    }
+    for row in rows:
+        if int(row.get("fixed_K") or 0) != int(only_fixed_k):
+            continue
+        size_row = size_by_key.get(_size_key(row))
+        if not size_row:
+            continue
+        row["engine_count"] = size_row.get("engine_count", row.get("engine_count"))
+        row["total_engine_size_MB"] = size_row.get("total_engine_size_MB")
+        row["deployment_package_size_MB"] = size_row.get("total_engine_size_MB")
+        row["largest_engine_MB"] = size_row.get("largest_engine_MB")
+        row["smallest_engine_MB"] = size_row.get("smallest_engine_MB")
+        row["mean_engine_size_MB"] = size_row.get("mean_engine_size_MB")
+        row["engine_files"] = size_row.get("engine_files")
+        row["total_size_ratio_vs_single_engine_maxK_same_precision"] = size_row.get("total_size_ratio_vs_single_engine_maxK_same_precision")
+        if size_row.get("notes"):
+            row["notes"] = "; ".join(part for part in [row.get("notes"), size_row.get("notes")] if part)
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     dirs = ensure_quant_deploy_run_dirs(args.output_root)
     new_tag = args.new_full_val_tag or f"full_val_fixedK{int(args.new_fixed_k)}_trainCalib"
     old_rows = _collect_rows(dirs["evaluation"] / "full_val_idle_gpu", OLD_MODE_FILES, fixed_k=int(args.old_fixed_k), filtered_eval=True, historical=True)
     new_rows = _collect_rows(dirs["evaluation"] / new_tag, NEW_MODE_FILES, fixed_k=int(args.new_fixed_k), filtered_eval=False, historical=False)
+    size_report = _load_or_build_size_report(dirs, int(args.new_fixed_k), new_tag)
+    _merge_engine_sizes(new_rows, size_report, only_fixed_k=int(args.new_fixed_k))
+    size_analysis = size_report.get("analysis") if isinstance(size_report.get("analysis"), dict) else build_analysis(size_report.get("inventory", []))
 
     fp16_refs: dict[str, dict[str, Any]] = {}
     for row in new_rows:
@@ -187,7 +238,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     fastest_fp16 = _best(new_rows, "forward_p50", precision="fp16")
     fastest_int8 = _best(new_rows, "forward_p50", precision="int8")
     best_ap = _best(new_rows, "mAP", reverse=True)
-    recommended_fp16 = fastest_fp16
+    recommended_fp16 = next(
+        (
+            row
+            for row in new_rows
+            if row.get("scheme") == "dynamic_agent_single_engine_maxK" and row.get("precision") == "fp16" and row.get("status") == "success"
+        ),
+        fastest_fp16,
+    )
     recommended_int8 = _best(int8_candidates, "forward_p50") if int8_candidates else None
     new_full_val_completed = bool(new_success) and all(row.get("status") == "success" for row in new_rows)
     remaining_skipped = (
@@ -218,6 +276,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "new_fixedK_rows": new_rows,
         "historical_rows": old_rows,
         "int8_calibration_split_diagnosis": diagnosis,
+        "engine_file_size_report": {
+            "json": str(dirs["summary"] / "engine_file_size_and_deployment_package_report.json"),
+            "md": str(dirs["summary"] / "engine_file_size_and_deployment_package_report.md"),
+        },
+        "deployment_package_size_analysis": size_analysis,
         "new_fixedK_full_val_completed": new_full_val_completed,
         "gpu_selection_report": gpu_report,
         "analysis": {
@@ -231,9 +294,39 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "dynamic_bucket_train_calibration_drop_vs_historical": diagnosis.get("historical_dynamic_vs_new_train_dynamic_mAP_delta"),
             "single_engine_train_calibration_still_worse_than_dynamic": diagnosis.get("new_train_dynamic_vs_new_train_single_mAP_delta"),
             "recommended_fp16_path": recommended_fp16,
+            "fastest_fp16_path": fastest_fp16,
+            "recommended_fp16_path_reason": (
+                "single_engine_maxK FP16 is the default recommendation because it preserves FP16 AP, "
+                "uses one serialized engine, and avoids the multi-route deployment package size increase. "
+                "dynamic bucket FP16 remains the speed upper-bound option."
+            ),
             "recommended_int8_speed_candidate": recommended_int8,
             "int8_accepts_mAP_drop_lt_0p1": bool(int8_candidates),
             "recommend_qdq_modelopt_next": not bool(int8_candidates),
+            "padded_agent_static_INT8_train_calib200_evaluated": size_analysis.get("padded_agent_static_INT8_train_calib200_evaluated"),
+            "padded_agent_static_INT8_train_calib200_skip_reason": (
+                size_analysis.get("padded_agent_static_INT8_train_calib200_skip_reason")
+                if not size_analysis.get("padded_agent_static_INT8_train_calib200_evaluated")
+                else None
+            ),
+            "single_engine_maxK_FP32_included": any(
+                row.get("scheme") == "dynamic_agent_single_engine_maxK"
+                and row.get("precision") == "fp32"
+                and row.get("status") == "success"
+                for row in new_rows
+            ),
+            "dynamic_bucket_FP16_forward_p50_speedup_vs_single_engine_maxK_FP16_percent": size_analysis.get(
+                "dynamic_bucket_FP16_forward_p50_speedup_vs_single_engine_maxK_FP16_percent"
+            ),
+            "dynamic_bucket_FP16_size_ratio_vs_single_engine_maxK_FP16": size_analysis.get(
+                "dynamic_bucket_FP16_size_ratio_vs_single_engine_maxK_FP16"
+            ),
+            "dynamic_bucket_INT8_train_calib200_forward_p50_speedup_vs_single_engine_maxK_INT8_percent": size_analysis.get(
+                "dynamic_bucket_INT8_train_calib200_forward_p50_speedup_vs_single_engine_maxK_INT8_percent"
+            ),
+            "dynamic_bucket_INT8_train_calib200_size_ratio_vs_single_engine_maxK_INT8": size_analysis.get(
+                "dynamic_bucket_INT8_train_calib200_size_ratio_vs_single_engine_maxK_INT8"
+            ),
             "mixed_precision_whitelist_priority": [
                 "PFN / PillarVFE",
                 "regression head",
@@ -249,6 +342,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "heAL_opencood_source_modified": False,
         "padded_agent_static_default_path": False,
         "default_path_remains_dynamic_or_single_engine_lidar_pyramid_with_PointPillarScatterTRT": True,
+        "final_recommended_default_path": size_analysis.get("final_recommended_default_path")
+        or "dynamic_agent_single_engine_maxK FP16 fixedK29696 + PointPillarScatterTRT",
     }
     save_json(report, dirs["summary"] / "final_fixedK_full_cover_trainCalib_deployment_report.json")
 
@@ -262,8 +357,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "- calibration_eval_overlap: false",
         "- old fixed_K=24064 full-val filtered results are superseded.",
         "",
-        "scheme | engine_strategy | fixed_K | precision | calibration_split | calibration_frames | evaluation_split | total_val | evaluated | skipped | engine_count | AP@0.30 | AP@0.50 | AP@0.70 | mAP | mAP_drop_vs_FP16 | execute_p50 | forward_p50 | FPS | reliable_latency | notes",
-        "--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---",
+        "scheme | engine_strategy | fixed_K | precision | calibration_split | calibration_frames | evaluation_split | total_val | evaluated | skipped | engine_count | total_engine_size_MB | AP@0.30 | AP@0.50 | AP@0.70 | mAP | mAP_drop_vs_FP16 | execute_p50 | forward_p50 | FPS | reliable_latency | notes",
+        "--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---",
     ]
     for row in report["rows"]:
         lines.append(
@@ -281,6 +376,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     "evaluated",
                     "skipped",
                     "engine_count",
+                    "total_engine_size_MB",
                     "AP@0.30",
                     "AP@0.50",
                     "AP@0.70",
@@ -305,11 +401,22 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             f"- new_fixedK_full_val_completed: {report['analysis']['new_fixedK_full_val_completed']}",
             f"- gpu_blocker: {report['analysis']['gpu_blocker']}",
             f"- remaining_skipped_samples: {report['analysis']['remaining_skipped_samples']}",
+            f"- single_engine_maxK_FP32_included: {report['analysis']['single_engine_maxK_FP32_included']}",
+            f"- padded_agent_static_INT8_train_calib200_evaluated: {report['analysis']['padded_agent_static_INT8_train_calib200_evaluated']}",
+            f"- padded_agent_static_INT8_train_calib200_skip_reason: {report['analysis']['padded_agent_static_INT8_train_calib200_skip_reason']}",
+            f"- dynamic_bucket_FP16_forward_p50_speedup_vs_single_engine_maxK_FP16_percent: {report['analysis']['dynamic_bucket_FP16_forward_p50_speedup_vs_single_engine_maxK_FP16_percent']}",
+            f"- dynamic_bucket_FP16_size_ratio_vs_single_engine_maxK_FP16: {report['analysis']['dynamic_bucket_FP16_size_ratio_vs_single_engine_maxK_FP16']}",
+            f"- dynamic_bucket_INT8_train_calib200_forward_p50_speedup_vs_single_engine_maxK_INT8_percent: {report['analysis']['dynamic_bucket_INT8_train_calib200_forward_p50_speedup_vs_single_engine_maxK_INT8_percent']}",
+            f"- dynamic_bucket_INT8_train_calib200_size_ratio_vs_single_engine_maxK_INT8: {report['analysis']['dynamic_bucket_INT8_train_calib200_size_ratio_vs_single_engine_maxK_INT8']}",
             f"- dynamic_bucket_train_calibration_drop_vs_historical: {report['analysis']['dynamic_bucket_train_calibration_drop_vs_historical']}",
             f"- single_engine_train_calibration_still_worse_than_dynamic: {report['analysis']['single_engine_train_calibration_still_worse_than_dynamic']}",
             f"- recommended_fp16_path: {(recommended_fp16 or {}).get('scheme')} {(recommended_fp16 or {}).get('engine_strategy')}",
+            f"- fastest_fp16_path: {(fastest_fp16 or {}).get('scheme')} {(fastest_fp16 or {}).get('engine_strategy')}",
+            f"- recommended_fp16_path_reason: {report['analysis']['recommended_fp16_path_reason']}",
             f"- recommended_int8_speed_candidate: {(recommended_int8 or {}).get('scheme')} {(recommended_int8 or {}).get('calibration')}",
             f"- recommend_qdq_modelopt_next: {report['analysis']['recommend_qdq_modelopt_next']}",
+            f"- final_recommended_default_path: {report['final_recommended_default_path']}",
+            f"- engine_file_size_report_json: {report['engine_file_size_report']['json']}",
             "- HEAL/OpenCOOD source modified: false",
         ]
     )
