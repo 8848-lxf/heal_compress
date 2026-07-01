@@ -126,5 +126,5 @@
   "plugin precision in INT8 engine": "FP16/FP32 plugin island inferred from plugin layer; TensorRT inspector text is authoritative in layerinfo_path",
   "INT8 layer count": null,
   "FP16 fallback layer count": null,
-  "engine_size_MB": 20.163753509521484
+  "engine_size_MB": 10.27811050415039
 }

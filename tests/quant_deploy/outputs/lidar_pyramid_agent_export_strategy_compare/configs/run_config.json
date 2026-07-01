@@ -30,6 +30,6 @@
     "true_dynamic_agent_dim": false,
     "per_N_engine_routing": true
   },
-  "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+  "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
   "trtexec_path": null
 }

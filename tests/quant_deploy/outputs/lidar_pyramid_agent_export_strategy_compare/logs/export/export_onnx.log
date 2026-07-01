@@ -17,7 +17,7 @@ dir_head
 =========Those modules have untrainable component=========
 
 
-/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/shapely/set_operations.py:133: RuntimeWarning: invalid value encountered in intersection
+/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/shapely/set_operations.py:133: RuntimeWarning: invalid value encountered in intersection
   return lib.intersection(a, b, **kwargs)
 bev_warp_patch={'patched': True, 'mode': 'exportable_grid'}
 pillar_vfe_patch={'patched': True, 'mode': 'explicit_squeeze'}

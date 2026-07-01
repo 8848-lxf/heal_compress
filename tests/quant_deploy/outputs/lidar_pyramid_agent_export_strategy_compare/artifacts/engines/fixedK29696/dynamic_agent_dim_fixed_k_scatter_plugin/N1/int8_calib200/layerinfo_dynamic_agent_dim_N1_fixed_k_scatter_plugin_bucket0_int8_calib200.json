@@ -20,7 +20,7 @@
   "Metadata": ""
 },{
   "Name": "Reformatting CopyNode for Network Input valid_voxel_mask",
-  "LayerType": "NoOp",
+  "LayerType": "Reformat",
   "Inputs": [
   {
     "Name": "valid_voxel_mask",
@@ -33,9 +33,11 @@
     "Name": "Reformatted valid_voxel_mask",
     "Location": "Device",
     "Dimensions": [9728],
-    "Format/Datatype": "Float"
+    "Format/Datatype": "Half"
   }],
-  "TacticValue": "0x0000000000000000",
+  "ParameterType": "Reformat",
+  "Origin": "REFORMAT",
+  "TacticValue": "0x00000000000003e8",
   "StreamId": 0,
   "Metadata": ""
 },{
@@ -57,33 +59,11 @@
   }],
   "ParameterType": "Reformat",
   "Origin": "REFORMAT",
-  "TacticValue": "0x00000000000003e8",
+  "TacticValue": "0x00000000000003ea",
   "StreamId": 0,
   "Metadata": ""
 },{
-  "Name": "Reformatting CopyNode for Input Tensor 3 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
-  "LayerType": "Reformat",
-  "Inputs": [
-  {
-    "Name": "Reformatted valid_voxel_mask",
-    "Location": "Device",
-    "Dimensions": [9728],
-    "Format/Datatype": "Float"
-  }],
-  "Outputs": [
-  {
-    "Name": "Reformatted Input Tensor 3 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
-    "Location": "Device",
-    "Dimensions": [9728],
-    "Format/Datatype": "Half"
-  }],
-  "ParameterType": "Reformat",
-  "Origin": "REFORMAT",
-  "TacticValue": "0x00000000000003e8",
-  "StreamId": 0,
-  "Metadata": ""
-},{
-  "Name": "entry^bb^signal^1_myl4_0",
+  "Name": "entry^bb^signal^1_myl3_0",
   "LayerType": "signal",
   "Inputs": [],
   "Outputs": [],
@@ -92,7 +72,7 @@
   "EventId": 3,
   "Metadata": ""
 },{
-  "Name": "entry^bb^wait^2_myl4_1",
+  "Name": "entry^bb^wait^2_myl3_1",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -101,7 +81,7 @@
   "EventId": 3,
   "Metadata": ""
 },{
-  "Name": "entry^bb^wait^1_myl4_2",
+  "Name": "entry^bb^wait^1_myl3_2",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -110,7 +90,7 @@
   "EventId": 3,
   "Metadata": ""
 },{
-  "Name": "__myl_Repl_myl4_3",
+  "Name": "__myl_Repl_myl3_3",
   "LayerType": "kgen",
   "Inputs": [],
   "Outputs": [
@@ -123,7 +103,7 @@
   "StreamId": 0,
   "Metadata": ""
 },{
-  "Name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl4_4",
+  "Name": "__myl_ReplReshReplReshReplReshIotaCastReshReplReshIotaCastReshReplReshConcCastConcCastConcCast_myl3_4",
   "LayerType": "kgen",
   "Inputs": [],
   "Outputs": [
@@ -151,7 +131,7 @@
   "StreamId": 1,
   "Metadata": "[ONNX Layer: Range_210]\u001f[ONNX Layer: Reshape_215]\u001f[ONNX Layer: Reshape_213]\u001f[ONNX Layer: /pillar_vfe/Expand_3]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_3]\u001f[ONNX Layer: /pillar_vfe/Concat]\u001f[ONNX Layer: /pillar_vfe/Expand_2]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_2]\u001f[ONNX Layer: /pillar_vfe/Concat_4]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_11]\u001f[ONNX Layer: /pillar_vfe/Expand_11]\u001f[ONNX Layer: /pillar_vfe/Concat_2]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_7]\u001f[ONNX Layer: /pillar_vfe/Expand_7]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_1]\u001f[ONNX Layer: /pillar_vfe/Expand_1]\u001f[ONNX Layer: Range_203]"
 },{
-  "Name": "__mye31340_myl4_5",
+  "Name": "__mye31311_myl3_5",
   "LayerType": "signal",
   "Inputs": [],
   "Outputs": [],
@@ -160,7 +140,7 @@
   "EventId": 1,
   "Metadata": ""
 },{
-  "Name": "__myl_MoveMoveSlicReshCastReshSlicReshSlicReshCastReshSlicReshCastReshSlicReshSlicReshMulMulMulEtc_myl4_6",
+  "Name": "__myl_MoveMoveSlicReshCastReshSlicReshSlicReshCastReshSlicReshCastReshSlicReshSlicReshMulMulMulEtc_myl3_6",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -198,7 +178,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /pillar_vfe/Gather_7]\u001f[ONNX Layer: /pillar_vfe/Cast_3]\u001f[ONNX Layer: /pillar_vfe/Mul_8]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_8]\u001f[ONNX Layer: /pillar_vfe/Add_6]\u001f[ONNX Layer: /pillar_vfe/Gather_1]\u001f[ONNX Layer: /pillar_vfe/Cast_1]\u001f[ONNX Layer: /pillar_vfe/Mul]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze]\u001f[ONNX Layer: /pillar_vfe/Add_3]\u001f[ONNX Layer: /pillar_vfe/Gather]\u001f[ONNX Layer: /pillar_vfe/Sub_1]\u001f[ONNX Layer: /pillar_vfe/Reshape_1]\u001f[ONNX Layer: /pillar_vfe/Gather_6]\u001f[ONNX Layer: /pillar_vfe/Sub_3]\u001f[ONNX Layer: /pillar_vfe/Reshape_3]\u001f[ONNX Layer: /pillar_vfe/Gather_3]\u001f[ONNX Layer: /pillar_vfe/Sub_2]\u001f[ONNX Layer: /pillar_vfe/Reshape_2]\u001f[ONNX Layer: /pillar_vfe/Add]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_4]\u001f[ONNX Layer: /pillar_vfe/Mul_4]\u001f[ONNX Layer: /pillar_vfe/Cast_2]\u001f[ONNX Layer: /pillar_vfe/Gather_4]"
 },{
-  "Name": "__mye31342_myl4_7",
+  "Name": "__mye31313_myl3_7",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -207,7 +187,7 @@
   "EventId": 1,
   "Metadata": ""
 },{
-  "Name": "__myl_Scat_myl4_8",
+  "Name": "__myl_Scat_myl3_8",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -235,7 +215,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /pillar_vfe/ScatterND]"
 },{
-  "Name": "__myl_Scat_myl4_9",
+  "Name": "__myl_Scat_myl3_9",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -263,7 +243,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /pillar_vfe/ScatterND_1]"
 },{
-  "Name": "__myl_Scat_myl4_10",
+  "Name": "__myl_Scat_myl3_10",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -291,7 +271,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /pillar_vfe/ScatterND_2]"
 },{
-  "Name": "__myl_SlicSum_myl4_11",
+  "Name": "__myl_SlicSum_myl3_11",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -314,7 +294,7 @@
   "StreamId": 2,
   "Metadata": "[ONNX Layer: /pillar_vfe/Slice]\u001f[ONNX Layer: /pillar_vfe/ReduceSum]"
 },{
-  "Name": "__mye31344_myl4_12",
+  "Name": "__mye31315_myl3_12",
   "LayerType": "signal",
   "Inputs": [],
   "Outputs": [],
@@ -323,7 +303,7 @@
   "EventId": 2,
   "Metadata": ""
 },{
-  "Name": "__mye31346_myl4_13",
+  "Name": "__mye31317_myl3_13",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -332,7 +312,7 @@
   "EventId": 2,
   "Metadata": ""
 },{
-  "Name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl4_14",
+  "Name": "__myl_GtrReplSeleReshCastReshReshGtrReshCastDivMulSubConcMul_myl3_14",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -361,7 +341,7 @@
     "Format/Datatype": "Half"
   },
   {
-    "Name": "Reformatted Input Tensor 3 to {ForeignNode[ONNXTRT_ShapeShuffle_342_output[Constant].../pillar_vfe/Squeeze]}",
+    "Name": "Reformatted valid_voxel_mask",
     "Dimensions": [9728],
     "Format/Datatype": "Half"
   },
@@ -380,8 +360,8 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /Where]\u001f[ONNX Layer: /Greater]\u001f[ONNX Layer: /pillar_vfe/Cast]\u001f[ONNX Layer: /pillar_vfe/Reshape]\u001f[ONNX Layer: /pillar_vfe/Div]\u001f[ONNX Layer: /pillar_vfe/Cast_6]\u001f[ONNX Layer: /pillar_vfe/Concat_6]\u001f[ONNX Layer: /pillar_vfe/Mul_12]\u001f[ONNX Layer: /pillar_vfe/Sub]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_13]\u001f[ONNX Layer: /pillar_vfe/Greater]\u001f[ONNX Layer: /pillar_vfe/Unsqueeze_12]\u001f[ONNX Layer: /pillar_vfe/Reshape_4]"
 },{
-  "Name": "__myl_MoveConc_myl4_15",
-  "LayerType": "kgen",
+  "Name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl3_15",
+  "LayerType": "gemm",
   "Inputs": [
   {
     "Name": "/pillar_vfe/Mul_12_output_0'.1",
@@ -390,33 +370,15 @@
   }],
   "Outputs": [
   {
-    "Name": "__mye30794_20",
-    "Dimensions": [311296,16],
-    "Format/Datatype": "Half"
-  }],
-  "TacticName": "__myl_MoveConc_0x16523f76dffc3a1ba1d0494c29a9a823",
-  "StreamId": 0,
-  "Metadata": "[ONNX Layer: /pillar_vfe/pfn_layers.0/linear/MatMul]"
-},{
-  "Name": "/pillar_vfe/pfn_layers_0/linear/MatMul_myl4_16",
-  "LayerType": "gemm",
-  "Inputs": [
-  {
-    "Name": "__mye30794_20",
-    "Dimensions": [311296,16],
-    "Format/Datatype": "Half"
-  }],
-  "Outputs": [
-  {
     "Name": "__mye30794",
     "Dimensions": [311296,64],
     "Format/Datatype": "Half"
   }],
-  "TacticName": "sm80_xmma_gemm_f16f16_f16f32_f32_nn_n_tilesize96x64x32_stage3_warpsize2x2x1_tensor16x8x16",
+  "TacticName": "sm80_xmma_gemm_f16f16_f16f16_f16_nn_n_tilesize256x64x32_stage3_warpsize4x1x1_tensor16x8x16_aligna4_alignc4",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /pillar_vfe/pfn_layers.0/linear/MatMul]"
 },{
-  "Name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl4_17",
+  "Name": "__myl_TranReshMulAddReshMoveTranReluMaxr_myl3_16",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -426,7 +388,7 @@
   }],
   "Outputs": [
   {
-    "Name": "__myln_k_arg__bb1_22",
+    "Name": "__myln_k_arg__bb1_21",
     "Dimensions": [9728,1,64],
     "Format/Datatype": "Half"
   }],
@@ -434,11 +396,11 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /pillar_vfe/pfn_layers.0/Transpose]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/norm/BatchNormalization]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/Transpose_1]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/ReduceMax]\u001f[ONNX Layer: /pillar_vfe/pfn_layers.0/Relu]"
 },{
-  "Name": "__myl_Resh_myl4_18",
+  "Name": "__myl_Resh_myl3_17",
   "LayerType": "kgen",
   "Inputs": [
   {
-    "Name": "__myln_k_arg__bb1_22",
+    "Name": "__myln_k_arg__bb1_21",
     "Dimensions": [9728,1,64],
     "Format/Datatype": "Half"
   }],
@@ -452,36 +414,14 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /pillar_vfe/Squeeze]"
 },{
-  "Name": "Reformatting CopyNode for Input Tensor 0 to /PointPillarScatterTRT",
-  "LayerType": "Reformat",
+  "Name": "/PointPillarScatterTRT",
+  "LayerType": "PluginV2",
   "Inputs": [
   {
     "Name": "/pillar_vfe/Squeeze_output_0",
     "Location": "Device",
     "Dimensions": [9728,64],
     "Format/Datatype": "Half"
-  }],
-  "Outputs": [
-  {
-    "Name": "Reformatted Input Tensor 0 to /PointPillarScatterTRT",
-    "Location": "Device",
-    "Dimensions": [9728,64],
-    "Format/Datatype": "Float"
-  }],
-  "ParameterType": "Reformat",
-  "Origin": "REFORMAT",
-  "TacticValue": "0x00000000000003e8",
-  "StreamId": 0,
-  "Metadata": ""
-},{
-  "Name": "/PointPillarScatterTRT",
-  "LayerType": "PluginV2",
-  "Inputs": [
-  {
-    "Name": "Reformatted Input Tensor 0 to /PointPillarScatterTRT",
-    "Location": "Device",
-    "Dimensions": [9728,64],
-    "Format/Datatype": "Float"
   },
   {
     "Name": "Reformatted voxel_coords",
@@ -493,14 +433,14 @@
     "Name": "Reformatted valid_voxel_mask",
     "Location": "Device",
     "Dimensions": [9728],
-    "Format/Datatype": "Float"
+    "Format/Datatype": "Half"
   }],
   "Outputs": [
   {
     "Name": "Reformatted Output Tensor 0 to /PointPillarScatterTRT",
     "Location": "Device",
     "Dimensions": [1,64,256,512],
-    "Format/Datatype": "Float"
+    "Format/Datatype": "Half"
   }],
   "PluginType": "PointPillarScatterTRT",
   "PluginVersion": "1",
@@ -515,7 +455,7 @@
     "Name": "Reformatted Output Tensor 0 to /PointPillarScatterTRT",
     "Location": "Device",
     "Dimensions": [1,64,256,512],
-    "Format/Datatype": "Float"
+    "Format/Datatype": "Half"
   }],
   "Outputs": [
   {
@@ -526,29 +466,7 @@
   }],
   "ParameterType": "Reformat",
   "Origin": "REFORMAT",
-  "TacticValue": "0x0000000000000000",
-  "StreamId": 0,
-  "Metadata": ""
-},{
-  "Name": "Reformatting CopyNode for Input Tensor 0 to /layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu",
-  "LayerType": "Reformat",
-  "Inputs": [
-  {
-    "Name": "/PointPillarScatterTRT_output_0",
-    "Location": "Device",
-    "Dimensions": [1,64,256,512],
-    "Format/Datatype": "Int8"
-  }],
-  "Outputs": [
-  {
-    "Name": "Reformatted Input Tensor 0 to /layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu",
-    "Location": "Device",
-    "Dimensions": [1,64,256,512],
-    "Format/Datatype": "Int8"
-  }],
-  "ParameterType": "Reformat",
-  "Origin": "REFORMAT",
-  "TacticValue": "0x0000000000000000",
+  "TacticValue": "0x00000000000003ea",
   "StreamId": 0,
   "Metadata": ""
 },{
@@ -556,7 +474,7 @@
   "LayerType": "CaskConvolution",
   "Inputs": [
   {
-    "Name": "Reformatted Input Tensor 0 to /layer0/layer0.0/conv1/Conv + /layer0/layer0.0/relu/Relu",
+    "Name": "/PointPillarScatterTRT_output_0",
     "Location": "Device",
     "Dimensions": [1,64,256,512],
     "Format/Datatype": "Int8"
@@ -631,8 +549,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "NONE",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize256x64x64_stage4_warpsize4x1x1_g1_tensor16x8x32",
-  "TacticValue": "0x204424cb4da28c02",
+  "TacticName": "sm90_xmma_fprop_implicit_gemm_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_cgasize1x1x1_warpgroupsize1x1x1_g1_no_relu_up_beta0_packed_tensor_stride",
+  "TacticValue": "0x41bdb46e3c2617e5",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.0/conv2/Conv]"
 },{
@@ -679,8 +597,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "ampere_int8x4_icudnn_int8x4_128x64_relu_interior_c32_nn_v1",
-  "TacticValue": "0x7a2c2a831965ff85",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_t1r1s1",
+  "TacticValue": "0xfac85bfa6e8a95c6",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.0/downsample/downsample.0/Conv]\u001e[ONNX Layer: /layer0/layer0.0/Add]\u001e[ONNX Layer: /layer0/layer0.0/relu_1/Relu]"
 },{
@@ -721,8 +639,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_avdt_dense_int8int8_tilesize64x256x32_tapsperload3_threadspercta128_r3s3_u1v1_scalebias_relu",
-  "TacticValue": "0x9dafb2758560cc1d",
+  "TacticName": "sm80_xmma_fprop_avdt_dense_int8int8_tilesize64x256x32_tapsperload9_threadspercta128_r3s3_u1v1_scalebias_relu",
+  "TacticValue": "0x252c6f5607ea114c",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.1/conv1/Conv]\u001e[ONNX Layer: /layer0/layer0.1/relu/Relu]"
 },{
@@ -811,8 +729,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_avdt_dense_int8int8_tilesize64x256x32_tapsperload3_threadspercta128_r3s3_u1v1_scalebias_relu",
-  "TacticValue": "0x9dafb2758560cc1d",
+  "TacticName": "sm80_xmma_fprop_avdt_dense_int8int8_tilesize64x256x32_tapsperload9_threadspercta128_r3s3_u1v1_scalebias_relu",
+  "TacticValue": "0x252c6f5607ea114c",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.2/conv1/Conv]\u001e[ONNX Layer: /layer0/layer0.2/relu/Relu]"
 },{
@@ -901,8 +819,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize256x128x64_stage4_warpsize4x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x70ff342513dcddd5",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.0/conv1_1/Conv]\u001e[ONNX Layer: /layer0/layer0.0/relu_2/Relu]"
 },{
@@ -943,8 +861,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop2_CVecSplit4_GroupSize4_InnerLoop4",
-  "TacticValue": "0x749ca80154e14993",
+  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop1_CVecSplit8_GroupSize4_InnerLoop4",
+  "TacticValue": "0xd6a8572f572d7947",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.0/conv2_1/Conv]\u001e[ONNX Layer: /layer0/layer0.0/relu_3/Relu]"
 },{
@@ -991,8 +909,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.0/conv3/Conv]\u001e[ONNX Layer: /layer0/layer0.0_1/Add]\u001e[ONNX Layer: /layer0/layer0.0/relu_4/Relu]"
 },{
@@ -1033,8 +951,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize256x128x64_stage4_warpsize4x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x70ff342513dcddd5",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.1/conv1_1/Conv]\u001e[ONNX Layer: /layer0/layer0.1/relu_2/Relu]"
 },{
@@ -1075,8 +993,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop2_CVecSplit4_GroupSize4_InnerLoop4",
-  "TacticValue": "0x749ca80154e14993",
+  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop1_CVecSplit8_GroupSize4_InnerLoop4",
+  "TacticValue": "0xd6a8572f572d7947",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.1/conv2_1/Conv]\u001e[ONNX Layer: /layer0/layer0.1/relu_3/Relu]"
 },{
@@ -1123,8 +1041,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.1/conv3/Conv]\u001e[ONNX Layer: /layer0/layer0.1_1/Add]\u001e[ONNX Layer: /layer0/layer0.1/relu_4/Relu]"
 },{
@@ -1165,8 +1083,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize256x128x64_stage4_warpsize4x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x70ff342513dcddd5",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.2/conv1_1/Conv]\u001e[ONNX Layer: /layer0/layer0.2/relu_2/Relu]"
 },{
@@ -1207,8 +1125,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop2_CVecSplit4_GroupSize4_InnerLoop4",
-  "TacticValue": "0x749ca80154e14993",
+  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop1_CVecSplit8_GroupSize4_InnerLoop4",
+  "TacticValue": "0xd6a8572f572d7947",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.2/conv2_1/Conv]\u001e[ONNX Layer: /layer0/layer0.2/relu_3/Relu]"
 },{
@@ -1255,8 +1173,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer0/layer0.2/conv3/Conv]\u001e[ONNX Layer: /layer0/layer0.2_1/Add]\u001e[ONNX Layer: /layer0/layer0.2/relu_4/Relu]"
 },{
@@ -1297,8 +1215,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "NONE",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize256x64x64_stage4_warpsize4x1x1_g1_tensor16x8x32_t1r1s1",
-  "TacticValue": "0x5947ea3454b6a27b",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize256x32x64_stage4_warpsize4x1x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xffb9fbd2bfa6c47d",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /single_head_0/Conv]"
 },{
@@ -1339,8 +1257,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "NONE",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x192x64_stage3_warpsize2x2x1_g1_tensor16x8x32_t1r1s1",
-  "TacticValue": "0x15fad4362e913239",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_t1r1s1",
+  "TacticValue": "0xfac85bfa6e8a95c6",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.0/downsample/downsample.0/Conv]"
 },{
@@ -1381,8 +1299,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x368150d268fe20d3",
+  "TacticName": "sm90_xmma_fprop_implicit_gemm_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize256x128x64_cgasize1x2x1_warpgroupsize2x1x1_g1_no_relu_up_beta0_packed_tensor_stride",
+  "TacticValue": "0x388a7ba5b9327e20",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.0/conv1/Conv]\u001e[ONNX Layer: /layer1/layer1.0/relu/Relu]"
 },{
@@ -1423,8 +1341,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage1_warpsize2x2x1_g8_tensor8x8x16_t1r3s3",
-  "TacticValue": "0xb8816a9a23662757",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage4_warpsize2x2x1_g8_tensor16x8x32_t1r3s3",
+  "TacticValue": "0xc65db0dc82d97fb3",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.0/conv2/Conv]\u001e[ONNX Layer: /layer1/layer1.0/relu_1/Relu]"
 },{
@@ -1471,8 +1389,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize96x64x64_stage3_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
-  "TacticValue": "0x483ad1560c6e5e27",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c256_scalebias_beta_relu",
+  "TacticValue": "0x7da1544a119637e7",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.0/conv3/Conv]\u001e[ONNX Layer: /layer1/layer1.0/Add]\u001e[ONNX Layer: /layer1/layer1.0/relu_2/Relu]"
 },{
@@ -1513,8 +1431,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c128_scalebias_relu",
+  "TacticValue": "0x7644c8d01e5d2153",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.1/conv1/Conv]\u001e[ONNX Layer: /layer1/layer1.1/relu/Relu]"
 },{
@@ -1555,8 +1473,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop2_CVecSplit4_GroupSize8_InnerLoop4",
-  "TacticValue": "0x59caa5e6895bce14",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage4_warpsize2x2x1_g8_tensor16x8x32_t1r3s3",
+  "TacticValue": "0xc65db0dc82d97fb3",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.1/conv2/Conv]\u001e[ONNX Layer: /layer1/layer1.1/relu_1/Relu]"
 },{
@@ -1603,8 +1521,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize96x64x64_stage3_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
-  "TacticValue": "0x483ad1560c6e5e27",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c256_scalebias_beta_relu",
+  "TacticValue": "0x7da1544a119637e7",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.1/conv3/Conv]\u001e[ONNX Layer: /layer1/layer1.1/Add]\u001e[ONNX Layer: /layer1/layer1.1/relu_2/Relu]"
 },{
@@ -1645,8 +1563,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c128_scalebias_relu",
+  "TacticValue": "0x7644c8d01e5d2153",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.2/conv1/Conv]\u001e[ONNX Layer: /layer1/layer1.2/relu/Relu]"
 },{
@@ -1687,8 +1605,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop2_CVecSplit4_GroupSize8_InnerLoop4",
-  "TacticValue": "0x59caa5e6895bce14",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage4_warpsize2x2x1_g8_tensor16x8x32_t1r3s3",
+  "TacticValue": "0xc65db0dc82d97fb3",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.2/conv2/Conv]\u001e[ONNX Layer: /layer1/layer1.2/relu_1/Relu]"
 },{
@@ -1735,8 +1653,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize96x64x64_stage3_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
-  "TacticValue": "0x483ad1560c6e5e27",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c256_scalebias_beta_relu",
+  "TacticValue": "0x7da1544a119637e7",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.2/conv3/Conv]\u001e[ONNX Layer: /layer1/layer1.2/Add]\u001e[ONNX Layer: /layer1/layer1.2/relu_2/Relu]"
 },{
@@ -1777,8 +1695,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c128_scalebias_relu",
+  "TacticValue": "0x7644c8d01e5d2153",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.3/conv1/Conv]\u001e[ONNX Layer: /layer1/layer1.3/relu/Relu]"
 },{
@@ -1819,8 +1737,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop2_CVecSplit4_GroupSize8_InnerLoop4",
-  "TacticValue": "0x59caa5e6895bce14",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage4_warpsize2x2x1_g8_tensor16x8x32_t1r3s3",
+  "TacticValue": "0xc65db0dc82d97fb3",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.3/conv2/Conv]\u001e[ONNX Layer: /layer1/layer1.3/relu_1/Relu]"
 },{
@@ -1867,8 +1785,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize96x64x64_stage3_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
-  "TacticValue": "0x483ad1560c6e5e27",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c256_scalebias_beta_relu",
+  "TacticValue": "0x7da1544a119637e7",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.3/conv3/Conv]\u001e[ONNX Layer: /layer1/layer1.3/Add]\u001e[ONNX Layer: /layer1/layer1.3/relu_2/Relu]"
 },{
@@ -1909,8 +1827,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x128x64_stage1_warpsize2x2x1_g1_tensor8x8x16_simple_t1r1s1",
-  "TacticValue": "0x31276c9cc1913670",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c128_scalebias_relu",
+  "TacticValue": "0x7644c8d01e5d2153",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.4/conv1/Conv]\u001e[ONNX Layer: /layer1/layer1.4/relu/Relu]"
 },{
@@ -1951,8 +1869,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm72_xmma_convolution_groupSdcrr_INT8NCxHW32_R3_S3_U1_V1_CtaSize128_ThrdOuterLoop2_CVecSplit4_GroupSize8_InnerLoop4",
-  "TacticValue": "0x59caa5e6895bce14",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage4_warpsize2x2x1_g8_tensor16x8x32_t1r3s3",
+  "TacticValue": "0xc65db0dc82d97fb3",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.4/conv2/Conv]\u001e[ONNX Layer: /layer1/layer1.4/relu_1/Relu]"
 },{
@@ -1973,7 +1891,7 @@
   }],
   "Outputs": [
   {
-    "Name": "Reformatted Output Tensor 0 to /layer1/layer1.4/conv3/Conv + /layer1/layer1.4/Add + /layer1/layer1.4/relu_2/Relu",
+    "Name": "/layer1/layer1.4/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,128,64,128],
     "Format/Datatype": "Int8"
@@ -1999,48 +1917,26 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize96x64x64_stage3_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
-  "TacticValue": "0x483ad1560c6e5e27",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c256_scalebias_beta_relu",
+  "TacticValue": "0x7da1544a119637e7",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer1/layer1.4/conv3/Conv]\u001e[ONNX Layer: /layer1/layer1.4/Add]\u001e[ONNX Layer: /layer1/layer1.4/relu_2/Relu]"
 },{
-  "Name": "Reformatting CopyNode for Output Tensor 0 to /layer1/layer1.4/conv3/Conv + /layer1/layer1.4/Add + /layer1/layer1.4/relu_2/Relu",
-  "LayerType": "Reformat",
+  "Name": "/single_head_1/Conv",
+  "LayerType": "CaskConvolution",
   "Inputs": [
   {
-    "Name": "Reformatted Output Tensor 0 to /layer1/layer1.4/conv3/Conv + /layer1/layer1.4/Add + /layer1/layer1.4/relu_2/Relu",
+    "Name": "/layer1/layer1.4/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,128,64,128],
     "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
-    "Name": "/layer1/layer1.4/relu_2/Relu_output_0",
-    "Location": "Device",
-    "Dimensions": [1,128,64,128],
-    "Format/Datatype": "Half"
-  }],
-  "ParameterType": "Reformat",
-  "Origin": "REFORMAT",
-  "TacticValue": "0x00000000000003e8",
-  "StreamId": 0,
-  "Metadata": ""
-},{
-  "Name": "/single_head_1/Conv",
-  "LayerType": "CaskGemmConvolution",
-  "Inputs": [
-  {
-    "Name": "/layer1/layer1.4/relu_2/Relu_output_0",
-    "Location": "Device",
-    "Dimensions": [1,128,64,128],
-    "Format/Datatype": "Half"
-  }],
-  "Outputs": [
-  {
     "Name": "/single_head_1/Conv_output_0",
     "Location": "Device",
     "Dimensions": [1,1,64,128],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2051,8 +1947,8 @@
   "Dilation": [1,1],
   "OutMaps": 1,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 128},
-  "Bias": {"Type": "Half", "Count": 1},
+  "Weights": {"Type": "Int8", "Count": 128},
+  "Bias": {"Type": "Float", "Count": 1},
   "HasBias": 1,
   "HasReLU": 0,
   "HasSparseWeights": 0,
@@ -2063,8 +1959,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "NONE",
-  "TacticName": "ampere_h16816gemm_64x64_sliced1x2_ldg8_relu_tn_v1",
-  "TacticValue": "0x0000000000020119",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x32x64_stage6_warpsize2x1x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xcae7b5888d47fe1f",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /single_head_1/Conv]"
 },{
@@ -2075,14 +1971,14 @@
     "Name": "/layer1/layer1.4/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,128,64,128],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.0/downsample/downsample.0/Conv_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2093,8 +1989,8 @@
   "Dilation": [1,1],
   "OutMaps": 256,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 32768},
-  "Bias": {"Type": "Half", "Count": 256},
+  "Weights": {"Type": "Int8", "Count": 32768},
+  "Bias": {"Type": "Float", "Count": 256},
   "HasBias": 1,
   "HasReLU": 0,
   "HasSparseWeights": 0,
@@ -2105,8 +2001,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "NONE",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x128x32_stage5_warpsize2x2x1_g1_tensor16x8x16",
-  "TacticValue": "0xdb0b80f591d1bb6d",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x32x64_stage6_warpsize2x1x1_g1_tensor16x8x32_t1r1s1",
+  "TacticValue": "0xa5a7024b355e2bbc",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.0/downsample/downsample.0/Conv]"
 },{
@@ -2117,14 +2013,14 @@
     "Name": "/layer1/layer1.4/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,128,64,128],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.0/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,64,128],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2135,8 +2031,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 65536},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 65536},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2147,8 +2043,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize128x128x32_stage1_warpsize2x2x1_g1_tensor16x8x8_simple_t1r1s1",
-  "TacticValue": "0xdbe57b4edf7481d8",
+  "TacticName": "sm80_xmma_conv_fprop_smallk_i8i8_i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_warptilesize32x32_stage4_warpsize2x4x1_r1s1_u1v1_hw0_c128_scalebias_relu",
+  "TacticValue": "0x7644c8d01e5d2153",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.0/conv1/Conv]\u001e[ONNX Layer: /layer2/layer2.0/relu/Relu]"
 },{
@@ -2159,14 +2055,14 @@
     "Name": "/layer2/layer2.0/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,64,128],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.0/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [3,3],
@@ -2177,8 +2073,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 32,
-  "Weights": {"Type": "Half", "Count": 73728},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 73728},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2189,32 +2085,32 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x64x64_stage1_warpsize1x4x1_g4_tensor16x8x8_t1r3s3",
-  "TacticValue": "0xfc7e5f2a994c7c73",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g4_tensor16x8x32_t1r3s3",
+  "TacticValue": "0x53a5066e01a10dec",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.0/conv2/Conv]\u001e[ONNX Layer: /layer2/layer2.0/relu_1/Relu]"
 },{
   "Name": "/layer2/layer2.0/conv3/Conv + /layer2/layer2.0/Add + /layer2/layer2.0/relu_2/Relu",
-  "LayerType": "CaskGemmConvolution",
+  "LayerType": "CaskConvolution",
   "Inputs": [
   {
     "Name": "/layer2/layer2.0/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   },
   {
     "Name": "/layer2/layer2.0/downsample/downsample.0/Conv_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.0/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2225,8 +2121,8 @@
   "Dilation": [1,1],
   "OutMaps": 256,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 256},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 256},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2237,8 +2133,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "ampere_h16816gemm_64x64_ldg8_relu_stages_64x5_nn_v1",
-  "TacticValue": "0x0000000000020b57",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xc22b2f91e37e472a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.0/conv3/Conv]\u001e[ONNX Layer: /layer2/layer2.0/Add]\u001e[ONNX Layer: /layer2/layer2.0/relu_2/Relu]"
 },{
@@ -2249,14 +2145,14 @@
     "Name": "/layer2/layer2.0/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.1/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2267,8 +2163,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2279,8 +2175,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x128x32_stage5_warpsize2x2x1_g1_tensor16x8x16",
-  "TacticValue": "0xdb0b80f591d1bb6d",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.1/conv1/Conv]\u001e[ONNX Layer: /layer2/layer2.1/relu/Relu]"
 },{
@@ -2291,14 +2187,14 @@
     "Name": "/layer2/layer2.1/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.1/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [3,3],
@@ -2309,8 +2205,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 32,
-  "Weights": {"Type": "Half", "Count": 73728},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 73728},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2321,32 +2217,32 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x64x64_stage1_warpsize1x4x1_g4_tensor16x8x8_t1r3s3",
-  "TacticValue": "0xfc7e5f2a994c7c73",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g4_tensor16x8x32_t1r3s3",
+  "TacticValue": "0x53a5066e01a10dec",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.1/conv2/Conv]\u001e[ONNX Layer: /layer2/layer2.1/relu_1/Relu]"
 },{
   "Name": "/layer2/layer2.1/conv3/Conv + /layer2/layer2.1/Add + /layer2/layer2.1/relu_2/Relu",
-  "LayerType": "CaskGemmConvolution",
+  "LayerType": "CaskConvolution",
   "Inputs": [
   {
     "Name": "/layer2/layer2.1/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   },
   {
     "Name": "/layer2/layer2.0/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.1/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2357,8 +2253,8 @@
   "Dilation": [1,1],
   "OutMaps": 256,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 256},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 256},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2369,8 +2265,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "ampere_h16816gemm_64x64_ldg8_relu_stages_64x5_nn_v1",
-  "TacticValue": "0x0000000000020b57",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xc22b2f91e37e472a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.1/conv3/Conv]\u001e[ONNX Layer: /layer2/layer2.1/Add]\u001e[ONNX Layer: /layer2/layer2.1/relu_2/Relu]"
 },{
@@ -2381,14 +2277,14 @@
     "Name": "/layer2/layer2.1/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.2/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2399,8 +2295,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2411,8 +2307,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x128x32_stage5_warpsize2x2x1_g1_tensor16x8x16",
-  "TacticValue": "0xdb0b80f591d1bb6d",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.2/conv1/Conv]\u001e[ONNX Layer: /layer2/layer2.2/relu/Relu]"
 },{
@@ -2423,14 +2319,14 @@
     "Name": "/layer2/layer2.2/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.2/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [3,3],
@@ -2441,8 +2337,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 32,
-  "Weights": {"Type": "Half", "Count": 73728},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 73728},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2453,32 +2349,32 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x64x64_stage1_warpsize1x4x1_g4_tensor16x8x8_t1r3s3",
-  "TacticValue": "0xfc7e5f2a994c7c73",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g4_tensor16x8x32_t1r3s3",
+  "TacticValue": "0x53a5066e01a10dec",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.2/conv2/Conv]\u001e[ONNX Layer: /layer2/layer2.2/relu_1/Relu]"
 },{
   "Name": "/layer2/layer2.2/conv3/Conv + /layer2/layer2.2/Add + /layer2/layer2.2/relu_2/Relu",
-  "LayerType": "CaskGemmConvolution",
+  "LayerType": "CaskConvolution",
   "Inputs": [
   {
     "Name": "/layer2/layer2.2/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   },
   {
     "Name": "/layer2/layer2.1/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.2/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2489,8 +2385,8 @@
   "Dilation": [1,1],
   "OutMaps": 256,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 256},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 256},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2501,8 +2397,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "ampere_h16816gemm_64x64_ldg8_relu_stages_64x5_nn_v1",
-  "TacticValue": "0x0000000000020b57",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xc22b2f91e37e472a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.2/conv3/Conv]\u001e[ONNX Layer: /layer2/layer2.2/Add]\u001e[ONNX Layer: /layer2/layer2.2/relu_2/Relu]"
 },{
@@ -2513,14 +2409,14 @@
     "Name": "/layer2/layer2.2/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.3/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2531,8 +2427,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2543,8 +2439,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x128x32_stage5_warpsize2x2x1_g1_tensor16x8x16",
-  "TacticValue": "0xdb0b80f591d1bb6d",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.3/conv1/Conv]\u001e[ONNX Layer: /layer2/layer2.3/relu/Relu]"
 },{
@@ -2555,14 +2451,14 @@
     "Name": "/layer2/layer2.3/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.3/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [3,3],
@@ -2573,8 +2469,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 32,
-  "Weights": {"Type": "Half", "Count": 73728},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 73728},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2585,32 +2481,32 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x64x64_stage1_warpsize1x4x1_g4_tensor16x8x8_t1r3s3",
-  "TacticValue": "0xfc7e5f2a994c7c73",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g4_tensor16x8x32_t1r3s3",
+  "TacticValue": "0x53a5066e01a10dec",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.3/conv2/Conv]\u001e[ONNX Layer: /layer2/layer2.3/relu_1/Relu]"
 },{
   "Name": "/layer2/layer2.3/conv3/Conv + /layer2/layer2.3/Add + /layer2/layer2.3/relu_2/Relu",
-  "LayerType": "CaskGemmConvolution",
+  "LayerType": "CaskConvolution",
   "Inputs": [
   {
     "Name": "/layer2/layer2.3/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   },
   {
     "Name": "/layer2/layer2.2/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.3/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2621,8 +2517,8 @@
   "Dilation": [1,1],
   "OutMaps": 256,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 256},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 256},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2633,8 +2529,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "ampere_h16816gemm_64x64_ldg8_relu_stages_64x5_nn_v1",
-  "TacticValue": "0x0000000000020b57",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xc22b2f91e37e472a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.3/conv3/Conv]\u001e[ONNX Layer: /layer2/layer2.3/Add]\u001e[ONNX Layer: /layer2/layer2.3/relu_2/Relu]"
 },{
@@ -2645,14 +2541,14 @@
     "Name": "/layer2/layer2.3/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.4/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2663,8 +2559,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2675,8 +2571,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x128x32_stage5_warpsize2x2x1_g1_tensor16x8x16",
-  "TacticValue": "0xdb0b80f591d1bb6d",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.4/conv1/Conv]\u001e[ONNX Layer: /layer2/layer2.4/relu/Relu]"
 },{
@@ -2687,14 +2583,14 @@
     "Name": "/layer2/layer2.4/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.4/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [3,3],
@@ -2705,8 +2601,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 32,
-  "Weights": {"Type": "Half", "Count": 73728},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 73728},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2717,32 +2613,32 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x64x64_stage1_warpsize1x4x1_g4_tensor16x8x8_t1r3s3",
-  "TacticValue": "0xfc7e5f2a994c7c73",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g4_tensor16x8x32_t1r3s3",
+  "TacticValue": "0x53a5066e01a10dec",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.4/conv2/Conv]\u001e[ONNX Layer: /layer2/layer2.4/relu_1/Relu]"
 },{
   "Name": "/layer2/layer2.4/conv3/Conv + /layer2/layer2.4/Add + /layer2/layer2.4/relu_2/Relu",
-  "LayerType": "CaskGemmConvolution",
+  "LayerType": "CaskConvolution",
   "Inputs": [
   {
     "Name": "/layer2/layer2.4/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   },
   {
     "Name": "/layer2/layer2.3/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.4/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2753,8 +2649,8 @@
   "Dilation": [1,1],
   "OutMaps": 256,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 256},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 256},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2765,8 +2661,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "ampere_h16816gemm_64x64_ldg8_relu_stages_64x5_nn_v1",
-  "TacticValue": "0x0000000000020b57",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xc22b2f91e37e472a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.4/conv3/Conv]\u001e[ONNX Layer: /layer2/layer2.4/Add]\u001e[ONNX Layer: /layer2/layer2.4/relu_2/Relu]"
 },{
@@ -2777,14 +2673,14 @@
     "Name": "/layer2/layer2.4/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.5/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2795,8 +2691,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2807,8 +2703,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x128x32_stage5_warpsize2x2x1_g1_tensor16x8x16",
-  "TacticValue": "0xdb0b80f591d1bb6d",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.5/conv1/Conv]\u001e[ONNX Layer: /layer2/layer2.5/relu/Relu]"
 },{
@@ -2819,14 +2715,14 @@
     "Name": "/layer2/layer2.5/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.5/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [3,3],
@@ -2837,8 +2733,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 32,
-  "Weights": {"Type": "Half", "Count": 73728},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 73728},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2849,32 +2745,32 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x64x64_stage1_warpsize1x4x1_g4_tensor16x8x8_t1r3s3",
-  "TacticValue": "0xfc7e5f2a994c7c73",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g4_tensor16x8x32_t1r3s3",
+  "TacticValue": "0x53a5066e01a10dec",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.5/conv2/Conv]\u001e[ONNX Layer: /layer2/layer2.5/relu_1/Relu]"
 },{
   "Name": "/layer2/layer2.5/conv3/Conv + /layer2/layer2.5/Add + /layer2/layer2.5/relu_2/Relu",
-  "LayerType": "CaskGemmConvolution",
+  "LayerType": "CaskConvolution",
   "Inputs": [
   {
     "Name": "/layer2/layer2.5/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   },
   {
     "Name": "/layer2/layer2.4/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.5/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2885,8 +2781,8 @@
   "Dilation": [1,1],
   "OutMaps": 256,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 256},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 256},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2897,8 +2793,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "ampere_h16816gemm_64x64_ldg8_relu_stages_64x5_nn_v1",
-  "TacticValue": "0x0000000000020b57",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xc22b2f91e37e472a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.5/conv3/Conv]\u001e[ONNX Layer: /layer2/layer2.5/Add]\u001e[ONNX Layer: /layer2/layer2.5/relu_2/Relu]"
 },{
@@ -2909,14 +2805,14 @@
     "Name": "/layer2/layer2.5/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.6/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -2927,8 +2823,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2939,8 +2835,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x128x32_stage5_warpsize2x2x1_g1_tensor16x8x16",
-  "TacticValue": "0xdb0b80f591d1bb6d",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.6/conv1/Conv]\u001e[ONNX Layer: /layer2/layer2.6/relu/Relu]"
 },{
@@ -2951,14 +2847,14 @@
     "Name": "/layer2/layer2.6/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.6/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [3,3],
@@ -2969,8 +2865,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 32,
-  "Weights": {"Type": "Half", "Count": 73728},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 73728},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -2981,32 +2877,32 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x64x64_stage1_warpsize1x4x1_g4_tensor16x8x8_t1r3s3",
-  "TacticValue": "0xfc7e5f2a994c7c73",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g4_tensor16x8x32_t1r3s3",
+  "TacticValue": "0x53a5066e01a10dec",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.6/conv2/Conv]\u001e[ONNX Layer: /layer2/layer2.6/relu_1/Relu]"
 },{
   "Name": "/layer2/layer2.6/conv3/Conv + /layer2/layer2.6/Add + /layer2/layer2.6/relu_2/Relu",
-  "LayerType": "CaskGemmConvolution",
+  "LayerType": "CaskConvolution",
   "Inputs": [
   {
     "Name": "/layer2/layer2.6/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   },
   {
     "Name": "/layer2/layer2.5/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.6/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -3017,8 +2913,8 @@
   "Dilation": [1,1],
   "OutMaps": 256,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 256},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 256},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -3029,8 +2925,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "ampere_h16816gemm_64x64_ldg8_relu_stages_64x5_nn_v1",
-  "TacticValue": "0x0000000000020b57",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xc22b2f91e37e472a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.6/conv3/Conv]\u001e[ONNX Layer: /layer2/layer2.6/Add]\u001e[ONNX Layer: /layer2/layer2.6/relu_2/Relu]"
 },{
@@ -3041,14 +2937,14 @@
     "Name": "/layer2/layer2.6/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.7/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -3059,8 +2955,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -3071,8 +2967,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x128x32_stage5_warpsize2x2x1_g1_tensor16x8x16",
-  "TacticValue": "0xdb0b80f591d1bb6d",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0x2640501019a61dc2",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.7/conv1/Conv]\u001e[ONNX Layer: /layer2/layer2.7/relu/Relu]"
 },{
@@ -3083,14 +2979,14 @@
     "Name": "/layer2/layer2.7/relu/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
     "Name": "/layer2/layer2.7/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [3,3],
@@ -3101,8 +2997,8 @@
   "Dilation": [1,1],
   "OutMaps": 512,
   "Groups": 32,
-  "Weights": {"Type": "Half", "Count": 73728},
-  "Bias": {"Type": "Half", "Count": 512},
+  "Weights": {"Type": "Int8", "Count": 73728},
+  "Bias": {"Type": "Float", "Count": 512},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -3113,32 +3009,32 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_fprop_implicit_gemm_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize64x64x64_stage1_warpsize1x4x1_g4_tensor16x8x8_t1r3s3",
-  "TacticValue": "0xfc7e5f2a994c7c73",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g4_tensor16x8x32_t1r3s3",
+  "TacticValue": "0x53a5066e01a10dec",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.7/conv2/Conv]\u001e[ONNX Layer: /layer2/layer2.7/relu_1/Relu]"
 },{
   "Name": "/layer2/layer2.7/conv3/Conv + /layer2/layer2.7/Add + /layer2/layer2.7/relu_2/Relu",
-  "LayerType": "CaskGemmConvolution",
+  "LayerType": "CaskConvolution",
   "Inputs": [
   {
     "Name": "/layer2/layer2.7/relu_1/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,512,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   },
   {
     "Name": "/layer2/layer2.6/relu_2/Relu_output_0",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "Outputs": [
   {
-    "Name": "/layer2/layer2.7/relu_2/Relu_output_0",
+    "Name": "Reformatted Output Tensor 0 to /layer2/layer2.7/conv3/Conv + /layer2/layer2.7/Add + /layer2/layer2.7/relu_2/Relu",
     "Location": "Device",
     "Dimensions": [1,256,32,64],
-    "Format/Datatype": "Half"
+    "Format/Datatype": "Int8"
   }],
   "ParameterType": "Convolution",
   "Kernel": [1,1],
@@ -3149,8 +3045,8 @@
   "Dilation": [1,1],
   "OutMaps": 256,
   "Groups": 1,
-  "Weights": {"Type": "Half", "Count": 131072},
-  "Bias": {"Type": "Half", "Count": 256},
+  "Weights": {"Type": "Int8", "Count": 131072},
+  "Bias": {"Type": "Float", "Count": 256},
   "HasBias": 1,
   "HasReLU": 1,
   "HasSparseWeights": 0,
@@ -3161,10 +3057,32 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "ampere_h16816gemm_64x64_ldg8_relu_stages_64x5_nn_v1",
-  "TacticValue": "0x0000000000020b57",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize64x64x64_stage6_warpsize2x2x1_g1_tensor16x8x32_simple_t1r1s1",
+  "TacticValue": "0xc22b2f91e37e472a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /layer2/layer2.7/conv3/Conv]\u001e[ONNX Layer: /layer2/layer2.7/Add]\u001e[ONNX Layer: /layer2/layer2.7/relu_2/Relu]"
+},{
+  "Name": "Reformatting CopyNode for Output Tensor 0 to /layer2/layer2.7/conv3/Conv + /layer2/layer2.7/Add + /layer2/layer2.7/relu_2/Relu",
+  "LayerType": "Reformat",
+  "Inputs": [
+  {
+    "Name": "Reformatted Output Tensor 0 to /layer2/layer2.7/conv3/Conv + /layer2/layer2.7/Add + /layer2/layer2.7/relu_2/Relu",
+    "Location": "Device",
+    "Dimensions": [1,256,32,64],
+    "Format/Datatype": "Int8"
+  }],
+  "Outputs": [
+  {
+    "Name": "/layer2/layer2.7/relu_2/Relu_output_0",
+    "Location": "Device",
+    "Dimensions": [1,256,32,64],
+    "Format/Datatype": "Half"
+  }],
+  "ParameterType": "Reformat",
+  "Origin": "REFORMAT",
+  "TacticValue": "0x0000000000000000",
+  "StreamId": 0,
+  "Metadata": ""
 },{
   "Name": "/single_head_2/Conv",
   "LayerType": "CaskGemmConvolution",
@@ -3203,8 +3121,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "NONE",
-  "TacticName": "ampere_h16816gemm_64x64_sliced1x2_ldg8_relu_tn_v1",
-  "TacticValue": "0x0000000000020119",
+  "TacticName": "sm80_xmma_gemm_f16f16_f16f16_f16_tn_n_tilesize32x32x64_stage6_warpsize2x2x1_tensor16x8x16",
+  "TacticValue": "0x0000000000021846",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /single_head_2/Conv]"
 },{
@@ -3222,6 +3140,28 @@
     "Name": "Reformatted Input Tensor 0 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}",
     "Location": "Device",
     "Dimensions": [1,1,1,4,4],
+    "Format/Datatype": "Half"
+  }],
+  "ParameterType": "Reformat",
+  "Origin": "REFORMAT",
+  "TacticValue": "0x0000000000000000",
+  "StreamId": 0,
+  "Metadata": ""
+},{
+  "Name": "Reformatting CopyNode for Input Tensor 2 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}",
+  "LayerType": "Reformat",
+  "Inputs": [
+  {
+    "Name": "/layer1/layer1.4/relu_2/Relu_output_0",
+    "Location": "Device",
+    "Dimensions": [1,128,64,128],
+    "Format/Datatype": "Int8"
+  }],
+  "Outputs": [
+  {
+    "Name": "Reformatted Input Tensor 2 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}",
+    "Location": "Device",
+    "Dimensions": [1,128,64,128],
     "Format/Datatype": "Half"
   }],
   "ParameterType": "Reformat",
@@ -3274,7 +3214,29 @@
   "StreamId": 0,
   "Metadata": ""
 },{
-  "Name": "__myl_GathGathSlicReshMoveSlicReshSlicSlicReshSlicReshMoveSlicReshSlicReshSlicDivMulDivMulMulReshEtc_myl73_0",
+  "Name": "Reformatting CopyNode for Input Tensor 5 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}",
+  "LayerType": "Reformat",
+  "Inputs": [
+  {
+    "Name": "/single_head_1/Conv_output_0",
+    "Location": "Device",
+    "Dimensions": [1,1,64,128],
+    "Format/Datatype": "Int8"
+  }],
+  "Outputs": [
+  {
+    "Name": "Reformatted Input Tensor 5 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}",
+    "Location": "Device",
+    "Dimensions": [1,1,64,128],
+    "Format/Datatype": "Half"
+  }],
+  "ParameterType": "Reformat",
+  "Origin": "REFORMAT",
+  "TacticValue": "0x0000000000000000",
+  "StreamId": 0,
+  "Metadata": ""
+},{
+  "Name": "__myl_GathGathSlicReshMoveSlicReshSlicSlicReshSlicReshMoveSlicReshSlicReshSlicDivMulDivMulMulReshEtc_myl72_0",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3292,7 +3254,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /Gather]\u001f[ONNX Layer: /Gather_1]\u001f[ONNX Layer: /Gather_2]\u001f[ONNX Layer: /Gather_6]\u001f[ONNX Layer: /Gather_5]\u001f[ONNX Layer: /Gather_4]\u001f[ONNX Layer: /Gather_3]\u001f[ONNX Layer: /Gather_9]\u001f[ONNX Layer: /Gather_8]\u001f[ONNX Layer: /Gather_7]\u001f[ONNX Layer: /Mul_2]\u001f[ONNX Layer: /Div_2]\u001f[ONNX Layer: /Unsqueeze_3]\u001f[ONNX Layer: /Div_1]\u001f[ONNX Layer: /Unsqueeze_1]\u001f[ONNX Layer: /Concat_1]\u001f[ONNX Layer: /Unsqueeze_7]\u001f[ONNX Layer: /Concat_2]\u001f[ONNX Layer: /Unsqueeze_6]\u001f[ONNX Layer: /Concat]\u001f[ONNX Layer: /Unsqueeze_2]\u001f[ONNX Layer: /Mul_1]\u001f[ONNX Layer: /Mul_3]\u001f[ONNX Layer: /Unsqueeze_5]\u001f[ONNX Layer: /Div_3]\u001f[ONNX Layer: /Div]\u001f[ONNX Layer: /Mul]"
 },{
-  "Name": "__myl_MoveConcConc_myl73_1",
+  "Name": "__myl_MoveConcConc_myl72_1",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3310,7 +3272,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /MatMul_2]\u001f[ONNX Layer: /MatMul_1]\u001f[ONNX Layer: /MatMul]"
 },{
-  "Name": "/MatMul_2+/MatMul_1+/MatMul_myl73_2",
+  "Name": "/MatMul_2+/MatMul_1+/MatMul_myl72_2",
   "LayerType": "gemm",
   "Inputs": [
   {
@@ -3328,7 +3290,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /MatMul_2]\u001f[ONNX Layer: /MatMul_1]\u001f[ONNX Layer: /MatMul]"
 },{
-  "Name": "__myl_Slic_myl73_3",
+  "Name": "__myl_Slic_myl72_3",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3346,7 +3308,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /MatMul_2]\u001f[ONNX Layer: /MatMul_1]\u001f[ONNX Layer: /MatMul]"
 },{
-  "Name": "__myl_Resh_myl73_4",
+  "Name": "__myl_Resh_myl72_4",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3364,7 +3326,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /Reshape_6]"
 },{
-  "Name": "__myl_GridCast_myl73_5",
+  "Name": "__myl_GridCast_myl72_5",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3383,11 +3345,11 @@
     "Dimensions": [1,256,32,64],
     "Format/Datatype": "Half"
   }],
-  "TacticName": "__myl_GridCast_0x1632cbda12b2342d4e166e891f6c7309",
+  "TacticName": "__myl_GridCast_0x8600c934505ef347a4714140db0f9759",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /GridSample_4]"
 },{
-  "Name": "__myl_NegExpAddDivAddGrid_myl73_6",
+  "Name": "__myl_NegExpAddDivAddGrid_myl72_6",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3410,7 +3372,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /Add_2]\u001f[ONNX Layer: /GridSample_5]\u001f[ONNX Layer: /Sigmoid_2]"
 },{
-  "Name": "__myl_CastEqlReplSeleMaxrSubExpSumDivIsnaReplSele_myl73_7",
+  "Name": "__myl_CastEqlReplSeleMaxrSubExpSumDivIsnaReplSele_myl72_7",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3428,7 +3390,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /IsNaN_2]\u001f[ONNX Layer: /Where_9]\u001f[ONNX Layer: /Softmax_2]\u001f[ONNX Layer: /GridSample_5]\u001f[ONNX Layer: /Where_8]\u001f[ONNX Layer: /Equal_5]"
 },{
-  "Name": "__myl_MulSum_myl73_8",
+  "Name": "__myl_MulSum_myl72_8",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3451,7 +3413,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /Mul_9]\u001f[ONNX Layer: /ReduceSum_2]"
 },{
-  "Name": "__myl_Resh_myl73_9",
+  "Name": "__myl_Resh_myl72_9",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3469,11 +3431,11 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /Reshape_4]"
 },{
-  "Name": "__myl_GridCast_myl73_10",
+  "Name": "__myl_GridCast_myl72_10",
   "LayerType": "kgen",
   "Inputs": [
   {
-    "Name": "/layer1/layer1.4/relu_2/Relu_output_0",
+    "Name": "Reformatted Input Tensor 2 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}",
     "Dimensions": [1,128,64,128],
     "Format/Datatype": "Half"
   },
@@ -3488,11 +3450,11 @@
     "Dimensions": [1,128,64,128],
     "Format/Datatype": "Half"
   }],
-  "TacticName": "__myl_GridCast_0x54a6e4320a1d61b3ae631089d0ade44d",
+  "TacticName": "__myl_GridCast_0x95eb2e2a47ebf86d61c22f5e84cbcbd3",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /GridSample_2]"
 },{
-  "Name": "__mye23965_myl73_11",
+  "Name": "__mye23965_myl72_11",
   "LayerType": "signal",
   "Inputs": [],
   "Outputs": [],
@@ -3501,11 +3463,11 @@
   "EventId": 1,
   "Metadata": ""
 },{
-  "Name": "__myl_NegExpAddDivAddGrid_myl73_12",
+  "Name": "__myl_NegExpAddDivAddGrid_myl72_12",
   "LayerType": "kgen",
   "Inputs": [
   {
-    "Name": "/single_head_1/Conv_output_0",
+    "Name": "Reformatted Input Tensor 5 to {ForeignNode[ONNXTRT_castHelper_449_output[Constant].../ReduceSum]}",
     "Dimensions": [1,1,64,128],
     "Format/Datatype": "Half"
   },
@@ -3524,7 +3486,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /Add_1]\u001f[ONNX Layer: /GridSample_3]\u001f[ONNX Layer: /Sigmoid_1]"
 },{
-  "Name": "__myl_CastEqlReplSeleMaxrSubExpSumDivIsnaReplSele_myl73_13",
+  "Name": "__myl_CastEqlReplSeleMaxrSubExpSumDivIsnaReplSele_myl72_13",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3542,7 +3504,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /IsNaN_1]\u001f[ONNX Layer: /Where_6]\u001f[ONNX Layer: /Softmax_1]\u001f[ONNX Layer: /GridSample_3]\u001f[ONNX Layer: /Where_5]\u001f[ONNX Layer: /Equal_3]"
 },{
-  "Name": "__mye23969_myl73_14",
+  "Name": "__mye23969_myl72_14",
   "LayerType": "signal",
   "Inputs": [],
   "Outputs": [],
@@ -3551,7 +3513,7 @@
   "EventId": 2,
   "Metadata": ""
 },{
-  "Name": "__mye23967_myl73_15",
+  "Name": "__mye23967_myl72_15",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -3560,7 +3522,7 @@
   "EventId": 1,
   "Metadata": ""
 },{
-  "Name": "__mye23971_myl73_16",
+  "Name": "__mye23971_myl72_16",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -3569,7 +3531,7 @@
   "EventId": 2,
   "Metadata": ""
 },{
-  "Name": "__myl_MulSum_myl73_17",
+  "Name": "__myl_MulSum_myl72_17",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3592,7 +3554,7 @@
   "StreamId": 2,
   "Metadata": "[ONNX Layer: /Mul_7]\u001f[ONNX Layer: /ReduceSum_1]"
 },{
-  "Name": "__myl_Resh_myl73_18",
+  "Name": "__myl_Resh_myl72_18",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3610,7 +3572,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /Reshape_2]"
 },{
-  "Name": "__myl_GridCast_myl73_19",
+  "Name": "__myl_GridCast_myl72_19",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3629,11 +3591,11 @@
     "Dimensions": [1,64,128,256],
     "Format/Datatype": "Half"
   }],
-  "TacticName": "__myl_GridCast_0xa3f7b9689b5110b083968ec8c7d7f861",
+  "TacticName": "__myl_GridCast_0x4fa8b8fdb205f882546f145e81fb861b",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /GridSample]"
 },{
-  "Name": "__mye23973_myl73_20",
+  "Name": "__mye23973_myl72_20",
   "LayerType": "signal",
   "Inputs": [],
   "Outputs": [],
@@ -3642,7 +3604,7 @@
   "EventId": 3,
   "Metadata": ""
 },{
-  "Name": "__myl_NegExpAddDivAddGrid_myl73_21",
+  "Name": "__myl_NegExpAddDivAddGrid_myl72_21",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3665,7 +3627,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /Add]\u001f[ONNX Layer: /GridSample_1]\u001f[ONNX Layer: /Sigmoid]"
 },{
-  "Name": "__myl_CastEqlReplSeleMaxrSubExpSumDivIsnaReplSele_myl73_22",
+  "Name": "__myl_CastEqlReplSeleMaxrSubExpSumDivIsnaReplSele_myl72_22",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3683,7 +3645,7 @@
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /IsNaN]\u001f[ONNX Layer: /Where_3]\u001f[ONNX Layer: /Softmax]\u001f[ONNX Layer: /GridSample_1]\u001f[ONNX Layer: /Where_2]\u001f[ONNX Layer: /Equal_1]"
 },{
-  "Name": "__mye23977_myl73_23",
+  "Name": "__mye23977_myl72_23",
   "LayerType": "signal",
   "Inputs": [],
   "Outputs": [],
@@ -3692,7 +3654,7 @@
   "EventId": 4,
   "Metadata": ""
 },{
-  "Name": "__mye23975_myl73_24",
+  "Name": "__mye23975_myl72_24",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -3701,7 +3663,7 @@
   "EventId": 3,
   "Metadata": ""
 },{
-  "Name": "__mye23979_myl73_25",
+  "Name": "__mye23979_myl72_25",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -3710,7 +3672,7 @@
   "EventId": 4,
   "Metadata": ""
 },{
-  "Name": "__myl_MulSum_myl73_26",
+  "Name": "__myl_MulSum_myl72_26",
   "LayerType": "kgen",
   "Inputs": [
   {
@@ -3733,7 +3695,7 @@
   "StreamId": 1,
   "Metadata": "[ONNX Layer: /Mul_5]\u001f[ONNX Layer: /ReduceSum]"
 },{
-  "Name": "exit^bb^signal^1_myl73_27",
+  "Name": "exit^bb^signal^1_myl72_27",
   "LayerType": "signal",
   "Inputs": [],
   "Outputs": [],
@@ -3742,7 +3704,7 @@
   "EventId": 5,
   "Metadata": ""
 },{
-  "Name": "exit^bb^wait^1_myl73_28",
+  "Name": "exit^bb^wait^1_myl72_28",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -3751,7 +3713,7 @@
   "EventId": 5,
   "Metadata": ""
 },{
-  "Name": "exit^bb^signal^2_myl73_29",
+  "Name": "exit^bb^signal^2_myl72_29",
   "LayerType": "signal",
   "Inputs": [],
   "Outputs": [],
@@ -3760,7 +3722,7 @@
   "EventId": 6,
   "Metadata": ""
 },{
-  "Name": "exit^bb^wait^2_myl73_30",
+  "Name": "exit^bb^wait^2_myl72_30",
   "LayerType": "wait",
   "Inputs": [],
   "Outputs": [],
@@ -3848,8 +3810,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_deconv_implicit_gemm_indexed_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize256x64x32_stage1_warpsize4x1x1_g1_tensor16x8x8_strided",
-  "TacticValue": "0x1feee88efb8cc94c",
+  "TacticName": "sm80_xmma_deconv_implicit_gemm_indexed_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize128x128x32_stage4_warpsize2x2x1_g1_tensor16x8x16_strided",
+  "TacticValue": "0x611e899dccd3003a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /deblocks.1/deblocks.1.0/ConvTranspose]\u001e[ONNX Layer: /deblocks.1/deblocks.1.1/BatchNormalization]\u001e[ONNX Layer: /deblocks.1/deblocks.1.2/Relu]"
 },{
@@ -3890,8 +3852,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm75_xmma_deconv_implicit_gemm_indexed_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize128x128x32_stage1_warpsize2x2x1_g1_tensor16x8x8_strided",
-  "TacticValue": "0x8dd9cd2a1a26ba39",
+  "TacticName": "sm80_xmma_deconv_implicit_gemm_indexed_f16f16_f16f16_f16_nhwckrsc_nhwc_tilesize128x128x32_stage4_warpsize2x2x1_g1_tensor16x8x16_strided",
+  "TacticValue": "0x611e899dccd3003a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /deblocks.2/deblocks.2.0/ConvTranspose]\u001e[ONNX Layer: /deblocks.2/deblocks.2.1/BatchNormalization]\u001e[ONNX Layer: /deblocks.2/deblocks.2.2/Relu]"
 },{
@@ -3954,8 +3916,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_avdt_dense_int8int8_tilesize64x256x32_tapsperload3_threadspercta128_r3s3_u1v1_scalebias_relu",
-  "TacticValue": "0x9dafb2758560cc1d",
+  "TacticName": "sm90_xmma_fprop_implicit_gemm_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize128x256x64_cgasize1x1x1_warpgroupsize2x1x1_g1_no_relu_up_beta0_packed_tensor_stride",
+  "TacticValue": "0x6f379d7f73642c7a",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /shrink_conv/layers.0/double_conv/double_conv.0/Conv]\u001e[ONNX Layer: /shrink_conv/layers.0/double_conv/double_conv.1/Relu]"
 },{
@@ -3996,8 +3958,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "RELU",
-  "TacticName": "sm80_xmma_fprop_avdt_dense_int8int8_tilesize64x256x32_tapsperload3_threadspercta128_r3s3_u1v1_scalebias_relu",
-  "TacticValue": "0x9dafb2758560cc1d",
+  "TacticName": "sm90_xmma_fprop_implicit_gemm_i8i8_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_vect_c_32_tilesize256x128x64_cgasize1x2x1_warpgroupsize2x1x1_g1_no_relu_up_beta0_packed_tensor_stride",
+  "TacticValue": "0x388a7ba5b9327e20",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /shrink_conv/layers.0/double_conv/double_conv.2/Conv]\u001e[ONNX Layer: /shrink_conv/layers.0/double_conv/double_conv.3/Relu]"
 },{
@@ -4038,8 +4000,8 @@
   "BiasAsActInputIdx": -1,
   "ResAsActInputIdx": -1,
   "Activation": "NONE",
-  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8f32_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_tilesize64x32x64_stage6_warpsize2x1x1_g1_tensor16x8x32_t1r1s1_alignc4",
-  "TacticValue": "0x5e4f6d7c83746fd6",
+  "TacticName": "sm80_xmma_fprop_implicit_gemm_interleaved_i8f32_i8i32_f32_nchw_vect_c_32kcrs_vect_c_32_nchw_tilesize128x32x64_stage4_warpsize4x1x1_g1_tensor16x8x32_t1r1s1_alignc4",
+  "TacticValue": "0x733ba2a91a48d431",
   "StreamId": 0,
   "Metadata": "[ONNX Layer: /dir_head/Conv]"
 },{

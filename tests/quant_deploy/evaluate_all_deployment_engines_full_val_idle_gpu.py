@@ -96,6 +96,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--include_mixed_heads_fp16", action="store_true")
     parser.add_argument("--force_gpu_index_no_nvidia_smi", type=int, default=None, help="Force a physical GPU id and skip all nvidia-smi based selection/telemetry.")
     parser.add_argument("--excluded_gpu_indices", default="", help="Comma-separated physical GPU ids excluded from selection, recorded in reports.")
+    parser.add_argument("--progress_every_frames", type=int, default=1, help="Print and log progress every N frames. Default 1 prints every frame.")
+    parser.add_argument("--no_progress_stdout", action="store_true", help="Write progress logs only to files, not stdout.")
     return parser.parse_args(argv)
 
 
@@ -158,6 +160,44 @@ def stats(values: list[float]) -> dict[str, float | None]:
         "mean": float(sum(ordered) / len(ordered)),
         "max": float(max(ordered)),
     }
+
+
+class ProgressLogger:
+    def __init__(self, dirs: dict[str, Path], *, stdout: bool = True, every_frames: int = 1) -> None:
+        self.root = dirs["evaluation_full_val_idle_gpu"]
+        self.stdout = bool(stdout)
+        self.every_frames = max(1, int(every_frames or 1))
+        self.text_path = self.root / "full_val_progress.log"
+        self.jsonl_path = self.root / "full_val_progress.jsonl"
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _paths_for_mode(self, mode: str | None) -> tuple[Path | None, Path | None]:
+        if not mode:
+            return None, None
+        return self.root / f"{mode}_progress.log", self.root / f"{mode}_progress.jsonl"
+
+    def emit(self, stage: str, message: str, *, mode: str | None = None, **fields: Any) -> None:
+        ts = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        prefix = f"[{ts}] [{stage}]"
+        if mode:
+            prefix += f" [{mode}]"
+        line = f"{prefix} {message}"
+        record = {"time": ts, "stage": stage, "mode": mode, "message": message, **fields}
+        if self.stdout:
+            print(line, flush=True)
+        with self.text_path.open("a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+        with self.jsonl_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        mode_text, mode_jsonl = self._paths_for_mode(mode)
+        if mode_text is not None and mode_jsonl is not None:
+            with mode_text.open("a", encoding="utf-8") as handle:
+                handle.write(line + "\n")
+            with mode_jsonl.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    def should_emit_frame(self, frame_idx: int) -> bool:
+        return int(frame_idx) == 0 or (int(frame_idx) + 1) % self.every_frames == 0
 
 
 def mode_report_name(mode: EvalMode) -> str:
@@ -235,7 +275,7 @@ def _new_loader(dataset: Any, DataLoader: Any) -> Any:
     return DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0, collate_fn=dataset.collate_batch_test)
 
 
-def scan_val_requirements(args: argparse.Namespace, context: tuple[Any, Any, Any, str, Any, Any], dirs: dict[str, Path]) -> dict[str, Any]:
+def scan_val_requirements(args: argparse.Namespace, context: tuple[Any, Any, Any, str, Any, Any], dirs: dict[str, Path], progress: ProgressLogger | None = None) -> dict[str, Any]:
     from bucketed_padded_agent_latency import select_voxel_bucket
     from deployment_equivalence import _record_len_value
     from export_lidar_pyramid_onnx import _extract_inputs
@@ -247,9 +287,28 @@ def scan_val_requirements(args: argparse.Namespace, context: tuple[Any, Any, Any
     required_dynamic_routes: set[tuple[int, int]] = set()
     samples: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
+    total_samples = len(dataset)
+    if progress is not None:
+        progress.emit(
+            "scan_start",
+            f"scanning validation split for K/route requirements: total={total_samples}, fixed_K={fixed_k}",
+            total_val_samples=total_samples,
+            fixed_K=fixed_k,
+        )
     for frame_idx, batch in enumerate(_new_loader(dataset, DataLoader)):
+        frame_start = time.perf_counter()
         if batch is None:
             skipped.append({"sample_idx": int(frame_idx), "reason": "batch_is_none"})
+            if progress is not None and progress.should_emit_frame(frame_idx):
+                progress.emit(
+                    "scan_frame",
+                    f"frame {frame_idx + 1}/{total_samples}: skipped batch_is_none",
+                    sample_idx=int(frame_idx),
+                    frame_number=int(frame_idx + 1),
+                    total_val_samples=total_samples,
+                    reason="batch_is_none",
+                    elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                )
             continue
         try:
             ego = batch["ego"] if isinstance(batch, dict) and "ego" in batch else batch
@@ -266,8 +325,31 @@ def scan_val_requirements(args: argparse.Namespace, context: tuple[Any, Any, Any
                 required_dynamic_routes.add((record_len, bucket_id))
                 row["bucket_id"] = bucket_id
             samples.append(row)
+            if progress is not None and progress.should_emit_frame(frame_idx):
+                progress.emit(
+                    "scan_frame",
+                    f"frame {frame_idx + 1}/{total_samples}: K={k}, N={record_len}, bucket={row.get('bucket_id')}, skipped={k > fixed_k}",
+                    sample_idx=int(frame_idx),
+                    frame_number=int(frame_idx + 1),
+                    total_val_samples=total_samples,
+                    original_num_voxels=k,
+                    record_len=record_len,
+                    bucket_id=row.get("bucket_id"),
+                    skipped=bool(k > fixed_k),
+                    elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                )
         except Exception as exc:
             skipped.append({"sample_idx": int(frame_idx), "reason": "scan_exception", "error": str(exc)})
+            if progress is not None:
+                progress.emit(
+                    "scan_frame_error",
+                    f"frame {frame_idx + 1}/{total_samples}: scan_exception: {exc}",
+                    sample_idx=int(frame_idx),
+                    frame_number=int(frame_idx + 1),
+                    total_val_samples=total_samples,
+                    error=str(exc),
+                    elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                )
     report = {
         "evaluation_split": "val",
         "total_val_samples": len(dataset),
@@ -282,6 +364,17 @@ def scan_val_requirements(args: argparse.Namespace, context: tuple[Any, Any, Any
         "skip_reasons": dict(Counter(str(item.get("reason", "unknown")) for item in skipped)),
     }
     save_json(report, dirs["debug_full_val_idle_gpu"] / "full_val_route_requirements.json")
+    if progress is not None:
+        progress.emit(
+            "scan_done",
+            f"scan done: scanned={len(samples)}, skipped={len(skipped)}, required_buckets={sorted(required_buckets)}, required_dynamic_routes={sorted(required_dynamic_routes)}",
+            scanned_samples=len(samples),
+            skipped_samples=len(skipped),
+            skip_reasons=report["skip_reasons"],
+            required_buckets=sorted(required_buckets),
+            required_dynamic_routes=[[n, b] for n, b in sorted(required_dynamic_routes)],
+            output_path=str(dirs["debug_full_val_idle_gpu"] / "full_val_route_requirements.json"),
+        )
     return {
         **report,
         "required_buckets": required_buckets,
@@ -296,6 +389,24 @@ def _wait_for_no_other_processes(args: argparse.Namespace, selected_gpu: Any, ow
             "checks": [],
             "forced_no_nvidia_smi": True,
             "note": "Skipped process check because nvidia-smi is disabled for this run.",
+        }
+    if getattr(args, "allow_busy_gpu", False):
+        snapshots = query_gpu_snapshots()
+        selected = next((item for item in snapshots if item.index == selected_gpu.index), None)
+        other = []
+        if selected is not None:
+            other = [process for process in selected.processes if int(process.pid) != int(own_pid)]
+        return {
+            "ok": True,
+            "allow_busy_gpu": True,
+            "checks": [
+                {
+                    "time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                    "snapshot": snapshot_to_dict(selected) if selected is not None else None,
+                    "other_processes": [process.__dict__ for process in other],
+                }
+            ],
+            "note": "Proceeding on user-approved busy GPU; latency may be marked unreliable if telemetry sees other processes.",
         }
     start = time.time()
     checks: list[dict[str, Any]] = []
@@ -461,7 +572,7 @@ def _finalize_report(report: dict[str, Any], *, rows: list[dict[str, Any]], late
     return report
 
 
-def evaluate_router_mode(args: argparse.Namespace, dirs: dict[str, Path], context: tuple[Any, Any, Any, str, Any, Any], mode: EvalMode, selected_gpu: Any, route_requirements: dict[str, Any], nvidia_smi_before: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any]]:
+def evaluate_router_mode(args: argparse.Namespace, dirs: dict[str, Path], context: tuple[Any, Any, Any, str, Any, Any], mode: EvalMode, selected_gpu: Any, route_requirements: dict[str, Any], nvidia_smi_before: list[dict[str, Any]], progress: ProgressLogger | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
     import torch
     from agent_mode_fixed_k_plugin_ablation import AgentModeFixedKRouter
     from deployment_equivalence import _record_len_value
@@ -471,8 +582,26 @@ def evaluate_router_mode(args: argparse.Namespace, dirs: dict[str, Path], contex
 
     engine_paths, missing_paths = _engine_paths_for_mode(dirs, mode, route_requirements)
     report = _base_report(mode=mode, args=args, dirs=dirs, selected_gpu=selected_gpu, engine_paths=engine_paths, missing_paths=missing_paths, route_requirements=route_requirements, nvidia_smi_before=nvidia_smi_before)
+    if progress is not None:
+        progress.emit(
+            "mode_start",
+            f"loading router mode: scheme={mode.scheme}, precision={mode.precision}, calibration={mode.calibration_mode}, engine_count={len(engine_paths)}",
+            mode=mode.key,
+            scheme=mode.scheme,
+            precision=mode.precision,
+            calibration_mode=mode.calibration_mode,
+            engine_strategy=mode.engine_strategy,
+            engine_paths=[str(path) for path in engine_paths],
+        )
     if missing_paths:
         report.update({"status": "missing_engine", "error": "required route engine files are missing"})
+        if progress is not None:
+            progress.emit(
+                "mode_missing",
+                f"missing router engine files: {len(missing_paths)}",
+                mode=mode.key,
+                missing_engine_paths=[str(path) for path in missing_paths],
+            )
         after = [] if getattr(args, "force_gpu_index_no_nvidia_smi", None) is not None else snapshots_to_dicts(query_gpu_snapshots())
         report["nvidia_smi_after"] = after
         trace = {"status": "missing_engine", "mode": mode.key, "missing_engine_paths": [str(path) for path in missing_paths], "nvidia_smi_before": nvidia_smi_before, "nvidia_smi_after": after}
@@ -493,15 +622,42 @@ def evaluate_router_mode(args: argparse.Namespace, dirs: dict[str, Path], contex
         monitor.start()
     try:
         evaluated = 0
+        total_samples = int(route_requirements.get("total_val_samples") or len(dataset))
         for frame_idx, batch in enumerate(_new_loader(dataset, DataLoader)):
+            frame_start = time.perf_counter()
             if batch is None:
                 skipped.append({"sample_idx": int(frame_idx), "reason": "batch_is_none"})
+                if progress is not None and progress.should_emit_frame(frame_idx):
+                    progress.emit(
+                        "eval_frame",
+                        f"frame {frame_idx + 1}/{total_samples}: skipped batch_is_none",
+                        mode=mode.key,
+                        sample_idx=int(frame_idx),
+                        frame_number=int(frame_idx + 1),
+                        total_val_samples=total_samples,
+                        evaluated_samples=evaluated,
+                        reason="batch_is_none",
+                        elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                    )
                 continue
             try:
                 ego = batch["ego"] if isinstance(batch, dict) and "ego" in batch else batch
                 original_tensors_cpu, _agent_modalities = _extract_inputs(ego, modality)
                 original_num_voxels = int(original_tensors_cpu[0].shape[0])
                 if original_num_voxels > fixed_k:
+                    if progress is not None and progress.should_emit_frame(frame_idx):
+                        progress.emit(
+                            "eval_frame",
+                            f"frame {frame_idx + 1}/{total_samples}: skipped K_exceeds_fixed_K K={original_num_voxels}",
+                            mode=mode.key,
+                            sample_idx=int(frame_idx),
+                            frame_number=int(frame_idx + 1),
+                            total_val_samples=total_samples,
+                            evaluated_samples=evaluated,
+                            original_num_voxels=original_num_voxels,
+                            reason="K_exceeds_fixed_K",
+                            elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                        )
                     continue
                 ego = _to_device(ego, device)
                 batch = _to_device(batch, device)
@@ -546,8 +702,45 @@ def evaluate_router_mode(args: argparse.Namespace, dirs: dict[str, Path], contex
                 if not row["latency_warmup"]:
                     latency_rows.append(row)
                 evaluated += 1
+                if progress is not None and progress.should_emit_frame(frame_idx):
+                    progress.emit(
+                        "eval_frame",
+                        (
+                            f"frame {frame_idx + 1}/{total_samples}: evaluated={evaluated}, "
+                            f"K={original_num_voxels}, N={record_len}, bucket={row['bucket_id']}, "
+                            f"execute={row['execute_ms']:.4f} ms, forward={row['forward_ms']:.4f} ms, "
+                            f"post={post_ms:.4f} ms"
+                        ),
+                        mode=mode.key,
+                        sample_idx=int(frame_idx),
+                        frame_number=int(frame_idx + 1),
+                        total_val_samples=total_samples,
+                        evaluated_samples=evaluated,
+                        record_len=record_len,
+                        original_num_voxels=original_num_voxels,
+                        bucket_id=row["bucket_id"],
+                        engine_path=row["engine_path"],
+                        execute_ms=row["execute_ms"],
+                        forward_ms=row["forward_ms"],
+                        total_runner_ms=row["total_runner_ms"],
+                        postprocess_ms=post_ms,
+                        d2h_copy_ms=d2h_ms,
+                        latency_warmup=row["latency_warmup"],
+                        elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                    )
             except Exception as exc:
                 skipped.append({"sample_idx": int(frame_idx), "reason": "eval_exception", "error": str(exc), "traceback": traceback.format_exc()})
+                if progress is not None:
+                    progress.emit(
+                        "eval_frame_error",
+                        f"frame {frame_idx + 1}/{total_samples}: eval_exception: {exc}",
+                        mode=mode.key,
+                        sample_idx=int(frame_idx),
+                        frame_number=int(frame_idx + 1),
+                        total_val_samples=total_samples,
+                        error=str(exc),
+                        elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                    )
     finally:
         if monitor is not None:
             monitor.stop()
@@ -577,11 +770,29 @@ def evaluate_router_mode(args: argparse.Namespace, dirs: dict[str, Path], contex
         else monitor.report()
     )
     report = _finalize_report(report, rows=rows, latency_rows=latency_rows, skipped=skipped, ap=ap, monitor_report=trace, nvidia_smi_after=after)
+    if progress is not None:
+        progress.emit(
+            "mode_done",
+            f"mode done: evaluated={report.get('evaluated_samples')}/{report.get('total_val_samples')}, mAP={report.get('mAP')}, AP70={report.get('AP@0.70')}, forward_p50={(report.get('forward_ms') or {}).get('p50')}",
+            mode=mode.key,
+            evaluated_samples=report.get("evaluated_samples"),
+            total_val_samples=report.get("total_val_samples"),
+            skipped_samples=len(report.get("skipped_samples") or []),
+            AP_030=report.get("AP@0.30"),
+            AP_050=report.get("AP@0.50"),
+            AP_070=report.get("AP@0.70"),
+            mAP=report.get("mAP"),
+            execute_ms=report.get("execute_ms"),
+            forward_ms=report.get("forward_ms"),
+            FPS=report.get("FPS"),
+            gpu_contention_detected=report.get("gpu_contention_detected"),
+            unreliable_latency=report.get("unreliable_latency"),
+        )
     trace.update({"mode": mode.key, "nvidia_smi_before": nvidia_smi_before, "nvidia_smi_after": after})
     return report, trace
 
 
-def evaluate_single_mode(args: argparse.Namespace, dirs: dict[str, Path], context: tuple[Any, Any, Any, str, Any, Any], mode: EvalMode, selected_gpu: Any, route_requirements: dict[str, Any], nvidia_smi_before: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any]]:
+def evaluate_single_mode(args: argparse.Namespace, dirs: dict[str, Path], context: tuple[Any, Any, Any, str, Any, Any], mode: EvalMode, selected_gpu: Any, route_requirements: dict[str, Any], nvidia_smi_before: list[dict[str, Any]], progress: ProgressLogger | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
     import torch
     from deployment_equivalence import TensorRTEngineRunner
     from evaluate_lidar_pyramid_trt_ap import IOU_THRESHOLDS, _calculate_tp_fp, _timed
@@ -590,8 +801,26 @@ def evaluate_single_mode(args: argparse.Namespace, dirs: dict[str, Path], contex
 
     engine_paths, missing_paths = _engine_paths_for_mode(dirs, mode, route_requirements)
     report = _base_report(mode=mode, args=args, dirs=dirs, selected_gpu=selected_gpu, engine_paths=engine_paths, missing_paths=missing_paths, route_requirements=route_requirements, nvidia_smi_before=nvidia_smi_before)
+    if progress is not None:
+        progress.emit(
+            "mode_start",
+            f"loading single-engine mode: scheme={mode.scheme}, precision={mode.precision}, calibration={mode.calibration_mode}, engine={engine_paths[0] if engine_paths else None}",
+            mode=mode.key,
+            scheme=mode.scheme,
+            precision=mode.precision,
+            calibration_mode=mode.calibration_mode,
+            engine_strategy=mode.engine_strategy,
+            engine_paths=[str(path) for path in engine_paths],
+        )
     if missing_paths:
         report.update({"status": "missing_engine", "error": "single engine file is missing"})
+        if progress is not None:
+            progress.emit(
+                "mode_missing",
+                f"missing single engine file: {missing_paths[0] if missing_paths else None}",
+                mode=mode.key,
+                missing_engine_paths=[str(path) for path in missing_paths],
+            )
         after = [] if getattr(args, "force_gpu_index_no_nvidia_smi", None) is not None else snapshots_to_dicts(query_gpu_snapshots())
         report["nvidia_smi_after"] = after
         trace = {"status": "missing_engine", "mode": mode.key, "missing_engine_paths": [str(path) for path in missing_paths], "nvidia_smi_before": nvidia_smi_before, "nvidia_smi_after": after}
@@ -612,9 +841,23 @@ def evaluate_single_mode(args: argparse.Namespace, dirs: dict[str, Path], contex
         monitor.start()
     try:
         evaluated = 0
+        total_samples = int(route_requirements.get("total_val_samples") or len(dataset))
         for frame_idx, batch in enumerate(_new_loader(dataset, DataLoader)):
+            frame_start = time.perf_counter()
             if batch is None:
                 skipped.append({"sample_idx": int(frame_idx), "reason": "batch_is_none"})
+                if progress is not None and progress.should_emit_frame(frame_idx):
+                    progress.emit(
+                        "eval_frame",
+                        f"frame {frame_idx + 1}/{total_samples}: skipped batch_is_none",
+                        mode=mode.key,
+                        sample_idx=int(frame_idx),
+                        frame_number=int(frame_idx + 1),
+                        total_val_samples=total_samples,
+                        evaluated_samples=evaluated,
+                        reason="batch_is_none",
+                        elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                    )
                 continue
             try:
                 ego_cpu = batch["ego"] if isinstance(batch, dict) and "ego" in batch else batch
@@ -624,6 +867,19 @@ def evaluate_single_mode(args: argparse.Namespace, dirs: dict[str, Path], contex
                 original_tensors_cpu, _agent_modalities = _extract_inputs(ego_cpu, _modality)
                 original_num_voxels = int(original_tensors_cpu[0].shape[0])
                 if original_num_voxels > fixed_k:
+                    if progress is not None and progress.should_emit_frame(frame_idx):
+                        progress.emit(
+                            "eval_frame",
+                            f"frame {frame_idx + 1}/{total_samples}: skipped K_exceeds_fixed_K K={original_num_voxels}",
+                            mode=mode.key,
+                            sample_idx=int(frame_idx),
+                            frame_number=int(frame_idx + 1),
+                            total_val_samples=total_samples,
+                            evaluated_samples=evaluated,
+                            original_num_voxels=original_num_voxels,
+                            reason="K_exceeds_fixed_K",
+                            elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                        )
                     continue
                 ego = _to_device(ego_cpu, device)
                 batch = _to_device(batch, device)
@@ -667,8 +923,47 @@ def evaluate_single_mode(args: argparse.Namespace, dirs: dict[str, Path], contex
                 if not row["latency_warmup"]:
                     latency_rows.append(row)
                 evaluated += 1
+                if progress is not None and progress.should_emit_frame(frame_idx):
+                    progress.emit(
+                        "eval_frame",
+                        (
+                            f"frame {frame_idx + 1}/{total_samples}: evaluated={evaluated}, "
+                            f"K={row['original_num_voxels']}, N={row['record_len']}, "
+                            f"execute={row['execute_ms']:.4f} ms, forward={row['forward_ms']:.4f} ms, "
+                            f"post={post_ms:.4f} ms"
+                        ),
+                        mode=mode.key,
+                        sample_idx=int(frame_idx),
+                        frame_number=int(frame_idx + 1),
+                        total_val_samples=total_samples,
+                        evaluated_samples=evaluated,
+                        record_len=row["record_len"],
+                        N_runtime_shape=row["N_runtime_shape"],
+                        original_num_voxels=row["original_num_voxels"],
+                        engine_path=row["engine_path"],
+                        execute_ms=row["execute_ms"],
+                        forward_ms=row["forward_ms"],
+                        total_runner_ms=row["total_runner_ms"],
+                        postprocess_ms=post_ms,
+                        d2h_copy_ms=d2h_ms,
+                        shape_setup_ms=row["shape_setup_ms"],
+                        padding_ms=row["padding_ms"],
+                        latency_warmup=row["latency_warmup"],
+                        elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                    )
             except Exception as exc:
                 skipped.append({"sample_idx": int(frame_idx), "reason": "eval_exception", "error": str(exc), "traceback": traceback.format_exc()})
+                if progress is not None:
+                    progress.emit(
+                        "eval_frame_error",
+                        f"frame {frame_idx + 1}/{total_samples}: eval_exception: {exc}",
+                        mode=mode.key,
+                        sample_idx=int(frame_idx),
+                        frame_number=int(frame_idx + 1),
+                        total_val_samples=total_samples,
+                        error=str(exc),
+                        elapsed_ms=(time.perf_counter() - frame_start) * 1000.0,
+                    )
     finally:
         if monitor is not None:
             monitor.stop()
@@ -698,6 +993,24 @@ def evaluate_single_mode(args: argparse.Namespace, dirs: dict[str, Path], contex
         else monitor.report()
     )
     report = _finalize_report(report, rows=rows, latency_rows=latency_rows, skipped=skipped, ap=ap, monitor_report=trace, nvidia_smi_after=after)
+    if progress is not None:
+        progress.emit(
+            "mode_done",
+            f"mode done: evaluated={report.get('evaluated_samples')}/{report.get('total_val_samples')}, mAP={report.get('mAP')}, AP70={report.get('AP@0.70')}, forward_p50={(report.get('forward_ms') or {}).get('p50')}",
+            mode=mode.key,
+            evaluated_samples=report.get("evaluated_samples"),
+            total_val_samples=report.get("total_val_samples"),
+            skipped_samples=len(report.get("skipped_samples") or []),
+            AP_030=report.get("AP@0.30"),
+            AP_050=report.get("AP@0.50"),
+            AP_070=report.get("AP@0.70"),
+            mAP=report.get("mAP"),
+            execute_ms=report.get("execute_ms"),
+            forward_ms=report.get("forward_ms"),
+            FPS=report.get("FPS"),
+            gpu_contention_detected=report.get("gpu_contention_detected"),
+            unreliable_latency=report.get("unreliable_latency"),
+        )
     trace.update({"mode": mode.key, "nvidia_smi_before": nvidia_smi_before, "nvidia_smi_after": after})
     return report, trace
 
@@ -917,11 +1230,30 @@ def summarize_existing(args: argparse.Namespace) -> dict[str, Any]:
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     dirs = full_val_dirs(args.output_root, output_tag=args.output_tag, fixed_k=int(args.fixed_k), fixedk_engine_namespace=bool(args.fixedk_engine_namespace))
+    progress = ProgressLogger(
+        dirs,
+        stdout=not bool(getattr(args, "no_progress_stdout", False)),
+        every_frames=int(getattr(args, "progress_every_frames", 1)),
+    )
     run_start = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    progress.emit(
+        "run_start",
+        f"starting full-val evaluation: fixed_K={args.fixed_k}, output_tag={args.output_tag}, schemes={args.schemes or 'all'}",
+        fixed_K=int(args.fixed_k),
+        output_tag=str(args.output_tag),
+        schemes=args.schemes or "all",
+        output_root=str(args.output_root),
+    )
     if args.force_gpu_index_no_nvidia_smi is not None:
         selected_gpu = SimpleNamespace(index=int(args.force_gpu_index_no_nvidia_smi), uuid=f"forced-gpu-{int(args.force_gpu_index_no_nvidia_smi)}")
         selected_reason = "forced physical GPU id; nvidia-smi disabled because a bad GPU makes NVML queries slow"
         selection_attempts = []
+        progress.emit(
+            "gpu_selected",
+            f"selected forced GPU {selected_gpu.index}: {selected_reason}",
+            selected_gpu=int(selected_gpu.index),
+            selected_gpu_reason=selected_reason,
+        )
     else:
         try:
             selected_gpu, selected_reason, selection_attempts = wait_for_idle_gpu(
@@ -931,6 +1263,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 poll_interval_sec=args.gpu_poll_interval_sec,
                 gpu_index=args.gpu_index,
                 allow_busy_gpu=args.allow_busy_gpu,
+            )
+            progress.emit(
+                "gpu_selected",
+                f"selected GPU {selected_gpu.index}: {selected_reason}",
+                selected_gpu=int(selected_gpu.index),
+                selected_gpu_uuid=selected_gpu.uuid,
+                selected_gpu_reason=selected_reason,
+                allow_busy_gpu=bool(args.allow_busy_gpu),
             )
         except Exception as exc:
             gpu_report = {
@@ -961,9 +1301,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 summary_path=dirs["summary_full_val_idle_gpu"] / "gpu_selection_and_contention_report.md",
             )
             save_json(gpu_report, dirs["debug"] / "gpu_selection_and_contention_report.json")
+            progress.emit("gpu_selection_failed", f"idle GPU selection failed: {exc}", error=str(exc))
             return {"success": False, "gpu_report": gpu_report, "summary": {}}
     os.environ["CUDA_VISIBLE_DEVICES"] = str(selected_gpu.index)
     os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+    progress.emit(
+        "env_ready",
+        f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES')}, CUDA_DEVICE_ORDER={os.environ.get('CUDA_DEVICE_ORDER')}",
+        CUDA_VISIBLE_DEVICES=os.environ.get("CUDA_VISIBLE_DEVICES"),
+        CUDA_DEVICE_ORDER=os.environ.get("CUDA_DEVICE_ORDER"),
+    )
     nvidia_before = (
         [
             {
@@ -976,8 +1323,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if args.force_gpu_index_no_nvidia_smi is not None
         else snapshots_to_dicts(query_gpu_snapshots())
     )
+    progress.emit(
+        "context_load_start",
+        f"loading HEAL context: config={args.hypes_yaml}, checkpoint={args.checkpoint}",
+        hypes_yaml=str(args.hypes_yaml),
+        checkpoint=str(args.checkpoint),
+        heal_repo=str(args.heal_repo),
+    )
     context = _load_context(args)
-    route_requirements = scan_val_requirements(args, context, dirs)
+    _hypes, device, _model, modality, dataset, _DataLoader = context
+    progress.emit(
+        "context_load_done",
+        f"context loaded: device={device}, modality={modality}, val_samples={len(dataset)}",
+        device=str(device),
+        modality=str(modality),
+        total_val_samples=len(dataset),
+    )
+    route_requirements = scan_val_requirements(args, context, dirs, progress)
     modes = eval_modes(fixed_k=int(args.fixed_k), dynamic_int8_calibration_split=args.dynamic_int8_calibration_split, include_mixed_heads_fp16=bool(args.include_mixed_heads_fp16))
     requested = set(args.schemes or [mode.key for mode in modes])
     reports: list[dict[str, Any]] = []
@@ -985,25 +1347,56 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     for mode in modes:
         if mode.key not in requested:
             continue
+        progress.emit(
+            "mode_prepare",
+            f"preparing mode {mode.key}: scheme={mode.scheme}, precision={mode.precision}, calibration={mode.calibration_mode}",
+            mode=mode.key,
+            scheme=mode.scheme,
+            precision=mode.precision,
+            calibration_mode=mode.calibration_mode,
+            engine_strategy=mode.engine_strategy,
+        )
         mode_start_check = _wait_for_no_other_processes(args, selected_gpu, os.getpid())
         if not mode_start_check.get("ok"):
             report, trace = missing_report_for_mode(args, dirs, mode, selected_gpu, route_requirements, nvidia_before, str(mode_start_check.get("error")))
             report["status"] = "gpu_busy"
             report["unreliable_latency"] = True
             trace["mode_start_check"] = mode_start_check
+            progress.emit(
+                "mode_gpu_busy",
+                f"mode {mode.key} not run because selected GPU stayed busy: {mode_start_check.get('error')}",
+                mode=mode.key,
+                error=str(mode_start_check.get("error")),
+            )
         else:
             try:
                 if mode.runner_kind == "single":
-                    report, trace = evaluate_single_mode(args, dirs, context, mode, selected_gpu, route_requirements, nvidia_before)
+                    report, trace = evaluate_single_mode(args, dirs, context, mode, selected_gpu, route_requirements, nvidia_before, progress)
                 else:
-                    report, trace = evaluate_router_mode(args, dirs, context, mode, selected_gpu, route_requirements, nvidia_before)
+                    report, trace = evaluate_router_mode(args, dirs, context, mode, selected_gpu, route_requirements, nvidia_before, progress)
                 trace["mode_start_check"] = mode_start_check
             except Exception as exc:
                 report, trace = missing_report_for_mode(args, dirs, mode, selected_gpu, route_requirements, nvidia_before, str(exc))
                 report["status"] = "failed"
                 report["traceback"] = traceback.format_exc()
                 trace["traceback"] = report["traceback"]
+                progress.emit(
+                    "mode_failed",
+                    f"mode {mode.key} failed: {exc}",
+                    mode=mode.key,
+                    error=str(exc),
+                    traceback=trace["traceback"],
+                )
         _write_mode_reports(dirs, mode, report, trace)
+        progress.emit(
+            "mode_report_written",
+            f"reports written for {mode.key}: status={report.get('status')}, eval={dirs['evaluation_full_val_idle_gpu'] / mode_report_name(mode)}",
+            mode=mode.key,
+            status=report.get("status"),
+            evaluation_path=str(dirs["evaluation_full_val_idle_gpu"] / mode_report_name(mode)),
+            benchmark_path=str(dirs["benchmark_full_val_idle_gpu"] / mode_report_name(mode)),
+            trace_path=str(dirs["debug_full_val_idle_gpu"] / f"{mode.key}_gpu_trace.json"),
+        )
         reports.append(report)
         mode_traces.append(trace)
     run_end = time.strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -1043,6 +1436,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         encoding="utf-8",
     )
     summary = summarize_reports(dirs, reports, gpu_report)
+    progress.emit(
+        "run_done",
+        f"full-val evaluation done: modes={len(reports)}, summary={dirs['summary_full_val_idle_gpu'] / 'all_deployment_engines_full_val_idle_gpu_report.json'}",
+        modes=len(reports),
+        summary_json=str(dirs["summary_full_val_idle_gpu"] / "all_deployment_engines_full_val_idle_gpu_report.json"),
+        summary_md=str(dirs["summary_full_val_idle_gpu"] / "all_deployment_engines_full_val_idle_gpu_report.md"),
+    )
     return {"success": True, "gpu_report": gpu_report, "summary": summary}
 
 

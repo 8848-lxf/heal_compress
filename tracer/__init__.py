@@ -1,15 +1,9 @@
-"""Dynamic forward tracing, dependency graph construction, and coupled channel group generation."""
+"""Formal tracing tools and compatibility exports."""
 
-from .forward_wrapper import HealForwardWrapper
-from .dependency_graph import DependencyGraphBuilder
-from .coupled_channel_group import CoupledChannelGroupBuilder
+from __future__ import annotations
 
-# Operation-level (Torch-Pruning style) tracing + grouping.
-from .generic_tracer import GenericTracer, trace_model
-from .op_graph import OpGraph, OpNode, build_op_graph
-from .pruning_group import GroupItem, PruningGroup, offset_transform, identity_transform
-from .transformer_analyzer import TransformerAnalyzer
-from .transformer_groups import TransformerGroupBuilder, build_transformer_pruning_groups
+from importlib import import_module
+from typing import Any
 
 __all__ = [
     "HealForwardWrapper",
@@ -28,3 +22,29 @@ __all__ = [
     "TransformerGroupBuilder",
     "build_transformer_pruning_groups",
 ]
+
+_EXPORTS = {
+    "HealForwardWrapper": ".forward_wrapper",
+    "DependencyGraphBuilder": ".dependency_graph",
+    "CoupledChannelGroupBuilder": ".coupled_channel_group",
+    "GenericTracer": ".generic_tracer",
+    "trace_model": ".generic_tracer",
+    "OpGraph": ".op_graph",
+    "OpNode": ".op_graph",
+    "build_op_graph": ".op_graph",
+    "GroupItem": ".pruning_group",
+    "PruningGroup": ".pruning_group",
+    "offset_transform": ".pruning_group",
+    "identity_transform": ".pruning_group",
+    "TransformerAnalyzer": ".transformer_analyzer",
+    "TransformerGroupBuilder": ".transformer_groups",
+    "build_transformer_pruning_groups": ".transformer_groups",
+}
+
+
+def __getattr__(name: str) -> Any:
+    module_name = _EXPORTS.get(name)
+    if not module_name:
+        raise AttributeError(name)
+    module = import_module(module_name, __name__)
+    return getattr(module, name)

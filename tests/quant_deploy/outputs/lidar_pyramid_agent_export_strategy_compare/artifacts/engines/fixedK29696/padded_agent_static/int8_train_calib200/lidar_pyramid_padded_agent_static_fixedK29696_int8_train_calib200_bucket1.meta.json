@@ -14,7 +14,7 @@
   "calibration_frames": 200,
   "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200",
   "calibration_cache_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_padded_agent_static_fixedK29696_int8_train_calib200_bucket1.cache",
-  "calibration_sample_files_for_engine": 144,
+  "calibration_sample_files_for_engine": 142,
   "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_padded_agent_static_fixed_k_scatter_plugin.onnx",
   "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/padded_agent_static/int8_train_calib200/lidar_pyramid_padded_agent_static_fixedK29696_int8_train_calib200_bucket1.engine",
   "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/padded_agent_static/int8_train_calib200/layerinfo_padded_agent_static_int8_train_calib200_bucket1.json",
@@ -126,5 +126,5 @@
   "plugin precision in INT8 engine": "FP16/FP32 plugin island inferred from plugin layer; TensorRT inspector text is authoritative in layerinfo_path",
   "INT8 layer count": null,
   "FP16 fallback layer count": null,
-  "engine_size_MB": 19.003009796142578
+  "engine_size_MB": 10.26480484008789
 }

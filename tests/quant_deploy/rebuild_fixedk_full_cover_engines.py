@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import platform
 import shutil
 import sys
 from pathlib import Path
@@ -12,6 +14,7 @@ if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from agent_mode_fixed_k_plugin_ablation import _ensure_dynamic_exports_and_engines, _ensure_padded_exports_and_engines
+from build_padded_static_int8_engine import run as build_padded_int8
 from build_dynamic_fixed_k_int8_engine import _build_one as build_dynamic_int8_one
 from build_dynamic_single_engine_maxk_trt_engine import build_all as build_single_all
 from bucketed_padded_agent_latency import _fixed_k_plugin_bucket_engine_path
@@ -121,6 +124,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     padded = _ensure_padded_exports_and_engines(common, dirs, buckets, plugin)
     dynamic = _ensure_dynamic_exports_and_engines(common, dirs, buckets, plugin)
+    padded_int8 = None
+    if 200 in [int(item) for item in args.calibration_frames]:
+        padded_int8_args = SimpleNamespace(
+            output_root=args.output_root,
+            fixed_k=int(args.fixed_k),
+            max_cav=int(args.max_cav),
+            calibration_frames=200,
+            plugin_path=str(plugin),
+            trt_root=args.trt_root,
+            timeout=int(args.timeout),
+            rebuild=bool(args.rebuild),
+            force_recalibrate=bool(args.force_recalibrate),
+        )
+        padded_int8 = build_padded_int8(padded_int8_args)
 
     single_export_args = SimpleNamespace(
         output_root=args.output_root,
@@ -159,10 +176,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     engine_paths = {
         "padded_fp32": [str(_fixed_k_plugin_bucket_engine_path(dirs, "fp32", int(bucket["bucket_id"]))) for bucket in buckets],
         "padded_fp16": [str(_fixed_k_plugin_bucket_engine_path(dirs, "fp16", int(bucket["bucket_id"]))) for bucket in buckets],
+        "padded_int8_train_calib200": [
+            str(
+                dirs["engines"]
+                / "padded_agent_static"
+                / "int8_train_calib200"
+                / f"lidar_pyramid_padded_agent_static_fixedK{int(args.fixed_k)}_int8_train_calib200_bucket{int(bucket['bucket_id'])}.engine"
+            )
+            for bucket in buckets
+        ],
         "single_fp32": str(single_engine_path(ensure_quant_deploy_run_dirs(args.output_root), "fp32", fixed_k=int(args.fixed_k))),
         "single_fp16": str(single_engine_path(ensure_quant_deploy_run_dirs(args.output_root), "fp16", fixed_k=int(args.fixed_k))),
     }
     report = {
+        "server_hostname": platform.node(),
+        "selected_gpu_for_build": os.environ.get("CUDA_VISIBLE_DEVICES"),
         "old_fixed_K": 24064,
         "new_fixed_K": int(args.fixed_k),
         "reason_for_increase": "full validation K max exceeds old fixed_K=24064; train K max also exceeds old fixed_K",
@@ -172,7 +200,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "PointPillarScatterTRT present": True,
         "valid_voxel_mask input exists": True,
         "calibration_split": "train",
+        "calibration_npz_reused": [
+            str(Path(args.output_root) / "artifacts" / "calibration" / f"train_calib_dynamic_bucket_fixedK{int(args.fixed_k)}_{frames}")
+            for frames in [int(item) for item in args.calibration_frames]
+        ]
+        + [
+            str(Path(args.output_root) / "artifacts" / "calibration" / f"train_calib_single_engine_maxK{int(args.fixed_k)}_{frames}")
+            for frames in [int(item) for item in args.calibration_frames]
+        ]
+        + [str(Path(args.output_root) / "artifacts" / "calibration" / f"train_calib_padded_agent_static_fixedK{int(args.fixed_k)}_200")],
+        "calibration_npz_redumped": [],
         "padded_build": padded,
+        "padded_int8_build": padded_int8,
         "dynamic_build": dynamic,
         "dynamic_int8_builds": dynamic_int8,
         "single_export": single_export,
@@ -185,6 +224,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "engine_count per strategy": {
             "padded_fp32": sum(1 for path in engine_paths["padded_fp32"] if Path(path).exists()),
             "padded_fp16": sum(1 for path in engine_paths["padded_fp16"] if Path(path).exists()),
+            "padded_int8_train_calib200": sum(1 for path in engine_paths["padded_int8_train_calib200"] if Path(path).exists()),
             "dynamic_fp32": sum(1 for n in ("N1", "N2") for path in (dirs["engines"] / "dynamic_agent_dim_fixed_k_scatter_plugin" / n / "fp32").glob("*.engine")),
             "dynamic_fp16": sum(1 for n in ("N1", "N2") for path in (dirs["engines"] / "dynamic_agent_dim_fixed_k_scatter_plugin" / n / "fp16").glob("*.engine")),
             "dynamic_int8_train": sum(1 for row in dynamic_int8 if row.get("build_success")),
@@ -192,13 +232,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "single_fp16": 1 if Path(engine_paths["single_fp16"]).exists() else 0,
             "single_int8_train": int(single.get("engine_count_int8_train_calib50", 0)) + int(single.get("engine_count_int8_train_calib200", 0)),
         },
-        "build_success": bool(single.get("build_success")) and any(row.get("build_success") for row in dynamic_int8),
+        "build_success": bool(single.get("build_success")) and any(row.get("build_success") for row in dynamic_int8) and (padded_int8 is None or bool(padded_int8.get("build_success"))),
     }
     root_dirs = ensure_quant_deploy_run_dirs(args.output_root)
     save_json(report, root_dirs["benchmark"] / "rebuild_fixedK_full_cover_engines_report.json")
+    save_json(report, root_dirs["benchmark"] / "new_server_fixedK29696_engine_rebuild_report.json")
     lines = [
         "# Rebuild fixedK Full Cover Engines Report",
         "",
+        f"- server_hostname: {platform.node()}",
+        f"- selected_gpu_for_build: {os.environ.get('CUDA_VISIBLE_DEVICES')}",
         f"- old_fixed_K: 24064",
         f"- new_fixed_K: {int(args.fixed_k)}",
         f"- covers_full_val: true",
@@ -211,6 +254,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     for key, value in (report["engine_count per strategy"] or {}).items():
         lines.append(f"{key} | {value}")
     (root_dirs["summary"] / "rebuild_fixedK_full_cover_engines_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (root_dirs["summary"] / "new_server_fixedK29696_engine_rebuild_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return report
 
 

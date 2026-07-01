@@ -8,6 +8,7 @@ import sys
 import traceback
 from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import torch
@@ -165,6 +166,20 @@ def _load_model(hypes: dict[str, Any], checkpoint: str | Path, device: torch.dev
     if not ckpt_path.exists():
         raise FileNotFoundError(f"checkpoint does not exist: {ckpt_path}")
     state = torch.load(str(ckpt_path), map_location="cpu")
+    if isinstance(state, dict) and state.get("prune_replay"):
+        tests_dir = Path(__file__).resolve().parents[1]
+        if str(tests_dir) not in sys.path:
+            sys.path.insert(0, str(tests_dir))
+        if "pytest" not in sys.modules:
+            try:
+                __import__("pytest")
+            except ImportError:
+                sys.modules["pytest"] = SimpleNamespace(skip=lambda reason="": (_ for _ in ()).throw(RuntimeError(f"pytest.skip called while pytest is unavailable: {reason}")))
+        from test_prune_and_eval import _hydrate_grouped_independent_replay, apply_prune_replay
+
+        replay = _hydrate_grouped_independent_replay(list(state.get("prune_replay") or []), state.get("prune_metadata", {}))
+        logger = SimpleNamespace(warning=lambda *args, **kwargs: print("prune_replay warning:", args))
+        apply_prune_replay(model, replay, logger)
     if isinstance(state, dict):
         state = state.get("model", state.get("state_dict", state))
     missing, unexpected = model.load_state_dict(state, strict=False)

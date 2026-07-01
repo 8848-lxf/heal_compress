@@ -10,86 +10,8 @@
   "calibration_split": "train",
   "evaluation_split": "val",
   "TensorRT version": "10.9.0.34",
-  "GPU name": "NVIDIA GeForce RTX 4090",
+  "GPU name": "NVIDIA H800",
   "profiles": {
-    "train_calib50": {
-      "voxel_features": {
-        "min": [
-          29696,
-          32,
-          4
-        ],
-        "opt": [
-          29696,
-          32,
-          4
-        ],
-        "max": [
-          29696,
-          32,
-          4
-        ]
-      },
-      "voxel_coords": {
-        "min": [
-          29696,
-          4
-        ],
-        "opt": [
-          29696,
-          4
-        ],
-        "max": [
-          29696,
-          4
-        ]
-      },
-      "voxel_num_points": {
-        "min": [
-          29696
-        ],
-        "opt": [
-          29696
-        ],
-        "max": [
-          29696
-        ]
-      },
-      "pairwise_t_matrix": {
-        "min": [
-          1,
-          1,
-          1,
-          4,
-          4
-        ],
-        "opt": [
-          1,
-          2,
-          2,
-          4,
-          4
-        ],
-        "max": [
-          1,
-          2,
-          2,
-          4,
-          4
-        ]
-      },
-      "valid_voxel_mask": {
-        "min": [
-          29696
-        ],
-        "opt": [
-          29696
-        ],
-        "max": [
-          29696
-        ]
-      }
-    },
     "train_calib200": {
       "voxel_features": {
         "min": [
@@ -266,15 +188,15 @@
       "error": null,
       "trtexec": {
         "trtexec_found": true,
-        "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-        "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+        "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+        "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
         "checked_paths": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
         ],
         "suggestion": null
       },
       "command": [
-        "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+        "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
         "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/dynamic_agent_single_engine_maxK/lidar_pyramid_dynamic_agent_single_engine_maxK.onnx",
         "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/fp32/lidar_pyramid_dynamic_agent_single_engine_maxK_fp32.engine",
         "--profilingVerbosity=detailed",
@@ -289,17 +211,17 @@
         "--skipInference"
       ],
       "returncode": 0,
-      "build_time_seconds": 35.156795501708984,
+      "build_time_seconds": 19.764809608459473,
       "unsupported_ops": [
         {
-          "line": "[06/29/2026-11:47:34] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+          "line": "[06/29/2026-22:46:26] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
           "op": "PointPillarScatterTRT."
         }
       ],
       "failed_nodes": [],
       "PointPillarScatterTRT layer exists": true,
       "valid_voxel_mask input exists": true,
-      "engine_size_MB": 42.03615951538086
+      "engine_size_MB": 42.77359390258789
     },
     {
       "strategy": "dynamic_agent_single_engine_maxK",
@@ -397,15 +319,15 @@
       "error": null,
       "trtexec": {
         "trtexec_found": true,
-        "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-        "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+        "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+        "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
         "checked_paths": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
         ],
         "suggestion": null
       },
       "command": [
-        "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+        "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
         "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/dynamic_agent_single_engine_maxK/lidar_pyramid_dynamic_agent_single_engine_maxK.onnx",
         "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/fp16/lidar_pyramid_dynamic_agent_single_engine_maxK_fp16.engine",
         "--profilingVerbosity=detailed",
@@ -420,137 +342,17 @@
         "--skipInference"
       ],
       "returncode": 0,
-      "build_time_seconds": 76.58765459060669,
+      "build_time_seconds": 70.95619249343872,
       "unsupported_ops": [
         {
-          "line": "[06/29/2026-11:48:09] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+          "line": "[06/29/2026-22:46:46] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
           "op": "PointPillarScatterTRT."
         }
       ],
       "failed_nodes": [],
       "PointPillarScatterTRT layer exists": true,
       "valid_voxel_mask input exists": true,
-      "engine_size_MB": 30.38155746459961
-    },
-    {
-      "strategy": "dynamic_agent_single_engine_maxK",
-      "precision": "int8",
-      "calibration_split": "train",
-      "evaluation_split": "val",
-      "calibration_frames": 50,
-      "calibration_npz_dir": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_50",
-      "calibration_cache_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_agent_single_engine_maxK_fixedK29696_int8_train_calib50.cache",
-      "calibration_sample_files_for_engine": 50,
-      "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/dynamic_agent_single_engine_maxK/lidar_pyramid_dynamic_agent_single_engine_maxK.onnx",
-      "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/int8_train_calib50/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib50.engine",
-      "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/int8_train_calib50/layerinfo_dynamic_agent_single_engine_maxK_int8_train_calib50.json",
-      "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
-      "plugin_loaded": true,
-      "fixed_K": 29696,
-      "single_engine": true,
-      "no_bucket_router": true,
-      "no_N_engine_router": true,
-      "true_dynamic_N": true,
-      "profile": {
-        "voxel_features": {
-          "min": [
-            29696,
-            32,
-            4
-          ],
-          "opt": [
-            29696,
-            32,
-            4
-          ],
-          "max": [
-            29696,
-            32,
-            4
-          ]
-        },
-        "voxel_coords": {
-          "min": [
-            29696,
-            4
-          ],
-          "opt": [
-            29696,
-            4
-          ],
-          "max": [
-            29696,
-            4
-          ]
-        },
-        "voxel_num_points": {
-          "min": [
-            29696
-          ],
-          "opt": [
-            29696
-          ],
-          "max": [
-            29696
-          ]
-        },
-        "pairwise_t_matrix": {
-          "min": [
-            1,
-            1,
-            1,
-            4,
-            4
-          ],
-          "opt": [
-            1,
-            2,
-            2,
-            4,
-            4
-          ],
-          "max": [
-            1,
-            2,
-            2,
-            4,
-            4
-          ]
-        },
-        "valid_voxel_mask": {
-          "min": [
-            29696
-          ],
-          "opt": [
-            29696
-          ],
-          "max": [
-            29696
-          ]
-        }
-      },
-      "TensorRT version": "10.9.0.34",
-      "builder_flags": [
-        "INT8",
-        "FP16_FALLBACK_ALLOWED_BY_TRT_BUILDER"
-      ],
-      "enabled INT8": true,
-      "enabled FP16 fallback": true,
-      "strict_types": false,
-      "prefer_precision_constraints": false,
-      "obey_precision_constraints": false,
-      "build_success": true,
-      "build_log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/logs/build/build_dynamic_single_engine_maxK_int8_train_calib50.log",
-      "error": null,
-      "command": [
-        "tensorrt_python_builder",
-        "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/dynamic_agent_single_engine_maxK/lidar_pyramid_dynamic_agent_single_engine_maxK.onnx"
-      ],
-      "returncode": 0,
-      "build_time_seconds": 173.29266166687012,
-      "PointPillarScatterTRT layer exists": true,
-      "valid_voxel_mask input exists": true,
-      "engine_size_MB": 26.61777114868164
+      "engine_size_MB": 19.287464141845703
     },
     {
       "strategy": "dynamic_agent_single_engine_maxK",
@@ -667,21 +469,20 @@
         "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/dynamic_agent_single_engine_maxK/lidar_pyramid_dynamic_agent_single_engine_maxK.onnx"
       ],
       "returncode": 0,
-      "build_time_seconds": 223.40539264678955,
+      "build_time_seconds": 226.5851092338562,
       "PointPillarScatterTRT layer exists": true,
       "valid_voxel_mask input exists": true,
-      "engine_size_MB": 26.780040740966797
+      "engine_size_MB": 16.16611099243164
     }
   ],
   "engine_paths": {
     "fp32": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/fp32/lidar_pyramid_dynamic_agent_single_engine_maxK_fp32.engine",
     "fp16": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/fp16/lidar_pyramid_dynamic_agent_single_engine_maxK_fp16.engine",
-    "int8_train_calib50": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/int8_train_calib50/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib50.engine",
     "int8_train_calib200": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/int8_train_calib200/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.engine"
   },
   "engine_count_fp32": 1,
   "engine_count_fp16": 1,
-  "engine_count_int8_train_calib50": 1,
+  "engine_count_int8_train_calib50": 0,
   "engine_count_int8_train_calib200": 1,
   "engine_count_int8_train_calib500": 0,
   "PointPillarScatterTRT layer exists": true,

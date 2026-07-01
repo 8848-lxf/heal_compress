@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import os
 import sys
 import time
 import traceback
@@ -91,7 +92,12 @@ def _calculate_tp_fp(pred_box, pred_score, gt_box, result_stat: dict[float, dict
         from tests.test_baseline_eval import calculate_tp_fp_for_threshold
 
         calculate_tp_fp_for_threshold(pred_box, pred_score, gt_box, result_stat, threshold, "gpu", device)
-    except Exception:
+    except Exception as exc:
+        if os.environ.get("QUANT_DEPLOY_STRICT_GPU_AP_IOU", "0") == "1":
+            raise RuntimeError(
+                "GPU AP IoU backend failed. Ensure HEAL/opencood pcdet iou3d_nms_cuda "
+                "is importable and LD_LIBRARY_PATH includes PyTorch torch/lib."
+            ) from exc
         from opencood.utils import eval_utils
 
         eval_utils.caluclate_tp_fp(pred_box, pred_score, gt_box, result_stat, threshold)

@@ -144,14 +144,32 @@ def idle_gpu_candidates(
     *,
     util_threshold: int,
     mem_threshold_mb: int,
+    ignore_process_mem_threshold_mb: int = 0,
 ) -> list[GpuSnapshot]:
     return [
         snapshot
         for snapshot in snapshots
         if snapshot.utilization_gpu <= int(util_threshold)
         and snapshot.memory_used_mb <= int(mem_threshold_mb)
-        and not snapshot.processes
+        and not blocking_processes(snapshot.processes, ignore_process_mem_threshold_mb=ignore_process_mem_threshold_mb)
     ]
+
+
+def blocking_processes(
+    processes: list[GpuProcess],
+    *,
+    ignore_process_mem_threshold_mb: int = 0,
+    own_pid: int | None = None,
+) -> list[GpuProcess]:
+    threshold = int(ignore_process_mem_threshold_mb or 0)
+    blocking: list[GpuProcess] = []
+    for process in processes:
+        if own_pid is not None and int(process.pid) == int(own_pid):
+            continue
+        if threshold > 0 and int(process.used_memory_mb) <= threshold:
+            continue
+        blocking.append(process)
+    return blocking
 
 
 def choose_idle_gpu(
@@ -161,32 +179,47 @@ def choose_idle_gpu(
     mem_threshold_mb: int = 2000,
     gpu_index: int | None = None,
     allow_busy_gpu: bool = False,
+    ignore_process_mem_threshold_mb: int = 0,
 ) -> tuple[GpuSnapshot | None, str]:
     by_index = {snapshot.index: snapshot for snapshot in snapshots}
     if gpu_index is not None:
         selected = by_index.get(int(gpu_index))
         if selected is None:
             return None, f"requested GPU {gpu_index} was not found"
+        blocking = blocking_processes(
+            selected.processes,
+            ignore_process_mem_threshold_mb=ignore_process_mem_threshold_mb,
+        )
         idle = (
             selected.utilization_gpu <= int(util_threshold)
             and selected.memory_used_mb <= int(mem_threshold_mb)
-            and not selected.processes
+            and not blocking
         )
         if idle or allow_busy_gpu:
-            reason = "requested GPU is idle" if idle else "requested GPU accepted because allow_busy_gpu=true"
+            reason = (
+                f"requested GPU is idle; ignored_process_mem_threshold_mb={int(ignore_process_mem_threshold_mb or 0)}"
+                if idle
+                else "requested GPU accepted because allow_busy_gpu=true"
+            )
             return selected, reason
         return None, (
             f"requested GPU {gpu_index} is busy: util={selected.utilization_gpu}% "
-            f"mem={selected.memory_used_mb} MiB processes={len(selected.processes)}"
+            f"mem={selected.memory_used_mb} MiB blocking_processes={len(blocking)} "
+            f"ignored_process_mem_threshold_mb={int(ignore_process_mem_threshold_mb or 0)}"
         )
-    candidates = idle_gpu_candidates(snapshots, util_threshold=util_threshold, mem_threshold_mb=mem_threshold_mb)
+    candidates = idle_gpu_candidates(
+        snapshots,
+        util_threshold=util_threshold,
+        mem_threshold_mb=mem_threshold_mb,
+        ignore_process_mem_threshold_mb=ignore_process_mem_threshold_mb,
+    )
     if not candidates:
         return None, "no GPU satisfied idle thresholds"
     candidates = sorted(candidates, key=lambda item: (item.memory_used_mb, item.utilization_gpu, item.index))
     selected = candidates[0]
     return selected, (
         f"selected lowest memory/util idle GPU: mem={selected.memory_used_mb} MiB "
-        f"util={selected.utilization_gpu}%"
+        f"util={selected.utilization_gpu}% ignored_process_mem_threshold_mb={int(ignore_process_mem_threshold_mb or 0)}"
     )
 
 
@@ -198,6 +231,7 @@ def wait_for_idle_gpu(
     poll_interval_sec: int = 30,
     gpu_index: int | None = None,
     allow_busy_gpu: bool = False,
+    ignore_process_mem_threshold_mb: int = 0,
 ) -> tuple[GpuSnapshot, str, list[dict[str, Any]]]:
     start = time.time()
     attempts: list[dict[str, Any]] = []
@@ -211,6 +245,7 @@ def wait_for_idle_gpu(
                 mem_threshold_mb=mem_threshold_mb,
                 gpu_index=gpu_index,
                 allow_busy_gpu=allow_busy_gpu,
+                ignore_process_mem_threshold_mb=ignore_process_mem_threshold_mb,
             )
         except Exception as exc:
             selected = None
@@ -237,11 +272,13 @@ class GpuTelemetryMonitor:
         selected_gpu_uuid: str,
         own_pid: int | None = None,
         poll_interval_sec: int = 30,
+        ignore_process_mem_threshold_mb: int = 0,
     ) -> None:
         self.selected_gpu_index = int(selected_gpu_index)
         self.selected_gpu_uuid = str(selected_gpu_uuid)
         self.own_pid = int(own_pid or os.getpid())
         self.poll_interval_sec = max(1, int(poll_interval_sec))
+        self.ignore_process_mem_threshold_mb = int(ignore_process_mem_threshold_mb or 0)
         self.samples: list[dict[str, Any]] = []
         self.contention_events: list[dict[str, Any]] = []
         self._stop = threading.Event()
@@ -255,15 +292,27 @@ class GpuTelemetryMonitor:
             self.contention_events.append(event)
             return
         other_processes = [process for process in selected.processes if int(process.pid) != self.own_pid]
+        blocking = blocking_processes(
+            selected.processes,
+            ignore_process_mem_threshold_mb=self.ignore_process_mem_threshold_mb,
+            own_pid=self.own_pid,
+        )
+        ignored = [
+            process
+            for process in other_processes
+            if process not in blocking
+        ]
         sample = {
             "time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "snapshot": snapshot_to_dict(selected),
-            "other_processes": [asdict(process) for process in other_processes],
-            "other_processes_detected": bool(other_processes),
+            "other_processes": [asdict(process) for process in blocking],
+            "ignored_processes": [asdict(process) for process in ignored],
+            "other_processes_detected": bool(blocking),
+            "ignored_process_mem_threshold_mb": self.ignore_process_mem_threshold_mb,
             "high_utilization": selected.utilization_gpu >= 90,
         }
         self.samples.append(sample)
-        if other_processes:
+        if blocking:
             self.contention_events.append(
                 {
                     "time": sample["time"],
@@ -308,6 +357,11 @@ class GpuTelemetryMonitor:
             for sample in self.samples
             for process in sample.get("other_processes", [])
         ]
+        ignored_processes = [
+            process
+            for sample in self.samples
+            for process in sample.get("ignored_processes", [])
+        ]
         contention = bool(self.contention_events)
         return {
             "selected_gpu": self.selected_gpu_index,
@@ -317,6 +371,8 @@ class GpuTelemetryMonitor:
             "contention_events": self.contention_events,
             "other_processes_detected": bool(other_processes),
             "other_processes": other_processes,
+            "ignored_processes": ignored_processes,
+            "ignored_process_mem_threshold_mb": self.ignore_process_mem_threshold_mb,
             "gpu_contention_detected": contention,
             "unreliable_latency": contention,
         }
@@ -359,6 +415,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--gpu_poll_interval_sec", type=int, default=30)
     parser.add_argument("--gpu_index", type=int, default=None)
     parser.add_argument("--allow_busy_gpu", action="store_true")
+    parser.add_argument("--ignore_idle_process_mem_threshold_mb", type=int, default=0)
     return parser.parse_args(argv)
 
 
@@ -372,6 +429,7 @@ def main(argv: list[str] | None = None) -> int:
             poll_interval_sec=args.gpu_poll_interval_sec,
             gpu_index=args.gpu_index,
             allow_busy_gpu=args.allow_busy_gpu,
+            ignore_process_mem_threshold_mb=args.ignore_idle_process_mem_threshold_mb,
         )
     except Exception as exc:
         print(

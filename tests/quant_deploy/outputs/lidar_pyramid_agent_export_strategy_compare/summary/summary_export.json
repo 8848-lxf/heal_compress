@@ -396,9 +396,9 @@
   },
   "bev_warp_export_mode": "exportable_grid",
   "bev_warp_equivalence": {
-    "max_abs_error": 1.6689300537109375e-06,
-    "mean_abs_error": 1.3306836876836314e-07,
-    "relative_error": 3.4519655306840186e-07,
+    "max_abs_error": 1.0952353477478027e-06,
+    "mean_abs_error": 1.4377130241882696e-07,
+    "relative_error": 3.231682641460259e-07,
     "align_corners": false,
     "H": 6,
     "W": 8,
@@ -503,17 +503,17 @@
     }
   },
   "env_report": {
-    "python_executable": "/home/lixingfeng/anaconda3/envs/modelopt/bin/python",
-    "conda_prefix": "/home/lixingfeng/anaconda3/envs/modelopt",
-    "TRT_ROOT": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
-    "LD_LIBRARY_PATH": "/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/cv2/../../lib64:/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib64:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/torch/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cublas/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cudnn/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cufft/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/curand/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusolver/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusparse/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/nccl/lib:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:",
-    "CUDA_VISIBLE_DEVICES": "5",
+    "python_executable": "/home/lixingfeng/miniconda3/envs/modelopt/bin/python",
+    "conda_prefix": "/home/lixingfeng/miniconda3/envs/modelopt",
+    "TRT_ROOT": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+    "LD_LIBRARY_PATH": "/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/cv2/../../lib64:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/usr/local/cuda/lib64:/usr/local/cuda/lib64:/usr/local/cuda/lib64",
+    "CUDA_VISIBLE_DEVICES": "3",
     "torch_available": true,
     "torch_version": "2.4.0+cu118",
     "cuda_available": true,
     "cuda_device_count": 1,
     "gpu_names": [
-      "NVIDIA GeForce RTX 4090"
+      "NVIDIA H800"
     ],
     "tensorrt_available": true,
     "tensorrt_version": "10.9.0.34",
@@ -522,14 +522,14 @@
     "modelopt_version": null,
     "trtexec": {
       "trtexec_found": true,
-      "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-      "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+      "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
       "checked_paths": [
-        "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+        "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
       ],
       "suggestion": null
     },
-    "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
   },
   "compatibility_onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fp32/lidar_pyramid_fp32_dynamic.onnx"
 }

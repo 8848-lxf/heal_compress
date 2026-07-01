@@ -19,16 +19,34 @@ __pycache__/
 *.raw
 *.so
 
-# Calibration / numpy dumps
+# Calibration / numpy / binary dumps
+*.cache
 *.npz
 *.npy
+*.bin
+
+# CMake / build artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+build/
+dist/
+*.egg-info/
+
+# Generated heavy model folders
+tests/quant_deploy/outputs/**/pruned_models/
+tests/quant_deploy/outputs/**/artifacts/plugins/*_build/
+outputs/
 
 # Local backup / external data symlink
 tests_back/
 heal_tests
 heal_tests/
 
-# Note:
-# Do NOT ignore tests/outputs/ or tests/quant_deploy/outputs/.
-# Lightweight result files under outputs, such as json/csv/log/md/txt, may be committed.
+# Local gitignore backups
 .gitignore.bak.*
+
+# Note:
+# Lightweight result files under tests/outputs/ and tests/quant_deploy/outputs/,
+# such as json/csv/log/md/txt, may be committed.

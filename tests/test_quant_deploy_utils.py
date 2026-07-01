@@ -44,6 +44,11 @@ from evaluate_all_deployment_engines_full_val_idle_gpu import eval_modes, mode_r
 from select_idle_gpu import GpuProcess, GpuSnapshot, choose_idle_gpu, parse_gpu_query_csv, parse_process_query_csv, wait_for_idle_gpu
 from analyze_voxel_k_coverage import ceil_to_multiple, k_distribution_summary, recommended_fixed_k_from_reports
 from dump_train_calibration_npz_for_all_strategies import enforce_train_split, file_sha256, write_calibration_manifest
+from audit_new_server_fixedK29696_artifacts import (
+    audit_calibration_dir,
+    expected_engine_specs,
+    query_gpu_environment,
+)
 
 
 def test_engine_size_inventory_counts_recursive_route_engines(tmp_path):
@@ -682,3 +687,64 @@ def test_train_calibration_manifest_records_hashes_and_rejects_non_train(tmp_pat
     assert manifest["fixed_K"] == 29696
     assert manifest["files"][0]["sha256"] == file_sha256(npz)
     assert (tmp_path / "manifest.json").exists()
+
+
+def test_new_server_audit_expected_engine_specs_use_route_requirements(tmp_path):
+    output_root = tmp_path / "run"
+    route_dir = output_root / "debug" / "full_val_fixedK29696_trainCalib"
+    route_dir.mkdir(parents=True)
+    (route_dir / "full_val_route_requirements.json").write_text(
+        json.dumps(
+            {
+                "required_buckets": [0, 3],
+                "required_dynamic_routes": [[1, 0], [2, 3]],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    specs = {spec.key: spec for spec in expected_engine_specs(output_root, 29696)}
+
+    assert specs["padded_agent_static_fp16"].expected_engine_count == 2
+    assert specs["dynamic_bucket_fp16"].expected_engine_count == 2
+    assert any("bucket3_fp16.engine" in path for path in specs["dynamic_bucket_fp16"].expected_paths)
+    assert specs["single_engine_maxK_fp16"].expected_engine_count == 1
+
+
+def test_new_server_audit_calibration_dir_validates_manifest(tmp_path):
+    npz = tmp_path / "sample_000000_N2.npz"
+    npz.write_bytes(b"npz")
+    manifest = {
+        "strategy": "single_engine_maxK",
+        "calibration_split": "train",
+        "fixed_K": 29696,
+        "num_samples": 1,
+        "calibration_eval_overlap": False,
+        "sample_idx_list": [0],
+        "input_names": ["voxel_features"],
+        "input_shapes": {"voxel_features": [29696, 32, 4]},
+        "input_dtypes": {"voxel_features": "float32"},
+        "files": [{"path": str(npz), "sha256": "abc"}],
+    }
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = audit_calibration_dir(tmp_path, expected_strategy="single_engine_maxK", fixed_k=29696, expected_count=1)
+
+    assert report["complete"] is True
+    assert report["checks"]["calibration_split_train"] is True
+    assert report["checks"]["calibration_eval_overlap_false"] is True
+
+
+def test_new_server_audit_gpu_query_parses_timeout_failure(monkeypatch):
+    def fake_run_command(args, *, timeout_sec=20, env=None):
+        if "--query-gpu=index,uuid,name,utilization.gpu,memory.used,memory.total" in args:
+            return {"returncode": 0, "stdout": "3, GPU-uuid, NVIDIA H800, 0, 4, 81559\n", "stderr": "", "timed_out": False}
+        return {"returncode": 0, "stdout": "No running processes found\n", "stderr": "", "timed_out": False}
+
+    monkeypatch.setattr("audit_new_server_fixedK29696_artifacts._run_command", fake_run_command)
+
+    report = query_gpu_environment("3", timeout_sec=1)
+
+    assert report["nvidia_smi_available"] is True
+    assert report["selected_idle_gpu"]["index"] == 3
+    assert report["idle_candidates"][0]["memory_used_mb"] == 4

@@ -1639,40 +1639,40 @@
       "[[1.0, 1.0]]": 190
     },
     "original_num_voxels distribution": {
-      "min": 8999.0,
+      "min": 8910.0,
       "p50": 21948.5,
       "p90": 23925.0,
       "p95": 24674.299999999996,
       "p99": 27471.099999999988,
       "max": 29562.0,
-      "mean": 21275.415
+      "mean": 21257.755
     },
     "original_num_voxels_distribution": {
-      "min": 8999.0,
+      "min": 8910.0,
       "p50": 21948.5,
       "p90": 23925.0,
       "p95": 24674.299999999996,
       "p99": 27471.099999999988,
       "max": 29562.0,
-      "mean": 21275.415
+      "mean": 21257.755
     },
     "padding_ratio distribution": {
       "min": 0.00451239224137931,
       "p50": 0.26089372306034486,
       "p90": 0.3595837823275862,
-      "p95": 0.3823494746767205,
-      "p99": 0.6914129849137931,
-      "max": 0.6969625538793104,
-      "mean": 0.2835595703125
+      "p95": 0.381270204741376,
+      "p99": 0.6881388065732759,
+      "max": 0.6999595905172413,
+      "mean": 0.284154263200431
     },
     "padding_ratio_distribution": {
       "min": 0.00451239224137931,
       "p50": 0.26089372306034486,
       "p90": 0.3595837823275862,
-      "p95": 0.3823494746767205,
-      "p99": 0.6914129849137931,
-      "max": 0.6969625538793104,
-      "mean": 0.2835595703125
+      "p95": 0.381270204741376,
+      "p99": 0.6881388065732759,
+      "max": 0.6999595905172413,
+      "mean": 0.284154263200431
     },
     "input_names": [
       "voxel_features",
@@ -1719,1411 +1719,1411 @@
       "valid_voxel_mask": "float32"
     },
     "sha256 for each NPZ": {
-      "sample_000000_N1_bucket1.npz": "b130c99996288c1d4e3afeb486ea3589b69470d4bafc0b8459c4b3d4adb11b38",
-      "sample_000001_N1_bucket1.npz": "5f3e8af5ed1f130fd868483639a833e9f5108054460ce6d27684e9e18cb32200",
-      "sample_000002_N1_bucket1.npz": "d0b340be437320066dce336ffe5a604bf7776c41722751e9da10e7e0b4f51868",
-      "sample_000003_N2_bucket1.npz": "da3c8768188cc031b5f2b82d0f9f7e3aa7c80dd2116493d50a1abe076f2361a7",
-      "sample_000004_N2_bucket1.npz": "f1143b56cc200e7b9ac89b43543610c4a3502ecf4d7dd174a7ed04fe0529b67e",
-      "sample_000005_N2_bucket1.npz": "6a52ea4c6880aa4b4206dd2183c288d42ad92eec60f274e76007881f74b6060f",
-      "sample_000006_N2_bucket1.npz": "2fc76038b9cabdd0ca5d6de43911f5f1201f20878ccfb9f4c3abbcdb235d1dfe",
-      "sample_000007_N2_bucket1.npz": "e10730d072da93e1ceebb0be18f149d217d932f91bd9d8763b3f1657ba793de6",
-      "sample_000008_N2_bucket1.npz": "e6e79d898f6b48a650cd3e0e895eec1d1c44a5173726b5295162cfc4e08bbef1",
-      "sample_000009_N2_bucket1.npz": "e9b430736eeb01a9b29045c79197ccce071d89e48bab9f7410a40e45ade8c750",
-      "sample_000010_N2_bucket1.npz": "3bd3a2c7118a5d767cbb3357ad131a097183d753267c4c46b3ea07ab6ce2a9d6",
-      "sample_000011_N2_bucket1.npz": "b0d09e4d2295b2047aa92be5454651601925423494bbec2c2873a5c2c44102bd",
-      "sample_000012_N2_bucket1.npz": "3ea78d36921cd6095222cf84b755235a1e20f07f0f7ab3c67cc669f923084611",
-      "sample_000013_N2_bucket1.npz": "a669b17e35daffc2de647154a3e3a62012270b9068a30a7b18787a6e2bc16cbe",
-      "sample_000014_N2_bucket1.npz": "b5009c65e3d6a8c372f7113d6020ef8007a77cd60d4458b38ca59e685f2b0122",
-      "sample_000015_N2_bucket1.npz": "db16dc9f3d76cad8dff6d1f7b63790e29a258d31c6f25e5cf61879f80116eeb6",
-      "sample_000016_N2_bucket1.npz": "f0a71f42743746a3ff5273acf13bcf2de785a99c0c0e4663de2e57eeacbadb3d",
-      "sample_000017_N2_bucket1.npz": "9a553608a22ef36765bb45cece842ca5bf650fc2be29c3d0268a2c82ff9c7eba",
-      "sample_000018_N2_bucket1.npz": "6a8a9b1eb5944374f3786cd5e9187ce01a43898d931c5b7e9b97c7b76085c8ee",
-      "sample_000019_N2_bucket1.npz": "5d01ff845d02799c8e851d2e82150b20cb278744384ead1ce35f0afddda4fade",
-      "sample_000020_N2_bucket1.npz": "b4f22f6e817a9927f4d4338ec0a5f437b2c02bb54110add2052cf6522c93a803",
-      "sample_000021_N2_bucket1.npz": "48874ef7fe3fdb5602eef8314c31917eb7f690f1911ef22e46b3011d1ba172c2",
-      "sample_000022_N2_bucket1.npz": "eaaaf74fc677d93bbbee3b79489860c2b65d8e976b2faad1a3b5f918ba2af189",
-      "sample_000023_N2_bucket1.npz": "bcb9abcda3828ff4d7234c53866090ab4ff0d6705dd1a045b979d93d05c5471f",
-      "sample_000024_N2_bucket1.npz": "253f79da22c189927ba229fdbb83324b06db7e9766206c0b74715b35ae422d73",
-      "sample_000025_N2_bucket1.npz": "265d3365765324a97f6f65d8c3347bca9573152130f4c11794f776028bcc0429",
-      "sample_000026_N2_bucket1.npz": "6b0b584d98154c4af71d29dbf468ea37605acd6f5b50dd0bba8930a2acb3696d",
-      "sample_000027_N2_bucket1.npz": "84a6fa81b3787a9892dd2e375f3b2c45acc36d0fa3ff342f4d7382b22d382f88",
-      "sample_000028_N2_bucket1.npz": "7c26aa3b8795ca590edd57d7c3ad7a6a24717571600dae8e8561eef71a961685",
-      "sample_000029_N2_bucket1.npz": "51deebff50120f99541e6063bab8f3879cd31184cc5b453e69ef1c07da2e69ab",
-      "sample_000030_N2_bucket1.npz": "74c43ad0bfe71bffc063da81d9cae262db3b20baa1763177167419d52a78dbc2",
-      "sample_000031_N2_bucket1.npz": "e6fadb9af1088de355b523f413120e275a1fc4f3b3de321507c97251558d7023",
-      "sample_000032_N2_bucket1.npz": "f13394c4ba9c024e2773c5bfa0099120ee135c5d75338df0e0fcd2fdcf6458f7",
-      "sample_000033_N2_bucket1.npz": "4891ce336cbb604ea565dd9be1b731c449d36bbd797c730057bdadb4f188614b",
-      "sample_000034_N2_bucket1.npz": "8820e1d4984b905ea3285e263e8feb274e14db61d4e0859e3fc19efbf4b7d0fd",
-      "sample_000035_N2_bucket1.npz": "7f664a1acd9e7942eb7fb3f273ef976ad094b494b73193f926944e1f2d12c891",
-      "sample_000036_N2_bucket1.npz": "ce356a53b055edb46df341736e561ea014b6a7e89d8c7d0b6a9cd4110400b5d0",
-      "sample_000037_N2_bucket1.npz": "b54f73d7619b274f06362775b30b2c394e936b7830d4128f3861bf792d6a38c7",
-      "sample_000038_N2_bucket1.npz": "d7ae983ad36eec352fc2f819e9b6223ac4f9098112bd2114dfee20b55f9b0707",
-      "sample_000039_N2_bucket1.npz": "db4f75cf84ef4001f22ab832074dd4ebd05c85c25f358d54551489eecd7c510a",
-      "sample_000040_N2_bucket1.npz": "ccc3ad0c1b7b168001c740d4d5d0000fdc6bdde4423d69aa6d7f0d46cc6dca9d",
-      "sample_000041_N2_bucket1.npz": "14881cc5cef81f5b6fc20417434febdbdd13a2fd902ca0126999aad846c9e139",
-      "sample_000042_N2_bucket1.npz": "7836a541f71b6a989029c23245654d412568a72ffc3bc2e4119ee98041b90d8b",
-      "sample_000043_N2_bucket1.npz": "bf4659411bd64e5179e0c8c26d3d6f7827415e27bfd01cef1b250d9bc76d4ec1",
-      "sample_000044_N2_bucket1.npz": "fd5093ca5a805700ca3e250fca784342e5f0502496f15ee73433aa560587917c",
-      "sample_000045_N2_bucket1.npz": "a28194ddf0e74044983a09d2f39633ad6bbbc3363ef60addea88a1c7b291b417",
-      "sample_000046_N2_bucket1.npz": "1ad4277e40d882f189a8c3699b2f0206d7e22a61ed1085a91408da65f34721da",
-      "sample_000047_N2_bucket1.npz": "496d4ca1813db16c7c3d1b95e0aae14930c2297b68aa5bd8fdf1c41cb9ececc4",
-      "sample_000048_N2_bucket1.npz": "6097b7c7e62ed8711e3441ced52047e63daa75cf5832905dd244e47b8ddb9fc4",
-      "sample_000049_N2_bucket1.npz": "1c5ade8b67f53ca964feb24c303aa4d0b7bd2b5c7582d09e077aedd0cb183616",
-      "sample_000050_N2_bucket1.npz": "c88045d5f79f757b52de562b0290dddbd3c94360734e71623fa8bfb887d02113",
-      "sample_000051_N2_bucket1.npz": "9a5ad32d3f345c27281d11c3bd07f9d7bffd4a7b24023f00d5b613392225b353",
-      "sample_000052_N2_bucket1.npz": "347ddab69d87d04dac9b589a615a0b8ad45ac94c3ecd6381944edd4348130a17",
-      "sample_000053_N2_bucket1.npz": "4b28598f78e04736383f7d2fe43f41ff956779ae95e7e3d14d3dc25c1c3d7421",
-      "sample_000054_N2_bucket1.npz": "6eedf568ee2a14c7150ff2206093283594eaf5199c71a90492510471e7bfadd6",
-      "sample_000055_N2_bucket1.npz": "e1fb2ae263e006ea6aad706cb81d2a12bc5087082331bd77985756ea8ed687ae",
-      "sample_000056_N2_bucket1.npz": "8c4644900a3d076e96746849bd754295302c611e963a5d0e13da96ec7b4a8c37",
-      "sample_000057_N2_bucket1.npz": "a927ada3cf8dc01fa0c38a340923c8c4f55b85ebb806492398c768f2eb7af456",
-      "sample_000058_N2_bucket1.npz": "faf70d70b978b1d0d9ab5ac24afa9af9ef08f25687b90d3c040dbc41c5ad1300",
-      "sample_000059_N2_bucket1.npz": "d00a2f097676368c3a1667968281caa6c2edaa21cadc310e921162f105bb51fe",
-      "sample_000060_N2_bucket1.npz": "f4a648a33a512dd2365c5b19ed4cfce38f4acffb129f6828adebdb04ae160c68",
-      "sample_000061_N2_bucket1.npz": "39760da7bc2bcc389de3d99139a7451fae5b8e8d39ab20915abcd92757fd72f4",
-      "sample_000062_N2_bucket1.npz": "3a74d0e21fe7e0a72c0815b14d2da916489ede12fc0372eafdbefa0ee2ba459b",
-      "sample_000063_N2_bucket1.npz": "63d0140bb386d7d3df41e562cd10d5cc18f5e9aaa1c5df020ac6341fc81a9d09",
-      "sample_000064_N2_bucket1.npz": "8a2f82bbd374001657187e5da1244fb456ae3ce010302179b19e48e540c3b244",
-      "sample_000065_N2_bucket1.npz": "709b7bc563c31cf32e9fdc7f350d25c9929671dd5da37aafd2aaae071970724f",
-      "sample_000066_N2_bucket1.npz": "74231389e9d61decdfdd8fd2c2476b0ee9f91418410dd62f247f69d2356ccfa3",
-      "sample_000067_N2_bucket1.npz": "7d696ba0ee0b81d27fcb8a39087b0d499a0bcd202a1c7ed63543b8bc321fdc50",
-      "sample_000068_N2_bucket1.npz": "5affe839d1036cd431a797342ddd2ae7224e5d55a7f0e38d360ef0cd6374806c",
-      "sample_000069_N2_bucket1.npz": "7cbe7fd830cee1296842fa458a9055d760de993aa70ed9084c86743a37e59068",
-      "sample_000070_N2_bucket1.npz": "5c016da5dc558ab320667842531049565b4288de51a93c5753cd7d8f5e071d8c",
-      "sample_000071_N2_bucket1.npz": "39a4bb1aaea145e4424d5313b652759823e0cc6083fb0f75496310c3514a4727",
-      "sample_000072_N2_bucket1.npz": "b9da8eb97465089525b4f4684bcae3460e4b7cdc892f4e93544da00db7661f9a",
-      "sample_000073_N2_bucket1.npz": "2e8310a31c62825b2633607f158de420f4773f3a5fec6e0cb53887fe2cafe28d",
-      "sample_000074_N2_bucket1.npz": "a45132cad8a18ddf47fcf34de4f2982c22e673299e24d920cd13c390dd47e6ca",
-      "sample_000075_N2_bucket1.npz": "725a8d65ea53284982824a2de601b71d849644a14773eb59b48d02f533027a62",
-      "sample_000076_N2_bucket3.npz": "a32c25c0a2c9341d6d8f85da469490fb37c1c908e44095fc2542c343f27e7c18",
-      "sample_000077_N2_bucket3.npz": "59dd851b946e3bec6f1a044b8de82c51fa59150a2729f21c27159cfdf86eae21",
-      "sample_000078_N2_bucket3.npz": "08f406a11e79f24180a2abab6f2aef4461d60f59de7746ab82d182b1bc2e9ccd",
-      "sample_000079_N2_bucket3.npz": "14b5105725b7e88d5c112b3cdb59d7f866a2d6914d63829c19da171a5a019db8",
-      "sample_000080_N2_bucket3.npz": "03c054ba2b26110cbd57bbb198d6be4e2cf21197932cc4b3e42dfaa5a5936020",
-      "sample_000081_N2_bucket3.npz": "b6134ebe75b74ea0d8a71bdf6db57694dfcb2153eb95db59ad30a083b290a8b1",
-      "sample_000082_N2_bucket2.npz": "baeb30077d199b9f00a4e6bb6696eb6903b8ddeb2c30db5bc15b9c6e89bd8ffe",
-      "sample_000083_N2_bucket2.npz": "7d4b4de27d9b6725766085f6559738c75204b44d92ee4821f1db59f38c1f0000",
-      "sample_000084_N2_bucket1.npz": "78157d565925b79bedea05da10b8b41be31edd37ddf8cb37d4f73e50aa099f1c",
-      "sample_000085_N2_bucket1.npz": "90d6723ec3293d5847cf60326b22d561712d377436425052f0e7b777ada79374",
-      "sample_000086_N2_bucket2.npz": "3ed3e259044787369f739f72460bfcc76bb9eef3eddd18f3c02090efcc4dc1d0",
-      "sample_000087_N2_bucket1.npz": "c3c25d3fd96381c18a8796f9355e645e79521469f145a430e6a45ed9bb2ab5e2",
-      "sample_000088_N2_bucket1.npz": "5b283dfde868f6100cdf3e564d158ee165f9a9806d2dd2c59dc5709f43829f17",
-      "sample_000089_N2_bucket1.npz": "199277122ffce22633d6dc404f20754b28fe19aa5a7db63cb47af3492c0a54a9",
-      "sample_000090_N2_bucket1.npz": "dd592b47e242190f25602b4a44212e0eb3f39a1acef8181fa03b8aae4727c96c",
-      "sample_000091_N2_bucket1.npz": "c02af4a8f495390083f8485158faefa52451eeac49338f3887c60f3683845f5d",
-      "sample_000092_N2_bucket1.npz": "5890e391f8acf5a52488d2d316753c3ba1951a04460a230386d9f476b3f78d56",
-      "sample_000093_N2_bucket1.npz": "5b0303f0b8014b0c8db2b7a4729b71a8c0a4c0ed9c70d57664f1c5778666b162",
-      "sample_000094_N2_bucket1.npz": "c98a158adaad5ce7c8f1113390f8aed4dcf815edf9cc86d2c37c1fc8b1cee94e",
-      "sample_000095_N2_bucket1.npz": "39d270a78949cf4ab47dc0f7647377f5b32ec58798d54c7decbe5837b61d16c7",
-      "sample_000096_N2_bucket1.npz": "a356061437ef8152fc06c449e6c8dd7631a4de60b0c1061b57064933833e8336",
-      "sample_000097_N2_bucket1.npz": "be4f3259a710832a67530e66a7946380f3553629fc48561101cd1ea3e904c2b0",
-      "sample_000098_N2_bucket1.npz": "714190f24bdfc386bc469d9cbded6d526eda28b20fd05b1316a4281bbb6d454b",
-      "sample_000099_N2_bucket1.npz": "5173053d332ce9b4ace92ecad67d26eecf905949658fc1084b233de54bb9198f",
-      "sample_000100_N2_bucket1.npz": "a708a5466c8f6cb3f2de736cb643fb01e7df7618a6f3247f8ace153252af7fdd",
-      "sample_000101_N2_bucket1.npz": "409a8029359f684a19cb6d4e5f970b8cc82817a43f709bd3a3698d3a3f83d5d6",
-      "sample_000102_N2_bucket1.npz": "d005f8a7ef7151e4a203a04475f029df7a1d18879d191e8e160d70d270fc1a4d",
-      "sample_000103_N2_bucket1.npz": "f2246921abb2c94d3d177ab6ca2c523ea54bb7fe219421ad448247dc977fc75d",
-      "sample_000104_N2_bucket1.npz": "40c46531ab300c3fc9336c7c26acf76e18454ca0876bd1f753d46d1d694243b8",
-      "sample_000105_N2_bucket1.npz": "613b7e225ce017d9136ee46b122275f1773342fda965179692738994a88e6e24",
-      "sample_000106_N2_bucket1.npz": "9e7cc6356d0d27782eb74d67d082060e271533feeb08c744658190b9e5d5c54c",
-      "sample_000107_N2_bucket1.npz": "cf3958a80f4826b50d668edd01dccc16ef8a840cb6a70d7e64a4bd3f1f8ccb49",
-      "sample_000108_N2_bucket1.npz": "8afae46cd63005872a482343e5bb59887763fa96665590e77fde6b2e9396f35e",
-      "sample_000109_N2_bucket1.npz": "0249defd49bb996ea256b9a1445db42d68bf41c7b23b66ef401d5b386f94c2b0",
-      "sample_000110_N2_bucket1.npz": "5c219e696dec666d96e5db163c766929f679d52069db970ed33f90073b60330d",
-      "sample_000111_N2_bucket1.npz": "33ff6d1d0919930d860d0d43e7333f16ffd645bd1f0fab2875bdfca86c0945e3",
-      "sample_000112_N2_bucket1.npz": "bde0e385be3f75452b5fa476a67cec13956e00eafc9c347359b254b63dad7b36",
-      "sample_000113_N1_bucket0.npz": "0a736d3d7a044a2b54c84916b9afcc53b4231bb3bdda31c89952770bcf11b86e",
-      "sample_000114_N1_bucket0.npz": "b0164b09999a1d5ba1cedf7c73e2d1be2e63bd3d1885f5a8848bebe43c46593a",
-      "sample_000115_N1_bucket0.npz": "ad5a6498964b5d6a38af478cb1e4f49f8affe3aae82dad210338be826246776a",
-      "sample_000116_N1_bucket1.npz": "60f4e99b5af8980d367270cf3a2f6e4224ccaddd3d216b12a30cb5aac3be2283",
-      "sample_000117_N1_bucket1.npz": "d00b3cbfc911967391a58ea047778d1706dfdb9b18ca3048d11368f915110f7d",
-      "sample_000118_N1_bucket1.npz": "f50b7ee5ebf117bbf1a30fa1d3cd244ce88f77a5ded93aa9bf90ef328d55e061",
-      "sample_000119_N1_bucket1.npz": "b4b869a7f83e7eb11220c5a62d71194834f17927a3cc5769f0f0fc72a7585c62",
-      "sample_000120_N2_bucket1.npz": "ae4874980f3e9ffad9f761649d3d7009ec15bff595187c7eb43c81309ffc6f60",
-      "sample_000121_N2_bucket1.npz": "571f1508c1fbb33b5b972954cddfaa6a7d2b5894d39d26e89a64c7ba9a50875b",
-      "sample_000122_N2_bucket1.npz": "1b4d827e442eeac0388ea58333361ab0c0a942875009cbf943c27b524e32361c",
-      "sample_000123_N2_bucket1.npz": "e08a9fc344f915ebd40538809c3998d2e20b67edca41d499a15f2fc073915f90",
-      "sample_000124_N2_bucket1.npz": "e82969202ce1231246a03a4b12066f90d069756e98402b11ec4065bf8d96574e",
-      "sample_000125_N2_bucket1.npz": "869fcdac8baa91a0789091c8dc79b7c69a79205e0c9a74cf5ed15bea64fa103c",
-      "sample_000126_N2_bucket1.npz": "89087f427841fb6b85cfd2b4abc1a40995441f5aa2403a908a6e2eb946f976ac",
-      "sample_000127_N2_bucket1.npz": "16ec46989640dfa3c50d42eec7443b9fb647334528e4fcc69dfaadc11dd806df",
-      "sample_000128_N2_bucket1.npz": "9b6f0fda4a5a6aaccecb02d2b6a941760b80c427197ec8a8f5d812ed5d66e9ae",
-      "sample_000129_N2_bucket1.npz": "e3b4a86f9852a7a992a021f9e71374598a654ae934d59d5a4fc6f3d828e26ff8",
-      "sample_000130_N2_bucket1.npz": "2f5fcdccff17d76864777bd4e9190c9a9f668be521c311803a3262d55f9a5394",
-      "sample_000131_N2_bucket1.npz": "1ff97581cc5bb205e4c55cfcbdf1ff3588143ae1190f04b7cc8680d8b35e89a0",
-      "sample_000132_N2_bucket1.npz": "eeee6e443fea3623ca3e5427f78b7bb91e0bb50873ab302ac4c2971b8aed1b91",
-      "sample_000133_N2_bucket1.npz": "8801a9b4c151370c698e129077c7569b999a29c6eb4b30e178539a3e7c606087",
-      "sample_000134_N2_bucket1.npz": "a3e33bcacaedfe27291c9124a9bdee89664dc84586c6fbd020976f5141cfcd52",
-      "sample_000135_N2_bucket1.npz": "e25b8feda6a7c246a715b0142e74fb872f76cc5aa8cb9fe25bda08c8a86a89e3",
-      "sample_000136_N2_bucket1.npz": "a656524862426bace20b0f3f1f843556271c6d0c30d610029916ec7fd83ace8f",
-      "sample_000137_N2_bucket1.npz": "23e8bfa0805b97a3b62d47ccc5e98b04642f0436f285e0c4ca0d51b1c9ab45c1",
-      "sample_000138_N2_bucket1.npz": "0fd807cb8857e2ec8d0d780b60f38ce0c9909734cd62464f09b9ab8436db0f22",
-      "sample_000139_N2_bucket1.npz": "e67537a7e37d63c0fd5600e0d08de722b85453599552bb24436409adfb15a064",
-      "sample_000140_N2_bucket1.npz": "0295a5bba285d73f7ff1c81c3462cd69dd742e5f485ab68d9f8aa34a7ca4a689",
-      "sample_000141_N2_bucket1.npz": "2021208e55e6f114b29d4efe0a7cfad3157d588b3fbac6b73413e841e3df5281",
-      "sample_000142_N2_bucket1.npz": "65deb47dcd81f9d34128071fcf2b242732ec3f261d792355ab4a2a2dde533a5e",
-      "sample_000143_N2_bucket1.npz": "1a509b0c1fea005b503ded0075aa5c91e289f6d1ef8a77024c6825d4fb3deff7",
-      "sample_000144_N2_bucket1.npz": "604c016868344a03c093df2b671fe5e81bb46da27a9ab179b90546f46003c40a",
-      "sample_000145_N2_bucket1.npz": "fa3fcbe5e85ab98b797227852d5178f410ce6cd0b049679939fab104c6a497d1",
-      "sample_000146_N2_bucket1.npz": "326954585f3be4b3ff2fba579a29f294775c576cb3ca770c558d03198f263323",
-      "sample_000147_N2_bucket1.npz": "75de1a34e5f8644323b35ba1b3a256bb8a212fb6b31956a611ca03a38b036599",
-      "sample_000148_N2_bucket1.npz": "243d77ecbaf33224fea45ab88948939377cca9f461afa6268c0d3c1b1c034744",
-      "sample_000149_N2_bucket2.npz": "920364296d77c297f7c04363b51401b16537ee83dba61e5831fe1b30c533ab72",
-      "sample_000150_N2_bucket1.npz": "db066bea2992b5c1687a7ef7a37d58ca6167887ef59e9ba52ffa258bde40ecbf",
-      "sample_000151_N2_bucket2.npz": "d714384972eabdfb756a26e3f8c07a1ac5354909c2887bd8a4f8a5ffe1729115",
-      "sample_000152_N2_bucket2.npz": "4e833589705615abff43c2a59cf693ecd933116a100ad6b2140e6c4f0d8df537",
-      "sample_000153_N2_bucket1.npz": "402929a2245c5417709b6b4136059b90d2e5b63f72347adef0347c15816e1366",
-      "sample_000154_N2_bucket1.npz": "429ea2cfce91e907ec144ca8caf5f87456129f31bcc0a39d56a85cb636b3b860",
-      "sample_000155_N2_bucket1.npz": "21578490fd15d7d7ab6cdb1388d6bcb290632861ea6e4f640e4159ecae8bf341",
-      "sample_000156_N2_bucket2.npz": "8773555606847861349158419e1349f436bf041be6793863c7367c3f7a5b45ee",
-      "sample_000157_N2_bucket2.npz": "fcaac067d7117440248c606e9d09462cef2cace144f5a5d8303a298528e0ff42",
-      "sample_000158_N2_bucket2.npz": "4ccc4bdb3a1c81dd2b1bbc1cf71cb86ea1778a6336b0805c2d8036f89830ed58",
-      "sample_000159_N2_bucket2.npz": "91f165d380bdb54906cbfee308ad5757b5cd3aac9e3147aca06c95e83b79b035",
-      "sample_000160_N2_bucket2.npz": "afe2f0e8ebb15df3fd2b24849ea15bbbf369bc5910e1ed51b0d7e9e4adb9fe47",
-      "sample_000161_N2_bucket2.npz": "4d90608b31adfaf08c9ed5524dde110f3631fbb15c9fcb2f175abfec1564023a",
-      "sample_000162_N2_bucket3.npz": "a1b914946b7702ee533ca516b90982f4c2430fe8f3e56f38bb4dbb85a840b69f",
-      "sample_000163_N2_bucket3.npz": "f0fb49409bbbd238782b5dbe821fa543a84fb329eea09027aa300c9adff9f61e",
-      "sample_000164_N2_bucket3.npz": "bd964f60f1473408cee6d2cb4ab77bbc379968115f64bea7299767a2f7954bae",
-      "sample_000165_N2_bucket3.npz": "808a5928d37e09ad0707c9c3791b6d81b4ca19c9b328518abc706f2d0ff2110b",
-      "sample_000166_N2_bucket3.npz": "43c85bf189436f0e6e33566cf662d00f63ff6c3ba5f188af25c0e5fe152ba745",
-      "sample_000167_N2_bucket3.npz": "be7d25f941db2ce194c7c18392084019528a4f5b63d20e817bc06784beda813a",
-      "sample_000168_N2_bucket3.npz": "329bb90a5a10fe9b17ce4f7bfdda8c2307c48daaf354bedf184d76392f2cd583",
-      "sample_000169_N2_bucket3.npz": "571bf076db6feeed1bd05a21807c81aab617d6355d675f4a1eda0cff6444423b",
-      "sample_000170_N2_bucket3.npz": "95a9b868ead6ffd48ce07c21ce152f51bd8cbcbb6a0ba97b48c1ec20f499e9e4",
-      "sample_000171_N2_bucket3.npz": "26964b256fc47ea692ec848f4115f0caa0258b6ca50979426f37470dc3a4588f",
-      "sample_000172_N2_bucket3.npz": "f46e29daa5ec9e78b5c9e0d2837980d13c6c582cb005bd71ea062ef9c2788365",
-      "sample_000173_N2_bucket3.npz": "5a23badd440ce1bad5c71a7163dd1f51d4a7e9eaf33fb05ed0600c8fa6f0adf1",
-      "sample_000174_N2_bucket3.npz": "08480f812d4ab6c42b990f489bb54256c7494eb75d9b4ca64924045d24caf557",
-      "sample_000175_N2_bucket3.npz": "bba838ffef37644ff8d815993fe3e00e02fcaac90f32813140774ac424982074",
-      "sample_000176_N2_bucket2.npz": "1a7b1d1700b98aa0d84f7043c3997ae9d9f9ca5f82f394acce8327609017d166",
-      "sample_000177_N2_bucket3.npz": "934c6f0a2cfbb13a8fa22befb8bd92ceaa64f570041c8466bdd42d4dc5fe1732",
-      "sample_000178_N2_bucket1.npz": "cc6fad9500e71fb88cf336465f2d4bdca0b461564e2e02e86d38d8b46fb8c9f3",
-      "sample_000179_N2_bucket2.npz": "9650413199a2d6757720b8f78cfb7710c76d6f995ad0516c55027c94395f75a7",
-      "sample_000180_N2_bucket1.npz": "101c92ead53d2272e1400e6faeb2568028d8ff12df0c122d80e925d9f2c2ca59",
-      "sample_000181_N2_bucket2.npz": "fda84eab3df4bb8acb1aa02e901aac1796c0c923499cf12bef336b0401be4d36",
-      "sample_000182_N2_bucket2.npz": "1e34b42186ac2caefe1aa2bec406ceb77be01a6798a51789d91b7951ab76ec36",
-      "sample_000183_N2_bucket2.npz": "cd2d504cafca16ad4f003daae4b10c8b7a2f03570645f460f3a6b1ae70dfe35d",
-      "sample_000184_N2_bucket2.npz": "ad13da1206ecdf58b316acbd0f60a11c64b4e17f21cdcea75e83b8a42ceb2cec",
-      "sample_000185_N2_bucket3.npz": "cb004c9cc35bb7855f551ef76647276c8cc2502b22778cbc8f408480ddf836d1",
-      "sample_000186_N2_bucket3.npz": "8e7107f1ee90772bbc5035d7b0a378be44032ea227ad72ac46a3e37747988c6f",
-      "sample_000187_N2_bucket3.npz": "1dbb98d936f630769458f7c0e8adaa5c654baa65cd56ee021dff053b79f31cb5",
-      "sample_000188_N2_bucket3.npz": "c8175a2aa1e67b93bd71968ba5be90be0b27b4f56db7b11d0039de2a0c271783",
-      "sample_000189_N2_bucket3.npz": "935e604aa849bdd06644b48b7760234c466260fe8bd72a77ff81564f0ae62bd1",
-      "sample_000190_N2_bucket3.npz": "ff04d86b700440ce789d1a4758d45a7650304041037849365274980c79659991",
-      "sample_000191_N2_bucket3.npz": "41d5c0913d8e1e5cb0107c70789d6b4a199f0f12fbc10431359246125d64b684",
-      "sample_000192_N2_bucket3.npz": "d1eeb9eb10d590f92e9cda6b166fe517211bc4b39be83572dada63916558ac97",
-      "sample_000193_N2_bucket3.npz": "14b3558b4e15ce750daa1c40c9c433667ce4e0efaccdfe8319d8cca844b1a81f",
-      "sample_000194_N2_bucket3.npz": "b224175a647dd871fca4c84cfb4e271571d09f8c9cf9e521f46a7048516b547f",
-      "sample_000195_N2_bucket1.npz": "7e1eb867ae469450546121abac3bd1fb40a9f3a77eeb30c13baa128f8af45e2e",
-      "sample_000196_N2_bucket3.npz": "6a6329891fa70ddbf10d706aae7ab9f0003b8ac692ee961a8475865e4f3673cc",
-      "sample_000197_N2_bucket3.npz": "d5c0d8abaf4c5ade2b8a5b73d5d7ed3e30032b667db560437a4273c6fbe0bf70",
-      "sample_000198_N2_bucket3.npz": "61b5ea070a1f0ef8fafc9991f0b2916da04c7e6180a273c74e26027f3867a7f0",
-      "sample_000199_N2_bucket3.npz": "fa5a7c13c0ee90a388e3acd3d229f0696ee0724d16a0b05c2ea8c9ff464f146c"
+      "sample_000000_N1_bucket1.npz": "84d201164192ac2536763d936d5c3e6c010ba6eba2ca61ae352364155a6b03f4",
+      "sample_000001_N1_bucket1.npz": "bb78532279744a4bd50bbeb053588d3722cf05c7cc98cdf66f4eda49fa515b94",
+      "sample_000002_N1_bucket0.npz": "25470a573f0f9244ded1b6a29dae508b525ec8de7921ab58c13b39351fc20829",
+      "sample_000003_N2_bucket1.npz": "d79b41301ef01b94d37ebdee6fa625aecca96c5dc9ed170864843efc9bdf5eea",
+      "sample_000004_N2_bucket1.npz": "3f49e8c97d1357828516b1e4643776976a13c85d624d2eb16b24f70fcdd35762",
+      "sample_000005_N2_bucket1.npz": "3367b6aba600697ba9edf79807801caafe0497460c92e00b5f709218bcaa3001",
+      "sample_000006_N2_bucket1.npz": "1897c80a1096f6e0055ef2dc81923869f5d5d4452b84f3a2058b6f764e8fb134",
+      "sample_000007_N2_bucket1.npz": "dd54dd3347a1cdeb108dee79109ff0b1d71e2becda792835c82b2bfed017d033",
+      "sample_000008_N2_bucket1.npz": "19ba99fcb380dafc736a6badc55e4b56d0011309bbf5b44c2e4c69f1a8c5e04a",
+      "sample_000009_N2_bucket1.npz": "eaea93a8b906c0238d1b44c882ff1250e544a1016e994990d2ea46095b79d13b",
+      "sample_000010_N2_bucket1.npz": "38863dffa424def9974d7148de1048ef4a9650b50ab683f66c6b1424934e1ec6",
+      "sample_000011_N2_bucket1.npz": "3b820828c381117bc08d9f466ac098c5fa1df124af42a6b4a24096f7f6ba2c67",
+      "sample_000012_N2_bucket1.npz": "06e2fda0c2985fd26e0b48d5a99e0e0a72b8f4f9c013ed4f3e43f08b007ebfa5",
+      "sample_000013_N2_bucket1.npz": "20de815fc7a8918ae9a4a2046638739fc967c0d1feaca80e3b9bc58c3a78214d",
+      "sample_000014_N2_bucket1.npz": "d015fbcd89c8772f78ae1e58c45f25be4c0ba74e74cdcc81f7b9f02a415aa4eb",
+      "sample_000015_N2_bucket1.npz": "c3967d008821744b82b7288ed14d92a257bb38f038abd69c6f8289363598c819",
+      "sample_000016_N2_bucket1.npz": "818d6c05461a0841f4b0b4557b68cb336bd4307554afb91a3b5bfbf99a5d27a2",
+      "sample_000017_N2_bucket1.npz": "c73f9c0efd644fd123fb31aa774af3d2ece87c1ceecb8758d09b02b7adecad4c",
+      "sample_000018_N2_bucket1.npz": "330c47fae072532b2659d8b2a76c1334ff1e923dc46adb93dc18e61d7b18317b",
+      "sample_000019_N2_bucket1.npz": "e8d3acceeb79d1428a6aeee91f1560aba1edcfb456773fd0aec3b8720cf32b4d",
+      "sample_000020_N2_bucket1.npz": "51f12013c8eae66c17a0e3ae8ad190e1efcc3b62122d1198db9b6bab43f5a214",
+      "sample_000021_N2_bucket1.npz": "752e2b041e5da2a764bbd6329f65a4c1347a8de201b4fb3ef219e6b446365b3b",
+      "sample_000022_N2_bucket1.npz": "90b5ffa7a7a9742c728eb6ecb1a11a85d80d38e617d91373151822f70158ef0f",
+      "sample_000023_N2_bucket1.npz": "431599e446663fbdc5bd3f87fd6ccfc867ce208b6f2a6cb3554b2749516d4eda",
+      "sample_000024_N2_bucket1.npz": "663851afa5392162d8991cd12626d6368b19b7a5a0c1336b3958ac21f398fe28",
+      "sample_000025_N2_bucket1.npz": "682e83d53a4213caf32d7ca434b0351ed40d75ed299cf99a7b23267c5e7b04e8",
+      "sample_000026_N2_bucket1.npz": "6d0fd2c4df48975d40f1317ae1ca9275abcaaf9e65a0eaa82a5b79211fe711ba",
+      "sample_000027_N2_bucket1.npz": "4d94ccd7ae562c2724f8471d5105a5518e9a7fbd0970aa7f09e6df47739b9ca4",
+      "sample_000028_N2_bucket1.npz": "4e8b444de92c5a7795469d6837e78cb2ba0e0e37b9a645199d6f587a549a4bc4",
+      "sample_000029_N2_bucket1.npz": "725ea0be590b0e324f2ce42dc69d6cd7b76226a0d25ae468aa4bc864154ad233",
+      "sample_000030_N2_bucket1.npz": "07a9fa0c68e1b857b012b795c84d2ed587a09140ebb2df67659de233ad814043",
+      "sample_000031_N2_bucket1.npz": "e1fc69ffeac9a287b1154396059aba2b4b21b4cb49af83a540e23c2935e8191f",
+      "sample_000032_N2_bucket1.npz": "b4eee1bb3e05bf0d665d3598711085d9d1645d9ddc94af42c734bdb3d773045c",
+      "sample_000033_N2_bucket1.npz": "fe01a62a54fb8d0b2b84e1ac5f108d0419fa36c2a104002d2ccbbffdbc3e2d03",
+      "sample_000034_N2_bucket1.npz": "388fdbe6bc44d87ac1e5b4c4d888f79ef278b4e3f3557707e6871c42b2c414b8",
+      "sample_000035_N2_bucket1.npz": "c75df0cefa2a3555c34643d1888df9d9d0fb52fa7e2165206c8afe41366ede23",
+      "sample_000036_N2_bucket1.npz": "05879ca4d24158280b2731ecb2b2f29e971f41147710e2100810df05115957e6",
+      "sample_000037_N2_bucket1.npz": "7253b13e53740faa3551f1d7043c2429904ef9cbc4277d29ecae7be42eb22f3a",
+      "sample_000038_N2_bucket1.npz": "5594525406c137a452f64893c1cba9a557244085a86fa26e7944877f7fcfebea",
+      "sample_000039_N2_bucket1.npz": "83facac0bd69a356a4bce2a968db95b3c6a9aa042b802ce787a9b921b4097849",
+      "sample_000040_N2_bucket1.npz": "8ce2eb181f90ba48804659bab023a8db5cf34727b1327e5a46e019ac2569de3f",
+      "sample_000041_N2_bucket1.npz": "4a7200b85e3ae84182756264001ced75de664df5179acef46408ed525bfc19f0",
+      "sample_000042_N2_bucket1.npz": "916195956bbf54609d723d36d2586df58fa7732db8db511b4d3f31b049159caa",
+      "sample_000043_N2_bucket1.npz": "c65ad99171f9a89383733937361f134f1b7421ed86158d85aefa844d4a45dc3d",
+      "sample_000044_N2_bucket1.npz": "31ef535a933fab0677db4f8e3a82f9d78824855a0140761f6d4b5d8915ec1055",
+      "sample_000045_N2_bucket1.npz": "7a1bccb1752bdc2d3bfde2f6746d4b4f919f62e2334917ef4b02d2e8df45ba77",
+      "sample_000046_N2_bucket1.npz": "6916ed0253954542ccc5bd9d66c201a082bdf7c3e2c4162962c94c405ea36e39",
+      "sample_000047_N2_bucket1.npz": "2b2440134b1f8ee2597900c994d1c0051d8f1e040c91186d1d75ee3f89e08af9",
+      "sample_000048_N2_bucket1.npz": "c76fd1a059f5838aa6011dcc3a92764cbd0f928a5e830a917c0e8e82e2dd5213",
+      "sample_000049_N2_bucket1.npz": "eb46cb5e4efecd3c1d2bfb22cffe5dbd7a20272bf27885995362099e255f60e1",
+      "sample_000050_N2_bucket1.npz": "ad50881873f426611cbdff48e340d66a79a65aec00d77b3ccc6638756c7175c1",
+      "sample_000051_N2_bucket1.npz": "3ff2a788c8fa271e97014a35d57665e0c7acb4051f296bfccfedc8aa4ae6fbe5",
+      "sample_000052_N2_bucket1.npz": "1c38e89c59864548c5b373d0f93318517a3ff75dd5ad985f9d684e2b7de3ca07",
+      "sample_000053_N2_bucket1.npz": "c94bf8de379cb1f4db513be00dacf8d902d9210cef925d694f01c89fc79471f9",
+      "sample_000054_N2_bucket1.npz": "48a3074d0ac54dc48df2a68b5cf78390e1eabe7c1d0b159e5598423dc9a572ee",
+      "sample_000055_N2_bucket1.npz": "37512cb7d6a4b141a0c236e6a051a934a1699680c872dcdbf3268096556cc620",
+      "sample_000056_N2_bucket1.npz": "c8d1eadaa4608a6252a7f65e2e84a9b5f7694f3d753f30fed1a9eb54682bcfd1",
+      "sample_000057_N2_bucket1.npz": "ad1f1175fa9ac8f00b3e8772abe873d4bf8539163ec99043efbf5ef17d29ebef",
+      "sample_000058_N2_bucket1.npz": "9a9a4263354c8e62fc31a75230c395775c56a8588c45fa4a0f5d207e8a6e6fdc",
+      "sample_000059_N2_bucket1.npz": "6228fde7eadafc58ade82f6c76354708acd70ecaf410d63996bf77b275c8b4b0",
+      "sample_000060_N2_bucket1.npz": "6e11b30774213969372176cfc1cc4b75fc9cffe241f78c9a80f1f95cb8d7c34e",
+      "sample_000061_N2_bucket1.npz": "10d588dd2ce3e0cf9278f61530d03cd2d8a69ca3ed917077ddc0eee8207f6847",
+      "sample_000062_N2_bucket1.npz": "a763831cb65aba7f46d530f6941a75fb9ba2239719bd21160eaa6cba8ef3daa0",
+      "sample_000063_N2_bucket1.npz": "6be4c9930cc3597bcd7cc724019ea852f9e6293dc7ad05059491e199acb912ee",
+      "sample_000064_N2_bucket1.npz": "ca64b24c696663caa8bf329497b08ca91bb6a7c9d30a2d60857604e077ce9527",
+      "sample_000065_N2_bucket1.npz": "e4c186fcbddd09bc7c086bcbc48f0ddc26e590d734251d94526e1e446748d338",
+      "sample_000066_N2_bucket1.npz": "b1ab062c33cd1755b16d42b5e7376fdabab6701280cab67f33ea984573076b66",
+      "sample_000067_N2_bucket1.npz": "f8ed4c0a4aa1161a241d1f6195a7d875c0beb624e2057bc23fe1c76bfaf68f81",
+      "sample_000068_N2_bucket1.npz": "ca82d3cc98fa95e0401b6143ca983b7d87d724b98535d809146e16504563f741",
+      "sample_000069_N2_bucket1.npz": "36257bff5326631cf856d84bec21b8e7fbdbc6fa6e629b8387d338c91540d8e2",
+      "sample_000070_N2_bucket1.npz": "748094a6c60139474467dd6b9f63cda0dbbd8e77bebec36644c8356e75f610ae",
+      "sample_000071_N2_bucket1.npz": "4db209e01e173c94e5227be871bec8e600ed9c089802fa0ad6a42eb073114ef5",
+      "sample_000072_N2_bucket1.npz": "4cd725265bce3e77fd86c7222037290c9850e75e179829467cf90c62e0e0e405",
+      "sample_000073_N2_bucket1.npz": "ecf705e7d4f7fa2d1608c2c51d6cf75f9c8d6a77d30018454b315d6cabf4d2d1",
+      "sample_000074_N2_bucket1.npz": "10ddcb273868253d406baae77bf696d7f884db6761cb58375ac3ac238b2cd32a",
+      "sample_000075_N2_bucket1.npz": "4630e4a19db0183b2c09c051c8bea67bd1543bf518b43aa688d9c16ed7f95a2d",
+      "sample_000076_N2_bucket3.npz": "bd114544dd83a54c04d34f538e5bf78303f408a8e3f42b9f28ffda8a15869442",
+      "sample_000077_N2_bucket3.npz": "fff42699eb652b92a6ce4f8608e757276ea9251ebbedf28781ea444962381d38",
+      "sample_000078_N2_bucket3.npz": "a0d382513e57aa9aba4b2151f1ebbe3af3f9e26f0f31df1ead3c3829f9b62d04",
+      "sample_000079_N2_bucket3.npz": "8dc7292f604a59487fd89b9100ab458ffa212f2e927d677f86a777aea18bb6ce",
+      "sample_000080_N2_bucket3.npz": "76f461e3dc6bf8e017cfea26f14f769ba1efde3fa098ffc955d64274c6766205",
+      "sample_000081_N2_bucket3.npz": "cecca6e5b8ab39cbe36029dc9d6aabaf0380794fd709cfbf7fd8758cc769557c",
+      "sample_000082_N2_bucket2.npz": "91820fe5712e47350e6e1483196b91abcd878c2a0931284bd6eb6c45d834854f",
+      "sample_000083_N2_bucket2.npz": "15fc8857b5b3ec6ca7b53176f72149143785cf476279bce65bb8f572db678433",
+      "sample_000084_N2_bucket1.npz": "52a67ce2af9c225f81a6c4e25596e6370a00513f316c92ed7feb341d4e26b092",
+      "sample_000085_N2_bucket1.npz": "4c906886146d1657e9aa22cf508ded5f7e04b40a94069a6dcb5f0ab3327c547c",
+      "sample_000086_N2_bucket2.npz": "7a82408a8fb902a7ca9bf70831555aa16acc96e21a7c4387a54abefab6d1fa54",
+      "sample_000087_N2_bucket1.npz": "8d27233631def64715e3b8765110c328c0833397c6a02c66220674254517cd38",
+      "sample_000088_N2_bucket1.npz": "47e1030eebf068e05a74ef532221a86e817f4d112cb10b6b02cb09bafb70f861",
+      "sample_000089_N2_bucket1.npz": "ab81d8e8adfdda7fd56c90a8935d59515373d80aebed962348b0f26e2a198e10",
+      "sample_000090_N2_bucket1.npz": "9b186b51d55cfaba6b470a836a3b6911d769c68da44a5e658c5cc3ccd6391c8d",
+      "sample_000091_N2_bucket1.npz": "d82a753bb5a03b2dabf14d1c2ba1399ac4703bfac2a751eb5e743dca5d88e268",
+      "sample_000092_N2_bucket1.npz": "8fc86769bedbfe05f31ca3ce5d38c1e3f129f817652776fe26b2fae8459601c9",
+      "sample_000093_N2_bucket1.npz": "20715e920bf541d88d736c72ea3a78a3628a86b8bd2677677e56cfc99121653e",
+      "sample_000094_N2_bucket1.npz": "b04b5a36467d78c38e228edc319f7c8bf627e2828581dde6d035ea59e788c6f8",
+      "sample_000095_N2_bucket1.npz": "0222e6aaa47b6ad02e1b42ed9b3660a7a8cf7e9b6646d33ce699c9355bd95ece",
+      "sample_000096_N2_bucket1.npz": "f78cd4d16648bcb95fd4171c57ff1804908ca62b7cc91b6e902b45a5cfd3b54f",
+      "sample_000097_N2_bucket1.npz": "95d794d8bf00b19723cbdcc306be0fc6753720276a1db46b55dfea8365fcf86d",
+      "sample_000098_N2_bucket1.npz": "a8ec9da9da5cd9fffb6fe0e1fe70edec4a5fd95ed69a97079a89b494cf9cc760",
+      "sample_000099_N2_bucket1.npz": "97536e8aa4a3281f2023de3ba3bfb3df66dbb7f52c1c2add69f641bcf7072779",
+      "sample_000100_N2_bucket1.npz": "1bb91ed64f0a7f47017b00d5615743debfad453ac2db0681f8ddb70d0d586bfc",
+      "sample_000101_N2_bucket1.npz": "368f5c6c2863fc3ca1035860889d31c4f719442b7f50389994726c636eb0229e",
+      "sample_000102_N2_bucket1.npz": "34624b8884c9c3c91248eab8feae7c2c0fbf5c3de02a11b6bb610226525e9545",
+      "sample_000103_N2_bucket1.npz": "ba028d03c12904002b0e323d32f04ecda325e724ff93d31a29236f4d39c6b003",
+      "sample_000104_N2_bucket1.npz": "2a3330b773d069ac1e59cd7f87dd2ff5c60b978ee30f716b840bc2c75062d8be",
+      "sample_000105_N2_bucket1.npz": "775a21fc77ea7b0a29623612188bec23c657604ba31c54492f3f43d05d51fc63",
+      "sample_000106_N2_bucket1.npz": "1d5cf8dfc8823cfb2a848ead3b1159de9298270c050e45f029ed0afd3962340c",
+      "sample_000107_N2_bucket1.npz": "cd9c8b683bc208927a97e11e8fe2f1913f3fdab2fdf37317e0428010a1daed7c",
+      "sample_000108_N2_bucket1.npz": "141a2028ad2e0f09432ee7e152d72bde815e49482bf8bb3b06f9dbc9de852971",
+      "sample_000109_N2_bucket1.npz": "62f6c980afe3e26a0e828a53b999c21c092abcec20c00ef14358d49addeeb371",
+      "sample_000110_N2_bucket1.npz": "9e9e7160a107f44f9be634cdd2fb9be731aea138ec154ad355f3fdc47dcf6078",
+      "sample_000111_N2_bucket1.npz": "6b13ff4338a44c495dc4dc2e36bd9b82a24e8eaa801ed36d47fc33b9c9555f2f",
+      "sample_000112_N2_bucket1.npz": "3e283cec45b895bc2479d7c78237b32f9fb095a2e1384cb369579c9dbbbb5e18",
+      "sample_000113_N1_bucket1.npz": "ae828d45117d62d91587ef2f1bc70923061a74824ae100bd7d21d27fd42f31fd",
+      "sample_000114_N1_bucket1.npz": "6dbfce5e5b0ae3d413a7835790a33f2db22702350e04300cd149be77195015b7",
+      "sample_000115_N1_bucket0.npz": "666b4c9108059b2d42369c3fd766a6a2526bc0a90f31586ffbf0cecd18b8b8e0",
+      "sample_000116_N1_bucket0.npz": "51e80db733f7869aa0ba20420c188c632749278ab010e6e891c58254bc03fe27",
+      "sample_000117_N1_bucket0.npz": "3688ff21cf945bf2833e19fb0b52a7dceb2de8f329a58ea302aabee10df9a67e",
+      "sample_000118_N1_bucket0.npz": "c6e25058c71b280d98baad204bcce1cf0f3f6952d591816a51d2f197d48f8059",
+      "sample_000119_N1_bucket1.npz": "83a95ed0286d7595d9b10a57b87d9b377b54e3e38b9619283b37491db9072014",
+      "sample_000120_N2_bucket1.npz": "e956e530d4340205e78e1b20dcc347ae588e30848a208509da7fb3a1ef4ca14a",
+      "sample_000121_N2_bucket1.npz": "ca45e62630aa3e7c27e82f6794834055a7b57f6dd4fd45323a2e3e420480f18e",
+      "sample_000122_N2_bucket1.npz": "05303054ebe1da7043242e05486a0143bc19e1928c04aae1bcf7158faae7ee2b",
+      "sample_000123_N2_bucket1.npz": "69be18153983569aca0a13b24a674bc6c84f814b24b4807fc0b06d028782e25c",
+      "sample_000124_N2_bucket1.npz": "fd589ead029d40623b243d0e3d503929db73241579bd1b03a772183a53d1ce1b",
+      "sample_000125_N2_bucket1.npz": "9d7171cef1d242d3241ce296c29d3f47c819936026f2685cd2bf1871d25d2288",
+      "sample_000126_N2_bucket1.npz": "9f56e31cfd1cf5370db399d20fc9240b458a39e7d3c26717af8f7bb15d1c893e",
+      "sample_000127_N2_bucket1.npz": "0da779ad626cf75404f6afc29645dae7dac1d75d79d063b77f803f05d2ab8f19",
+      "sample_000128_N2_bucket1.npz": "0ef3ca933f4e1a6d3fd03c84279c60463795a6e533fb103d2b9ade70629e138f",
+      "sample_000129_N2_bucket1.npz": "69ef1dc864b2bbaacdef5ac34c256fd3d13d33bafecf01b391e8b1f98a96ae97",
+      "sample_000130_N2_bucket1.npz": "e2c0c5e3d377b1d4f3ef5b62523cf32ef4bc27ebe7f9cabca094c4d65a65b1f2",
+      "sample_000131_N2_bucket1.npz": "2d6b31d04aa9c48de0536817b3dca8ea19ff5291df09b8cfe1c7ab6bf1a1c929",
+      "sample_000132_N2_bucket1.npz": "e214fb4a366c52d30505d24e5d6ccc9218bd7b5d6e03f8981fc761b93568713f",
+      "sample_000133_N2_bucket1.npz": "55ea772c8ad480cb54fc7824c885579888e4334a212581d0253367f6b26ff5c6",
+      "sample_000134_N2_bucket1.npz": "77ccd625f6f80c089c441649f54d075c7d69fec5d6ace947225f1da3ebe3bdb4",
+      "sample_000135_N2_bucket1.npz": "5cbb0c445cfb659a5c0b98b52e8b71b5fcdebbdc8de8c93667964b9e180f8e45",
+      "sample_000136_N2_bucket1.npz": "a137bd31c71ab36c2f62f7028fe7fb3b11bcaed97f9cfda3b26b748de46bbf37",
+      "sample_000137_N2_bucket1.npz": "f3eb916408bd1f6afd4da579d8ef90b01947bae9296682768ea69322b084c31e",
+      "sample_000138_N2_bucket1.npz": "5c10da5d54fedaad9c36dfa683687173c93ba1ca9fac8ff56c0e9f693495a39b",
+      "sample_000139_N2_bucket1.npz": "56d63e21fe35749d479d8ddaeae2c865b2710eecc923e2d36eaa30cb2aaa1f94",
+      "sample_000140_N2_bucket1.npz": "fbe9cc48c79046b8ae953fd90ea7e78a11ec75a12c2df9fab9d8cb671b70d5e8",
+      "sample_000141_N2_bucket1.npz": "ec9c6e5aa025a90fe4b4443b99426eb5af48f53363c63df1202c3f67e12f2d6f",
+      "sample_000142_N2_bucket1.npz": "e9ca270df35648bd0a958dc6bed0d4950493487f9e29d85a1b661b6d079e5c69",
+      "sample_000143_N2_bucket1.npz": "a054e86a505029a2db5fc047a78c021327fa7be87cc3580073b9f29b148fdba5",
+      "sample_000144_N2_bucket1.npz": "edbabb607c9ee4a0af7a8d499b8edf2a9cb518cc7fdc9ccb93b671f50da3208f",
+      "sample_000145_N2_bucket1.npz": "2da2977b99f34d4b85d8f93fb01c63d6623e7aec7b40572362a66607d3f20ebe",
+      "sample_000146_N2_bucket1.npz": "9b74888b7f9b90c912463fdfcc14652c35af51b7630979dd4309fe6471447ffe",
+      "sample_000147_N2_bucket1.npz": "2c5db563b61f82b16c3e673197e00f8e1745592bf56c73adabbf5e40bb9df036",
+      "sample_000148_N2_bucket1.npz": "7b9b6ed86bb70954b3c680dee7f011d0a8d83d857d1c216de5bbaf29e971d7a4",
+      "sample_000149_N2_bucket2.npz": "f7a32e7691882cce1cc025f5f51bde43ec810db2fa67bc4373aa533138762db4",
+      "sample_000150_N2_bucket1.npz": "b7f466d5a5e1721ddb125252452bfee56d8344a496aec5092b40d0e2ae006201",
+      "sample_000151_N2_bucket2.npz": "5f7c00bd889865874c84499886e62cdb7b08451398315705a56067a07151f2fc",
+      "sample_000152_N2_bucket2.npz": "b43a333439bdde36b35508597280b442feb3e5053fd0c50f85b04577d0efd0b1",
+      "sample_000153_N2_bucket1.npz": "bc6b4ffe9124ca847889383ab16df7b0dfaad144120023460fd14f825a071391",
+      "sample_000154_N2_bucket1.npz": "a329fece9ac6bc408693e12f5b721fe33d5b539b9148381ef62aa8038981f356",
+      "sample_000155_N2_bucket1.npz": "f8fc9477bc4ee25ea144ca0ac0f23cee9ae4644e911aa8c589722ac1ea7f185a",
+      "sample_000156_N2_bucket2.npz": "dc8658c434ae952fba56d85f9012921a5ebfebc67a79d48216bb1e3d591897e2",
+      "sample_000157_N2_bucket2.npz": "dbabc8e392538076bddd8d0c4588599541338548aac544e7e5d80a94fb0ac008",
+      "sample_000158_N2_bucket2.npz": "ec6b411ae9d71f3a1bb0478359069dd1b9e268725993197b6b844a075a10363c",
+      "sample_000159_N2_bucket2.npz": "44be3f8432e955ce872220b3be51264b0815efad0447c4c6aeceb3a6bbfad319",
+      "sample_000160_N2_bucket2.npz": "0b06171e316145416bbbca3de32e49ee6036556fc5ddd2d6e2a8da7b4bf541f0",
+      "sample_000161_N2_bucket2.npz": "9ba0045ae4c957ff85faf7078e2c1ff8d04d775239b9af339b8d0d5aeca247dc",
+      "sample_000162_N2_bucket3.npz": "382159f18adfb631b867bb0556c846cf43dc5d6a99d55af944e42b995d18163a",
+      "sample_000163_N2_bucket3.npz": "378fec51fd552b2c9b07cc5c82196cfe43310e848a32accc25c7f8de84e3753e",
+      "sample_000164_N2_bucket3.npz": "a3a38529976ba0ef34a7372d96bbcdd08d26b7117f40e7803f9bedf76dd18668",
+      "sample_000165_N2_bucket3.npz": "8a68ba3d289ee6afa70671ef07357eb08d024fa270a308e9c520da5d85404f1d",
+      "sample_000166_N2_bucket3.npz": "27d90777dd0b04a82c0acde84acf0a248fb4461124271aa25b6543240be8a6fb",
+      "sample_000167_N2_bucket3.npz": "421d6b21e6f9690993a7e5bb944283c1d9d5bda1525742484123add539b4e0fa",
+      "sample_000168_N2_bucket3.npz": "b7a87c05205a1ced26abc514717fe84a855cbe10ef3546b09ffac395c46cca9f",
+      "sample_000169_N2_bucket3.npz": "c672359a64b771e90c327513549563d8e9b35f5445a0d19ce4e76bee63a1d6e9",
+      "sample_000170_N2_bucket3.npz": "35bd29da2b3148d90e6360c90d74364df21fbb404fbb92e32c5b45d3f2f9cfcd",
+      "sample_000171_N2_bucket3.npz": "b10f31e8a9c105a5e880403d1aa4cc6934fdfdf26cbf66b7c4f057c5ed75426d",
+      "sample_000172_N2_bucket3.npz": "3be7acd7b864212993bc6e210b3d47e94e99727eaf71fa62ffc639df7fad1db8",
+      "sample_000173_N2_bucket3.npz": "e731e2fe0f7af868e0050f7716fc9e64a7e6ff960fbc5089e8e76032fb9128e5",
+      "sample_000174_N2_bucket3.npz": "f1ff0d28f598bce85c3232aae38999855fc8a0d544ac3a0ad4b34a7b39f68ed5",
+      "sample_000175_N2_bucket3.npz": "6aa46204fc9b3b59d5c299c090b00504af06093b3b4b81f42e59da4fdd8ecdd8",
+      "sample_000176_N2_bucket2.npz": "ddf3800e58ea67f51c4d8470c0ab0393e7dda45bbc3ab007b49d359a71ab5d4b",
+      "sample_000177_N2_bucket3.npz": "c1a09a0ef11fbfba261cb18fee30a9099e2d0e513390783c7545cf0c4149d0eb",
+      "sample_000178_N2_bucket1.npz": "29b595636628d4e88c93a79fc62f191e50acbd61479e9f3dc58a916c51608c5f",
+      "sample_000179_N2_bucket2.npz": "a202118fade7551a064867516c4ffd1e4108ac04fa0e9f83576e37a9a0eea857",
+      "sample_000180_N2_bucket1.npz": "4a2fa43bd4c7a47717504bcd20690527624bd3dcd946f1b12bb81b36e9411d3d",
+      "sample_000181_N2_bucket2.npz": "e38da8c701aa5b5ccdfede6c0c02ef3980110ad9b85c54ec0d4af5c7ffd700d2",
+      "sample_000182_N2_bucket2.npz": "28dd7825be06a2c917fd24463584054ec3ecbc2900865f5e00c635d45deaa929",
+      "sample_000183_N2_bucket2.npz": "fd8b5743c3757c0d986ca7617c794cddac0f9dae944f06ba2a567e74945c8a6f",
+      "sample_000184_N2_bucket2.npz": "05658a5dfcd7d08e1d88455c3ac946d47add1e8cdfc7b9827d65e935c0302f26",
+      "sample_000185_N2_bucket3.npz": "b6d1a412e2cc7727f7148676fd56f7075053c4b51bd1d1cf153bb79ef9691b42",
+      "sample_000186_N2_bucket3.npz": "36456785947f6f1bc0ab976d96d3c80be266e06c56226ade305f10ea8afd4554",
+      "sample_000187_N2_bucket3.npz": "86319755f2ca0c850ad1301841e83f9fd7433b04c2decbc701de944d1789955c",
+      "sample_000188_N2_bucket3.npz": "c0007c8a6e408fd05c3bbf1f807eac17d50dac2122d1ebf37a9592348dd48e20",
+      "sample_000189_N2_bucket3.npz": "a6486d4a64960b39d40fc7324ce456d4bb781dfe83820b710312fdc1a3234fef",
+      "sample_000190_N2_bucket3.npz": "7cee98da0d26fc20f2c2979c0913a6b9ed120a5cf149f640ce04c638443e0c96",
+      "sample_000191_N2_bucket3.npz": "ebdc9edbeb708a61fbd54be49dbe5669d9891a0fb745085dcecbfa3d38701c08",
+      "sample_000192_N2_bucket3.npz": "7653b23549e73991735ba00dc0fcd2829f858272777bb11e791b4c78ec121923",
+      "sample_000193_N2_bucket3.npz": "ea74be84e24c68a3b581fd6a0385f1a8928e4b0d4792ae3c0af8c47fca50d17d",
+      "sample_000194_N2_bucket3.npz": "8f53f76c1242168c2216d5326f5305b797998d10656528fae01e397038f2e09d",
+      "sample_000195_N2_bucket1.npz": "2f34d9764317e9132d2b2259b905980394de431d232ef254e6e5470f576aa164",
+      "sample_000196_N2_bucket3.npz": "b58461f62e84c3312de3c3b6651410d54ce14cb0424ed71d00cd50d3f5533b78",
+      "sample_000197_N2_bucket3.npz": "9f8ed5b1e0620334b33f17391aa5c9408a33c825144cff79edfc5771f4991555",
+      "sample_000198_N2_bucket3.npz": "fa58209846721356b70794196d0abd7c4f89985981ad447473482d4fc40d9393",
+      "sample_000199_N2_bucket3.npz": "8826bb6640e252e8c3653ddb3acdaab060544e22b913859c1022014cddbddda7"
     },
     "files": [
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000000_N1_bucket1.npz",
         "name": "sample_000000_N1_bucket1.npz",
-        "sha256": "b130c99996288c1d4e3afeb486ea3589b69470d4bafc0b8459c4b3d4adb11b38",
-        "bytes": 601353
+        "sha256": "84d201164192ac2536763d936d5c3e6c010ba6eba2ca61ae352364155a6b03f4",
+        "bytes": 601177
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000001_N1_bucket1.npz",
         "name": "sample_000001_N1_bucket1.npz",
-        "sha256": "5f3e8af5ed1f130fd868483639a833e9f5108054460ce6d27684e9e18cb32200",
-        "bytes": 605749
+        "sha256": "bb78532279744a4bd50bbeb053588d3722cf05c7cc98cdf66f4eda49fa515b94",
+        "bytes": 605977
       },
       {
-        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000002_N1_bucket1.npz",
-        "name": "sample_000002_N1_bucket1.npz",
-        "sha256": "d0b340be437320066dce336ffe5a604bf7776c41722751e9da10e7e0b4f51868",
-        "bytes": 600580
+        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000002_N1_bucket0.npz",
+        "name": "sample_000002_N1_bucket0.npz",
+        "sha256": "25470a573f0f9244ded1b6a29dae508b525ec8de7921ab58c13b39351fc20829",
+        "bytes": 797909
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000003_N2_bucket1.npz",
         "name": "sample_000003_N2_bucket1.npz",
-        "sha256": "da3c8768188cc031b5f2b82d0f9f7e3aa7c80dd2116493d50a1abe076f2361a7",
-        "bytes": 1373722
+        "sha256": "d79b41301ef01b94d37ebdee6fa625aecca96c5dc9ed170864843efc9bdf5eea",
+        "bytes": 1374586
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000004_N2_bucket1.npz",
         "name": "sample_000004_N2_bucket1.npz",
-        "sha256": "f1143b56cc200e7b9ac89b43543610c4a3502ecf4d7dd174a7ed04fe0529b67e",
-        "bytes": 1376698
+        "sha256": "3f49e8c97d1357828516b1e4643776976a13c85d624d2eb16b24f70fcdd35762",
+        "bytes": 1377227
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000005_N2_bucket1.npz",
         "name": "sample_000005_N2_bucket1.npz",
-        "sha256": "6a52ea4c6880aa4b4206dd2183c288d42ad92eec60f274e76007881f74b6060f",
-        "bytes": 1383519
+        "sha256": "3367b6aba600697ba9edf79807801caafe0497460c92e00b5f709218bcaa3001",
+        "bytes": 1383508
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000006_N2_bucket1.npz",
         "name": "sample_000006_N2_bucket1.npz",
-        "sha256": "2fc76038b9cabdd0ca5d6de43911f5f1201f20878ccfb9f4c3abbcdb235d1dfe",
-        "bytes": 1370869
+        "sha256": "1897c80a1096f6e0055ef2dc81923869f5d5d4452b84f3a2058b6f764e8fb134",
+        "bytes": 1370931
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000007_N2_bucket1.npz",
         "name": "sample_000007_N2_bucket1.npz",
-        "sha256": "e10730d072da93e1ceebb0be18f149d217d932f91bd9d8763b3f1657ba793de6",
-        "bytes": 1386090
+        "sha256": "dd54dd3347a1cdeb108dee79109ff0b1d71e2becda792835c82b2bfed017d033",
+        "bytes": 1385581
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000008_N2_bucket1.npz",
         "name": "sample_000008_N2_bucket1.npz",
-        "sha256": "e6e79d898f6b48a650cd3e0e895eec1d1c44a5173726b5295162cfc4e08bbef1",
-        "bytes": 1377604
+        "sha256": "19ba99fcb380dafc736a6badc55e4b56d0011309bbf5b44c2e4c69f1a8c5e04a",
+        "bytes": 1376937
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000009_N2_bucket1.npz",
         "name": "sample_000009_N2_bucket1.npz",
-        "sha256": "e9b430736eeb01a9b29045c79197ccce071d89e48bab9f7410a40e45ade8c750",
-        "bytes": 1382796
+        "sha256": "eaea93a8b906c0238d1b44c882ff1250e544a1016e994990d2ea46095b79d13b",
+        "bytes": 1381859
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000010_N2_bucket1.npz",
         "name": "sample_000010_N2_bucket1.npz",
-        "sha256": "3bd3a2c7118a5d767cbb3357ad131a097183d753267c4c46b3ea07ab6ce2a9d6",
-        "bytes": 1374668
+        "sha256": "38863dffa424def9974d7148de1048ef4a9650b50ab683f66c6b1424934e1ec6",
+        "bytes": 1374638
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000011_N2_bucket1.npz",
         "name": "sample_000011_N2_bucket1.npz",
-        "sha256": "b0d09e4d2295b2047aa92be5454651601925423494bbec2c2873a5c2c44102bd",
-        "bytes": 1380013
+        "sha256": "3b820828c381117bc08d9f466ac098c5fa1df124af42a6b4a24096f7f6ba2c67",
+        "bytes": 1379588
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000012_N2_bucket1.npz",
         "name": "sample_000012_N2_bucket1.npz",
-        "sha256": "3ea78d36921cd6095222cf84b755235a1e20f07f0f7ab3c67cc669f923084611",
-        "bytes": 1371605
+        "sha256": "06e2fda0c2985fd26e0b48d5a99e0e0a72b8f4f9c013ed4f3e43f08b007ebfa5",
+        "bytes": 1371357
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000013_N2_bucket1.npz",
         "name": "sample_000013_N2_bucket1.npz",
-        "sha256": "a669b17e35daffc2de647154a3e3a62012270b9068a30a7b18787a6e2bc16cbe",
-        "bytes": 1378673
+        "sha256": "20de815fc7a8918ae9a4a2046638739fc967c0d1feaca80e3b9bc58c3a78214d",
+        "bytes": 1378239
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000014_N2_bucket1.npz",
         "name": "sample_000014_N2_bucket1.npz",
-        "sha256": "b5009c65e3d6a8c372f7113d6020ef8007a77cd60d4458b38ca59e685f2b0122",
-        "bytes": 1367555
+        "sha256": "d015fbcd89c8772f78ae1e58c45f25be4c0ba74e74cdcc81f7b9f02a415aa4eb",
+        "bytes": 1367274
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000015_N2_bucket1.npz",
         "name": "sample_000015_N2_bucket1.npz",
-        "sha256": "db16dc9f3d76cad8dff6d1f7b63790e29a258d31c6f25e5cf61879f80116eeb6",
-        "bytes": 1368661
+        "sha256": "c3967d008821744b82b7288ed14d92a257bb38f038abd69c6f8289363598c819",
+        "bytes": 1368420
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000016_N2_bucket1.npz",
         "name": "sample_000016_N2_bucket1.npz",
-        "sha256": "f0a71f42743746a3ff5273acf13bcf2de785a99c0c0e4663de2e57eeacbadb3d",
-        "bytes": 1359338
+        "sha256": "818d6c05461a0841f4b0b4557b68cb336bd4307554afb91a3b5bfbf99a5d27a2",
+        "bytes": 1359478
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000017_N2_bucket1.npz",
         "name": "sample_000017_N2_bucket1.npz",
-        "sha256": "9a553608a22ef36765bb45cece842ca5bf650fc2be29c3d0268a2c82ff9c7eba",
-        "bytes": 1368940
+        "sha256": "c73f9c0efd644fd123fb31aa774af3d2ece87c1ceecb8758d09b02b7adecad4c",
+        "bytes": 1369107
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000018_N2_bucket1.npz",
         "name": "sample_000018_N2_bucket1.npz",
-        "sha256": "6a8a9b1eb5944374f3786cd5e9187ce01a43898d931c5b7e9b97c7b76085c8ee",
-        "bytes": 1365929
+        "sha256": "330c47fae072532b2659d8b2a76c1334ff1e923dc46adb93dc18e61d7b18317b",
+        "bytes": 1365998
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000019_N2_bucket1.npz",
         "name": "sample_000019_N2_bucket1.npz",
-        "sha256": "5d01ff845d02799c8e851d2e82150b20cb278744384ead1ce35f0afddda4fade",
-        "bytes": 1360857
+        "sha256": "e8d3acceeb79d1428a6aeee91f1560aba1edcfb456773fd0aec3b8720cf32b4d",
+        "bytes": 1360595
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000020_N2_bucket1.npz",
         "name": "sample_000020_N2_bucket1.npz",
-        "sha256": "b4f22f6e817a9927f4d4338ec0a5f437b2c02bb54110add2052cf6522c93a803",
-        "bytes": 1373263
+        "sha256": "51f12013c8eae66c17a0e3ae8ad190e1efcc3b62122d1198db9b6bab43f5a214",
+        "bytes": 1372827
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000021_N2_bucket1.npz",
         "name": "sample_000021_N2_bucket1.npz",
-        "sha256": "48874ef7fe3fdb5602eef8314c31917eb7f690f1911ef22e46b3011d1ba172c2",
-        "bytes": 1352200
+        "sha256": "752e2b041e5da2a764bbd6329f65a4c1347a8de201b4fb3ef219e6b446365b3b",
+        "bytes": 1352718
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000022_N2_bucket1.npz",
         "name": "sample_000022_N2_bucket1.npz",
-        "sha256": "eaaaf74fc677d93bbbee3b79489860c2b65d8e976b2faad1a3b5f918ba2af189",
-        "bytes": 1353665
+        "sha256": "90b5ffa7a7a9742c728eb6ecb1a11a85d80d38e617d91373151822f70158ef0f",
+        "bytes": 1354246
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000023_N2_bucket1.npz",
         "name": "sample_000023_N2_bucket1.npz",
-        "sha256": "bcb9abcda3828ff4d7234c53866090ab4ff0d6705dd1a045b979d93d05c5471f",
-        "bytes": 1357000
+        "sha256": "431599e446663fbdc5bd3f87fd6ccfc867ce208b6f2a6cb3554b2749516d4eda",
+        "bytes": 1356257
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000024_N2_bucket1.npz",
         "name": "sample_000024_N2_bucket1.npz",
-        "sha256": "253f79da22c189927ba229fdbb83324b06db7e9766206c0b74715b35ae422d73",
-        "bytes": 1347843
+        "sha256": "663851afa5392162d8991cd12626d6368b19b7a5a0c1336b3958ac21f398fe28",
+        "bytes": 1347082
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000025_N2_bucket1.npz",
         "name": "sample_000025_N2_bucket1.npz",
-        "sha256": "265d3365765324a97f6f65d8c3347bca9573152130f4c11794f776028bcc0429",
-        "bytes": 1359973
+        "sha256": "682e83d53a4213caf32d7ca434b0351ed40d75ed299cf99a7b23267c5e7b04e8",
+        "bytes": 1360406
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000026_N2_bucket1.npz",
         "name": "sample_000026_N2_bucket1.npz",
-        "sha256": "6b0b584d98154c4af71d29dbf468ea37605acd6f5b50dd0bba8930a2acb3696d",
-        "bytes": 1351883
+        "sha256": "6d0fd2c4df48975d40f1317ae1ca9275abcaaf9e65a0eaa82a5b79211fe711ba",
+        "bytes": 1351824
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000027_N2_bucket1.npz",
         "name": "sample_000027_N2_bucket1.npz",
-        "sha256": "84a6fa81b3787a9892dd2e375f3b2c45acc36d0fa3ff342f4d7382b22d382f88",
-        "bytes": 1342374
+        "sha256": "4d94ccd7ae562c2724f8471d5105a5518e9a7fbd0970aa7f09e6df47739b9ca4",
+        "bytes": 1342232
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000028_N2_bucket1.npz",
         "name": "sample_000028_N2_bucket1.npz",
-        "sha256": "7c26aa3b8795ca590edd57d7c3ad7a6a24717571600dae8e8561eef71a961685",
-        "bytes": 1340158
+        "sha256": "4e8b444de92c5a7795469d6837e78cb2ba0e0e37b9a645199d6f587a549a4bc4",
+        "bytes": 1339303
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000029_N2_bucket1.npz",
         "name": "sample_000029_N2_bucket1.npz",
-        "sha256": "51deebff50120f99541e6063bab8f3879cd31184cc5b453e69ef1c07da2e69ab",
-        "bytes": 1347138
+        "sha256": "725ea0be590b0e324f2ce42dc69d6cd7b76226a0d25ae468aa4bc864154ad233",
+        "bytes": 1347753
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000030_N2_bucket1.npz",
         "name": "sample_000030_N2_bucket1.npz",
-        "sha256": "74c43ad0bfe71bffc063da81d9cae262db3b20baa1763177167419d52a78dbc2",
-        "bytes": 1350933
+        "sha256": "07a9fa0c68e1b857b012b795c84d2ed587a09140ebb2df67659de233ad814043",
+        "bytes": 1351300
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000031_N2_bucket1.npz",
         "name": "sample_000031_N2_bucket1.npz",
-        "sha256": "e6fadb9af1088de355b523f413120e275a1fc4f3b3de321507c97251558d7023",
-        "bytes": 1352311
+        "sha256": "e1fc69ffeac9a287b1154396059aba2b4b21b4cb49af83a540e23c2935e8191f",
+        "bytes": 1352724
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000032_N2_bucket1.npz",
         "name": "sample_000032_N2_bucket1.npz",
-        "sha256": "f13394c4ba9c024e2773c5bfa0099120ee135c5d75338df0e0fcd2fdcf6458f7",
-        "bytes": 1355628
+        "sha256": "b4eee1bb3e05bf0d665d3598711085d9d1645d9ddc94af42c734bdb3d773045c",
+        "bytes": 1355861
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000033_N2_bucket1.npz",
         "name": "sample_000033_N2_bucket1.npz",
-        "sha256": "4891ce336cbb604ea565dd9be1b731c449d36bbd797c730057bdadb4f188614b",
-        "bytes": 1346619
+        "sha256": "fe01a62a54fb8d0b2b84e1ac5f108d0419fa36c2a104002d2ccbbffdbc3e2d03",
+        "bytes": 1346387
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000034_N2_bucket1.npz",
         "name": "sample_000034_N2_bucket1.npz",
-        "sha256": "8820e1d4984b905ea3285e263e8feb274e14db61d4e0859e3fc19efbf4b7d0fd",
-        "bytes": 1345626
+        "sha256": "388fdbe6bc44d87ac1e5b4c4d888f79ef278b4e3f3557707e6871c42b2c414b8",
+        "bytes": 1346102
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000035_N2_bucket1.npz",
         "name": "sample_000035_N2_bucket1.npz",
-        "sha256": "7f664a1acd9e7942eb7fb3f273ef976ad094b494b73193f926944e1f2d12c891",
-        "bytes": 1343806
+        "sha256": "c75df0cefa2a3555c34643d1888df9d9d0fb52fa7e2165206c8afe41366ede23",
+        "bytes": 1343986
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000036_N2_bucket1.npz",
         "name": "sample_000036_N2_bucket1.npz",
-        "sha256": "ce356a53b055edb46df341736e561ea014b6a7e89d8c7d0b6a9cd4110400b5d0",
-        "bytes": 1341616
+        "sha256": "05879ca4d24158280b2731ecb2b2f29e971f41147710e2100810df05115957e6",
+        "bytes": 1341559
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000037_N2_bucket1.npz",
         "name": "sample_000037_N2_bucket1.npz",
-        "sha256": "b54f73d7619b274f06362775b30b2c394e936b7830d4128f3861bf792d6a38c7",
-        "bytes": 1332711
+        "sha256": "7253b13e53740faa3551f1d7043c2429904ef9cbc4277d29ecae7be42eb22f3a",
+        "bytes": 1332529
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000038_N2_bucket1.npz",
         "name": "sample_000038_N2_bucket1.npz",
-        "sha256": "d7ae983ad36eec352fc2f819e9b6223ac4f9098112bd2114dfee20b55f9b0707",
-        "bytes": 1346311
+        "sha256": "5594525406c137a452f64893c1cba9a557244085a86fa26e7944877f7fcfebea",
+        "bytes": 1345876
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000039_N2_bucket1.npz",
         "name": "sample_000039_N2_bucket1.npz",
-        "sha256": "db4f75cf84ef4001f22ab832074dd4ebd05c85c25f358d54551489eecd7c510a",
-        "bytes": 1338999
+        "sha256": "83facac0bd69a356a4bce2a968db95b3c6a9aa042b802ce787a9b921b4097849",
+        "bytes": 1339005
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000040_N2_bucket1.npz",
         "name": "sample_000040_N2_bucket1.npz",
-        "sha256": "ccc3ad0c1b7b168001c740d4d5d0000fdc6bdde4423d69aa6d7f0d46cc6dca9d",
-        "bytes": 1351384
+        "sha256": "8ce2eb181f90ba48804659bab023a8db5cf34727b1327e5a46e019ac2569de3f",
+        "bytes": 1350899
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000041_N2_bucket1.npz",
         "name": "sample_000041_N2_bucket1.npz",
-        "sha256": "14881cc5cef81f5b6fc20417434febdbdd13a2fd902ca0126999aad846c9e139",
-        "bytes": 1344308
+        "sha256": "4a7200b85e3ae84182756264001ced75de664df5179acef46408ed525bfc19f0",
+        "bytes": 1343932
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000042_N2_bucket1.npz",
         "name": "sample_000042_N2_bucket1.npz",
-        "sha256": "7836a541f71b6a989029c23245654d412568a72ffc3bc2e4119ee98041b90d8b",
-        "bytes": 1352005
+        "sha256": "916195956bbf54609d723d36d2586df58fa7732db8db511b4d3f31b049159caa",
+        "bytes": 1351921
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000043_N2_bucket1.npz",
         "name": "sample_000043_N2_bucket1.npz",
-        "sha256": "bf4659411bd64e5179e0c8c26d3d6f7827415e27bfd01cef1b250d9bc76d4ec1",
-        "bytes": 1354170
+        "sha256": "c65ad99171f9a89383733937361f134f1b7421ed86158d85aefa844d4a45dc3d",
+        "bytes": 1354199
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000044_N2_bucket1.npz",
         "name": "sample_000044_N2_bucket1.npz",
-        "sha256": "fd5093ca5a805700ca3e250fca784342e5f0502496f15ee73433aa560587917c",
-        "bytes": 1350568
+        "sha256": "31ef535a933fab0677db4f8e3a82f9d78824855a0140761f6d4b5d8915ec1055",
+        "bytes": 1350214
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000045_N2_bucket1.npz",
         "name": "sample_000045_N2_bucket1.npz",
-        "sha256": "a28194ddf0e74044983a09d2f39633ad6bbbc3363ef60addea88a1c7b291b417",
-        "bytes": 1350852
+        "sha256": "7a1bccb1752bdc2d3bfde2f6746d4b4f919f62e2334917ef4b02d2e8df45ba77",
+        "bytes": 1350398
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000046_N2_bucket1.npz",
         "name": "sample_000046_N2_bucket1.npz",
-        "sha256": "1ad4277e40d882f189a8c3699b2f0206d7e22a61ed1085a91408da65f34721da",
-        "bytes": 1345372
+        "sha256": "6916ed0253954542ccc5bd9d66c201a082bdf7c3e2c4162962c94c405ea36e39",
+        "bytes": 1345004
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000047_N2_bucket1.npz",
         "name": "sample_000047_N2_bucket1.npz",
-        "sha256": "496d4ca1813db16c7c3d1b95e0aae14930c2297b68aa5bd8fdf1c41cb9ececc4",
-        "bytes": 1347020
+        "sha256": "2b2440134b1f8ee2597900c994d1c0051d8f1e040c91186d1d75ee3f89e08af9",
+        "bytes": 1346904
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000048_N2_bucket1.npz",
         "name": "sample_000048_N2_bucket1.npz",
-        "sha256": "6097b7c7e62ed8711e3441ced52047e63daa75cf5832905dd244e47b8ddb9fc4",
-        "bytes": 1338201
+        "sha256": "c76fd1a059f5838aa6011dcc3a92764cbd0f928a5e830a917c0e8e82e2dd5213",
+        "bytes": 1338225
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000049_N2_bucket1.npz",
         "name": "sample_000049_N2_bucket1.npz",
-        "sha256": "1c5ade8b67f53ca964feb24c303aa4d0b7bd2b5c7582d09e077aedd0cb183616",
-        "bytes": 1338735
+        "sha256": "eb46cb5e4efecd3c1d2bfb22cffe5dbd7a20272bf27885995362099e255f60e1",
+        "bytes": 1338162
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000050_N2_bucket1.npz",
         "name": "sample_000050_N2_bucket1.npz",
-        "sha256": "c88045d5f79f757b52de562b0290dddbd3c94360734e71623fa8bfb887d02113",
-        "bytes": 1331062
+        "sha256": "ad50881873f426611cbdff48e340d66a79a65aec00d77b3ccc6638756c7175c1",
+        "bytes": 1330853
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000051_N2_bucket1.npz",
         "name": "sample_000051_N2_bucket1.npz",
-        "sha256": "9a5ad32d3f345c27281d11c3bd07f9d7bffd4a7b24023f00d5b613392225b353",
-        "bytes": 1337909
+        "sha256": "3ff2a788c8fa271e97014a35d57665e0c7acb4051f296bfccfedc8aa4ae6fbe5",
+        "bytes": 1338056
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000052_N2_bucket1.npz",
         "name": "sample_000052_N2_bucket1.npz",
-        "sha256": "347ddab69d87d04dac9b589a615a0b8ad45ac94c3ecd6381944edd4348130a17",
-        "bytes": 1335041
+        "sha256": "1c38e89c59864548c5b373d0f93318517a3ff75dd5ad985f9d684e2b7de3ca07",
+        "bytes": 1335450
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000053_N2_bucket1.npz",
         "name": "sample_000053_N2_bucket1.npz",
-        "sha256": "4b28598f78e04736383f7d2fe43f41ff956779ae95e7e3d14d3dc25c1c3d7421",
-        "bytes": 1343005
+        "sha256": "c94bf8de379cb1f4db513be00dacf8d902d9210cef925d694f01c89fc79471f9",
+        "bytes": 1343120
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000054_N2_bucket1.npz",
         "name": "sample_000054_N2_bucket1.npz",
-        "sha256": "6eedf568ee2a14c7150ff2206093283594eaf5199c71a90492510471e7bfadd6",
-        "bytes": 1332131
+        "sha256": "48a3074d0ac54dc48df2a68b5cf78390e1eabe7c1d0b159e5598423dc9a572ee",
+        "bytes": 1332148
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000055_N2_bucket1.npz",
         "name": "sample_000055_N2_bucket1.npz",
-        "sha256": "e1fb2ae263e006ea6aad706cb81d2a12bc5087082331bd77985756ea8ed687ae",
-        "bytes": 1338795
+        "sha256": "37512cb7d6a4b141a0c236e6a051a934a1699680c872dcdbf3268096556cc620",
+        "bytes": 1338526
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000056_N2_bucket1.npz",
         "name": "sample_000056_N2_bucket1.npz",
-        "sha256": "8c4644900a3d076e96746849bd754295302c611e963a5d0e13da96ec7b4a8c37",
-        "bytes": 1328839
+        "sha256": "c8d1eadaa4608a6252a7f65e2e84a9b5f7694f3d753f30fed1a9eb54682bcfd1",
+        "bytes": 1328586
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000057_N2_bucket1.npz",
         "name": "sample_000057_N2_bucket1.npz",
-        "sha256": "a927ada3cf8dc01fa0c38a340923c8c4f55b85ebb806492398c768f2eb7af456",
-        "bytes": 1319106
+        "sha256": "ad1f1175fa9ac8f00b3e8772abe873d4bf8539163ec99043efbf5ef17d29ebef",
+        "bytes": 1319365
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000058_N2_bucket1.npz",
         "name": "sample_000058_N2_bucket1.npz",
-        "sha256": "faf70d70b978b1d0d9ab5ac24afa9af9ef08f25687b90d3c040dbc41c5ad1300",
-        "bytes": 1316732
+        "sha256": "9a9a4263354c8e62fc31a75230c395775c56a8588c45fa4a0f5d207e8a6e6fdc",
+        "bytes": 1316908
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000059_N2_bucket1.npz",
         "name": "sample_000059_N2_bucket1.npz",
-        "sha256": "d00a2f097676368c3a1667968281caa6c2edaa21cadc310e921162f105bb51fe",
-        "bytes": 1307532
+        "sha256": "6228fde7eadafc58ade82f6c76354708acd70ecaf410d63996bf77b275c8b4b0",
+        "bytes": 1308106
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000060_N2_bucket1.npz",
         "name": "sample_000060_N2_bucket1.npz",
-        "sha256": "f4a648a33a512dd2365c5b19ed4cfce38f4acffb129f6828adebdb04ae160c68",
-        "bytes": 1329434
+        "sha256": "6e11b30774213969372176cfc1cc4b75fc9cffe241f78c9a80f1f95cb8d7c34e",
+        "bytes": 1330114
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000061_N2_bucket1.npz",
         "name": "sample_000061_N2_bucket1.npz",
-        "sha256": "39760da7bc2bcc389de3d99139a7451fae5b8e8d39ab20915abcd92757fd72f4",
-        "bytes": 1321219
+        "sha256": "10d588dd2ce3e0cf9278f61530d03cd2d8a69ca3ed917077ddc0eee8207f6847",
+        "bytes": 1321013
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000062_N2_bucket1.npz",
         "name": "sample_000062_N2_bucket1.npz",
-        "sha256": "3a74d0e21fe7e0a72c0815b14d2da916489ede12fc0372eafdbefa0ee2ba459b",
-        "bytes": 1325061
+        "sha256": "a763831cb65aba7f46d530f6941a75fb9ba2239719bd21160eaa6cba8ef3daa0",
+        "bytes": 1324831
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000063_N2_bucket1.npz",
         "name": "sample_000063_N2_bucket1.npz",
-        "sha256": "63d0140bb386d7d3df41e562cd10d5cc18f5e9aaa1c5df020ac6341fc81a9d09",
-        "bytes": 1324770
+        "sha256": "6be4c9930cc3597bcd7cc724019ea852f9e6293dc7ad05059491e199acb912ee",
+        "bytes": 1325320
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000064_N2_bucket1.npz",
         "name": "sample_000064_N2_bucket1.npz",
-        "sha256": "8a2f82bbd374001657187e5da1244fb456ae3ce010302179b19e48e540c3b244",
-        "bytes": 1329803
+        "sha256": "ca64b24c696663caa8bf329497b08ca91bb6a7c9d30a2d60857604e077ce9527",
+        "bytes": 1330344
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000065_N2_bucket1.npz",
         "name": "sample_000065_N2_bucket1.npz",
-        "sha256": "709b7bc563c31cf32e9fdc7f350d25c9929671dd5da37aafd2aaae071970724f",
-        "bytes": 1327026
+        "sha256": "e4c186fcbddd09bc7c086bcbc48f0ddc26e590d734251d94526e1e446748d338",
+        "bytes": 1327011
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000066_N2_bucket1.npz",
         "name": "sample_000066_N2_bucket1.npz",
-        "sha256": "74231389e9d61decdfdd8fd2c2476b0ee9f91418410dd62f247f69d2356ccfa3",
-        "bytes": 1336449
+        "sha256": "b1ab062c33cd1755b16d42b5e7376fdabab6701280cab67f33ea984573076b66",
+        "bytes": 1336631
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000067_N2_bucket1.npz",
         "name": "sample_000067_N2_bucket1.npz",
-        "sha256": "7d696ba0ee0b81d27fcb8a39087b0d499a0bcd202a1c7ed63543b8bc321fdc50",
-        "bytes": 1333317
+        "sha256": "f8ed4c0a4aa1161a241d1f6195a7d875c0beb624e2057bc23fe1c76bfaf68f81",
+        "bytes": 1333654
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000068_N2_bucket1.npz",
         "name": "sample_000068_N2_bucket1.npz",
-        "sha256": "5affe839d1036cd431a797342ddd2ae7224e5d55a7f0e38d360ef0cd6374806c",
-        "bytes": 1342630
+        "sha256": "ca82d3cc98fa95e0401b6143ca983b7d87d724b98535d809146e16504563f741",
+        "bytes": 1342548
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000069_N2_bucket1.npz",
         "name": "sample_000069_N2_bucket1.npz",
-        "sha256": "7cbe7fd830cee1296842fa458a9055d760de993aa70ed9084c86743a37e59068",
-        "bytes": 1336461
+        "sha256": "36257bff5326631cf856d84bec21b8e7fbdbc6fa6e629b8387d338c91540d8e2",
+        "bytes": 1336012
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000070_N2_bucket1.npz",
         "name": "sample_000070_N2_bucket1.npz",
-        "sha256": "5c016da5dc558ab320667842531049565b4288de51a93c5753cd7d8f5e071d8c",
-        "bytes": 1333562
+        "sha256": "748094a6c60139474467dd6b9f63cda0dbbd8e77bebec36644c8356e75f610ae",
+        "bytes": 1333171
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000071_N2_bucket1.npz",
         "name": "sample_000071_N2_bucket1.npz",
-        "sha256": "39a4bb1aaea145e4424d5313b652759823e0cc6083fb0f75496310c3514a4727",
-        "bytes": 1336556
+        "sha256": "4db209e01e173c94e5227be871bec8e600ed9c089802fa0ad6a42eb073114ef5",
+        "bytes": 1336834
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000072_N2_bucket1.npz",
         "name": "sample_000072_N2_bucket1.npz",
-        "sha256": "b9da8eb97465089525b4f4684bcae3460e4b7cdc892f4e93544da00db7661f9a",
-        "bytes": 1344465
+        "sha256": "4cd725265bce3e77fd86c7222037290c9850e75e179829467cf90c62e0e0e405",
+        "bytes": 1344580
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000073_N2_bucket1.npz",
         "name": "sample_000073_N2_bucket1.npz",
-        "sha256": "2e8310a31c62825b2633607f158de420f4773f3a5fec6e0cb53887fe2cafe28d",
-        "bytes": 1343890
+        "sha256": "ecf705e7d4f7fa2d1608c2c51d6cf75f9c8d6a77d30018454b315d6cabf4d2d1",
+        "bytes": 1343838
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000074_N2_bucket1.npz",
         "name": "sample_000074_N2_bucket1.npz",
-        "sha256": "a45132cad8a18ddf47fcf34de4f2982c22e673299e24d920cd13c390dd47e6ca",
-        "bytes": 1351747
+        "sha256": "10ddcb273868253d406baae77bf696d7f884db6761cb58375ac3ac238b2cd32a",
+        "bytes": 1352378
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000075_N2_bucket1.npz",
         "name": "sample_000075_N2_bucket1.npz",
-        "sha256": "725a8d65ea53284982824a2de601b71d849644a14773eb59b48d02f533027a62",
-        "bytes": 1346281
+        "sha256": "4630e4a19db0183b2c09c051c8bea67bd1543bf518b43aa688d9c16ed7f95a2d",
+        "bytes": 1346159
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000076_N2_bucket3.npz",
         "name": "sample_000076_N2_bucket3.npz",
-        "sha256": "a32c25c0a2c9341d6d8f85da469490fb37c1c908e44095fc2542c343f27e7c18",
-        "bytes": 1357475
+        "sha256": "bd114544dd83a54c04d34f538e5bf78303f408a8e3f42b9f28ffda8a15869442",
+        "bytes": 1357486
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000077_N2_bucket3.npz",
         "name": "sample_000077_N2_bucket3.npz",
-        "sha256": "59dd851b946e3bec6f1a044b8de82c51fa59150a2729f21c27159cfdf86eae21",
-        "bytes": 1364941
+        "sha256": "fff42699eb652b92a6ce4f8608e757276ea9251ebbedf28781ea444962381d38",
+        "bytes": 1364532
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000078_N2_bucket3.npz",
         "name": "sample_000078_N2_bucket3.npz",
-        "sha256": "08f406a11e79f24180a2abab6f2aef4461d60f59de7746ab82d182b1bc2e9ccd",
-        "bytes": 1361349
+        "sha256": "a0d382513e57aa9aba4b2151f1ebbe3af3f9e26f0f31df1ead3c3829f9b62d04",
+        "bytes": 1361289
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000079_N2_bucket3.npz",
         "name": "sample_000079_N2_bucket3.npz",
-        "sha256": "14b5105725b7e88d5c112b3cdb59d7f866a2d6914d63829c19da171a5a019db8",
-        "bytes": 1363936
+        "sha256": "8dc7292f604a59487fd89b9100ab458ffa212f2e927d677f86a777aea18bb6ce",
+        "bytes": 1363268
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000080_N2_bucket3.npz",
         "name": "sample_000080_N2_bucket3.npz",
-        "sha256": "03c054ba2b26110cbd57bbb198d6be4e2cf21197932cc4b3e42dfaa5a5936020",
-        "bytes": 1358481
+        "sha256": "76f461e3dc6bf8e017cfea26f14f769ba1efde3fa098ffc955d64274c6766205",
+        "bytes": 1359063
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000081_N2_bucket3.npz",
         "name": "sample_000081_N2_bucket3.npz",
-        "sha256": "b6134ebe75b74ea0d8a71bdf6db57694dfcb2153eb95db59ad30a083b290a8b1",
-        "bytes": 1359380
+        "sha256": "cecca6e5b8ab39cbe36029dc9d6aabaf0380794fd709cfbf7fd8758cc769557c",
+        "bytes": 1359594
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000082_N2_bucket2.npz",
         "name": "sample_000082_N2_bucket2.npz",
-        "sha256": "baeb30077d199b9f00a4e6bb6696eb6903b8ddeb2c30db5bc15b9c6e89bd8ffe",
-        "bytes": 1371459
+        "sha256": "91820fe5712e47350e6e1483196b91abcd878c2a0931284bd6eb6c45d834854f",
+        "bytes": 1371159
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000083_N2_bucket2.npz",
         "name": "sample_000083_N2_bucket2.npz",
-        "sha256": "7d4b4de27d9b6725766085f6559738c75204b44d92ee4821f1db59f38c1f0000",
-        "bytes": 1360801
+        "sha256": "15fc8857b5b3ec6ca7b53176f72149143785cf476279bce65bb8f572db678433",
+        "bytes": 1360189
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000084_N2_bucket1.npz",
         "name": "sample_000084_N2_bucket1.npz",
-        "sha256": "78157d565925b79bedea05da10b8b41be31edd37ddf8cb37d4f73e50aa099f1c",
-        "bytes": 1356421
+        "sha256": "52a67ce2af9c225f81a6c4e25596e6370a00513f316c92ed7feb341d4e26b092",
+        "bytes": 1356898
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000085_N2_bucket1.npz",
         "name": "sample_000085_N2_bucket1.npz",
-        "sha256": "90d6723ec3293d5847cf60326b22d561712d377436425052f0e7b777ada79374",
-        "bytes": 1361656
+        "sha256": "4c906886146d1657e9aa22cf508ded5f7e04b40a94069a6dcb5f0ab3327c547c",
+        "bytes": 1362353
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000086_N2_bucket2.npz",
         "name": "sample_000086_N2_bucket2.npz",
-        "sha256": "3ed3e259044787369f739f72460bfcc76bb9eef3eddd18f3c02090efcc4dc1d0",
-        "bytes": 1375412
+        "sha256": "7a82408a8fb902a7ca9bf70831555aa16acc96e21a7c4387a54abefab6d1fa54",
+        "bytes": 1375075
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000087_N2_bucket1.npz",
         "name": "sample_000087_N2_bucket1.npz",
-        "sha256": "c3c25d3fd96381c18a8796f9355e645e79521469f145a430e6a45ed9bb2ab5e2",
-        "bytes": 1367504
+        "sha256": "8d27233631def64715e3b8765110c328c0833397c6a02c66220674254517cd38",
+        "bytes": 1367596
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000088_N2_bucket1.npz",
         "name": "sample_000088_N2_bucket1.npz",
-        "sha256": "5b283dfde868f6100cdf3e564d158ee165f9a9806d2dd2c59dc5709f43829f17",
-        "bytes": 1357072
+        "sha256": "47e1030eebf068e05a74ef532221a86e817f4d112cb10b6b02cb09bafb70f861",
+        "bytes": 1356586
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000089_N2_bucket1.npz",
         "name": "sample_000089_N2_bucket1.npz",
-        "sha256": "199277122ffce22633d6dc404f20754b28fe19aa5a7db63cb47af3492c0a54a9",
-        "bytes": 1365052
+        "sha256": "ab81d8e8adfdda7fd56c90a8935d59515373d80aebed962348b0f26e2a198e10",
+        "bytes": 1365017
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000090_N2_bucket1.npz",
         "name": "sample_000090_N2_bucket1.npz",
-        "sha256": "dd592b47e242190f25602b4a44212e0eb3f39a1acef8181fa03b8aae4727c96c",
-        "bytes": 1359315
+        "sha256": "9b186b51d55cfaba6b470a836a3b6911d769c68da44a5e658c5cc3ccd6391c8d",
+        "bytes": 1358480
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000091_N2_bucket1.npz",
         "name": "sample_000091_N2_bucket1.npz",
-        "sha256": "c02af4a8f495390083f8485158faefa52451eeac49338f3887c60f3683845f5d",
-        "bytes": 1363859
+        "sha256": "d82a753bb5a03b2dabf14d1c2ba1399ac4703bfac2a751eb5e743dca5d88e268",
+        "bytes": 1364591
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000092_N2_bucket1.npz",
         "name": "sample_000092_N2_bucket1.npz",
-        "sha256": "5890e391f8acf5a52488d2d316753c3ba1951a04460a230386d9f476b3f78d56",
-        "bytes": 1356291
+        "sha256": "8fc86769bedbfe05f31ca3ce5d38c1e3f129f817652776fe26b2fae8459601c9",
+        "bytes": 1355981
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000093_N2_bucket1.npz",
         "name": "sample_000093_N2_bucket1.npz",
-        "sha256": "5b0303f0b8014b0c8db2b7a4729b71a8c0a4c0ed9c70d57664f1c5778666b162",
-        "bytes": 1358505
+        "sha256": "20715e920bf541d88d736c72ea3a78a3628a86b8bd2677677e56cfc99121653e",
+        "bytes": 1358664
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000094_N2_bucket1.npz",
         "name": "sample_000094_N2_bucket1.npz",
-        "sha256": "c98a158adaad5ce7c8f1113390f8aed4dcf815edf9cc86d2c37c1fc8b1cee94e",
-        "bytes": 1366033
+        "sha256": "b04b5a36467d78c38e228edc319f7c8bf627e2828581dde6d035ea59e788c6f8",
+        "bytes": 1366080
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000095_N2_bucket1.npz",
         "name": "sample_000095_N2_bucket1.npz",
-        "sha256": "39d270a78949cf4ab47dc0f7647377f5b32ec58798d54c7decbe5837b61d16c7",
-        "bytes": 1369585
+        "sha256": "0222e6aaa47b6ad02e1b42ed9b3660a7a8cf7e9b6646d33ce699c9355bd95ece",
+        "bytes": 1369856
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000096_N2_bucket1.npz",
         "name": "sample_000096_N2_bucket1.npz",
-        "sha256": "a356061437ef8152fc06c449e6c8dd7631a4de60b0c1061b57064933833e8336",
-        "bytes": 1371409
+        "sha256": "f78cd4d16648bcb95fd4171c57ff1804908ca62b7cc91b6e902b45a5cfd3b54f",
+        "bytes": 1371310
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000097_N2_bucket1.npz",
         "name": "sample_000097_N2_bucket1.npz",
-        "sha256": "be4f3259a710832a67530e66a7946380f3553629fc48561101cd1ea3e904c2b0",
-        "bytes": 1355380
+        "sha256": "95d794d8bf00b19723cbdcc306be0fc6753720276a1db46b55dfea8365fcf86d",
+        "bytes": 1355224
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000098_N2_bucket1.npz",
         "name": "sample_000098_N2_bucket1.npz",
-        "sha256": "714190f24bdfc386bc469d9cbded6d526eda28b20fd05b1316a4281bbb6d454b",
-        "bytes": 1369347
+        "sha256": "a8ec9da9da5cd9fffb6fe0e1fe70edec4a5fd95ed69a97079a89b494cf9cc760",
+        "bytes": 1369620
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000099_N2_bucket1.npz",
         "name": "sample_000099_N2_bucket1.npz",
-        "sha256": "5173053d332ce9b4ace92ecad67d26eecf905949658fc1084b233de54bb9198f",
-        "bytes": 1372741
+        "sha256": "97536e8aa4a3281f2023de3ba3bfb3df66dbb7f52c1c2add69f641bcf7072779",
+        "bytes": 1372765
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000100_N2_bucket1.npz",
         "name": "sample_000100_N2_bucket1.npz",
-        "sha256": "a708a5466c8f6cb3f2de736cb643fb01e7df7618a6f3247f8ace153252af7fdd",
-        "bytes": 1384639
+        "sha256": "1bb91ed64f0a7f47017b00d5615743debfad453ac2db0681f8ddb70d0d586bfc",
+        "bytes": 1385276
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000101_N2_bucket1.npz",
         "name": "sample_000101_N2_bucket1.npz",
-        "sha256": "409a8029359f684a19cb6d4e5f970b8cc82817a43f709bd3a3698d3a3f83d5d6",
-        "bytes": 1377780
+        "sha256": "368f5c6c2863fc3ca1035860889d31c4f719442b7f50389994726c636eb0229e",
+        "bytes": 1378277
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000102_N2_bucket1.npz",
         "name": "sample_000102_N2_bucket1.npz",
-        "sha256": "d005f8a7ef7151e4a203a04475f029df7a1d18879d191e8e160d70d270fc1a4d",
-        "bytes": 1389447
+        "sha256": "34624b8884c9c3c91248eab8feae7c2c0fbf5c3de02a11b6bb610226525e9545",
+        "bytes": 1389931
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000103_N2_bucket1.npz",
         "name": "sample_000103_N2_bucket1.npz",
-        "sha256": "f2246921abb2c94d3d177ab6ca2c523ea54bb7fe219421ad448247dc977fc75d",
-        "bytes": 1372764
+        "sha256": "ba028d03c12904002b0e323d32f04ecda325e724ff93d31a29236f4d39c6b003",
+        "bytes": 1373087
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000104_N2_bucket1.npz",
         "name": "sample_000104_N2_bucket1.npz",
-        "sha256": "40c46531ab300c3fc9336c7c26acf76e18454ca0876bd1f753d46d1d694243b8",
-        "bytes": 1388958
+        "sha256": "2a3330b773d069ac1e59cd7f87dd2ff5c60b978ee30f716b840bc2c75062d8be",
+        "bytes": 1388644
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000105_N2_bucket1.npz",
         "name": "sample_000105_N2_bucket1.npz",
-        "sha256": "613b7e225ce017d9136ee46b122275f1773342fda965179692738994a88e6e24",
-        "bytes": 1376139
+        "sha256": "775a21fc77ea7b0a29623612188bec23c657604ba31c54492f3f43d05d51fc63",
+        "bytes": 1376042
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000106_N2_bucket1.npz",
         "name": "sample_000106_N2_bucket1.npz",
-        "sha256": "9e7cc6356d0d27782eb74d67d082060e271533feeb08c744658190b9e5d5c54c",
-        "bytes": 1390819
+        "sha256": "1d5cf8dfc8823cfb2a848ead3b1159de9298270c050e45f029ed0afd3962340c",
+        "bytes": 1390640
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000107_N2_bucket1.npz",
         "name": "sample_000107_N2_bucket1.npz",
-        "sha256": "cf3958a80f4826b50d668edd01dccc16ef8a840cb6a70d7e64a4bd3f1f8ccb49",
-        "bytes": 1382327
+        "sha256": "cd9c8b683bc208927a97e11e8fe2f1913f3fdab2fdf37317e0428010a1daed7c",
+        "bytes": 1382973
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000108_N2_bucket1.npz",
         "name": "sample_000108_N2_bucket1.npz",
-        "sha256": "8afae46cd63005872a482343e5bb59887763fa96665590e77fde6b2e9396f35e",
-        "bytes": 1391096
+        "sha256": "141a2028ad2e0f09432ee7e152d72bde815e49482bf8bb3b06f9dbc9de852971",
+        "bytes": 1391446
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000109_N2_bucket1.npz",
         "name": "sample_000109_N2_bucket1.npz",
-        "sha256": "0249defd49bb996ea256b9a1445db42d68bf41c7b23b66ef401d5b386f94c2b0",
-        "bytes": 1397782
+        "sha256": "62f6c980afe3e26a0e828a53b999c21c092abcec20c00ef14358d49addeeb371",
+        "bytes": 1398577
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000110_N2_bucket1.npz",
         "name": "sample_000110_N2_bucket1.npz",
-        "sha256": "5c219e696dec666d96e5db163c766929f679d52069db970ed33f90073b60330d",
-        "bytes": 1414360
+        "sha256": "9e9e7160a107f44f9be634cdd2fb9be731aea138ec154ad355f3fdc47dcf6078",
+        "bytes": 1413952
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000111_N2_bucket1.npz",
         "name": "sample_000111_N2_bucket1.npz",
-        "sha256": "33ff6d1d0919930d860d0d43e7333f16ffd645bd1f0fab2875bdfca86c0945e3",
-        "bytes": 1405555
+        "sha256": "6b13ff4338a44c495dc4dc2e36bd9b82a24e8eaa801ed36d47fc33b9c9555f2f",
+        "bytes": 1405303
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000112_N2_bucket1.npz",
         "name": "sample_000112_N2_bucket1.npz",
-        "sha256": "bde0e385be3f75452b5fa476a67cec13956e00eafc9c347359b254b63dad7b36",
-        "bytes": 1413923
+        "sha256": "3e283cec45b895bc2479d7c78237b32f9fb095a2e1384cb369579c9dbbbb5e18",
+        "bytes": 1413494
       },
       {
-        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000113_N1_bucket0.npz",
-        "name": "sample_000113_N1_bucket0.npz",
-        "sha256": "0a736d3d7a044a2b54c84916b9afcc53b4231bb3bdda31c89952770bcf11b86e",
-        "bytes": 804307
+        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000113_N1_bucket1.npz",
+        "name": "sample_000113_N1_bucket1.npz",
+        "sha256": "ae828d45117d62d91587ef2f1bc70923061a74824ae100bd7d21d27fd42f31fd",
+        "bytes": 633914
       },
       {
-        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000114_N1_bucket0.npz",
-        "name": "sample_000114_N1_bucket0.npz",
-        "sha256": "b0164b09999a1d5ba1cedf7c73e2d1be2e63bd3d1885f5a8848bebe43c46593a",
-        "bytes": 796245
+        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000114_N1_bucket1.npz",
+        "name": "sample_000114_N1_bucket1.npz",
+        "sha256": "6dbfce5e5b0ae3d413a7835790a33f2db22702350e04300cd149be77195015b7",
+        "bytes": 613354
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000115_N1_bucket0.npz",
         "name": "sample_000115_N1_bucket0.npz",
-        "sha256": "ad5a6498964b5d6a38af478cb1e4f49f8affe3aae82dad210338be826246776a",
-        "bytes": 796965
+        "sha256": "666b4c9108059b2d42369c3fd766a6a2526bc0a90f31586ffbf0cecd18b8b8e0",
+        "bytes": 797381
       },
       {
-        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000116_N1_bucket1.npz",
-        "name": "sample_000116_N1_bucket1.npz",
-        "sha256": "60f4e99b5af8980d367270cf3a2f6e4224ccaddd3d216b12a30cb5aac3be2283",
-        "bytes": 610624
+        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000116_N1_bucket0.npz",
+        "name": "sample_000116_N1_bucket0.npz",
+        "sha256": "51e80db733f7869aa0ba20420c188c632749278ab010e6e891c58254bc03fe27",
+        "bytes": 795030
       },
       {
-        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000117_N1_bucket1.npz",
-        "name": "sample_000117_N1_bucket1.npz",
-        "sha256": "d00b3cbfc911967391a58ea047778d1706dfdb9b18ca3048d11368f915110f7d",
-        "bytes": 607247
+        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000117_N1_bucket0.npz",
+        "name": "sample_000117_N1_bucket0.npz",
+        "sha256": "3688ff21cf945bf2833e19fb0b52a7dceb2de8f329a58ea302aabee10df9a67e",
+        "bytes": 800568
       },
       {
-        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000118_N1_bucket1.npz",
-        "name": "sample_000118_N1_bucket1.npz",
-        "sha256": "f50b7ee5ebf117bbf1a30fa1d3cd244ce88f77a5ded93aa9bf90ef328d55e061",
-        "bytes": 607379
+        "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000118_N1_bucket0.npz",
+        "name": "sample_000118_N1_bucket0.npz",
+        "sha256": "c6e25058c71b280d98baad204bcce1cf0f3f6952d591816a51d2f197d48f8059",
+        "bytes": 799375
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000119_N1_bucket1.npz",
         "name": "sample_000119_N1_bucket1.npz",
-        "sha256": "b4b869a7f83e7eb11220c5a62d71194834f17927a3cc5769f0f0fc72a7585c62",
-        "bytes": 601228
+        "sha256": "83a95ed0286d7595d9b10a57b87d9b377b54e3e38b9619283b37491db9072014",
+        "bytes": 600994
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000120_N2_bucket1.npz",
         "name": "sample_000120_N2_bucket1.npz",
-        "sha256": "ae4874980f3e9ffad9f761649d3d7009ec15bff595187c7eb43c81309ffc6f60",
-        "bytes": 1376191
+        "sha256": "e956e530d4340205e78e1b20dcc347ae588e30848a208509da7fb3a1ef4ca14a",
+        "bytes": 1376311
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000121_N2_bucket1.npz",
         "name": "sample_000121_N2_bucket1.npz",
-        "sha256": "571f1508c1fbb33b5b972954cddfaa6a7d2b5894d39d26e89a64c7ba9a50875b",
-        "bytes": 1382291
+        "sha256": "ca45e62630aa3e7c27e82f6794834055a7b57f6dd4fd45323a2e3e420480f18e",
+        "bytes": 1382656
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000122_N2_bucket1.npz",
         "name": "sample_000122_N2_bucket1.npz",
-        "sha256": "1b4d827e442eeac0388ea58333361ab0c0a942875009cbf943c27b524e32361c",
-        "bytes": 1384445
+        "sha256": "05303054ebe1da7043242e05486a0143bc19e1928c04aae1bcf7158faae7ee2b",
+        "bytes": 1384855
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000123_N2_bucket1.npz",
         "name": "sample_000123_N2_bucket1.npz",
-        "sha256": "e08a9fc344f915ebd40538809c3998d2e20b67edca41d499a15f2fc073915f90",
-        "bytes": 1389411
+        "sha256": "69be18153983569aca0a13b24a674bc6c84f814b24b4807fc0b06d028782e25c",
+        "bytes": 1388865
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000124_N2_bucket1.npz",
         "name": "sample_000124_N2_bucket1.npz",
-        "sha256": "e82969202ce1231246a03a4b12066f90d069756e98402b11ec4065bf8d96574e",
-        "bytes": 1390037
+        "sha256": "fd589ead029d40623b243d0e3d503929db73241579bd1b03a772183a53d1ce1b",
+        "bytes": 1389829
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000125_N2_bucket1.npz",
         "name": "sample_000125_N2_bucket1.npz",
-        "sha256": "869fcdac8baa91a0789091c8dc79b7c69a79205e0c9a74cf5ed15bea64fa103c",
-        "bytes": 1396780
+        "sha256": "9d7171cef1d242d3241ce296c29d3f47c819936026f2685cd2bf1871d25d2288",
+        "bytes": 1397487
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000126_N2_bucket1.npz",
         "name": "sample_000126_N2_bucket1.npz",
-        "sha256": "89087f427841fb6b85cfd2b4abc1a40995441f5aa2403a908a6e2eb946f976ac",
-        "bytes": 1388278
+        "sha256": "9f56e31cfd1cf5370db399d20fc9240b458a39e7d3c26717af8f7bb15d1c893e",
+        "bytes": 1387846
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000127_N2_bucket1.npz",
         "name": "sample_000127_N2_bucket1.npz",
-        "sha256": "16ec46989640dfa3c50d42eec7443b9fb647334528e4fcc69dfaadc11dd806df",
-        "bytes": 1382055
+        "sha256": "0da779ad626cf75404f6afc29645dae7dac1d75d79d063b77f803f05d2ab8f19",
+        "bytes": 1382527
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000128_N2_bucket1.npz",
         "name": "sample_000128_N2_bucket1.npz",
-        "sha256": "9b6f0fda4a5a6aaccecb02d2b6a941760b80c427197ec8a8f5d812ed5d66e9ae",
-        "bytes": 1390887
+        "sha256": "0ef3ca933f4e1a6d3fd03c84279c60463795a6e533fb103d2b9ade70629e138f",
+        "bytes": 1390831
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000129_N2_bucket1.npz",
         "name": "sample_000129_N2_bucket1.npz",
-        "sha256": "e3b4a86f9852a7a992a021f9e71374598a654ae934d59d5a4fc6f3d828e26ff8",
-        "bytes": 1381923
+        "sha256": "69ef1dc864b2bbaacdef5ac34c256fd3d13d33bafecf01b391e8b1f98a96ae97",
+        "bytes": 1381376
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000130_N2_bucket1.npz",
         "name": "sample_000130_N2_bucket1.npz",
-        "sha256": "2f5fcdccff17d76864777bd4e9190c9a9f668be521c311803a3262d55f9a5394",
-        "bytes": 1379861
+        "sha256": "e2c0c5e3d377b1d4f3ef5b62523cf32ef4bc27ebe7f9cabca094c4d65a65b1f2",
+        "bytes": 1379833
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000131_N2_bucket1.npz",
         "name": "sample_000131_N2_bucket1.npz",
-        "sha256": "1ff97581cc5bb205e4c55cfcbdf1ff3588143ae1190f04b7cc8680d8b35e89a0",
-        "bytes": 1374593
+        "sha256": "2d6b31d04aa9c48de0536817b3dca8ea19ff5291df09b8cfe1c7ab6bf1a1c929",
+        "bytes": 1374476
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000132_N2_bucket1.npz",
         "name": "sample_000132_N2_bucket1.npz",
-        "sha256": "eeee6e443fea3623ca3e5427f78b7bb91e0bb50873ab302ac4c2971b8aed1b91",
-        "bytes": 1372793
+        "sha256": "e214fb4a366c52d30505d24e5d6ccc9218bd7b5d6e03f8981fc761b93568713f",
+        "bytes": 1372922
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000133_N2_bucket1.npz",
         "name": "sample_000133_N2_bucket1.npz",
-        "sha256": "8801a9b4c151370c698e129077c7569b999a29c6eb4b30e178539a3e7c606087",
-        "bytes": 1315320
+        "sha256": "55ea772c8ad480cb54fc7824c885579888e4334a212581d0253367f6b26ff5c6",
+        "bytes": 1315415
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000134_N2_bucket1.npz",
         "name": "sample_000134_N2_bucket1.npz",
-        "sha256": "a3e33bcacaedfe27291c9124a9bdee89664dc84586c6fbd020976f5141cfcd52",
-        "bytes": 1380186
+        "sha256": "77ccd625f6f80c089c441649f54d075c7d69fec5d6ace947225f1da3ebe3bdb4",
+        "bytes": 1379918
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000135_N2_bucket1.npz",
         "name": "sample_000135_N2_bucket1.npz",
-        "sha256": "e25b8feda6a7c246a715b0142e74fb872f76cc5aa8cb9fe25bda08c8a86a89e3",
-        "bytes": 1366860
+        "sha256": "5cbb0c445cfb659a5c0b98b52e8b71b5fcdebbdc8de8c93667964b9e180f8e45",
+        "bytes": 1366036
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000136_N2_bucket1.npz",
         "name": "sample_000136_N2_bucket1.npz",
-        "sha256": "a656524862426bace20b0f3f1f843556271c6d0c30d610029916ec7fd83ace8f",
-        "bytes": 1372252
+        "sha256": "a137bd31c71ab36c2f62f7028fe7fb3b11bcaed97f9cfda3b26b748de46bbf37",
+        "bytes": 1372617
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000137_N2_bucket1.npz",
         "name": "sample_000137_N2_bucket1.npz",
-        "sha256": "23e8bfa0805b97a3b62d47ccc5e98b04642f0436f285e0c4ca0d51b1c9ab45c1",
-        "bytes": 1380460
+        "sha256": "f3eb916408bd1f6afd4da579d8ef90b01947bae9296682768ea69322b084c31e",
+        "bytes": 1380353
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000138_N2_bucket1.npz",
         "name": "sample_000138_N2_bucket1.npz",
-        "sha256": "0fd807cb8857e2ec8d0d780b60f38ce0c9909734cd62464f09b9ab8436db0f22",
-        "bytes": 1369724
+        "sha256": "5c10da5d54fedaad9c36dfa683687173c93ba1ca9fac8ff56c0e9f693495a39b",
+        "bytes": 1369663
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000139_N2_bucket1.npz",
         "name": "sample_000139_N2_bucket1.npz",
-        "sha256": "e67537a7e37d63c0fd5600e0d08de722b85453599552bb24436409adfb15a064",
-        "bytes": 1364594
+        "sha256": "56d63e21fe35749d479d8ddaeae2c865b2710eecc923e2d36eaa30cb2aaa1f94",
+        "bytes": 1364509
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000140_N2_bucket1.npz",
         "name": "sample_000140_N2_bucket1.npz",
-        "sha256": "0295a5bba285d73f7ff1c81c3462cd69dd742e5f485ab68d9f8aa34a7ca4a689",
-        "bytes": 1372937
+        "sha256": "fbe9cc48c79046b8ae953fd90ea7e78a11ec75a12c2df9fab9d8cb671b70d5e8",
+        "bytes": 1372436
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000141_N2_bucket1.npz",
         "name": "sample_000141_N2_bucket1.npz",
-        "sha256": "2021208e55e6f114b29d4efe0a7cfad3157d588b3fbac6b73413e841e3df5281",
-        "bytes": 1357202
+        "sha256": "ec9c6e5aa025a90fe4b4443b99426eb5af48f53363c63df1202c3f67e12f2d6f",
+        "bytes": 1356950
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000142_N2_bucket1.npz",
         "name": "sample_000142_N2_bucket1.npz",
-        "sha256": "65deb47dcd81f9d34128071fcf2b242732ec3f261d792355ab4a2a2dde533a5e",
-        "bytes": 1330180
+        "sha256": "e9ca270df35648bd0a958dc6bed0d4950493487f9e29d85a1b661b6d079e5c69",
+        "bytes": 1330501
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000143_N2_bucket1.npz",
         "name": "sample_000143_N2_bucket1.npz",
-        "sha256": "1a509b0c1fea005b503ded0075aa5c91e289f6d1ef8a77024c6825d4fb3deff7",
-        "bytes": 1336367
+        "sha256": "a054e86a505029a2db5fc047a78c021327fa7be87cc3580073b9f29b148fdba5",
+        "bytes": 1336437
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000144_N2_bucket1.npz",
         "name": "sample_000144_N2_bucket1.npz",
-        "sha256": "604c016868344a03c093df2b671fe5e81bb46da27a9ab179b90546f46003c40a",
-        "bytes": 1334142
+        "sha256": "edbabb607c9ee4a0af7a8d499b8edf2a9cb518cc7fdc9ccb93b671f50da3208f",
+        "bytes": 1333147
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000145_N2_bucket1.npz",
         "name": "sample_000145_N2_bucket1.npz",
-        "sha256": "fa3fcbe5e85ab98b797227852d5178f410ce6cd0b049679939fab104c6a497d1",
-        "bytes": 1339424
+        "sha256": "2da2977b99f34d4b85d8f93fb01c63d6623e7aec7b40572362a66607d3f20ebe",
+        "bytes": 1338684
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000146_N2_bucket1.npz",
         "name": "sample_000146_N2_bucket1.npz",
-        "sha256": "326954585f3be4b3ff2fba579a29f294775c576cb3ca770c558d03198f263323",
-        "bytes": 1341235
+        "sha256": "9b74888b7f9b90c912463fdfcc14652c35af51b7630979dd4309fe6471447ffe",
+        "bytes": 1341215
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000147_N2_bucket1.npz",
         "name": "sample_000147_N2_bucket1.npz",
-        "sha256": "75de1a34e5f8644323b35ba1b3a256bb8a212fb6b31956a611ca03a38b036599",
-        "bytes": 1352207
+        "sha256": "2c5db563b61f82b16c3e673197e00f8e1745592bf56c73adabbf5e40bb9df036",
+        "bytes": 1352510
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000148_N2_bucket1.npz",
         "name": "sample_000148_N2_bucket1.npz",
-        "sha256": "243d77ecbaf33224fea45ab88948939377cca9f461afa6268c0d3c1b1c034744",
-        "bytes": 1352735
+        "sha256": "7b9b6ed86bb70954b3c680dee7f011d0a8d83d857d1c216de5bbaf29e971d7a4",
+        "bytes": 1352350
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000149_N2_bucket2.npz",
         "name": "sample_000149_N2_bucket2.npz",
-        "sha256": "920364296d77c297f7c04363b51401b16537ee83dba61e5831fe1b30c533ab72",
-        "bytes": 1366105
+        "sha256": "f7a32e7691882cce1cc025f5f51bde43ec810db2fa67bc4373aa533138762db4",
+        "bytes": 1366049
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000150_N2_bucket1.npz",
         "name": "sample_000150_N2_bucket1.npz",
-        "sha256": "db066bea2992b5c1687a7ef7a37d58ca6167887ef59e9ba52ffa258bde40ecbf",
-        "bytes": 1359561
+        "sha256": "b7f466d5a5e1721ddb125252452bfee56d8344a496aec5092b40d0e2ae006201",
+        "bytes": 1359604
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000151_N2_bucket2.npz",
         "name": "sample_000151_N2_bucket2.npz",
-        "sha256": "d714384972eabdfb756a26e3f8c07a1ac5354909c2887bd8a4f8a5ffe1729115",
-        "bytes": 1372343
+        "sha256": "5f7c00bd889865874c84499886e62cdb7b08451398315705a56067a07151f2fc",
+        "bytes": 1371902
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000152_N2_bucket2.npz",
         "name": "sample_000152_N2_bucket2.npz",
-        "sha256": "4e833589705615abff43c2a59cf693ecd933116a100ad6b2140e6c4f0d8df537",
-        "bytes": 1381499
+        "sha256": "b43a333439bdde36b35508597280b442feb3e5053fd0c50f85b04577d0efd0b1",
+        "bytes": 1381140
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000153_N2_bucket1.npz",
         "name": "sample_000153_N2_bucket1.npz",
-        "sha256": "402929a2245c5417709b6b4136059b90d2e5b63f72347adef0347c15816e1366",
-        "bytes": 1360343
+        "sha256": "bc6b4ffe9124ca847889383ab16df7b0dfaad144120023460fd14f825a071391",
+        "bytes": 1361151
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000154_N2_bucket1.npz",
         "name": "sample_000154_N2_bucket1.npz",
-        "sha256": "429ea2cfce91e907ec144ca8caf5f87456129f31bcc0a39d56a85cb636b3b860",
-        "bytes": 1371879
+        "sha256": "a329fece9ac6bc408693e12f5b721fe33d5b539b9148381ef62aa8038981f356",
+        "bytes": 1371610
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000155_N2_bucket1.npz",
         "name": "sample_000155_N2_bucket1.npz",
-        "sha256": "21578490fd15d7d7ab6cdb1388d6bcb290632861ea6e4f640e4159ecae8bf341",
-        "bytes": 1367365
+        "sha256": "f8fc9477bc4ee25ea144ca0ac0f23cee9ae4644e911aa8c589722ac1ea7f185a",
+        "bytes": 1367944
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000156_N2_bucket2.npz",
         "name": "sample_000156_N2_bucket2.npz",
-        "sha256": "8773555606847861349158419e1349f436bf041be6793863c7367c3f7a5b45ee",
-        "bytes": 1375590
+        "sha256": "dc8658c434ae952fba56d85f9012921a5ebfebc67a79d48216bb1e3d591897e2",
+        "bytes": 1376141
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000157_N2_bucket2.npz",
         "name": "sample_000157_N2_bucket2.npz",
-        "sha256": "fcaac067d7117440248c606e9d09462cef2cace144f5a5d8303a298528e0ff42",
-        "bytes": 1371900
+        "sha256": "dbabc8e392538076bddd8d0c4588599541338548aac544e7e5d80a94fb0ac008",
+        "bytes": 1371311
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000158_N2_bucket2.npz",
         "name": "sample_000158_N2_bucket2.npz",
-        "sha256": "4ccc4bdb3a1c81dd2b1bbc1cf71cb86ea1778a6336b0805c2d8036f89830ed58",
-        "bytes": 1375921
+        "sha256": "ec6b411ae9d71f3a1bb0478359069dd1b9e268725993197b6b844a075a10363c",
+        "bytes": 1376476
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000159_N2_bucket2.npz",
         "name": "sample_000159_N2_bucket2.npz",
-        "sha256": "91f165d380bdb54906cbfee308ad5757b5cd3aac9e3147aca06c95e83b79b035",
-        "bytes": 1366417
+        "sha256": "44be3f8432e955ce872220b3be51264b0815efad0447c4c6aeceb3a6bbfad319",
+        "bytes": 1366757
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000160_N2_bucket2.npz",
         "name": "sample_000160_N2_bucket2.npz",
-        "sha256": "afe2f0e8ebb15df3fd2b24849ea15bbbf369bc5910e1ed51b0d7e9e4adb9fe47",
-        "bytes": 1356996
+        "sha256": "0b06171e316145416bbbca3de32e49ee6036556fc5ddd2d6e2a8da7b4bf541f0",
+        "bytes": 1357941
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000161_N2_bucket2.npz",
         "name": "sample_000161_N2_bucket2.npz",
-        "sha256": "4d90608b31adfaf08c9ed5524dde110f3631fbb15c9fcb2f175abfec1564023a",
-        "bytes": 1363077
+        "sha256": "9ba0045ae4c957ff85faf7078e2c1ff8d04d775239b9af339b8d0d5aeca247dc",
+        "bytes": 1363591
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000162_N2_bucket3.npz",
         "name": "sample_000162_N2_bucket3.npz",
-        "sha256": "a1b914946b7702ee533ca516b90982f4c2430fe8f3e56f38bb4dbb85a840b69f",
-        "bytes": 1355698
+        "sha256": "382159f18adfb631b867bb0556c846cf43dc5d6a99d55af944e42b995d18163a",
+        "bytes": 1356171
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000163_N2_bucket3.npz",
         "name": "sample_000163_N2_bucket3.npz",
-        "sha256": "f0fb49409bbbd238782b5dbe821fa543a84fb329eea09027aa300c9adff9f61e",
-        "bytes": 1344843
+        "sha256": "378fec51fd552b2c9b07cc5c82196cfe43310e848a32accc25c7f8de84e3753e",
+        "bytes": 1345326
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000164_N2_bucket3.npz",
         "name": "sample_000164_N2_bucket3.npz",
-        "sha256": "bd964f60f1473408cee6d2cb4ab77bbc379968115f64bea7299767a2f7954bae",
-        "bytes": 1359893
+        "sha256": "a3a38529976ba0ef34a7372d96bbcdd08d26b7117f40e7803f9bedf76dd18668",
+        "bytes": 1359820
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000165_N2_bucket3.npz",
         "name": "sample_000165_N2_bucket3.npz",
-        "sha256": "808a5928d37e09ad0707c9c3791b6d81b4ca19c9b328518abc706f2d0ff2110b",
-        "bytes": 1349942
+        "sha256": "8a68ba3d289ee6afa70671ef07357eb08d024fa270a308e9c520da5d85404f1d",
+        "bytes": 1349824
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000166_N2_bucket3.npz",
         "name": "sample_000166_N2_bucket3.npz",
-        "sha256": "43c85bf189436f0e6e33566cf662d00f63ff6c3ba5f188af25c0e5fe152ba745",
-        "bytes": 1344875
+        "sha256": "27d90777dd0b04a82c0acde84acf0a248fb4461124271aa25b6543240be8a6fb",
+        "bytes": 1344057
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000167_N2_bucket3.npz",
         "name": "sample_000167_N2_bucket3.npz",
-        "sha256": "be7d25f941db2ce194c7c18392084019528a4f5b63d20e817bc06784beda813a",
-        "bytes": 1340155
+        "sha256": "421d6b21e6f9690993a7e5bb944283c1d9d5bda1525742484123add539b4e0fa",
+        "bytes": 1340423
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000168_N2_bucket3.npz",
         "name": "sample_000168_N2_bucket3.npz",
-        "sha256": "329bb90a5a10fe9b17ce4f7bfdda8c2307c48daaf354bedf184d76392f2cd583",
-        "bytes": 1345475
+        "sha256": "b7a87c05205a1ced26abc514717fe84a855cbe10ef3546b09ffac395c46cca9f",
+        "bytes": 1345495
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000169_N2_bucket3.npz",
         "name": "sample_000169_N2_bucket3.npz",
-        "sha256": "571bf076db6feeed1bd05a21807c81aab617d6355d675f4a1eda0cff6444423b",
-        "bytes": 1334913
+        "sha256": "c672359a64b771e90c327513549563d8e9b35f5445a0d19ce4e76bee63a1d6e9",
+        "bytes": 1334653
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000170_N2_bucket3.npz",
         "name": "sample_000170_N2_bucket3.npz",
-        "sha256": "95a9b868ead6ffd48ce07c21ce152f51bd8cbcbb6a0ba97b48c1ec20f499e9e4",
-        "bytes": 1340259
+        "sha256": "35bd29da2b3148d90e6360c90d74364df21fbb404fbb92e32c5b45d3f2f9cfcd",
+        "bytes": 1340281
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000171_N2_bucket3.npz",
         "name": "sample_000171_N2_bucket3.npz",
-        "sha256": "26964b256fc47ea692ec848f4115f0caa0258b6ca50979426f37470dc3a4588f",
-        "bytes": 1329469
+        "sha256": "b10f31e8a9c105a5e880403d1aa4cc6934fdfdf26cbf66b7c4f057c5ed75426d",
+        "bytes": 1329596
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000172_N2_bucket3.npz",
         "name": "sample_000172_N2_bucket3.npz",
-        "sha256": "f46e29daa5ec9e78b5c9e0d2837980d13c6c582cb005bd71ea062ef9c2788365",
-        "bytes": 1327148
+        "sha256": "3be7acd7b864212993bc6e210b3d47e94e99727eaf71fa62ffc639df7fad1db8",
+        "bytes": 1326957
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000173_N2_bucket3.npz",
         "name": "sample_000173_N2_bucket3.npz",
-        "sha256": "5a23badd440ce1bad5c71a7163dd1f51d4a7e9eaf33fb05ed0600c8fa6f0adf1",
-        "bytes": 1316367
+        "sha256": "e731e2fe0f7af868e0050f7716fc9e64a7e6ff960fbc5089e8e76032fb9128e5",
+        "bytes": 1316371
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000174_N2_bucket3.npz",
         "name": "sample_000174_N2_bucket3.npz",
-        "sha256": "08480f812d4ab6c42b990f489bb54256c7494eb75d9b4ca64924045d24caf557",
-        "bytes": 1310108
+        "sha256": "f1ff0d28f598bce85c3232aae38999855fc8a0d544ac3a0ad4b34a7b39f68ed5",
+        "bytes": 1309391
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000175_N2_bucket3.npz",
         "name": "sample_000175_N2_bucket3.npz",
-        "sha256": "bba838ffef37644ff8d815993fe3e00e02fcaac90f32813140774ac424982074",
-        "bytes": 1291447
+        "sha256": "6aa46204fc9b3b59d5c299c090b00504af06093b3b4b81f42e59da4fdd8ecdd8",
+        "bytes": 1291299
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000176_N2_bucket2.npz",
         "name": "sample_000176_N2_bucket2.npz",
-        "sha256": "1a7b1d1700b98aa0d84f7043c3997ae9d9f9ca5f82f394acce8327609017d166",
-        "bytes": 1281132
+        "sha256": "ddf3800e58ea67f51c4d8470c0ab0393e7dda45bbc3ab007b49d359a71ab5d4b",
+        "bytes": 1280657
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000177_N2_bucket3.npz",
         "name": "sample_000177_N2_bucket3.npz",
-        "sha256": "934c6f0a2cfbb13a8fa22befb8bd92ceaa64f570041c8466bdd42d4dc5fe1732",
-        "bytes": 1280168
+        "sha256": "c1a09a0ef11fbfba261cb18fee30a9099e2d0e513390783c7545cf0c4149d0eb",
+        "bytes": 1279242
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000178_N2_bucket1.npz",
         "name": "sample_000178_N2_bucket1.npz",
-        "sha256": "cc6fad9500e71fb88cf336465f2d4bdca0b461564e2e02e86d38d8b46fb8c9f3",
-        "bytes": 1248674
+        "sha256": "29b595636628d4e88c93a79fc62f191e50acbd61479e9f3dc58a916c51608c5f",
+        "bytes": 1248595
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000179_N2_bucket2.npz",
         "name": "sample_000179_N2_bucket2.npz",
-        "sha256": "9650413199a2d6757720b8f78cfb7710c76d6f995ad0516c55027c94395f75a7",
-        "bytes": 1250606
+        "sha256": "a202118fade7551a064867516c4ffd1e4108ac04fa0e9f83576e37a9a0eea857",
+        "bytes": 1250501
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000180_N2_bucket1.npz",
         "name": "sample_000180_N2_bucket1.npz",
-        "sha256": "101c92ead53d2272e1400e6faeb2568028d8ff12df0c122d80e925d9f2c2ca59",
-        "bytes": 1220491
+        "sha256": "4a2fa43bd4c7a47717504bcd20690527624bd3dcd946f1b12bb81b36e9411d3d",
+        "bytes": 1220666
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000181_N2_bucket2.npz",
         "name": "sample_000181_N2_bucket2.npz",
-        "sha256": "fda84eab3df4bb8acb1aa02e901aac1796c0c923499cf12bef336b0401be4d36",
-        "bytes": 1229527
+        "sha256": "e38da8c701aa5b5ccdfede6c0c02ef3980110ad9b85c54ec0d4af5c7ffd700d2",
+        "bytes": 1229338
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000182_N2_bucket2.npz",
         "name": "sample_000182_N2_bucket2.npz",
-        "sha256": "1e34b42186ac2caefe1aa2bec406ceb77be01a6798a51789d91b7951ab76ec36",
-        "bytes": 1235433
+        "sha256": "28dd7825be06a2c917fd24463584054ec3ecbc2900865f5e00c635d45deaa929",
+        "bytes": 1235289
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000183_N2_bucket2.npz",
         "name": "sample_000183_N2_bucket2.npz",
-        "sha256": "cd2d504cafca16ad4f003daae4b10c8b7a2f03570645f460f3a6b1ae70dfe35d",
-        "bytes": 1241803
+        "sha256": "fd8b5743c3757c0d986ca7617c794cddac0f9dae944f06ba2a567e74945c8a6f",
+        "bytes": 1242597
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000184_N2_bucket2.npz",
         "name": "sample_000184_N2_bucket2.npz",
-        "sha256": "ad13da1206ecdf58b316acbd0f60a11c64b4e17f21cdcea75e83b8a42ceb2cec",
-        "bytes": 1241611
+        "sha256": "05658a5dfcd7d08e1d88455c3ac946d47add1e8cdfc7b9827d65e935c0302f26",
+        "bytes": 1241371
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000185_N2_bucket3.npz",
         "name": "sample_000185_N2_bucket3.npz",
-        "sha256": "cb004c9cc35bb7855f551ef76647276c8cc2502b22778cbc8f408480ddf836d1",
-        "bytes": 1258015
+        "sha256": "b6d1a412e2cc7727f7148676fd56f7075053c4b51bd1d1cf153bb79ef9691b42",
+        "bytes": 1257609
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000186_N2_bucket3.npz",
         "name": "sample_000186_N2_bucket3.npz",
-        "sha256": "8e7107f1ee90772bbc5035d7b0a378be44032ea227ad72ac46a3e37747988c6f",
-        "bytes": 1266033
+        "sha256": "36456785947f6f1bc0ab976d96d3c80be266e06c56226ade305f10ea8afd4554",
+        "bytes": 1266294
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000187_N2_bucket3.npz",
         "name": "sample_000187_N2_bucket3.npz",
-        "sha256": "1dbb98d936f630769458f7c0e8adaa5c654baa65cd56ee021dff053b79f31cb5",
-        "bytes": 1277146
+        "sha256": "86319755f2ca0c850ad1301841e83f9fd7433b04c2decbc701de944d1789955c",
+        "bytes": 1277237
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000188_N2_bucket3.npz",
         "name": "sample_000188_N2_bucket3.npz",
-        "sha256": "c8175a2aa1e67b93bd71968ba5be90be0b27b4f56db7b11d0039de2a0c271783",
-        "bytes": 1296961
+        "sha256": "c0007c8a6e408fd05c3bbf1f807eac17d50dac2122d1ebf37a9592348dd48e20",
+        "bytes": 1297347
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000189_N2_bucket3.npz",
         "name": "sample_000189_N2_bucket3.npz",
-        "sha256": "935e604aa849bdd06644b48b7760234c466260fe8bd72a77ff81564f0ae62bd1",
-        "bytes": 1296130
+        "sha256": "a6486d4a64960b39d40fc7324ce456d4bb781dfe83820b710312fdc1a3234fef",
+        "bytes": 1295824
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000190_N2_bucket3.npz",
         "name": "sample_000190_N2_bucket3.npz",
-        "sha256": "ff04d86b700440ce789d1a4758d45a7650304041037849365274980c79659991",
-        "bytes": 1285391
+        "sha256": "7cee98da0d26fc20f2c2979c0913a6b9ed120a5cf149f640ce04c638443e0c96",
+        "bytes": 1285492
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000191_N2_bucket3.npz",
         "name": "sample_000191_N2_bucket3.npz",
-        "sha256": "41d5c0913d8e1e5cb0107c70789d6b4a199f0f12fbc10431359246125d64b684",
-        "bytes": 1304709
+        "sha256": "ebdc9edbeb708a61fbd54be49dbe5669d9891a0fb745085dcecbfa3d38701c08",
+        "bytes": 1304372
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000192_N2_bucket3.npz",
         "name": "sample_000192_N2_bucket3.npz",
-        "sha256": "d1eeb9eb10d590f92e9cda6b166fe517211bc4b39be83572dada63916558ac97",
-        "bytes": 1299713
+        "sha256": "7653b23549e73991735ba00dc0fcd2829f858272777bb11e791b4c78ec121923",
+        "bytes": 1299802
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000193_N2_bucket3.npz",
         "name": "sample_000193_N2_bucket3.npz",
-        "sha256": "14b3558b4e15ce750daa1c40c9c433667ce4e0efaccdfe8319d8cca844b1a81f",
-        "bytes": 1319084
+        "sha256": "ea74be84e24c68a3b581fd6a0385f1a8928e4b0d4792ae3c0af8c47fca50d17d",
+        "bytes": 1319085
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000194_N2_bucket3.npz",
         "name": "sample_000194_N2_bucket3.npz",
-        "sha256": "b224175a647dd871fca4c84cfb4e271571d09f8c9cf9e521f46a7048516b547f",
-        "bytes": 1326743
+        "sha256": "8f53f76c1242168c2216d5326f5305b797998d10656528fae01e397038f2e09d",
+        "bytes": 1326853
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000195_N2_bucket1.npz",
         "name": "sample_000195_N2_bucket1.npz",
-        "sha256": "7e1eb867ae469450546121abac3bd1fb40a9f3a77eeb30c13baa128f8af45e2e",
-        "bytes": 1326087
+        "sha256": "2f34d9764317e9132d2b2259b905980394de431d232ef254e6e5470f576aa164",
+        "bytes": 1325615
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000196_N2_bucket3.npz",
         "name": "sample_000196_N2_bucket3.npz",
-        "sha256": "6a6329891fa70ddbf10d706aae7ab9f0003b8ac692ee961a8475865e4f3673cc",
-        "bytes": 1478323
+        "sha256": "b58461f62e84c3312de3c3b6651410d54ce14cb0424ed71d00cd50d3f5533b78",
+        "bytes": 1477595
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000197_N2_bucket3.npz",
         "name": "sample_000197_N2_bucket3.npz",
-        "sha256": "d5c0d8abaf4c5ade2b8a5b73d5d7ed3e30032b667db560437a4273c6fbe0bf70",
-        "bytes": 1513183
+        "sha256": "9f8ed5b1e0620334b33f17391aa5c9408a33c825144cff79edfc5771f4991555",
+        "bytes": 1512962
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000198_N2_bucket3.npz",
         "name": "sample_000198_N2_bucket3.npz",
-        "sha256": "61b5ea070a1f0ef8fafc9991f0b2916da04c7e6180a273c74e26027f3867a7f0",
-        "bytes": 1374613
+        "sha256": "fa58209846721356b70794196d0abd7c4f89985981ad447473482d4fc40d9393",
+        "bytes": 1374606
       },
       {
         "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000199_N2_bucket3.npz",
         "name": "sample_000199_N2_bucket3.npz",
-        "sha256": "fa5a7c13c0ee90a388e3acd3d229f0696ee0724d16a0b05c2ea8c9ff464f146c",
-        "bytes": 1355385
+        "sha256": "8826bb6640e252e8c3653ddb3acdaab060544e22b913859c1022014cddbddda7",
+        "bytes": 1355600
       }
     ],
-    "generated_time": "2026-06-29T18:43:44-0700",
-    "repo_commit": "c120499c474049aad0b126a28aa8032515ba780e",
+    "generated_time": "2026-06-29T22:12:55-0700",
+    "repo_commit": "0525b3a87d86061052cb82592394764b2aae271c",
     "config_path": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml",
     "checkpoint_path": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
   },
@@ -3517,24 +3517,17 @@
   "plugin_path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so",
   "plugin_loaded": true,
   "TensorRT environment": {
-    "python_executable": "/home/lixingfeng/anaconda3/envs/modelopt/bin/python",
-    "conda_prefix": "/home/lixingfeng/anaconda3/envs/modelopt",
-    "TRT_ROOT": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
-    "LD_LIBRARY_PATH": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:",
-    "CUDA_VISIBLE_DEVICES": null,
+    "python_executable": "/home/lixingfeng/miniconda3/envs/modelopt/bin/python",
+    "conda_prefix": "/home/lixingfeng/miniconda3/envs/modelopt",
+    "TRT_ROOT": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+    "LD_LIBRARY_PATH": "/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/cv2/../../lib64:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/usr/local/cuda/lib64:/usr/local/cuda/lib64:/usr/local/cuda/lib64",
+    "CUDA_VISIBLE_DEVICES": "3",
     "torch_available": true,
     "torch_version": "2.4.0+cu118",
     "cuda_available": true,
-    "cuda_device_count": 8,
+    "cuda_device_count": 1,
     "gpu_names": [
-      "NVIDIA GeForce RTX 4090",
-      "NVIDIA GeForce RTX 4090",
-      "NVIDIA GeForce RTX 4090",
-      "NVIDIA GeForce RTX 4090",
-      "NVIDIA GeForce RTX 4090",
-      "NVIDIA GeForce RTX 4090",
-      "NVIDIA GeForce RTX 4090",
-      "NVIDIA GeForce RTX 4090"
+      "NVIDIA H800"
     ],
     "tensorrt_available": true,
     "tensorrt_version": "10.9.0.34",
@@ -3543,14 +3536,14 @@
     "modelopt_version": null,
     "trtexec": {
       "trtexec_found": true,
-      "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-      "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+      "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
       "checked_paths": [
-        "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+        "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
       ],
       "suggestion": null
     },
-    "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
   },
   "engines": [
     {
@@ -3569,7 +3562,7 @@
       "calibration_frames": 200,
       "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200",
       "calibration_cache_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_padded_agent_static_fixedK29696_int8_train_calib200_bucket0.cache",
-      "calibration_sample_files_for_engine": 3,
+      "calibration_sample_files_for_engine": 5,
       "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_padded_agent_static_fixed_k_scatter_plugin.onnx",
       "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/padded_agent_static/int8_train_calib200/lidar_pyramid_padded_agent_static_fixedK29696_int8_train_calib200_bucket0.engine",
       "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/padded_agent_static/int8_train_calib200/layerinfo_padded_agent_static_int8_train_calib200_bucket0.json",
@@ -3681,7 +3674,7 @@
       "plugin precision in INT8 engine": "FP16/FP32 plugin island inferred from plugin layer; TensorRT inspector text is authoritative in layerinfo_path",
       "INT8 layer count": null,
       "FP16 fallback layer count": null,
-      "engine_size_MB": 12.84426498413086
+      "engine_size_MB": 10.117130279541016
     },
     {
       "strategy": "padded_agent_static",
@@ -3699,7 +3692,7 @@
       "calibration_frames": 200,
       "calibration_npz_dir": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200",
       "calibration_cache_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_padded_agent_static_fixedK29696_int8_train_calib200_bucket1.cache",
-      "calibration_sample_files_for_engine": 144,
+      "calibration_sample_files_for_engine": 142,
       "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_padded_agent_static_fixed_k_scatter_plugin.onnx",
       "engine_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/padded_agent_static/int8_train_calib200/lidar_pyramid_padded_agent_static_fixedK29696_int8_train_calib200_bucket1.engine",
       "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/padded_agent_static/int8_train_calib200/layerinfo_padded_agent_static_int8_train_calib200_bucket1.json",
@@ -3811,7 +3804,7 @@
       "plugin precision in INT8 engine": "FP16/FP32 plugin island inferred from plugin layer; TensorRT inspector text is authoritative in layerinfo_path",
       "INT8 layer count": null,
       "FP16 fallback layer count": null,
-      "engine_size_MB": 19.003009796142578
+      "engine_size_MB": 10.26480484008789
     },
     {
       "strategy": "padded_agent_static",
@@ -3941,7 +3934,7 @@
       "plugin precision in INT8 engine": "FP16/FP32 plugin island inferred from plugin layer; TensorRT inspector text is authoritative in layerinfo_path",
       "INT8 layer count": null,
       "FP16 fallback layer count": null,
-      "engine_size_MB": 19.099048614501953
+      "engine_size_MB": 10.221759796142578
     },
     {
       "strategy": "padded_agent_static",
@@ -4071,7 +4064,7 @@
       "plugin precision in INT8 engine": "FP16/FP32 plugin island inferred from plugin layer; TensorRT inspector text is authoritative in layerinfo_path",
       "INT8 layer count": null,
       "FP16 fallback layer count": null,
-      "engine_size_MB": 20.163753509521484
+      "engine_size_MB": 10.27811050415039
     }
   ],
   "build_success": true,

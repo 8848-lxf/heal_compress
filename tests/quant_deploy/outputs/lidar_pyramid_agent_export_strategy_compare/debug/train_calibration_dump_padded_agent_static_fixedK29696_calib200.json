@@ -220,22 +220,22 @@
     "[[1.0, 1.0]]": 190
   },
   "original_num_voxels_distribution": {
-    "min": 8999.0,
+    "min": 8910.0,
     "p50": 21948.5,
     "p90": 23925.0,
     "p95": 24674.299999999996,
     "p99": 27471.099999999988,
     "max": 29562.0,
-    "mean": 21275.415
+    "mean": 21257.755
   },
   "padding_ratio_distribution": {
     "min": 0.00451239224137931,
     "p50": 0.26089372306034486,
     "p90": 0.3595837823275862,
-    "p95": 0.3823494746767205,
-    "p99": 0.6914129849137931,
-    "max": 0.6969625538793104,
-    "mean": 0.2835595703125
+    "p95": 0.381270204741376,
+    "p99": 0.6881388065732759,
+    "max": 0.6999595905172413,
+    "mean": 0.284154263200431
   },
   "input_names": [
     "voxel_features",
@@ -399,8 +399,8 @@
       "N": 1,
       "fixed_K": 29696,
       "max_cav": 2,
-      "original_num_voxels": 10737,
-      "padding_ratio": 0.6384361530172413,
+      "original_num_voxels": 8910,
+      "padding_ratio": 0.6999595905172413,
       "valid_agent_mask": [
         [
           1.0,
@@ -443,10 +443,10 @@
         "pairwise_t_matrix": "float32",
         "valid_voxel_mask": "float32"
       },
-      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000002_N1_bucket1.npz",
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000002_N1_bucket0.npz",
       "sample_idx": 2,
       "train_dataset_index": 2,
-      "bucket_id": 1,
+      "bucket_id": 0,
       "scenario_id": null,
       "frame_id": null
     },
@@ -6615,8 +6615,8 @@
       "N": 1,
       "fixed_K": 29696,
       "max_cav": 2,
-      "original_num_voxels": 9045,
-      "padding_ratio": 0.6954135237068966,
+      "original_num_voxels": 12993,
+      "padding_ratio": 0.5624663254310345,
       "valid_agent_mask": [
         [
           1.0,
@@ -6659,10 +6659,10 @@
         "pairwise_t_matrix": "float32",
         "valid_voxel_mask": "float32"
       },
-      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000113_N1_bucket0.npz",
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000113_N1_bucket1.npz",
       "sample_idx": 113,
       "train_dataset_index": 113,
-      "bucket_id": 0,
+      "bucket_id": 1,
       "scenario_id": null,
       "frame_id": null
     },
@@ -6671,8 +6671,8 @@
       "N": 1,
       "fixed_K": 29696,
       "max_cav": 2,
-      "original_num_voxels": 8999,
-      "padding_ratio": 0.6969625538793104,
+      "original_num_voxels": 12320,
+      "padding_ratio": 0.5851293103448276,
       "valid_agent_mask": [
         [
           1.0,
@@ -6715,10 +6715,10 @@
         "pairwise_t_matrix": "float32",
         "valid_voxel_mask": "float32"
       },
-      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000114_N1_bucket0.npz",
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000114_N1_bucket1.npz",
       "sample_idx": 114,
       "train_dataset_index": 114,
-      "bucket_id": 0,
+      "bucket_id": 1,
       "scenario_id": null,
       "frame_id": null
     },
@@ -6783,8 +6783,8 @@
       "N": 1,
       "fixed_K": 29696,
       "max_cav": 2,
-      "original_num_voxels": 12268,
-      "padding_ratio": 0.5868803879310345,
+      "original_num_voxels": 9262,
+      "padding_ratio": 0.6881061422413793,
       "valid_agent_mask": [
         [
           1.0,
@@ -6827,10 +6827,10 @@
         "pairwise_t_matrix": "float32",
         "valid_voxel_mask": "float32"
       },
-      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000116_N1_bucket1.npz",
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000116_N1_bucket0.npz",
       "sample_idx": 116,
       "train_dataset_index": 116,
-      "bucket_id": 1,
+      "bucket_id": 0,
       "scenario_id": null,
       "frame_id": null
     },
@@ -6839,8 +6839,8 @@
       "N": 1,
       "fixed_K": 29696,
       "max_cav": 2,
-      "original_num_voxels": 12352,
-      "padding_ratio": 0.584051724137931,
+      "original_num_voxels": 9334,
+      "padding_ratio": 0.6856815732758621,
       "valid_agent_mask": [
         [
           1.0,
@@ -6883,10 +6883,10 @@
         "pairwise_t_matrix": "float32",
         "valid_voxel_mask": "float32"
       },
-      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000117_N1_bucket1.npz",
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000117_N1_bucket0.npz",
       "sample_idx": 117,
       "train_dataset_index": 117,
-      "bucket_id": 1,
+      "bucket_id": 0,
       "scenario_id": null,
       "frame_id": null
     },
@@ -6895,8 +6895,8 @@
       "N": 1,
       "fixed_K": 29696,
       "max_cav": 2,
-      "original_num_voxels": 12251,
-      "padding_ratio": 0.5874528556034483,
+      "original_num_voxels": 9301,
+      "padding_ratio": 0.6867928340517241,
       "valid_agent_mask": [
         [
           1.0,
@@ -6939,10 +6939,10 @@
         "pairwise_t_matrix": "float32",
         "valid_voxel_mask": "float32"
       },
-      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000118_N1_bucket1.npz",
+      "path": "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_padded_agent_static_fixedK29696_200/sample_000118_N1_bucket0.npz",
       "sample_idx": 118,
       "train_dataset_index": 118,
-      "bucket_id": 1,
+      "bucket_id": 0,
       "scenario_id": null,
       "frame_id": null
     },

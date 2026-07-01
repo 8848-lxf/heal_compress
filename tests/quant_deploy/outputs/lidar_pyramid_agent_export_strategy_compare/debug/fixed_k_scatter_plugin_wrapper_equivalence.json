@@ -15,9 +15,9 @@
         128,
         256
       ],
-      "max_abs_error": 0.009569168090820312,
-      "mean_abs_error": 0.000805611489340663,
-      "relative_error": 0.00014688813826069236
+      "max_abs_error": 0.006468772888183594,
+      "mean_abs_error": 0.0004557905194815248,
+      "relative_error": 8.312590216519311e-05
     },
     "reg_preds": {
       "reference_shape": [
@@ -32,9 +32,9 @@
         128,
         256
       ],
-      "max_abs_error": 0.0029534101486206055,
-      "mean_abs_error": 0.00010183051199419424,
-      "relative_error": 0.0006840350106358528
+      "max_abs_error": 0.0018948614597320557,
+      "mean_abs_error": 6.766994192730635e-05,
+      "relative_error": 0.00045472613419406116
     },
     "dir_preds": {
       "reference_shape": [
@@ -49,9 +49,9 @@
         128,
         256
       ],
-      "max_abs_error": 0.0053640007972717285,
-      "mean_abs_error": 0.00041776918806135654,
-      "relative_error": 0.000829041819088161
+      "max_abs_error": 0.004256188869476318,
+      "mean_abs_error": 0.0002781760413199663,
+      "relative_error": 0.0005519911064766347
     }
   }
 }

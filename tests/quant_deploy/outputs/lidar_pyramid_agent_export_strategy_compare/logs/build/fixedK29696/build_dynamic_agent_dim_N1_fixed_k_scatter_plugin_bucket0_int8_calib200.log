@@ -5,4 +5,4 @@ layerinfo_path=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/o
 calibration_cache_path=tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_bucket_fixedK29696_int8_train_calib200_N1_bucket0.cache
 calibration_samples=5
 input_names=['voxel_features', 'voxel_coords', 'voxel_num_points', 'pairwise_t_matrix', 'valid_voxel_mask']
-elapsed_seconds=141.356
+elapsed_seconds=175.638

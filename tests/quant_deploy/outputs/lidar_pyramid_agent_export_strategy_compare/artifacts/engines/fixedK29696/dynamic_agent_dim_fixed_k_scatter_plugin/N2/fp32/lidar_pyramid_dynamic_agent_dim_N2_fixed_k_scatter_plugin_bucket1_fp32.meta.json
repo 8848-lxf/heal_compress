@@ -176,15 +176,15 @@
   "error": null,
   "trtexec": {
     "trtexec_found": true,
-    "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-    "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
     "checked_paths": [
-      "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+      "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
     ],
     "suggestion": null
   },
   "command": [
-    "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+    "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
     "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin.onnx",
     "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/lidar_pyramid_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp32.engine",
     "--profilingVerbosity=detailed",
@@ -201,11 +201,11 @@
   "returncode": 0,
   "unsupported_ops": [
     {
-      "line": "[06/29/2026-11:41:18] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+      "line": "[06/29/2026-22:28:50] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
       "op": "PointPillarScatterTRT."
     }
   ],
   "failed_nodes": [],
-  "engine_size_MB": 30.370983123779297,
+  "engine_size_MB": 31.31869125366211,
   "layerinfo_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_dim_fixed_k_scatter_plugin/N2/fp32/layerinfo_dynamic_agent_dim_N2_fixed_k_scatter_plugin_bucket1_fp32.json"
 }

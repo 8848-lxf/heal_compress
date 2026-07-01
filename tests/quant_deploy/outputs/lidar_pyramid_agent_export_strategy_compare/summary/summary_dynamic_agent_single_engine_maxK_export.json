@@ -9,17 +9,17 @@
   "true_dynamic_N": true,
   "error": null,
   "env_report": {
-    "python_executable": "/home/lixingfeng/anaconda3/envs/modelopt/bin/python",
-    "conda_prefix": "/home/lixingfeng/anaconda3/envs/modelopt",
-    "TRT_ROOT": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
-    "LD_LIBRARY_PATH": "/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/cv2/../../lib64:/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib64:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/torch/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cublas/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cudnn/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cufft/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/curand/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusolver/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/cusparse/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib/python3.10/site-packages/nvidia/nccl/lib:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:/home/lixingfeng/.local/apps/usr/lib/x86_64-linux-gnu:",
-    "CUDA_VISIBLE_DEVICES": "5",
+    "python_executable": "/home/lixingfeng/miniconda3/envs/modelopt/bin/python",
+    "conda_prefix": "/home/lixingfeng/miniconda3/envs/modelopt",
+    "TRT_ROOT": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
+    "LD_LIBRARY_PATH": "/home/lixingfeng/miniconda3/envs/modelopt/lib/python3.10/site-packages/cv2/../../lib64:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/lib:/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib:/usr/local/cuda/lib64:/usr/local/cuda/lib64:/usr/local/cuda/lib64",
+    "CUDA_VISIBLE_DEVICES": "3",
     "torch_available": true,
     "torch_version": "2.4.0+cu118",
     "cuda_available": true,
     "cuda_device_count": 1,
     "gpu_names": [
-      "NVIDIA GeForce RTX 4090"
+      "NVIDIA H800"
     ],
     "tensorrt_available": true,
     "tensorrt_version": "10.9.0.34",
@@ -28,14 +28,14 @@
     "modelopt_version": null,
     "trtexec": {
       "trtexec_found": true,
-      "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-      "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+      "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+      "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
       "checked_paths": [
-        "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+        "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
       ],
       "suggestion": null
     },
-    "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+    "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
   },
   "output_names": [
     "cls_preds",
@@ -555,9 +555,9 @@
           128,
           256
         ],
-        "max_abs_error": 0.0006923675537109375,
-        "mean_abs_error": 1.9408023945288733e-05,
-        "relative_error": 3.4921729366033105e-06
+        "max_abs_error": 0.0023584365844726562,
+        "mean_abs_error": 3.074283813475631e-05,
+        "relative_error": 5.532304385269526e-06
       },
       "reg_preds": {
         "reference_shape": [
@@ -572,9 +572,9 @@
           128,
           256
         ],
-        "max_abs_error": 0.0007453598082065582,
-        "mean_abs_error": 6.03824264544528e-06,
-        "relative_error": 3.765268775168806e-05
+        "max_abs_error": 0.0007095150649547577,
+        "mean_abs_error": 6.014767222950468e-06,
+        "relative_error": 3.751265103346668e-05
       },
       "dir_preds": {
         "reference_shape": [
@@ -589,9 +589,9 @@
           128,
           256
         ],
-        "max_abs_error": 0.001688241958618164,
-        "mean_abs_error": 3.0428785976255313e-05,
-        "relative_error": 5.8957353758160025e-05
+        "max_abs_error": 0.0018749237060546875,
+        "mean_abs_error": 3.0727860576007515e-05,
+        "relative_error": 5.951147977611981e-05
       }
     }
   },

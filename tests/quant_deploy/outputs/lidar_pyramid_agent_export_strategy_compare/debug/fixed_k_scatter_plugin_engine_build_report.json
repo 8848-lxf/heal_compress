@@ -99,17 +99,17 @@
         },
         "trtexec": {
           "trtexec_found": true,
-          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
           "checked_paths": [
-            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
           ],
           "suggestion": null
         },
         "build_success": true,
         "error": null,
         "command": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
           "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
           "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket0_fp32.engine",
           "--profilingVerbosity=detailed",
@@ -127,12 +127,12 @@
         "returncode": 0,
         "unsupported_ops": [
           {
-            "line": "[06/29/2026-11:23:53] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+            "line": "[06/29/2026-22:14:42] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
             "op": "PointPillarScatterTRT."
           }
         ],
         "failed_nodes": [],
-        "engine_size_MB": 30.323047637939453,
+        "engine_size_MB": 31.350696563720703,
         "bucket": {
           "bucket_id": 0,
           "min_voxels": 1,
@@ -238,17 +238,17 @@
         },
         "trtexec": {
           "trtexec_found": true,
-          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
           "checked_paths": [
-            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
           ],
           "suggestion": null
         },
         "build_success": true,
         "error": null,
         "command": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
           "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
           "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket1_fp32.engine",
           "--profilingVerbosity=detailed",
@@ -266,12 +266,12 @@
         "returncode": 0,
         "unsupported_ops": [
           {
-            "line": "[06/29/2026-11:24:38] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+            "line": "[06/29/2026-22:15:10] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
             "op": "PointPillarScatterTRT."
           }
         ],
         "failed_nodes": [],
-        "engine_size_MB": 30.146961212158203,
+        "engine_size_MB": 31.34457015991211,
         "bucket": {
           "bucket_id": 1,
           "min_voxels": 9729,
@@ -377,17 +377,17 @@
         },
         "trtexec": {
           "trtexec_found": true,
-          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
           "checked_paths": [
-            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
           ],
           "suggestion": null
         },
         "build_success": true,
         "error": null,
         "command": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
           "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
           "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket2_fp32.engine",
           "--profilingVerbosity=detailed",
@@ -405,12 +405,12 @@
         "returncode": 0,
         "unsupported_ops": [
           {
-            "line": "[06/29/2026-11:25:23] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+            "line": "[06/29/2026-22:15:37] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
             "op": "PointPillarScatterTRT."
           }
         ],
         "failed_nodes": [],
-        "engine_size_MB": 29.74740982055664,
+        "engine_size_MB": 31.35007095336914,
         "bucket": {
           "bucket_id": 2,
           "min_voxels": 23041,
@@ -516,17 +516,17 @@
         },
         "trtexec": {
           "trtexec_found": true,
-          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
           "checked_paths": [
-            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
           ],
           "suggestion": null
         },
         "build_success": true,
         "error": null,
         "command": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
           "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
           "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/fixed_k_scatter_plugin/fp32/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp32.engine",
           "--profilingVerbosity=detailed",
@@ -544,12 +544,12 @@
         "returncode": 0,
         "unsupported_ops": [
           {
-            "line": "[06/29/2026-11:26:07] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+            "line": "[06/29/2026-22:16:05] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
             "op": "PointPillarScatterTRT."
           }
         ],
         "failed_nodes": [],
-        "engine_size_MB": 30.088680267333984,
+        "engine_size_MB": 31.35043716430664,
         "bucket": {
           "bucket_id": 3,
           "min_voxels": 23553,
@@ -657,17 +657,17 @@
         },
         "trtexec": {
           "trtexec_found": true,
-          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
           "checked_paths": [
-            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
           ],
           "suggestion": null
         },
         "build_success": true,
         "error": null,
         "command": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
           "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
           "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket0_fp16.engine",
           "--profilingVerbosity=detailed",
@@ -685,12 +685,12 @@
         "returncode": 0,
         "unsupported_ops": [
           {
-            "line": "[06/29/2026-11:26:52] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+            "line": "[06/29/2026-22:16:32] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
             "op": "PointPillarScatterTRT."
           }
         ],
         "failed_nodes": [],
-        "engine_size_MB": 17.902080535888672,
+        "engine_size_MB": 14.297725677490234,
         "bucket": {
           "bucket_id": 0,
           "min_voxels": 1,
@@ -796,17 +796,17 @@
         },
         "trtexec": {
           "trtexec_found": true,
-          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
           "checked_paths": [
-            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
           ],
           "suggestion": null
         },
         "build_success": true,
         "error": null,
         "command": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
           "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
           "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket1_fp16.engine",
           "--profilingVerbosity=detailed",
@@ -824,12 +824,12 @@
         "returncode": 0,
         "unsupported_ops": [
           {
-            "line": "[06/29/2026-11:28:35] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+            "line": "[06/29/2026-22:18:03] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
             "op": "PointPillarScatterTRT."
           }
         ],
         "failed_nodes": [],
-        "engine_size_MB": 22.71108627319336,
+        "engine_size_MB": 14.27420425415039,
         "bucket": {
           "bucket_id": 1,
           "min_voxels": 9729,
@@ -935,17 +935,17 @@
         },
         "trtexec": {
           "trtexec_found": true,
-          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
           "checked_paths": [
-            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
           ],
           "suggestion": null
         },
         "build_success": true,
         "error": null,
         "command": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
           "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
           "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket2_fp16.engine",
           "--profilingVerbosity=detailed",
@@ -963,12 +963,12 @@
         "returncode": 0,
         "unsupported_ops": [
           {
-            "line": "[06/29/2026-11:30:16] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+            "line": "[06/29/2026-22:19:34] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
             "op": "PointPillarScatterTRT."
           }
         ],
         "failed_nodes": [],
-        "engine_size_MB": 22.877246856689453,
+        "engine_size_MB": 14.18539047241211,
         "bucket": {
           "bucket_id": 2,
           "min_voxels": 23041,
@@ -1074,17 +1074,17 @@
         },
         "trtexec": {
           "trtexec_found": true,
-          "trtexec_path": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
-          "trt_root": "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+          "trtexec_path": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "trt_root": "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118",
           "checked_paths": [
-            "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec"
+            "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec"
           ],
           "suggestion": null
         },
         "build_success": true,
         "error": null,
         "command": [
-          "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118/bin/trtexec",
+          "/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/bin/trtexec",
           "--onnx=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/fp32/lidar_pyramid_fixed_k_scatter_plugin_fp32_dynamic.onnx",
           "--saveEngine=/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/fixed_k_scatter_plugin/fp16/lidar_pyramid_fixed_k_scatter_plugin_bucket3_fp16.engine",
           "--profilingVerbosity=detailed",
@@ -1102,12 +1102,12 @@
         "returncode": 0,
         "unsupported_ops": [
           {
-            "line": "[06/29/2026-11:32:00] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
+            "line": "[06/29/2026-22:21:04] [I] [TRT] No importer registered for op: PointPillarScatterTRT. Attempting to import as plugin.",
             "op": "PointPillarScatterTRT."
           }
         ],
         "failed_nodes": [],
-        "engine_size_MB": 25.483592987060547,
+        "engine_size_MB": 14.432575225830078,
         "bucket": {
           "bucket_id": 3,
           "min_voxels": 23553,

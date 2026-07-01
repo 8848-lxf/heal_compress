@@ -1,0 +1,32 @@
+deployment:
+  strategy: single_engine_maxK
+  legacy_strategy_name: dynamic_agent_single_engine_maxK
+  fixed_K: 29696
+  precision: fp16
+  calibration_split: train
+  eval_split: val
+  output_root: tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare
+  int8:
+    enabled: optional
+    default_recommended: false
+    calibration_frames: 200
+  baselines:
+    padded_agent_static:
+      role: legacy_baseline
+      default: false
+    dynamic_bucket:
+      role: legacy_comparison
+      default: false
+plugin:
+  pointpillar_scatter_trt: quantization/plugins/pointpillar_scatter_trt
+source_tests:
+  - tests/quant_deploy/export_dynamic_single_engine_maxk_onnx.py
+  - tests/quant_deploy/exportable_lidar_pyramid_dynamic_single_engine_maxk.py
+  - tests/quant_deploy/dynamic_single_engine_maxk_common.py
+  - tests/quant_deploy/rebuild_fixedk_full_cover_engines.py
+  - tests/quant_deploy/dump_train_calibration_npz_for_all_strategies.py
+  - tests/quant_deploy/evaluate_all_deployment_engines_full_val_idle_gpu.py
+  - tests/quant_deploy/summarize_engine_file_sizes.py
+  - tests/quant_deploy/summarize_final_fixedk_full_cover_traincalib.py
+  - tests/quant_deploy/select_idle_gpu.py
+  - tests/quant_deploy/deployment_equivalence.py
