@@ -69,6 +69,35 @@ def test_pruning_formal_imports_and_prune_plan_schema():
     assert plan["legality"]["legal"] is True
 
 
+def test_pruning_formal_plan_keeps_protected_groups_full_width():
+    plan_mod = importlib.import_module("pruning.planner.physical_prune_plan")
+
+    plan = plan_mod.build_plan_from_coupled_groups(
+        {
+            "groups": [
+                {
+                    "group_id": "group::reg_head",
+                    "source_modules": ["reg_head"],
+                    "channel_indices": list(range(14)),
+                    "is_prunable": False,
+                    "is_protected": True,
+                }
+            ]
+        },
+        target_prune_ratio=0.125,
+        min_keep_ratio=0.875,
+        importance="l1",
+    )
+
+    row = plan["prune_plan"][0]
+    assert row["is_protected"] is True
+    assert row["is_prunable"] is False
+    assert row["keep_count"] == 14
+    assert row["prune_count"] == 0
+    assert row["prune_indices"] == []
+    assert plan["legality"]["legal"] is True
+
+
 def test_old_quant_deploy_wrappers_import_compatibly():
     modules = [
         "tests.quant_deploy.export_dynamic_single_engine_maxk_onnx",

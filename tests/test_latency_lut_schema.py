@@ -74,3 +74,31 @@ def test_precision_to_profile_mapping_is_explicit():
     assert precision_to_profile("FP32") == "TRT_FP32"
     assert precision_to_profile("FP16") == "TRT_FP16"
     assert precision_to_profile("INT8") == "TRT_INT8_QDQ"
+
+
+def test_int8_qdq_key_canonicalizes_to_w8a8_semantics():
+    key = LatencyLUTKey.from_dict(
+        {
+            "deploy_mode": "single_engine_maxK",
+            "fixed_K": 29696,
+            "module_name": "shrink",
+            "block_name": "compression",
+            "block_type": "compression_1x1",
+            "H": 100,
+            "W": 352,
+            "C_in": 256,
+            "C_out": 256,
+            "kernel_size": 1,
+            "stride": 1,
+            "padding": 0,
+            "batch_size": 1,
+            "precision_profile": "TRT_INT8_QDQ",
+            "weight_precision": "INT8",
+            "activation_precision": "FP16",
+            "compute_precision": "INT8",
+        }
+    )
+
+    assert key.weight_precision == "INT8"
+    assert key.activation_precision == "INT8"
+    assert key.compute_precision == "INT8"

@@ -22,6 +22,14 @@ class CoupledChannelUnit:
     unit_id: str
     scope_id: str
     root_idx: int
+    root_node: str = ""
+    root_module: str = ""
+    root_axis: str = "out_channels"
+    root_channel_index: int = 0
+    members: list[dict[str, Any]] = field(default_factory=list)
+    dependency_types: list[str] = field(default_factory=list)
+    is_grouped_conv_related: bool = False
+    grouped_conv_info: dict[str, Any] | None = None
     group_id_in_grouped_conv: int | None = None
     local_idx_in_group: int | None = None
     local_indices_by_item: dict[str, list[int]] = field(default_factory=dict)
@@ -133,6 +141,69 @@ def _importance_at(values: Sequence[float] | torch.Tensor | None, idx: int) -> f
     return value
 
 
+def _axis_for_item(item: GroupItem) -> str:
+    module = item.module
+    if isinstance(module, nn.BatchNorm2d):
+        return "bn_channel"
+    if isinstance(module, nn.Linear):
+        return "linear_out" if item.direction == "out" else "linear_in"
+    if item.direction == "in":
+        return "in_channels"
+    return "out_channels"
+
+
+def _dependency_type(scope: PruningGroup, item: GroupItem) -> str:
+    reason = str(item.reason or "")
+    group_type = str((scope.meta or {}).get("group_type", ""))
+    if reason:
+        if "concat" in reason or "cat" in reason:
+            return "concat_branch_offset" if item.direction == "out" else "concat_out_to_next_conv_in"
+        if "shortcut" in reason:
+            return "projection_shortcut"
+        if "bn" in reason:
+            return "conv_out_to_bn"
+        if "next" in reason or item.direction == "in":
+            return "conv_out_to_next_conv_in"
+        if "add" in reason or "residual" in reason:
+            return "residual_add"
+        return reason
+    if group_type == "add":
+        return "residual_add"
+    if group_type == "cat":
+        return "concat_branch_offset" if item.direction == "out" else "concat_out_to_next_conv_in"
+    if isinstance(item.module, nn.BatchNorm2d):
+        return "conv_out_to_bn"
+    if item.direction == "in":
+        return "conv_out_to_next_conv_in"
+    return "root_channel"
+
+
+def _member_rows(scope: PruningGroup, root_idx: int, item: GroupItem, local_indices: Sequence[int]) -> list[dict[str, Any]]:
+    group_type = str((scope.meta or {}).get("group_type", ""))
+    axis = _axis_for_item(item)
+    dep = _dependency_type(scope, item)
+    rows: list[dict[str, Any]] = []
+    for local in local_indices:
+        concat_offset = int(local) - int(root_idx) if group_type == "cat" else 0
+        member_axis = axis
+        if group_type == "add":
+            member_axis = "add_channel" if "Add" in item.name or dep == "residual_add" and item.direction == "out" else axis
+        if group_type == "cat" and item.direction == "out" and concat_offset:
+            member_axis = "concat_output_channel"
+        rows.append(
+            {
+                "node": item.name,
+                "module": item.name,
+                "op_type": item.module.__class__.__name__,
+                "axis": member_axis,
+                "index": int(local),
+                "branch_id": str((scope.meta or {}).get("branch_id", "")),
+                "concat_offset": int(concat_offset),
+            }
+        )
+    return rows
+
+
 def expand_coupled_channel_units(
     scope: PruningGroup,
     scope_importance: Sequence[float] | torch.Tensor | None = None,
@@ -149,14 +220,32 @@ def expand_coupled_channel_units(
     units: list[CoupledChannelUnit] = []
     for root_idx in range(int(scope.num_channels)):
         local_by_item: dict[str, list[int]] = {}
+        members: list[dict[str, Any]] = []
+        dependency_types: list[str] = []
         item_modules: list[str] = []
         item_directions: list[str] = []
         for item in scope.items:
             local = sorted(int(v) for v in item.local_keep([root_idx]))
             if local:
                 local_by_item[item_key(item)] = local
+                members.extend(_member_rows(scope, root_idx, item, local))
+                dependency_types.append(_dependency_type(scope, item))
                 item_modules.append(item.name)
                 item_directions.append(item.direction)
+        if not members:
+            root_name = scope.items[0].name if scope.items else sid
+            members.append(
+                {
+                    "node": root_name,
+                    "module": root_name,
+                    "op_type": "Unknown",
+                    "axis": "out_channels",
+                    "index": int(root_idx),
+                    "branch_id": "",
+                    "concat_offset": 0,
+                }
+            )
+            dependency_types.append("root_channel")
         importance = _importance_at(scope_importance, root_idx)
         protected = bool(scope.protected)
         protected_reason = scope.protected_reason or None
@@ -173,6 +262,14 @@ def expand_coupled_channel_units(
                 unit_id=f"{sid}::idx{root_idx}",
                 scope_id=sid,
                 root_idx=root_idx,
+                root_node=sid,
+                root_module=scope.items[0].name if scope.items else sid,
+                root_axis="out_channels",
+                root_channel_index=root_idx,
+                members=members,
+                dependency_types=sorted(set(dependency_types)),
+                is_grouped_conv_related=bool(grouped.get("has_grouped_conv", False)),
+                grouped_conv_info={k: v for k, v in grouped.items() if k != "module"} if grouped.get("has_grouped_conv") else None,
                 group_id_in_grouped_conv=group_id,
                 local_idx_in_group=local_idx,
                 local_indices_by_item=local_by_item,
@@ -279,6 +376,14 @@ def coupled_channel_unit_rows(units: Sequence[CoupledChannelUnit]) -> list[dict[
         "unit_id",
         "scope_id",
         "root_idx",
+        "root_node",
+        "root_module",
+        "root_axis",
+        "root_channel_index",
+        "members",
+        "dependency_types",
+        "is_grouped_conv_related",
+        "grouped_conv_info",
         "group_id_in_grouped_conv",
         "local_idx_in_group",
         "local_indices_by_item",

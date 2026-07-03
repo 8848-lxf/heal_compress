@@ -174,6 +174,19 @@ def build_named_candidate_preset(
     num_samples: int = 10,
     records: list[LatencyRecord] | None = None,
 ) -> list[dict[str, Any]]:
+    very_light_protected = [
+        "encoder_m1",
+        "pillar_vfe",
+        "voxel_encoder",
+        "backbone_m1.resnet.layer0",
+        "shrink_conv",
+        "cls_head",
+        "reg_head",
+        "dir_head",
+        "pyramid_backbone.deblocks",
+        "pyramid_fusion",
+        "fusion_net",
+    ]
     specs: list[dict[str, Any]] = [
         {
             "candidate_id": "baseline_like_fp16",
@@ -187,7 +200,7 @@ def build_named_candidate_preset(
         },
         {
             "candidate_id": "light_prune_fp16",
-            "pruning": {"enabled": True, "source": "pruning_tool", "importance": "l1", "scope": "global", "target_keep_ratio": 0.875, "align": 8, "respect_group_conv_alignment": True},
+            "pruning": {"enabled": True, "source": "pruning_tool", "importance": "l1", "scope": "global", "target_keep_ratio": 0.97, "min_keep_ratio": 0.875, "align": 8, "respect_group_conv_alignment": True, "extra_protected_prefixes": very_light_protected},
             "precision_config": {"default": "FP16"},
         },
         {
@@ -220,7 +233,7 @@ def build_named_candidate_preset(
         },
         {
             "candidate_id": "light_prune_fp32",
-            "pruning": {"enabled": True, "source": "pruning_tool", "importance": "l1", "scope": "global", "target_keep_ratio": 0.875, "align": 8, "respect_group_conv_alignment": True},
+            "pruning": {"enabled": True, "source": "pruning_tool", "importance": "l1", "scope": "global", "target_keep_ratio": 0.97, "min_keep_ratio": 0.875, "align": 8, "respect_group_conv_alignment": True, "extra_protected_prefixes": very_light_protected},
             "precision_config": {"default": "FP32"},
         },
         {

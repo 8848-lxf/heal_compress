@@ -25,7 +25,7 @@ from .units import (
 class SelectionConfig:
     prune_ratio: float = 0.0
     selection_mode: str = "local_scope"
-    group_conv_selection_mode: str = "shared_local_mean"
+    group_conv_selection_mode: str = "independent_group_topk"
     align: int = 16
     group_conv_align: int = 8
     group_conv_prune_mode: str = "keep_groups"
@@ -55,10 +55,9 @@ class PruningPlan:
 def _aligned_keep_count(channels: int, prune_ratio: float, align: int, min_channels: int) -> int:
     target = int(round(channels * (1.0 - prune_ratio)))
     target = max(min_channels, min(channels, target))
-    if align > 1 and target >= align:
-        aligned = target - (target % align)
-        if aligned >= min_channels:
-            target = aligned
+    if align > 1 and target >= align and target % align != 0:
+        aligned = ((target + align - 1) // align) * align
+        target = min(channels, max(min_channels, aligned))
     return max(0, min(channels, target))
 
 
@@ -148,9 +147,8 @@ def _grouped_keep_per_group(channels: int, groups: int, cfg: SelectionConfig) ->
     target_total = _aligned_keep_count(channels, cfg.prune_ratio, cfg.align, cfg.min_channels)
     keep_per = max(1, target_total // groups)
     if cfg.group_conv_align > 1 and keep_per >= cfg.group_conv_align:
-        aligned = keep_per - (keep_per % cfg.group_conv_align)
-        if aligned >= cfg.group_conv_align:
-            keep_per = aligned
+        if keep_per % cfg.group_conv_align != 0:
+            keep_per = ((keep_per + cfg.group_conv_align - 1) // cfg.group_conv_align) * cfg.group_conv_align
     if keep_per < cfg.group_conv_align <= per:
         keep_per = cfg.group_conv_align
     return min(per, keep_per)
@@ -523,7 +521,7 @@ def build_pruning_plan(
     scope_importance: Mapping[str, Any],
     cfg: SelectionConfig,
 ) -> PruningPlan:
-    if cfg.selection_mode not in {"local_scope", "global_coupled_channel", "constrained_global"}:
+    if cfg.selection_mode not in {"local_scope", "root_node_local_unit_ratio", "global_coupled_channel", "constrained_global"}:
         raise ValueError(f"Unsupported selection_mode: {cfg.selection_mode}")
     if cfg.group_conv_selection_mode not in {"shared_local_mean", "independent_group_topk", "remove_groups"}:
         raise ValueError(f"Unsupported group_conv_selection_mode: {cfg.group_conv_selection_mode}")
@@ -553,7 +551,7 @@ def build_pruning_plan(
         candidates_by_scope[scope.group_id] = candidates
         atomic_units.extend(candidates)
 
-    if cfg.selection_mode == "local_scope":
+    if cfg.selection_mode in {"local_scope", "root_node_local_unit_ratio"}:
         selected = _select_local_scope(scopes, candidates_by_scope, grouped_selected_by_scope, cfg)
     else:
         # Grouped conv scopes contribute only constrained candidates here; no

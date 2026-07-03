@@ -143,12 +143,11 @@ DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dai
 DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
 TRANSFORMER_TYPES = set(TRANSFORMER_GROUP_TYPES)
 DEFAULT_SAFE_PROTECTED_PREFIXES = (
-    "pyramid_backbone.deblocks",
-    "shrink_conv",
     "cls_head",
     "reg_head",
     "dir_head",
 )
+HEAD_PROTECTED_KEYWORDS = ("cls_head", "reg_head", "dir_head")
 
 
 def str2bool(v: str | bool) -> bool:
@@ -508,7 +507,11 @@ def build_protected_layers(
     adapter_protected: list[str],
     extra_prefixes: list[str] | tuple[str, ...],
 ) -> list[str]:
-    protected = set(adapter_protected)
+    protected = {
+        name
+        for name in adapter_protected
+        if any(k in name.lower() for k in HEAD_PROTECTED_KEYWORDS)
+    }
     prefixes = tuple(p for p in extra_prefixes if p)
     if prefixes:
         for name, _module in model.named_modules():
@@ -575,6 +578,9 @@ def build_selection_summary(
     grouped_reports = list(getattr(plan, "grouped_conv_reports", []))
     return {
         "selection_mode": args.selection_mode,
+        "ranking_scope": "root_node_local" if args.selection_mode == "root_node_local_unit_ratio" else args.selection_mode,
+        "global_ranking": args.selection_mode in {"global_coupled_channel", "constrained_global"},
+        "module_stage_based_domain": False,
         "group_conv_selection_mode": args.group_conv_selection_mode,
         "num_dependency_scopes": len(groups),
         "num_coupled_channel_units": len(plan.coupled_units),
@@ -595,6 +601,107 @@ def build_selection_summary(
         "structure_legal": bool(legality_report.get("legal", False)),
         "forward_sanity_check": bool(forward_ok),
     }
+
+
+def build_root_node_local_domain_artifacts(plan: Any, args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    units = list(getattr(plan, "coupled_units", []))
+    units_by_domain: dict[str, list[Any]] = {}
+    for unit in units:
+        root = getattr(unit, "root_node", getattr(unit, "scope_id", ""))
+        units_by_domain.setdefault(str(root), []).append(unit)
+    domains = []
+    selected_unit_ids = set(getattr(plan, "selected_coupled_unit_ids", set()))
+    for root_node, domain_units in sorted(units_by_domain.items()):
+        domain_units = sorted(domain_units, key=lambda u: int(getattr(u, "root_channel_index", getattr(u, "root_idx", 0))))
+        unit_ids = [u.unit_id for u in domain_units]
+        pruned = [uid for uid in unit_ids if uid in selected_unit_ids]
+        kept = [uid for uid in unit_ids if uid not in selected_unit_ids]
+        domains.append(
+            {
+                "domain_id": f"root_node::{root_node}",
+                "root_node": root_node,
+                "root_module": getattr(domain_units[0], "root_module", root_node) if domain_units else root_node,
+                "root_axis": "out_channels",
+                "unit_ids": unit_ids,
+                "num_units": len(unit_ids),
+                "ranking_scope": "root_node_local",
+                "cross_domain_ranking": False,
+                "requested_keep_ratio": 1.0 - float(args.prune_ratio),
+                "requested_prune_ratio": float(args.prune_ratio),
+                "align": int(args.align),
+                "actual_num_keep": len(kept),
+                "actual_num_prune": len(pruned),
+                "actual_keep_ratio": len(kept) / len(unit_ids) if unit_ids else 1.0,
+                "kept_unit_ids": kept,
+                "pruned_unit_ids": pruned,
+            }
+        )
+    importance_rows = [
+        {
+            "candidate_id": "",
+            "domain_id": f"root_node::{getattr(unit, 'root_node', getattr(unit, 'scope_id', ''))}",
+            "unit_id": unit.unit_id,
+            "root_node": getattr(unit, "root_node", getattr(unit, "scope_id", "")),
+            "root_channel_index": getattr(unit, "root_channel_index", getattr(unit, "root_idx", 0)),
+            "importance": getattr(unit, "importance", None),
+            "score_source": args.importance_mode,
+            "num_members": len(getattr(unit, "members", []) or []),
+            "is_grouped_conv_related": getattr(unit, "is_grouped_conv_related", False),
+            "group_id": getattr(unit, "group_id_in_grouped_conv", None),
+            "local_channel_index": getattr(unit, "local_idx_in_group", None),
+        }
+        for unit in units
+    ]
+    return (
+        {"domains": [{k: v for k, v in row.items() if k not in {"requested_keep_ratio", "requested_prune_ratio", "align", "actual_num_keep", "actual_num_prune", "actual_keep_ratio", "kept_unit_ids", "pruned_unit_ids"}} for row in domains]},
+        {
+            "selection_mode": "root_node_local_unit_ratio" if args.selection_mode == "root_node_local_unit_ratio" else args.selection_mode,
+            "global_ranking": False,
+            "module_stage_based_domain": False,
+            "domains": domains,
+        },
+        importance_rows,
+    )
+
+
+def build_importance_calibration_data(
+    adapter: HEALLiDARAdapter,
+    args: argparse.Namespace,
+    logger: logging.Logger,
+) -> list[Any] | None:
+    if args.importance_mode not in {"first_order_taylor", "second_order_fisher"}:
+        return None
+    if int(args.num_calib_batches or 0) <= 0:
+        raise RuntimeError(f"{args.importance_mode}_gradient_missing: --num-calib-batches must be > 0")
+    loader = adapter.get_calib_loader(
+        {
+            "hypes_yaml": str(args.model_config),
+            "split": "train",
+            "batch_size": 1,
+            "num_workers": 0,
+        }
+    )
+    batches = []
+    for batch in loader:
+        batches.append(batch)
+        if len(batches) >= int(args.num_calib_batches):
+            break
+    if not batches:
+        raise RuntimeError(f"{args.importance_mode}_gradient_missing: no calibration batches were produced")
+    logger.info("Loaded %d train calibration batches for %s importance", len(batches), args.importance_mode)
+    return batches
+
+
+def move_batch_to_device(batch: Any, device: torch.device) -> Any:
+    if torch.is_tensor(batch):
+        return batch.to(device)
+    if isinstance(batch, dict):
+        return {key: move_batch_to_device(value, device) for key, value in batch.items()}
+    if isinstance(batch, list):
+        return [move_batch_to_device(value, device) for value in batch]
+    if isinstance(batch, tuple):
+        return tuple(move_batch_to_device(value, device) for value in batch)
+    return batch
 
 
 def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
@@ -647,7 +754,21 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
     save_json(dependency_scope_rows(groups), out / "dependency_scopes.json")
     save_csv(dependency_scope_rows(groups), out / "dependency_scopes.csv")
 
-    importance, importance_records = compute_group_importance(model, groups, method=args.importance_mode)
+    for param in model.parameters():
+        param.requires_grad_(True)
+    calibration_data = build_importance_calibration_data(adapter, args, logger)
+    if calibration_data is not None:
+        calibration_data = [move_batch_to_device(batch, device) for batch in calibration_data]
+    importance, importance_records = compute_group_importance(
+        model,
+        groups,
+        method=args.importance_mode,
+        forward_fn=adapter.forward_for_task if calibration_data is not None else None,
+        calibration_data=calibration_data,
+        loss_fn=adapter.compute_task_loss if calibration_data is not None else None,
+        num_calib_batches=int(args.num_calib_batches or 0),
+        strict_grad=args.importance_mode in {"first_order_taylor", "second_order_fisher"},
+    )
     channel_importance = compute_layer_channel_importance(groups, method=args.importance_mode)
     scope_channel_importance, scope_importance_records = compute_scope_channel_importance_map(
         groups,
@@ -685,6 +806,11 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
     save_csv(atomic_prune_unit_rows(plan.atomic_units), out / "atomic_prune_units.csv")
     save_json(plan.grouped_conv_reports, out / "grouped_conv_selection_report.json")
     save_csv(plan.grouped_conv_reports, out / "grouped_conv_selection_report.csv")
+    root_domains_json, domain_selection_json, unit_importance_rows = build_root_node_local_domain_artifacts(plan, args)
+    if args.selection_mode == "root_node_local_unit_ratio":
+        save_json(root_domains_json, out / "root_node_local_domains.json")
+        save_json(domain_selection_json, out / "domain_selection_summary.json")
+        save_csv(unit_importance_rows, out / "unit_importance.csv")
 
     prunable = [g for g in groups if not g.protected and g.num_channels > 0]
     target_pruned_params = int(round(original_params * args.prune_ratio))
@@ -783,6 +909,8 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
     )
     save_json(selection_summary, out / "selection_summary.json")
     summary = {
+        "output_dir": str(out),
+        "pruned_checkpoint": str(out / "pruned_model.pth"),
         "checkpoint": args.checkpoint,
         "model_name": "lidar_pyramid",
         "importance_mode": args.importance_mode,
@@ -883,12 +1011,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--heal-root", default=DEFAULT_HEAL_ROOT)
     p.add_argument("--prune-ratio", type=float, default=0.25)
     p.add_argument("--importance-mode", choices=["l1_norm", "l2_norm", "first_order_taylor", "second_order_fisher"], default="l1_norm")
-    p.add_argument("--selection-mode", default="local_scope", choices=["local_scope", "global_coupled_channel", "constrained_global"])
+    p.add_argument("--selection-mode", default="local_scope", choices=["local_scope", "root_node_local_unit_ratio", "global_coupled_channel", "constrained_global"])
     p.add_argument("--num-calib-batches", type=int, default=0)
     p.add_argument("--align", type=int, default=16)
     p.add_argument("--group-conv-align", type=int, default=8)
     p.add_argument("--group-conv-prune-mode", default="keep_groups", choices=["keep_groups", "remove_groups"])
-    p.add_argument("--group-conv-selection-mode", default="shared_local_mean", choices=["shared_local_mean", "independent_group_topk", "remove_groups"])
+    p.add_argument("--group-conv-selection-mode", default="independent_group_topk", choices=["shared_local_mean", "independent_group_topk", "remove_groups"])
     p.add_argument("--allow-remove-groups", type=str2bool, default=False)
     p.add_argument("--min-groups-after-prune", type=int, default=8)
     p.add_argument("--groups-align", type=int, default=8)

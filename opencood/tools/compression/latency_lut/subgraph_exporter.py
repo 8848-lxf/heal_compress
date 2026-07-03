@@ -19,23 +19,17 @@ def _scalar(value: Any, default: int) -> int:
     return int(value)
 
 
-def _write_default_scale_cache() -> None:
-    cache = Path("outputs/latency_lut/activation_scale_cache.json")
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    if not cache.exists():
-        cache.write_text(
-            json.dumps(
-                {
-                    "scale_source": "default_synthetic",
-                    "activation_scale": 0.03125,
-                    "weight_scale": 0.02,
-                    "note": "Synthetic scales are used only to benchmark Q/DQ subgraphs before D_cal activation ranges are collected.",
-                },
-                ensure_ascii=False,
-                indent=2,
-            ),
-            encoding="utf-8",
+def _require_real_qdq_scales(key: LatencyLUTKey) -> tuple[float, float, str]:
+    metadata = dict(key.metadata or {})
+    scale_source = str(metadata.get("scale_source") or "")
+    activation_scale = metadata.get("activation_scale")
+    weight_scale = metadata.get("weight_scale")
+    if not scale_source or scale_source == "default_synthetic" or activation_scale is None or weight_scale is None:
+        raise SubgraphExportError(
+            "TRT_INT8_QDQ subgraph export requires real activation/weight scales in key.metadata; "
+            "synthetic/default scales are forbidden for v3 LUT measurements"
         )
+    return float(activation_scale), float(weight_scale), scale_source
 
 
 def _np_rng(key: LatencyLUTKey):
@@ -77,7 +71,15 @@ def _qdq_pair(
     return dq_name
 
 
-def _weight_initializer(initializers: list[Any], key: LatencyLUTKey, name: str, shape: tuple[int, ...], *, per_channel_axis: int | None = 0) -> str:
+def _weight_initializer(
+    initializers: list[Any],
+    key: LatencyLUTKey,
+    name: str,
+    shape: tuple[int, ...],
+    *,
+    per_channel_axis: int | None = 0,
+    weight_scale: float = 0.02,
+) -> str:
     import numpy as np
     from onnx import numpy_helper
 
@@ -89,7 +91,7 @@ def _weight_initializer(initializers: list[Any], key: LatencyLUTKey, name: str, 
         nodes,
         initializers,
         name,
-        scale=0.02,
+        scale=float(weight_scale),
         prefix=f"{name}_qdq",
         axis=per_channel_axis,
         channels=shape[0] if per_channel_axis == 0 and shape else None,
@@ -110,11 +112,20 @@ def _conv_qdq(
     stride: int = 1,
     padding: int = 0,
     relu: bool = True,
+    activation_scale: float = 0.03125,
+    weight_scale: float = 0.02,
 ) -> str:
     from onnx import helper
 
-    activation = _qdq_pair(nodes, initializers, input_name, prefix=f"{prefix}_act")
-    weight_name, weight_nodes = _weight_initializer(initializers, key, f"{prefix}_weight", (c_out, c_in, kernel, kernel), per_channel_axis=0)
+    activation = _qdq_pair(nodes, initializers, input_name, prefix=f"{prefix}_act", scale=float(activation_scale))
+    weight_name, weight_nodes = _weight_initializer(
+        initializers,
+        key,
+        f"{prefix}_weight",
+        (c_out, c_in, kernel, kernel),
+        per_channel_axis=0,
+        weight_scale=float(weight_scale),
+    )
     nodes.extend(weight_nodes)
     conv_out = f"{prefix}_conv"
     nodes.append(
@@ -128,11 +139,11 @@ def _conv_qdq(
             pads=[padding, padding, padding, padding],
         )
     )
-    out = _qdq_pair(nodes, initializers, conv_out, prefix=f"{prefix}_out")
+    out = _qdq_pair(nodes, initializers, conv_out, prefix=f"{prefix}_out", scale=float(activation_scale))
     if relu:
         relu_out = f"{prefix}_relu"
         nodes.append(helper.make_node("Relu", [out], [relu_out], name=f"{prefix}_Relu"))
-        out = _qdq_pair(nodes, initializers, relu_out, prefix=f"{prefix}_relu_out")
+        out = _qdq_pair(nodes, initializers, relu_out, prefix=f"{prefix}_relu_out", scale=float(activation_scale))
     return out
 
 
@@ -141,7 +152,7 @@ def _export_qdq_subgraph(key: LatencyLUTKey, onnx_path: Path) -> dict[str, Any]:
     import onnx
     from onnx import TensorProto, helper, numpy_helper
 
-    _write_default_scale_cache()
+    activation_scale, weight_scale, scale_source = _require_real_qdq_scales(key)
     nodes: list[Any] = []
     initializers: list[Any] = []
     inputs: list[Any] = []
@@ -155,37 +166,37 @@ def _export_qdq_subgraph(key: LatencyLUTKey, onnx_path: Path) -> dict[str, Any]:
     padding = _scalar(key.padding, kernel // 2 if kernel > 1 else 0)
 
     metadata = {
-        "scale_source": "default_synthetic",
+        "scale_source": scale_source,
         "activation_quantization": "per-tensor symmetric int8 zero_point=0",
         "weight_quantization": "per-channel symmetric int8 zero_point=0",
     }
 
     if key.block_type == "conv_block":
         inputs.append(helper.make_tensor_value_info("input", TensorProto.FLOAT, [int(key.batch_size), c_in, h, w]))
-        out = _conv_qdq(nodes, initializers, key, "input", prefix="conv_block", c_in=c_in, c_out=c_out, kernel=kernel, stride=stride, padding=padding)
+        out = _conv_qdq(nodes, initializers, key, "input", prefix="conv_block", c_in=c_in, c_out=c_out, kernel=kernel, stride=stride, padding=padding, activation_scale=activation_scale, weight_scale=weight_scale)
         outputs.append(helper.make_tensor_value_info("output", TensorProto.FLOAT, [int(key.batch_size), c_out, max(1, h // max(1, stride)), max(1, w // max(1, stride))]))
     elif key.block_type == "compression_1x1":
         inputs.append(helper.make_tensor_value_info("input", TensorProto.FLOAT, [int(key.batch_size), c_in, h, w]))
-        out = _conv_qdq(nodes, initializers, key, "input", prefix="compression", c_in=c_in, c_out=c_out, kernel=1, stride=stride, padding=0)
+        out = _conv_qdq(nodes, initializers, key, "input", prefix="compression", c_in=c_in, c_out=c_out, kernel=1, stride=stride, padding=0, activation_scale=activation_scale, weight_scale=weight_scale)
         outputs.append(helper.make_tensor_value_info("output", TensorProto.FLOAT, [int(key.batch_size), c_out, max(1, h // max(1, stride)), max(1, w // max(1, stride))]))
     elif key.block_type == "head_branch":
         inputs.append(helper.make_tensor_value_info("input", TensorProto.FLOAT, [int(key.batch_size), c_in, h, w]))
-        out = _conv_qdq(nodes, initializers, key, "input", prefix="head", c_in=c_in, c_out=c_out, kernel=1, stride=1, padding=0, relu=False)
+        out = _conv_qdq(nodes, initializers, key, "input", prefix="head", c_in=c_in, c_out=c_out, kernel=1, stride=1, padding=0, relu=False, activation_scale=activation_scale, weight_scale=weight_scale)
         outputs.append(helper.make_tensor_value_info("output", TensorProto.FLOAT, [int(key.batch_size), c_out, h, w]))
     elif key.block_type == "residual_block":
         inputs.append(helper.make_tensor_value_info("input", TensorProto.FLOAT, [int(key.batch_size), c_in, h, w]))
-        conv1 = _conv_qdq(nodes, initializers, key, "input", prefix="res_conv1", c_in=c_in, c_out=c_mid, kernel=kernel, stride=stride, padding=padding)
-        conv2 = _conv_qdq(nodes, initializers, key, conv1, prefix="res_conv2", c_in=c_mid, c_out=c_out, kernel=kernel, stride=1, padding=padding, relu=False)
+        conv1 = _conv_qdq(nodes, initializers, key, "input", prefix="res_conv1", c_in=c_in, c_out=c_mid, kernel=kernel, stride=stride, padding=padding, activation_scale=activation_scale, weight_scale=weight_scale)
+        conv2 = _conv_qdq(nodes, initializers, key, conv1, prefix="res_conv2", c_in=c_mid, c_out=c_out, kernel=kernel, stride=1, padding=padding, relu=False, activation_scale=activation_scale, weight_scale=weight_scale)
         identity = "input"
         if c_in != c_out or stride != 1:
-            identity = _conv_qdq(nodes, initializers, key, "input", prefix="res_proj", c_in=c_in, c_out=c_out, kernel=1, stride=stride, padding=0, relu=False)
-        identity = _qdq_pair(nodes, initializers, identity, prefix="res_identity")
+            identity = _conv_qdq(nodes, initializers, key, "input", prefix="res_proj", c_in=c_in, c_out=c_out, kernel=1, stride=stride, padding=0, relu=False, activation_scale=activation_scale, weight_scale=weight_scale)
+        identity = _qdq_pair(nodes, initializers, identity, prefix="res_identity", scale=activation_scale)
         add_out = "res_add"
         nodes.append(helper.make_node("Add", [conv2, identity], [add_out], name="Residual_Add"))
-        add_qdq = _qdq_pair(nodes, initializers, add_out, prefix="res_add_out")
+        add_qdq = _qdq_pair(nodes, initializers, add_out, prefix="res_add_out", scale=activation_scale)
         relu_out = "res_relu"
         nodes.append(helper.make_node("Relu", [add_qdq], [relu_out], name="Residual_Relu"))
-        out = _qdq_pair(nodes, initializers, relu_out, prefix="res_output")
+        out = _qdq_pair(nodes, initializers, relu_out, prefix="res_output", scale=activation_scale)
         outputs.append(helper.make_tensor_value_info("output", TensorProto.FLOAT, [int(key.batch_size), c_out, max(1, h // max(1, stride)), max(1, w // max(1, stride))]))
     elif key.block_type == "fusion_block":
         c_ego = int(key.metadata.get("C_ego") or key.C_mid or key.C_out or max(1, c_in // 2))
@@ -193,29 +204,29 @@ def _export_qdq_subgraph(key: LatencyLUTKey, onnx_path: Path) -> dict[str, Any]:
         c_fused = int(key.metadata.get("C_fused") or key.C_out or key.C_mid or max(c_ego, c_infra))
         inputs.append(helper.make_tensor_value_info("ego", TensorProto.FLOAT, [int(key.batch_size), c_ego, h, w]))
         inputs.append(helper.make_tensor_value_info("infrastructure", TensorProto.FLOAT, [int(key.batch_size), c_infra, h, w]))
-        ego = _qdq_pair(nodes, initializers, "ego", prefix="fusion_ego")
-        infra = _qdq_pair(nodes, initializers, "infrastructure", prefix="fusion_infra")
+        ego = _qdq_pair(nodes, initializers, "ego", prefix="fusion_ego", scale=activation_scale)
+        infra = _qdq_pair(nodes, initializers, "infrastructure", prefix="fusion_infra", scale=activation_scale)
         concat = "fusion_concat"
         nodes.append(helper.make_node("Concat", [ego, infra], [concat], name="Fusion_Concat", axis=1))
-        concat_qdq = _qdq_pair(nodes, initializers, concat, prefix="fusion_concat_out")
-        compressed = _conv_qdq(nodes, initializers, key, concat_qdq, prefix="fusion_compress", c_in=c_ego + c_infra, c_out=c_fused, kernel=1, padding=0)
-        ego_proj = _conv_qdq(nodes, initializers, key, ego, prefix="fusion_ego_proj", c_in=c_ego, c_out=c_fused, kernel=1, padding=0, relu=False)
+        concat_qdq = _qdq_pair(nodes, initializers, concat, prefix="fusion_concat_out", scale=activation_scale)
+        compressed = _conv_qdq(nodes, initializers, key, concat_qdq, prefix="fusion_compress", c_in=c_ego + c_infra, c_out=c_fused, kernel=1, padding=0, activation_scale=activation_scale, weight_scale=weight_scale)
+        ego_proj = _conv_qdq(nodes, initializers, key, ego, prefix="fusion_ego_proj", c_in=c_ego, c_out=c_fused, kernel=1, padding=0, relu=False, activation_scale=activation_scale, weight_scale=weight_scale)
         add = "fusion_add"
         nodes.append(helper.make_node("Add", [compressed, ego_proj], [add], name="Fusion_Add"))
-        add_qdq = _qdq_pair(nodes, initializers, add, prefix="fusion_add_out")
-        out = _conv_qdq(nodes, initializers, key, add_qdq, prefix="fusion_conv", c_in=c_fused, c_out=c_fused, kernel=3, padding=1)
+        add_qdq = _qdq_pair(nodes, initializers, add, prefix="fusion_add_out", scale=activation_scale)
+        out = _conv_qdq(nodes, initializers, key, add_qdq, prefix="fusion_conv", c_in=c_fused, c_out=c_fused, kernel=3, padding=1, activation_scale=activation_scale, weight_scale=weight_scale)
         outputs.append(helper.make_tensor_value_info("output", TensorProto.FLOAT, [int(key.batch_size), c_fused, h, w]))
     elif key.block_type == "pfn_block":
         point_feature_dim = int(key.metadata.get("point_feature_dim") or key.C_in or key.C_out or 1)
         inputs.append(helper.make_tensor_value_info("points", TensorProto.FLOAT, [int(key.batch_size), int(key.fixed_K), point_feature_dim]))
-        points = _qdq_pair(nodes, initializers, "points", prefix="pfn_points")
+        points = _qdq_pair(nodes, initializers, "points", prefix="pfn_points", scale=activation_scale)
         rng = _np_rng(key)
         weight = rng.normal(0.0, 0.05, size=(point_feature_dim, c_out)).astype(np.float32)
         initializers.append(numpy_helper.from_array(weight, "pfn_weight"))
-        weight_dq = _qdq_pair(nodes, initializers, "pfn_weight", scale=0.02, prefix="pfn_weight_qdq")
+        weight_dq = _qdq_pair(nodes, initializers, "pfn_weight", scale=weight_scale, prefix="pfn_weight_qdq")
         matmul = "pfn_matmul"
         nodes.append(helper.make_node("MatMul", [points, weight_dq], [matmul], name="PFN_MatMul"))
-        matmul_qdq = _qdq_pair(nodes, initializers, matmul, prefix="pfn_matmul_out")
+        matmul_qdq = _qdq_pair(nodes, initializers, matmul, prefix="pfn_matmul_out", scale=activation_scale)
         relu = "pfn_relu"
         nodes.append(helper.make_node("Relu", [matmul_qdq], [relu], name="PFN_Relu"))
         out = "pfn_reduce_max"

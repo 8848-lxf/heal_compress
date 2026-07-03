@@ -180,7 +180,11 @@ def _trtexec_command(
         "--useCudaGraph",
     ]
     if device is not None:
-        cmd.append(f"--device={int(device)}")
+        # `_env_for_trtexec` maps the requested physical GPU to the only
+        # visible CUDA device for the subprocess. In that namespace trtexec
+        # must use device 0; passing the physical index makes parallel shards
+        # fail with "Cannot find device ID <n>".
+        cmd.append("--device=0")
     if min_repeat_ms is not None and int(min_repeat_ms) > 0:
         duration_s = max(1, int(math.ceil(int(min_repeat_ms) / 1000.0)))
         cmd.append(f"--duration={duration_s}")

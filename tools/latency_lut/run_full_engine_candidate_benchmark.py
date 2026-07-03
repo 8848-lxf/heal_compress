@@ -25,6 +25,9 @@ DEFAULT_CONFIG = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_model
 DEFAULT_CHECKPOINT = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
 DEFAULT_HEAL_REPO = Path("/home/lixingfeng/UniAD_examine/HEAL")
 DEFAULT_TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
+DEFAULT_LAYER_MAPPING = Path("configs/latency_lut/full_engine_layer_precision_mapping.yaml")
+DEFAULT_ATOMIC_INVENTORY = Path("outputs/latency_lut/atomic_deployment_unit_inventory_v2.json")
+DEFAULT_SCALE_CACHE = Path("outputs/latency_lut/activation_scale_cache_calib200.json")
 DEFAULT_PLUGIN_CANDIDATES = (
     Path("quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"),
     Path("tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/plugins/pointpillar_scatter_trt_build/libpointpillar_scatter_trt.so"),
@@ -232,7 +235,14 @@ def _precision_flags(candidate: dict[str, Any]) -> list[str]:
 
 
 def _candidate_onnx(args: argparse.Namespace, candidate: dict[str, Any]) -> Path | None:
-    raw = args.onnx or candidate.get("onnx_path") or candidate.get("full_engine_onnx")
+    raw = (
+        args.onnx
+        or candidate.get("qdq_onnx_path")
+        or candidate.get("route2_onnx_path")
+        or candidate.get("mixed_precision_onnx")
+        or candidate.get("onnx_path")
+        or candidate.get("full_engine_onnx")
+    )
     if not raw:
         return None
     return Path(raw).expanduser()
@@ -273,27 +283,306 @@ def _precision_from_candidate(args: argparse.Namespace, candidate: dict[str, Any
     raise ValueError(f"unsupported full-engine precision profile: {raw}")
 
 
-def _candidate_has_mixed_precision(candidate: dict[str, Any]) -> bool:
-    precision_config = dict(candidate.get("precision_config") or {})
-    values = {
-        str(value).upper()
-        for key, value in precision_config.items()
-        if key != "default" and value is not None
-    }
-    default = precision_config.get("default")
-    if default is not None:
-        values.add(str(default).upper())
-    normalized = set()
+def _candidate_precision_set(candidate: dict[str, Any]) -> set[str]:
+    data = dict(candidate.get("precision_config") or {})
+    values = [data.get("default", "FP16")]
+    nested = data.get("overrides")
+    if isinstance(nested, dict):
+        values.extend(nested.values())
+    values.extend(value for key, value in data.items() if key not in {"default", "overrides"})
+    normalized: set[str] = set()
     for value in values:
-        if value in {"TRT_FP16", "FP16"}:
-            normalized.add("fp16")
-        elif value in {"TRT_FP32", "FP32"}:
-            normalized.add("fp32")
-        elif value in {"TRT_INT8_QDQ", "INT8"}:
-            normalized.add("int8")
+        label = str(value).upper()
+        if label in {"FP32", "TRT_FP32"}:
+            normalized.add("FP32")
+        elif label in {"FP16", "TRT_FP16", "HALF"}:
+            normalized.add("FP16")
+        elif label in {"INT8", "TRT_INT8", "TRT_INT8_QDQ"}:
+            normalized.add("INT8")
         else:
-            normalized.add(value.lower())
-    return len(normalized) > 1
+            raise ValueError(f"unsupported full-engine layer precision_profile: {value}")
+    return normalized
+
+
+def _importance_mode(value: Any) -> str:
+    label = str(value or "l1").lower()
+    mapping = {
+        "l1": "l1_norm",
+        "l1_norm": "l1_norm",
+        "l2": "l2_norm",
+        "l2_norm": "l2_norm",
+        "taylor": "first_order_taylor",
+        "taylor1": "first_order_taylor",
+        "taylor_first_order": "first_order_taylor",
+        "first_order_taylor": "first_order_taylor",
+        "fisher": "second_order_fisher",
+        "fisher2": "second_order_fisher",
+        "fisher_second_order": "second_order_fisher",
+        "second_order_fisher": "second_order_fisher",
+    }
+    if label not in mapping:
+        raise ValueError(f"unsupported pruning importance mode: {value}")
+    return mapping[label]
+
+
+def _selection_mode(pruning: dict[str, Any]) -> str:
+    scope = str(pruning.get("scope", "global")).lower()
+    local_scope = str(pruning.get("local_scope", "")).lower()
+    if scope in {"root_node_local", "root_node_local_unit_ratio"} or local_scope in {"root_node", "root_node_local", "root_node_local_unit_ratio"}:
+        return "root_node_local_unit_ratio"
+    if scope in {"local", "local_scope", "prune_domain", "domain"}:
+        return "local_scope"
+    if scope in {"global", "constrained_global"}:
+        return "constrained_global"
+    if scope in {"global_coupled_channel"}:
+        return "global_coupled_channel"
+    raise ValueError(f"unsupported pruning scope: {scope}")
+
+
+def _mixed_precision_failure(base: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any] | None:
+    precisions = _candidate_precision_set(candidate)
+    if len(precisions) <= 1:
+        return None
+    if "INT8" in precisions:
+        qdq_path = candidate.get("qdq_onnx_path") or candidate.get("route2_onnx_path") or candidate.get("mixed_precision_onnx")
+        if not qdq_path:
+            return _failure(
+                base,
+                "int8_mixed_full_engine_qdq_path_missing",
+                "full-engine mixed INT8 requires an explicit W8A8 Q/DQ ONNX and TensorRT layer verification; no T_real_* was generated",
+                failed_stage="precision_config",
+                requested_layer_precisions=sorted(precisions),
+            )
+        if not Path(str(qdq_path)).expanduser().is_file():
+            return _failure(
+                base,
+                "int8_mixed_full_engine_qdq_onnx_missing",
+                f"explicit W8A8 Q/DQ ONNX not found: {qdq_path}; no T_real_* was generated",
+                failed_stage="precision_config",
+                requested_layer_precisions=sorted(precisions),
+                qdq_onnx_path=str(qdq_path),
+            )
+    return None
+
+
+def _precision_overrides(candidate: dict[str, Any]) -> dict[str, str]:
+    cfg = dict(candidate.get("precision_config") or {})
+    overrides: dict[str, str] = {}
+    nested = cfg.get("overrides")
+    if isinstance(nested, dict):
+        overrides.update({str(k): str(v).upper() for k, v in nested.items()})
+    for key, value in cfg.items():
+        if key not in {"default", "overrides"}:
+            overrides[str(key)] = str(value).upper()
+    return overrides
+
+
+def _has_int8_override(candidate: dict[str, Any]) -> bool:
+    return any(value in {"INT8", "TRT_INT8_QDQ"} for value in _precision_overrides(candidate).values())
+
+
+def _load_json_optional(path: str | Path) -> dict[str, Any]:
+    p = _repo_path(path)
+    if not p.is_file():
+        return {}
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def _scale_cache_has_requested_units(candidate: dict[str, Any], scale_cache: dict[str, Any]) -> bool:
+    units = scale_cache.get("units") or {}
+    if not _has_int8_override(candidate):
+        return True
+    for unit_id, precision in _precision_overrides(candidate).items():
+        if precision not in {"INT8", "TRT_INT8_QDQ"}:
+            continue
+        if unit_id in units:
+            continue
+        if any(str(key) == unit_id or str(key).startswith(unit_id + ".") or unit_id in str(key) for key in units):
+            continue
+        return False
+    return True
+
+
+def _autofill_scale_cache(ctx: FullEngineContext, candidate: dict[str, Any]) -> dict[str, Any]:
+    from tools.latency_lut.collect_activation_scales import collect_scales, write_report
+
+    output = _repo_path(DEFAULT_SCALE_CACHE)
+    inventory = _repo_path(DEFAULT_ATOMIC_INVENTORY)
+    args = SimpleNamespace(
+        onnx=str(ctx.onnx_path),
+        inventory=str(inventory),
+        output=str(output),
+        report=str(ctx.work_dir / "activation_scale_autofill_report.md"),
+        units=[unit for unit, precision in _precision_overrides(candidate).items() if precision in {"INT8", "TRT_INT8_QDQ"}],
+        trt_calibration_cache=str(_repo_path("tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/lidar_pyramid_dynamic_agent_single_engine_maxK_int8_train_calib200.cache")),
+        calib200_dir=str(_repo_path("tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200")),
+        num_frames=200,
+    )
+    payload = collect_scales(args)
+    existing = _load_json_optional(output)
+    merged = dict(existing) if existing else {}
+    merged["success"] = bool((merged.get("units") or {}) or payload.get("success"))
+    merged["status"] = payload.get("status") if payload.get("success") else payload.get("status", "activation_scale_autofill_failed")
+    merged["scale_source"] = payload.get("scale_source") or merged.get("scale_source")
+    merged["num_calib_frames"] = payload.get("num_calib_frames") or merged.get("num_calib_frames")
+    merged_units = dict(merged.get("units") or {})
+    merged_units.update(payload.get("units") or {})
+    merged["units"] = merged_units
+    merged.setdefault("missing_units", [])
+    merged["missing_units"] = list(merged.get("missing_units") or []) + list(payload.get("missing_units") or [])
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_report(payload, Path(args.report))
+    return {"payload": payload, "scale_cache": merged, "output": str(output), "report": str(args.report)}
+
+
+def _prepare_route2_mixed_onnx(ctx: FullEngineContext, candidate: dict[str, Any]) -> dict[str, Any]:
+    _prefer_local_compression_opencood(ctx)
+    from tools.latency_lut.insert_full_graph_qdq import insert_qdq
+    from tools.latency_lut.normalize_pruned_qdq_dtype_boundaries_v6 import normalize_pruned_qdq_dtype_boundaries
+    from tools.latency_lut.rewrite_full_onnx_precision import rewrite_onnx_precision
+    from tools.latency_lut.validate_onnx_dtype_closure_v6 import validate_onnx_dtype_closure
+
+    route_dir = ctx.work_dir / "route2_mixed_onnx"
+    route_dir.mkdir(parents=True, exist_ok=True)
+    mapping = _repo_path(DEFAULT_LAYER_MAPPING)
+    inventory_path = _repo_path(DEFAULT_ATOMIC_INVENTORY)
+    inventory_data = _load_json_optional(inventory_path)
+    inventory = list(inventory_data.get("units") or inventory_data or [])
+    typed_onnx = route_dir / f"{ctx.candidate_id}.typed.onnx"
+    typed_report = route_dir / f"{ctx.candidate_id}.typed_rewrite_report.json"
+    rewrite_report = rewrite_onnx_precision(
+        ctx.onnx_path,
+        typed_onnx,
+        candidate,
+        typed_report,
+        layer_mapping=mapping,
+    )
+    if not rewrite_report.get("success", rewrite_report.get("status") == "success"):
+        return {
+            "success": False,
+            "status": "fp16_fp32_rewrite_failed",
+            "failed_stage": "fp16_fp32_rewrite",
+            "error": rewrite_report.get("error") or "FP16/FP32 typed rewrite failed",
+            "rewrite_report": str(typed_report),
+        }
+    if not _has_int8_override(candidate):
+        candidate["route2_onnx_path"] = str(typed_onnx)
+        candidate["mixed_precision_onnx"] = str(typed_onnx)
+        return {
+            "success": True,
+            "status": "route2_fp_rewrite_ready",
+            "route2_onnx_path": str(typed_onnx),
+            "typed_report": str(typed_report),
+        }
+    scale_cache_path = _repo_path(DEFAULT_SCALE_CACHE)
+    scale_cache = _load_json_optional(scale_cache_path)
+    autofill = None
+    if not _scale_cache_has_requested_units(candidate, scale_cache):
+        autofill = _autofill_scale_cache(ctx, candidate)
+        scale_cache = dict(autofill.get("scale_cache") or {})
+    if not _scale_cache_has_requested_units(candidate, scale_cache):
+        return {
+            "success": False,
+            "status": "activation_scale_missing_after_autofill",
+            "failed_stage": "activation_scale_autofill",
+            "error": "requested INT8 units still lack activation scale after autofill",
+            "autofill": autofill,
+            "scale_cache": str(scale_cache_path),
+        }
+    qdq_onnx = route_dir / f"{ctx.candidate_id}.qdq.onnx"
+    qdq_report_path = route_dir / f"{ctx.candidate_id}.qdq_rewrite_report.json"
+    qdq_report = insert_qdq(
+        typed_onnx,
+        qdq_onnx,
+        candidate,
+        scale_cache,
+        qdq_report_path,
+        inventory=inventory,
+    )
+    if not qdq_report.get("success", qdq_report.get("status") == "success"):
+        return {
+            "success": False,
+            "status": "qdq_rewrite_failed",
+            "failed_stage": "qdq_rewrite",
+            "error": qdq_report.get("error") or "Q/DQ insertion failed",
+            "typed_report": str(typed_report),
+            "qdq_report": str(qdq_report_path),
+            "autofill": autofill,
+        }
+    dtype_closed_onnx = route_dir / f"{ctx.candidate_id}.dtype_closed.onnx"
+    dtype_closure_report_path = route_dir / f"{ctx.candidate_id}.dtype_closure_report.json"
+    dtype_report = normalize_pruned_qdq_dtype_boundaries(
+        qdq_onnx,
+        dtype_closed_onnx,
+        candidate,
+        dtype_closure_report_path,
+    )
+    if not dtype_report.get("success"):
+        return {
+            "success": False,
+            "status": "pruned_qdq_dtype_closure_failed",
+            "failed_stage": "pruned_qdq_dtype_closure_failed",
+            "error": dtype_report.get("error") or "pruned QDQ dtype closure failed",
+            "typed_report": str(typed_report),
+            "qdq_report": str(qdq_report_path),
+            "dtype_closure_report": str(dtype_closure_report_path),
+            "autofill": autofill,
+        }
+    dtype_validation_report_path = route_dir / f"{ctx.candidate_id}.dtype_closure_validation.json"
+    validation = validate_onnx_dtype_closure(
+        dtype_closed_onnx,
+        candidate,
+        dtype_validation_report_path,
+    )
+    if not validation.get("valid"):
+        return {
+            "success": False,
+            "status": "pruned_qdq_dtype_closure_failed",
+            "failed_stage": "pruned_qdq_dtype_closure_failed",
+            "error": "dtype closure validation failed before TensorRT build",
+            "typed_report": str(typed_report),
+            "qdq_report": str(qdq_report_path),
+            "dtype_closure_report": str(dtype_closure_report_path),
+            "dtype_closure_validation_report": str(dtype_validation_report_path),
+            "validation": validation,
+            "autofill": autofill,
+        }
+    candidate["qdq_onnx_path"] = str(qdq_onnx)
+    candidate["dtype_closed_onnx_path"] = str(dtype_closed_onnx)
+    candidate["route2_onnx_path"] = str(dtype_closed_onnx)
+    candidate["mixed_precision_onnx"] = str(dtype_closed_onnx)
+    candidate["qdq_report"] = str(qdq_report_path)
+    candidate["dtype_closure_report"] = str(dtype_closure_report_path)
+    candidate["dtype_closure_validation_report"] = str(dtype_validation_report_path)
+    return {
+        "success": True,
+        "status": "route2_qdq_dtype_closed_ready",
+        "route2_onnx_path": str(dtype_closed_onnx),
+        "typed_report": str(typed_report),
+        "qdq_report": str(qdq_report_path),
+        "qdq_onnx_path": str(qdq_onnx),
+        "dtype_closed_onnx_path": str(dtype_closed_onnx),
+        "dtype_closure_report": str(dtype_closure_report_path),
+        "dtype_closure_validation_report": str(dtype_validation_report_path),
+        "dtype_closure": dtype_report,
+        "dtype_closure_validation": validation,
+        "autofill": autofill,
+    }
+
+
+def _is_fp_mixed_candidate(candidate: dict[str, Any]) -> bool:
+    precisions = _candidate_precision_set(candidate)
+    return len(precisions) > 1 and precisions.issubset({"FP16", "FP32"})
+
+
+def _is_mixed_candidate(candidate: dict[str, Any]) -> bool:
+    return len(_candidate_precision_set(candidate)) > 1
+
+
+def _mixed_precision_profile_name(candidate: dict[str, Any]) -> str:
+    values = sorted(_candidate_precision_set(candidate))
+    return "MIXED_" + "_".join(values)
 
 
 def _context(args: argparse.Namespace, candidate: dict[str, Any], candidate_id: str, output: Path) -> FullEngineContext:
@@ -348,6 +637,42 @@ def _load_quant_deploy_module(name: str) -> Any:
     return __import__(name)
 
 
+def _prefer_heal_opencood(ctx: FullEngineContext) -> None:
+    heal = str(ctx.heal_repo.resolve())
+    if heal in sys.path:
+        sys.path.remove(heal)
+    sys.path.insert(0, heal)
+    local_opencood = str((_ROOT / "opencood").resolve())
+    for name, module in list(sys.modules.items()):
+        if name == "opencood" or name.startswith("opencood."):
+            mod_file = getattr(module, "__file__", "") or ""
+            if mod_file and str(Path(mod_file).resolve()).startswith(local_opencood):
+                sys.modules.pop(name, None)
+
+
+def _prefer_local_compression_opencood(ctx: FullEngineContext) -> None:
+    """Use this repo's lightweight compression package for Route2 tooling.
+
+    Full HEAL export/eval intentionally prioritizes HEAL's own ``opencood``.
+    The latency LUT Route2 rewriters live under this repository's
+    ``opencood.tools.compression`` namespace, so the import order must be
+    flipped only while preparing typed/QDQ ONNX graphs.
+    """
+    heal = str(ctx.heal_repo.resolve())
+    if heal in sys.path:
+        sys.path.remove(heal)
+    root = str(_ROOT.resolve())
+    if root in sys.path:
+        sys.path.remove(root)
+    sys.path.insert(0, root)
+    heal_opencood = str((ctx.heal_repo / "opencood").resolve())
+    for name, module in list(sys.modules.items()):
+        if name == "opencood" or name.startswith("opencood."):
+            mod_file = getattr(module, "__file__", "") or ""
+            if mod_file and str(Path(mod_file).resolve()).startswith(heal_opencood):
+                sys.modules.pop(name, None)
+
+
 def _failure(base: dict[str, Any], status: str, error: str, *, failed_stage: str, **extra: Any) -> dict[str, Any]:
     return {
         **base,
@@ -360,6 +685,7 @@ def _failure(base: dict[str, Any], status: str, error: str, *, failed_stage: str
 
 
 def _export_single_engine_onnx(ctx: FullEngineContext) -> dict[str, Any]:
+    _prefer_heal_opencood(ctx)
     mod = _load_quant_deploy_module("export_dynamic_single_engine_maxk_onnx")
     legacy_args = SimpleNamespace(
         output_root=str(ctx.output_root),
@@ -401,7 +727,47 @@ def _build_single_engine(ctx: FullEngineContext) -> dict[str, Any]:
     return builds[0] if builds else {"build_success": False, "error": f"no build row for precision {ctx.precision}", "build_report": report}
 
 
+def _build_mixed_single_engine(ctx: FullEngineContext, candidate: dict[str, Any]) -> dict[str, Any]:
+    from tools.latency_lut.build_mixed_precision_engine import build_mixed_engine
+
+    report_dir = ctx.work_dir / "mixed_precision"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    candidate_json = report_dir / f"{ctx.candidate_id}.mixed_candidate.json"
+    build_report_path = report_dir / f"{ctx.candidate_id}.mixed_build_report.json"
+    candidate_json.write_text(json.dumps(candidate, ensure_ascii=False, indent=2), encoding="utf-8")
+    mapping = _repo_path(DEFAULT_LAYER_MAPPING)
+    mixed_onnx = (
+        candidate.get("dtype_closed_onnx_path")
+        or candidate.get("route2_onnx_path")
+        or candidate.get("qdq_onnx_path")
+        or candidate.get("mixed_precision_onnx")
+        or str(ctx.onnx_path)
+    )
+    precisions = _candidate_precision_set(candidate)
+    args = SimpleNamespace(
+        onnx=str(Path(str(mixed_onnx)).expanduser()),
+        engine=str(ctx.engine_path),
+        candidate=str(candidate_json),
+        plugin=str(ctx.plugin),
+        layer_mapping=str(mapping),
+        trt_root=str(ctx.trt_root),
+        strongly_typed=False,
+        route=str(candidate.get("mixed_precision_route") or ("strongly_typed" if "INT8" in precisions else "auto")),
+        workspace_mib=4096,
+        max_agents=2,
+        device=int(ctx.device),
+        report=str(build_report_path),
+    )
+    report = build_mixed_engine(args)
+    build_report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    report["build_report"] = str(build_report_path)
+    report["build_success"] = bool(report.get("success") and ctx.engine_path.is_file())
+    report["built_onnx"] = str(Path(str(mixed_onnx)).expanduser())
+    return report
+
+
 def _evaluate_single_engine_subset(ctx: FullEngineContext) -> dict[str, Any]:
+    _prefer_heal_opencood(ctx)
     mod = _load_quant_deploy_module("run_dynamic_single_engine_maxk")
     utils = _load_quant_deploy_module("quant_deploy_utils")
     dirs = utils.ensure_quant_deploy_run_dirs(str(ctx.output_root))
@@ -485,24 +851,39 @@ def _prepare_candidate_checkpoint(ctx: FullEngineContext, candidate: dict[str, A
             }
         from pruning.export.export_pruned_model import export_pruned_model, parse_args as parse_export_args
 
+        export_argv = [
+            "--config",
+            str(ctx.config),
+            "--checkpoint",
+            str(ctx.checkpoint),
+            "--prune-plan",
+            str(plan_dir / "prune_plan.json"),
+            "--output-dir",
+            str(export_dir),
+            "--device",
+            ctx.device_str,
+            "--execute-general-pruner",
+            "--target-prune-ratio",
+            str(target_prune_ratio),
+            "--importance-mode",
+            _importance_mode(pruning.get("importance", "l1")),
+            "--selection-mode",
+            _selection_mode(pruning),
+            "--align",
+            str(int(pruning.get("align", 8))),
+            "--group-conv-align",
+            str(int(pruning.get("group_conv_align", pruning.get("align", 8)))),
+            "--group-conv-selection-mode",
+            str(pruning.get("group_conv_selection_mode", "independent_group_topk")),
+        ]
+        if pruning.get("num_calib_batches") is not None:
+            export_argv.extend(["--num-calib-batches", str(int(pruning["num_calib_batches"]))])
+        if pruning.get("run_forward_check"):
+            export_argv.append("--run-forward-check")
+        for prefix in pruning.get("extra_protected_prefixes", pruning.get("protected_prefixes", [])) or []:
+            export_argv.extend(["--extra-protected-prefix", str(prefix)])
         export_report = export_pruned_model(
-            parse_export_args(
-                [
-                    "--config",
-                    str(ctx.config),
-                    "--checkpoint",
-                    str(ctx.checkpoint),
-                    "--prune-plan",
-                    str(plan_dir / "prune_plan.json"),
-                    "--output-dir",
-                    str(export_dir),
-                    "--device",
-                    ctx.device_str,
-                    "--execute-general-pruner",
-                    "--target-prune-ratio",
-                    str(target_prune_ratio),
-                ]
-            )
+            parse_export_args(export_argv)
         )
     except Exception as exc:
         return {
@@ -517,10 +898,16 @@ def _prepare_candidate_checkpoint(ctx: FullEngineContext, candidate: dict[str, A
         if candidates:
             pruned_checkpoint = candidates[0]
     if not export_report.get("success") or not pruned_checkpoint.is_file():
+        failure_status = str(export_report.get("status") or "physical_prune_failed")
+        failure_stage = "importance" if failure_status in {
+            "taylor_importance_gradient_missing",
+            "fisher_importance_gradient_missing",
+            "importance_gradient_missing",
+        } else "physical_prune"
         return {
             "success": False,
-            "status": "physical_prune_failed",
-            "failed_stage": "physical_prune",
+            "status": failure_status,
+            "failed_stage": failure_stage,
             "error": export_report.get("error") or export_report.get("reason") or "pruned_model.pth was not produced",
             "prune_plan": str(plan_dir / "prune_plan.json"),
             "export_report": str(export_dir / "export_pruned_model_report.json"),
@@ -552,13 +939,6 @@ def _std_from_eval(eval_report: dict[str, Any]) -> float | None:
 
 
 def _run_quant_deploy_pipeline(args: argparse.Namespace, candidate: dict[str, Any], base: dict[str, Any], output: Path) -> dict[str, Any]:
-    if _candidate_has_mixed_precision(candidate):
-        return _failure(
-            base,
-            "failed_mixed_precision_full_engine_not_supported",
-            "full-engine export/build currently supports one global precision profile per candidate",
-            failed_stage="precision_config",
-        )
     ctx = _context(args, candidate, str(base["candidate_id"]), output)
     if not ctx.config.is_file():
         return _failure(base, "missing_config", f"config not found: {ctx.config}", failed_stage="preflight")
@@ -586,7 +966,19 @@ def _run_quant_deploy_pipeline(args: argparse.Namespace, candidate: dict[str, An
             failed_stage="onnx_export",
             export_report=export_report,
         )
-    build_report = _build_single_engine(ctx)
+    mixed_precision = _is_mixed_candidate(candidate)
+    route2_prepare = None
+    if mixed_precision:
+        route2_prepare = _prepare_route2_mixed_onnx(ctx, candidate)
+        if not route2_prepare.get("success"):
+            return _failure(
+                base,
+                str(route2_prepare.get("status") or "route2_prepare_failed"),
+                str(route2_prepare.get("error") or "Route2 mixed ONNX preparation failed"),
+                failed_stage=str(route2_prepare.get("failed_stage") or "route2_prepare"),
+                route2_prepare=route2_prepare,
+            )
+    build_report = _build_mixed_single_engine(ctx, candidate) if mixed_precision else _build_single_engine(ctx)
     if not build_report.get("build_success") or not ctx.engine_path.is_file():
         return _failure(
             base,
@@ -594,6 +986,7 @@ def _run_quant_deploy_pipeline(args: argparse.Namespace, candidate: dict[str, An
             str(build_report.get("error") or f"engine was not produced: {ctx.engine_path}"),
             failed_stage="engine_build",
             build_report=build_report,
+            route2_prepare=route2_prepare,
         )
     try:
         eval_report = _evaluate_single_engine_subset(ctx)
@@ -617,7 +1010,11 @@ def _run_quant_deploy_pipeline(args: argparse.Namespace, candidate: dict[str, An
         **base,
         "success": True,
         "status": "success",
-        "precision_profile": ctx.precision.upper(),
+        "precision_profile": _mixed_precision_profile_name(candidate) if mixed_precision else ctx.precision.upper(),
+        "mixed_precision": bool(mixed_precision),
+        "precision_verification": build_report.get("precision_verification") if mixed_precision else None,
+        "mixed_build_report": build_report.get("build_report") if mixed_precision else None,
+        "uses_qdq": bool(mixed_precision and "INT8" in _candidate_precision_set(candidate)),
         "T_real_p50": float(p50),
         "T_real_p90": float(p90) if p90 is not None else None,
         "T_real_p95": float(p95) if p95 is not None else None,
@@ -625,15 +1022,16 @@ def _run_quant_deploy_pipeline(args: argparse.Namespace, candidate: dict[str, An
         "T_real_std": _std_from_eval(eval_report),
         "num_val_frames": int(eval_report.get("actual_frames") or eval_report.get("evaluated_samples") or ctx.val_subset_size),
         "engine_hash": file_hash(ctx.engine_path),
-        "onnx_hash": file_hash(ctx.onnx_path),
+        "onnx_hash": file_hash(build_report.get("built_onnx") or ctx.onnx_path),
         "mAP": eval_report.get("mAP"),
         "AP_0_70": eval_report.get("AP@0.70"),
         "engine_path": str(ctx.engine_path),
-        "onnx_path": str(ctx.onnx_path),
+        "onnx_path": str(build_report.get("built_onnx") or ctx.onnx_path),
         "output_root": str(ctx.output_root),
         "plugin_path": str(ctx.plugin),
         "checkpoint_used": str(ctx.checkpoint),
         "candidate_preparation": prepared,
+        "route2_prepare": route2_prepare,
     }
 
 

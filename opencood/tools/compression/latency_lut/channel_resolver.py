@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .schema import DEPLOY_MODE, FIXED_K
+from .full_engine_precision import apply_precision_config_to_units
 
 
 @dataclass
@@ -45,7 +46,10 @@ class ChannelResolver:
         if deploy_mode != DEPLOY_MODE or fixed_k != FIXED_K:
             raise ValueError(f"LatencyProxy only supports {DEPLOY_MODE} fixedK{FIXED_K}")
         if "units" in candidate_config:
-            return [self._unit_from_dict(item) for item in candidate_config.get("units") or []]
+            units = list(candidate_config.get("units") or [])
+            if "precision_config" in candidate_config:
+                units = apply_precision_config_to_units(units, dict(candidate_config.get("precision_config") or {}))
+            return [self._unit_from_dict(item) for item in units]
         if "group_mask" in candidate_config:
             raise NotImplementedError(
                 "raw group_mask resolution requires coupled-channel metadata; pass pre-resolved units for now"
@@ -68,7 +72,7 @@ class ChannelResolver:
             padding=data.get("padding"),
             dilation=data.get("dilation"),
             groups=data.get("groups"),
-            precision=str(data.get("precision", data.get("weight_precision", "FP16"))),
+            precision=str(data.get("precision", data.get("precision_profile", data.get("weight_precision", "FP16")))),
             plugin_name=data.get("plugin_name"),
             plugin_version=data.get("plugin_version"),
             metadata=dict(data.get("metadata") or {}),

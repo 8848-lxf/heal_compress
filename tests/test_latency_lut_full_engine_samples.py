@@ -75,4 +75,6 @@ def test_named_candidate_preset_contains_baseline_and_light_prune():
     assert candidates[0]["pruning"]["enabled"] is False
     assert candidates[0]["precision_config"]["default"] == "FP16"
     assert candidates[2]["pruning"]["source"] == "pruning_tool"
-    assert candidates[2]["pruning"]["target_keep_ratio"] == 0.875
+    assert candidates[2]["pruning"]["target_keep_ratio"] == 0.97
+    assert candidates[2]["pruning"]["min_keep_ratio"] == 0.875
+    assert "backbone_m1.resnet.layer0" in candidates[2]["pruning"]["extra_protected_prefixes"]

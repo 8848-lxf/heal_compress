@@ -1,0 +1,53 @@
+# Deployment-unit to ONNX/TensorRT layer mapping for lidar_pyramid single_engine_maxK fixedK29696.
+# Patterns are matched against ONNX node names and, for ONNX, weight/bias initializer names.
+# TensorRT layer names are verified against EngineInspector / layer info when available.
+detection_head:
+  onnx_node_patterns:
+    - cls_head
+    - reg_head
+    - dir_head
+  trt_layer_patterns:
+    - cls_head
+    - reg_head
+    - dir_head
+
+shrink:
+  onnx_node_patterns:
+    - shrink_conv
+  trt_layer_patterns:
+    - shrink_conv
+
+backbone.stage1:
+  onnx_node_patterns:
+    - layer0
+    - /layer0/
+    - backbone_m1.resnet.layer0
+  trt_layer_patterns:
+    - layer0
+    - backbone_m1.resnet.layer0
+
+backbone.stage2:
+  onnx_node_patterns:
+    - layer1
+    - /layer1/
+    - pyramid_backbone.resnet.layer0
+    - pyramid_backbone.resnet.layer1
+  trt_layer_patterns:
+    - layer1
+    - pyramid_backbone.resnet.layer0
+    - pyramid_backbone.resnet.layer1
+
+backbone.stage3:
+  onnx_node_patterns:
+    - layer2
+    - /layer2/
+    - pyramid_backbone.resnet.layer2
+  trt_layer_patterns:
+    - layer2
+    - pyramid_backbone.resnet.layer2
+
+layer2.layer2.0.conv1.Conv:
+  onnx_node_patterns:
+    - /layer2/layer2.0/conv1/Conv
+  trt_layer_patterns:
+    - /layer2/layer2.0/conv1/Conv

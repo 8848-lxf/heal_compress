@@ -133,13 +133,15 @@ def test_remove_groups_skips_when_channels_per_conv_group_are_not_align8():
     assert keep == list(range(channels))
 
 
-def test_default_parse_args_protects_neck_and_detection_head_inputs():
+def test_default_parse_args_protects_detection_head_outputs_only():
     args = parse_args([])
 
     assert args.protect_neck_and_heads is True
-    assert "pyramid_backbone.deblocks" in args.extra_protected_prefix
-    assert "shrink_conv" in args.extra_protected_prefix
     assert "cls_head" in args.extra_protected_prefix
+    assert "reg_head" in args.extra_protected_prefix
+    assert "dir_head" in args.extra_protected_prefix
+    assert "pyramid_backbone.deblocks" not in args.extra_protected_prefix
+    assert "shrink_conv" not in args.extra_protected_prefix
 
 
 def test_build_protected_layers_matches_prefixes():

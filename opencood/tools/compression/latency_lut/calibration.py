@@ -7,6 +7,12 @@ from pathlib import Path
 from typing import Any
 
 
+def _float_feature(value: Any) -> float:
+    if value is None:
+        return 0.0
+    return float(value)
+
+
 @dataclass
 class CalibrationSample:
     candidate_id: str
@@ -30,7 +36,7 @@ class CalibrationSample:
             fixed_K=int(data.get("fixed_K", 29696)),
             channel_config_hash=data.get("channel_config_hash"),
             quant_config_hash=data.get("quant_config_hash"),
-            features={str(k): float(v) for k, v in dict(data.get("features") or {}).items()},
+            features={str(k): _float_feature(v) for k, v in dict(data.get("features") or {}).items()},
         )
 
 

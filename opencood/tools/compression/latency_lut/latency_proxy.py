@@ -5,9 +5,10 @@ from typing import Any
 
 from .calibration import IdentityCalibrationModel
 from .channel_resolver import ChannelResolver, ResolvedUnitConfig
+from .full_engine_precision import assignment_for_unit
 from .key_builder import build_boundary_key
 from .lut_database import LatencyEstimateItem, LatencyLUTDatabase
-from .schema import DEPLOY_MODE, FIXED_K, LatencyLUTKey, precision_to_profile, profile_to_weight_precision
+from .schema import DEPLOY_MODE, FIXED_K, LatencyLUTKey
 
 
 @dataclass
@@ -22,11 +23,14 @@ class LatencyEstimate:
     calibration_features: dict[str, Any] = field(default_factory=dict)
     missing_keys: list[dict[str, Any]] = field(default_factory=list)
     unavailable_keys: list[dict[str, Any]] = field(default_factory=list)
+    unsupported_precision_regions: list[dict[str, Any]] = field(default_factory=list)
+    precision_resolution_changes: list[dict[str, Any]] = field(default_factory=list)
     interpolated_keys: list[dict[str, Any]] = field(default_factory=list)
     calibration_model: str = "identity"
+    decomposition: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data = {
             "T_lut_raw": self.latency_lut_raw_ms,
             "T_calibrated": self.latency_calibrated_ms,
             "T_proxy": self.latency_ms,
@@ -41,9 +45,18 @@ class LatencyEstimate:
             "calibration_features": self.calibration_features,
             "missing_keys": self.missing_keys,
             "unavailable_keys": self.unavailable_keys,
+            "unsupported_precision_regions": self.unsupported_precision_regions,
+            "precision_resolution_changes": self.precision_resolution_changes,
             "interpolated_keys": self.interpolated_keys,
             "calibration_model": self.calibration_model,
+            "calibrator_model": self.calibration_model,
+            "calibrator_validated": False,
+            "ga_integration_allowed": False,
+            "calibration_status": "preliminary",
+            "readiness_gate_reason": "readiness_gate_not_satisfied",
         }
+        data.update(self.decomposition)
+        return data
 
 
 class LatencyProxy:
@@ -98,6 +111,7 @@ class LatencyProxy:
         if (candidate_config.get("strict_latency", self.strict_latency)) and (missing or unavailable):
             raise RuntimeError(f"LatencyProxy strict mode found missing/unavailable LUT keys: missing={len(missing)}, unavailable={len(unavailable)}")
         features = self._features(units, boundary_items, missing, unavailable)
+        decomposition = self._decomposition(unit_items, plugin_items, boundary_items, missing, unavailable)
         calibrated = float(self.calibration_model.predict(raw, features))
         return LatencyEstimate(
             latency_ms=calibrated + self.kappa * uncertainty,
@@ -112,13 +126,11 @@ class LatencyProxy:
             unavailable_keys=unavailable,
             interpolated_keys=interpolated,
             calibration_model=str(getattr(self.calibration_model, "model_type", self.calibration_model.__class__.__name__)),
+            decomposition=decomposition,
         )
 
     def _key_from_unit(self, unit: ResolvedUnitConfig) -> LatencyLUTKey:
-        profile = precision_to_profile(unit.precision)
-        weight = profile_to_weight_precision(profile)
-        compute = "FP32" if profile == "TRT_FP32" else "FP16" if profile == "TRT_FP16" else "INT8"
-        activation = "high_precision" if profile == "TRT_FP32" else "FP16"
+        precision = assignment_for_unit(unit.unit_id, unit.precision)
         return LatencyLUTKey(
             deploy_mode=DEPLOY_MODE,
             fixed_K=FIXED_K,
@@ -136,10 +148,10 @@ class LatencyProxy:
             dilation=unit.dilation,
             groups=unit.groups,
             batch_size=1,
-            precision_profile=profile,
-            weight_precision=weight,
-            activation_precision=activation,
-            compute_precision=compute,
+            precision_profile=precision.precision_profile,
+            weight_precision=precision.weight_precision,
+            activation_precision=precision.activation_precision,
+            compute_precision=precision.compute_precision,
             plugin_flag=unit.block_type == "plugin",
             plugin_name=unit.plugin_name,
             plugin_version=unit.plugin_version,
@@ -173,4 +185,157 @@ class LatencyProxy:
             "num_residual": sum(1 for unit in units if unit.block_type == "residual_block"),
             "num_missing_keys": len(missing or []),
             "num_unavailable_keys": len(unavailable or []),
+        }
+
+    def _decomposition(
+        self,
+        unit_items: list[LatencyEstimateItem],
+        plugin_items: list[LatencyEstimateItem],
+        boundary_items: list[LatencyEstimateItem],
+        missing: list[dict[str, Any]],
+        unavailable: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        def precision_name(profile: str | None) -> str:
+            if profile == "TRT_FP32":
+                return "FP32"
+            if profile == "TRT_INT8_QDQ":
+                return "INT8"
+            return "FP16"
+
+        def unit_type(key: LatencyLUTKey) -> str:
+            if key.plugin_flag or key.block_type == "plugin":
+                return "plugin"
+            if key.module_name == "shrink":
+                return "shrink"
+            if key.module_name == "pyramid_fusion":
+                return "fusion"
+            if key.module_name == "detection_head":
+                return "head"
+            if key.block_type in {"pfn_block", "gemm"}:
+                return "gemm"
+            if key.block_type == "precision_boundary":
+                if key.src_precision == "TRT_INT8_QDQ" or key.dst_precision == "TRT_INT8_QDQ":
+                    return "qdq_boundary"
+                return "cast_boundary"
+            if key.block_type in {"fusion_merge", "concat", "merge"}:
+                return "add_concat_merge"
+            if key.block_type == "grid_sample":
+                return "grid_sample"
+            return "conv_bn_act"
+
+        by_precision = {"FP32": 0.0, "FP16": 0.0, "INT8": 0.0}
+        by_unit_type = {
+            "conv_bn_act": 0.0,
+            "gemm": 0.0,
+            "shrink": 0.0,
+            "fusion": 0.0,
+            "head": 0.0,
+            "plugin": 0.0,
+            "grid_sample": 0.0,
+            "add_concat_merge": 0.0,
+            "cast_boundary": 0.0,
+            "qdq_boundary": 0.0,
+            "fixed_overhead": 0.0,
+        }
+        by_stage: dict[str, float] = {}
+        exact = 0
+        coarse = 0
+        missing_count = 0
+        unavailable_count = 0
+        coarse_keys: list[dict[str, Any]] = []
+
+        compute = 0.0
+        for item in unit_items:
+            if item.match_type in {"exact", "nearest", "interpolate"}:
+                compute += float(item.latency_ms)
+            by_precision[precision_name(item.key.precision_profile)] += float(item.latency_ms)
+            kind = unit_type(item.key)
+            by_unit_type[kind] = by_unit_type.get(kind, 0.0) + float(item.latency_ms)
+            stage = f"{item.key.module_name}.{item.key.block_name}"
+            by_stage[stage] = by_stage.get(stage, 0.0) + float(item.latency_ms)
+            if item.match_type == "exact":
+                exact += 1
+            elif item.match_type in {"nearest", "interpolate"}:
+                coarse += 1
+                coarse_keys.append(item.to_dict())
+            elif item.match_type == "unavailable":
+                unavailable_count += 1
+            else:
+                missing_count += 1
+
+        plugin = 0.0
+        for item in plugin_items:
+            plugin += float(item.latency_ms)
+            by_unit_type["plugin"] += float(item.latency_ms)
+            if item.match_type == "exact":
+                exact += 1
+            elif item.match_type in {"nearest", "interpolate"}:
+                coarse += 1
+                coarse_keys.append(item.to_dict())
+            elif item.match_type == "unavailable":
+                unavailable_count += 1
+            else:
+                missing_count += 1
+
+        cast = 0.0
+        qdq = 0.0
+        for item in boundary_items:
+            if item.key.src_precision == item.key.dst_precision:
+                exact += 1 if item.match_type == "exact" else 0
+                continue
+            if item.key.src_precision == "TRT_INT8_QDQ" or item.key.dst_precision == "TRT_INT8_QDQ":
+                qdq += float(item.latency_ms)
+                by_unit_type["qdq_boundary"] += float(item.latency_ms)
+            else:
+                cast += float(item.latency_ms)
+                by_unit_type["cast_boundary"] += float(item.latency_ms)
+            if item.match_type == "exact":
+                exact += 1
+            elif item.match_type in {"nearest", "interpolate", "default"}:
+                coarse += 1
+                if item.match_type != "exact":
+                    coarse_keys.append(item.to_dict())
+
+        total_units = len(unit_items) + len(plugin_items)
+        covered_units = sum(1 for item in unit_items + plugin_items if item.match_type in {"exact", "nearest", "interpolate"})
+        raw = compute + cast + qdq + plugin
+        return {
+            "T_compute_covered": compute,
+            "T_boundary_cast": cast,
+            "T_boundary_qdq": qdq,
+            "T_plugin_or_scatter": plugin,
+            "T_grid_sample_or_geometry": 0.0,
+            "T_elementwise_merge": 0.0,
+            "T_memory_reformat": 0.0,
+            "T_fixed_overhead": 0.0,
+            "T_uncovered_est": 0.0,
+            "T_lut_by_precision": by_precision,
+            "T_lut_by_unit_type": by_unit_type,
+            "T_lut_by_stage": by_stage,
+            "covered_unit_count": covered_units,
+            "missing_unit_count": len(missing),
+            "coverage_ratio_by_units": float(covered_units / total_units) if total_units else 1.0,
+            "coverage_ratio_by_estimated_latency": 1.0 if raw > 0.0 and not missing and not unavailable else 0.0,
+            "exact_key_count": exact,
+            "coarse_key_count": coarse,
+            "missing_key_count": len(missing) + missing_count,
+            "unavailable_key_count": len(unavailable) + unavailable_count,
+            "coarse_keys_used": coarse_keys,
+            "coverage_report": {
+                "covered_unit_count": covered_units,
+                "total_unit_count": total_units,
+                "coverage_ratio_by_units": float(covered_units / total_units) if total_units else 1.0,
+                "missing_key_count": len(missing) + missing_count,
+                "unavailable_key_count": len(unavailable) + unavailable_count,
+            },
+            "source_by_component": {
+                "T_compute_covered": "measured_lut",
+                "T_boundary_cast": "measured_or_estimated",
+                "T_boundary_qdq": "measured_or_estimated",
+                "T_plugin_or_scatter": "measured_or_estimated",
+                "T_grid_sample_or_geometry": "missing",
+                "T_elementwise_merge": "missing",
+                "T_memory_reformat": "estimated_overhead",
+                "T_fixed_overhead": "estimated_overhead",
+            },
         }

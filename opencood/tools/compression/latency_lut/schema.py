@@ -101,6 +101,10 @@ class LatencyLUTKey:
             raise ValueError(f"Latency LUT only supports fixed_K={FIXED_K}, got {self.fixed_K}")
         object.__setattr__(self, "fixed_K", int(self.fixed_K))
         object.__setattr__(self, "precision_profile", precision_to_profile(self.precision_profile))
+        if self.precision_profile == "TRT_INT8_QDQ":
+            object.__setattr__(self, "weight_precision", "INT8")
+            object.__setattr__(self, "activation_precision", "INT8")
+            object.__setattr__(self, "compute_precision", "INT8")
         object.__setattr__(self, "kernel_size", _norm_shape(self.kernel_size))
         object.__setattr__(self, "stride", _norm_shape(self.stride))
         object.__setattr__(self, "padding", _norm_shape(self.padding))

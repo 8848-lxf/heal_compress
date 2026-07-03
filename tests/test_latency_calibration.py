@@ -24,3 +24,17 @@ def test_linear_calibration_fits_simple_samples():
     payload = model.to_dict()
     restored = LinearCalibrationModel.from_dict(payload)
     assert abs(restored.predict(4.0, {"num_units": 4}) - 8.0) < 1e-6
+
+
+def test_calibration_sample_none_feature_defaults_to_zero():
+    sample = CalibrationSample.from_dict(
+        {
+            "candidate_id": "route2",
+            "predicted_lut_ms": 0.5,
+            "real_engine_p50_ms": 3.2,
+            "features": {"pruning_keep_ratio": None, "num_qdq_nodes_inserted": 8},
+        }
+    )
+
+    assert sample.features["pruning_keep_ratio"] == 0.0
+    assert sample.features["num_qdq_nodes_inserted"] == 8.0

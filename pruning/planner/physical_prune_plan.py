@@ -31,7 +31,12 @@ def build_plan_from_coupled_groups(
     for group in groups:
         channels = [int(v) for v in group.get("channel_indices", [])]
         total = len(channels)
-        keep_count, prune_count = legal_keep_count(total, target_prune_ratio, min_keep_ratio) if total else (0, 0)
+        is_prunable = bool(group.get("is_prunable", True))
+        is_protected = bool(group.get("is_protected", False))
+        if total and (is_protected or not is_prunable):
+            keep_count, prune_count = total, 0
+        else:
+            keep_count, prune_count = legal_keep_count(total, target_prune_ratio, min_keep_ratio) if total else (0, 0)
         keep_indices = channels[:keep_count]
         prune_indices = channels[keep_count:]
         source_modules = []
@@ -52,8 +57,8 @@ def build_plan_from_coupled_groups(
                 "keep_indices": keep_indices,
                 "prune_indices": prune_indices,
                 "importance": importance,
-                "is_prunable": bool(group.get("is_prunable", True)),
-                "is_protected": bool(group.get("is_protected", False)),
+                "is_prunable": is_prunable,
+                "is_protected": is_protected,
                 "physical_operations": [],
             }
         )

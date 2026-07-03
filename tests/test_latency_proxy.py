@@ -25,7 +25,7 @@ def _record(unit: str, precision: str, latency: float) -> LatencyRecord:
             batch_size=1,
             precision_profile=profile,
             weight_precision=precision,
-            activation_precision="FP16",
+            activation_precision=precision,
             compute_precision=precision,
         ),
         latency_p50_ms=latency,

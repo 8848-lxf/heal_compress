@@ -80,6 +80,14 @@ class ImportanceEstimator:
             for name in self._gradients:
                 self._gradients[name] /= count
                 self._fisher_diag[name] /= count
+            params = dict(self.model.named_parameters())
+            for name, grad in self._gradients.items():
+                param = params.get(name)
+                if param is None:
+                    continue
+                param.grad = grad.detach().clone()
+                setattr(param, "_importance_grad", grad.detach().clone())
+                setattr(param, "_importance_fisher_diag", self._fisher_diag[name].detach().clone())
         logger.info("Computed gradients on %d samples for %d parameters", count, len(self._gradients))
 
     def estimate(self) -> dict[str, float]:
@@ -89,8 +97,16 @@ class ImportanceEstimator:
             if getattr(group, "protected", getattr(group, "is_protected", False)):
                 score = float("inf")
                 risk = ""
+                score_meta = {
+                    "raw_sum_score": float("inf"),
+                    "normalized_score": float("inf"),
+                    "num_weights_in_group": 0,
+                    "num_layers_in_group": len(getattr(group, "items", [])),
+                    "score_source": self.method,
+                    "fallback_used": False,
+                }
             else:
-                score, risk = self._compute_group_importance(group)
+                score, risk, score_meta = self._compute_group_importance(group)
                 if risk:
                     try:
                         group.protect(risk)
@@ -98,7 +114,7 @@ class ImportanceEstimator:
                         pass
                     score = float("inf")
             scores[group.group_id] = score
-            rec = self._record(group, score, risk)
+            rec = self._record(group, score, risk, score_meta)
             self.records.append(rec)
         return scores
 
@@ -106,10 +122,13 @@ class ImportanceEstimator:
         scores = self.estimate()
         return scores, self.records
 
-    def _compute_group_importance(self, group: Any) -> tuple[float, str]:
+    def _compute_group_importance(self, group: Any) -> tuple[float, str, dict[str, Any]]:
         values: list[torch.Tensor] = []
         missing_grads: list[str] = []
         risk_reasons: list[str] = []
+        fallback_used = False
+        source_layers: set[str] = set()
+        num_weights = 0
         for item in getattr(group, "items", []):
             module = item.module
             if not hasattr(module, "weight") or module.weight is None:
@@ -127,23 +146,40 @@ class ImportanceEstimator:
                 continue
             if missing:
                 missing_grads.append(item.name)
+                fallback_used = True
             if value is not None:
                 values.append(value)
+                source_layers.add(str(item.name))
+                num_weights += int(module.weight.numel())
+        score_meta: dict[str, Any] = {
+            "num_weights_in_group": int(num_weights),
+            "num_layers_in_group": int(len(source_layers)),
+            "score_source": self.method,
+            "fallback_used": bool(fallback_used),
+        }
         if risk_reasons:
             group.meta["importance_risk_reasons"] = risk_reasons
-            return float("inf"), "high_risk_protected"
+            score_meta.update({"raw_sum_score": float("inf"), "normalized_score": float("inf")})
+            return float("inf"), "high_risk_protected", score_meta
         if missing_grads and self.strict_grad:
             raise RuntimeError(f"Missing gradients for group {group.group_id}: {missing_grads}")
         if not values:
-            return 0.0, ""
+            score_meta.update({"raw_sum_score": 0.0, "normalized_score": 0.0})
+            return 0.0, "", score_meta
         if self.method == "l2_norm":
             score_tensor = torch.stack([v.float().pow(2) for v in values]).sum().sqrt()
         else:
             score_tensor = torch.stack([v.float() for v in values]).sum()
         score = float(score_tensor.detach().cpu())
+        score_meta.update(
+            {
+                "raw_sum_score": score,
+                "normalized_score": score / max(float(num_weights), 1.0),
+            }
+        )
         if math.isnan(score) or math.isinf(score):
-            return score, "high_risk_protected"
-        return score, ""
+            return score, "high_risk_protected", score_meta
+        return score, "", score_meta
 
     def _item_importance(
         self,
@@ -212,8 +248,9 @@ class ImportanceEstimator:
         second = 0.5 * (f * w.pow(2)).sum() if f is not None else torch.zeros((), device=w.device)
         return (first + second).detach(), fisher is None, ""
 
-    def _record(self, group: Any, score: float, risk: str) -> dict[str, Any]:
+    def _record(self, group: Any, score: float, risk: str, score_meta: dict[str, Any] | None = None) -> dict[str, Any]:
         meta = getattr(group, "meta", {}) or {}
+        score_meta = score_meta or {}
         module_names = ";".join(item.name for item in getattr(group, "items", []))
         protected = bool(getattr(group, "protected", getattr(group, "is_protected", False)))
         return {
@@ -226,6 +263,12 @@ class ImportanceEstimator:
             "importance_risk_reasons": ";".join(meta.get("importance_risk_reasons", [])),
             "importance_score": score,
             "importance_mode": self.method,
+            "raw_sum_score": score_meta.get("raw_sum_score", score),
+            "normalized_score": score_meta.get("normalized_score", score),
+            "num_weights_in_group": score_meta.get("num_weights_in_group", 0),
+            "num_layers_in_group": score_meta.get("num_layers_in_group", len(getattr(group, "items", []))),
+            "score_source": score_meta.get("score_source", self.method),
+            "fallback_used": bool(score_meta.get("fallback_used", False)),
             "transformer_block_name": meta.get("transformer_block_name", ""),
             "attention_type": meta.get("attention_type", ""),
             "qkv_type": meta.get("qkv_type", ""),
@@ -253,10 +296,14 @@ def compute_group_importance(
     strict_grad: bool = False,
 ) -> tuple[dict[str, float], list[dict[str, Any]]]:
     estimator = ImportanceEstimator(model, groups, method=method, strict_grad=strict_grad)
-    if method in ("first_order_taylor", "second_order_fisher") and calibration_data is not None:
+    if method in ("first_order_taylor", "second_order_fisher"):
+        if calibration_data is None:
+            raise RuntimeError(f"{method}_gradient_missing: calibration_data is required; refusing fallback_to_l1")
         if forward_fn is None or loss_fn is None:
             raise ValueError("Taylor/Fisher importance requires forward_fn and loss_fn")
         estimator.compute_gradients(forward_fn, calibration_data, loss_fn, num_samples=num_calib_batches)
+        if not estimator._gradients:
+            raise RuntimeError(f"{method}_gradient_missing: no parameter gradients were collected; refusing fallback_to_l1")
     return estimator.estimate_with_records()
 
 
@@ -308,8 +355,10 @@ def _item_local_importance(
                 return float("inf"), "importance_index_out_of_bounds"
             idx = torch.as_tensor(local_indices, dtype=torch.long, device=param.device)
             selected = param.index_select(0, idx)
-            grad = param.grad.index_select(0, idx) if param.grad is not None else None
-            fisher = grad.pow(2) if grad is not None else None
+            full_grad = getattr(param, "_importance_grad", param.grad)
+            full_fisher = getattr(param, "_importance_fisher_diag", None)
+            grad = full_grad.index_select(0, idx) if full_grad is not None else None
+            fisher = full_fisher.index_select(0, idx) if full_fisher is not None else (grad.pow(2) if grad is not None else None)
             values.append(_weight_importance_value(selected, method=method, grad=grad, fisher=fisher))
         if not values:
             return 0.0, ""
@@ -320,8 +369,10 @@ def _item_local_importance(
         return 0.0, ""
 
     weight = module.weight
-    grad = weight.grad
-    fisher = grad.pow(2) if grad is not None else None
+    grad = getattr(weight, "_importance_grad", weight.grad)
+    fisher = getattr(weight, "_importance_fisher_diag", None)
+    if fisher is None and grad is not None:
+        fisher = grad.pow(2)
 
     if isinstance(module, nn.Conv2d) and module.groups > 1 and item.direction == "in":
         if module.in_channels % module.groups != 0 or module.out_channels % module.groups != 0:
@@ -370,8 +421,12 @@ def _item_local_importance(
         bias = module.bias
         if max(local_indices) < int(bias.shape[0]):
             bias_sel = bias.index_select(0, torch.as_tensor(local_indices, dtype=torch.long, device=bias.device))
-            bias_grad = bias.grad.index_select(0, torch.as_tensor(local_indices, dtype=torch.long, device=bias.device)) if bias.grad is not None else None
-            value = value + _weight_importance_value(bias_sel, method=method, grad=bias_grad)
+            full_bias_grad = getattr(bias, "_importance_grad", bias.grad)
+            full_bias_fisher = getattr(bias, "_importance_fisher_diag", None)
+            bias_idx = torch.as_tensor(local_indices, dtype=torch.long, device=bias.device)
+            bias_grad = full_bias_grad.index_select(0, bias_idx) if full_bias_grad is not None else None
+            bias_fisher = full_bias_fisher.index_select(0, bias_idx) if full_bias_fisher is not None else None
+            value = value + _weight_importance_value(bias_sel, method=method, grad=bias_grad, fisher=bias_fisher)
 
     return float(value.detach().cpu()), ""
 
