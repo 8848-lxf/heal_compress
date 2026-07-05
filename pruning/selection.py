@@ -25,7 +25,7 @@ from .units import (
 class SelectionConfig:
     prune_ratio: float = 0.0
     selection_mode: str = "local_scope"
-    group_conv_selection_mode: str = "independent_group_topk"
+    group_conv_selection_mode: str = "flat_output_groups_fixed"
     align: int = 16
     group_conv_align: int = 8
     group_conv_prune_mode: str = "keep_groups"
@@ -412,6 +412,112 @@ def _build_remove_groups_candidate(
     return [candidate], selected, report
 
 
+def _reinterpretation_metrics(c_out_before: int, c_out_after: int, groups: int, keep_idx: Sequence[int]) -> dict[str, Any]:
+    if c_out_before <= 0 or c_out_after <= 0 or groups <= 0 or not keep_idx:
+        return {
+            "old_group_keep_count": {},
+            "old_to_new_out_map": {},
+            "reinterpretation_count": 0,
+            "reinterpretation_ratio": 0.0,
+            "grouped_keep_pattern_mismatch": False,
+        }
+    old_per = c_out_before // groups
+    new_per = c_out_after // groups
+    old_group_keep_count: dict[int, int] = {group_id: 0 for group_id in range(groups)}
+    old_to_new_out_map: dict[int, int] = {}
+    reinterpretation_count = 0
+    for new_idx, old_idx in enumerate(sorted(int(v) for v in keep_idx)):
+        old_group = old_idx // max(old_per, 1)
+        new_group = new_idx // max(new_per, 1)
+        old_group_keep_count[old_group] = old_group_keep_count.get(old_group, 0) + 1
+        old_to_new_out_map[old_idx] = new_idx
+        if old_group != new_group:
+            reinterpretation_count += 1
+    counts = list(old_group_keep_count.values())
+    return {
+        "old_group_keep_count": old_group_keep_count,
+        "old_to_new_out_map": old_to_new_out_map,
+        "reinterpretation_count": reinterpretation_count,
+        "reinterpretation_ratio": reinterpretation_count / max(c_out_after, 1),
+        "grouped_keep_pattern_mismatch": len(set(counts)) > 1,
+    }
+
+
+def _build_flat_output_groups_fixed_candidate(
+    scope: PruningGroup,
+    units: Sequence[CoupledChannelUnit],
+    scores: torch.Tensor,
+    cfg: SelectionConfig,
+    grouped: dict[str, Any],
+) -> tuple[list[AtomicPruneUnit], list[AtomicPruneUnit], dict[str, Any]]:
+    groups = int(grouped["groups"])
+    c_out = int(scope.num_channels)
+    report = _grouped_report_base(scope, cfg, grouped, scores)
+    if groups <= 1 or c_out % groups != 0:
+        report.update({"structure_legal": False, "protected_reason": "invalid_regular_grouped_conv"})
+        return [], [], report
+
+    target_prune = int(round(c_out * float(cfg.prune_ratio)))
+    legal_prune_counts = [count for count in range(0, c_out) if (c_out - count) > 0 and (c_out - count) % groups == 0]
+    if not legal_prune_counts:
+        report.update({"structure_legal": False, "protected_reason": "no_legal_cout_after"})
+        return [], [], report
+    prune_count = min(legal_prune_counts, key=lambda count: (abs(count - target_prune), count))
+    if prune_count <= 0:
+        expanded_prune: list[int] = []
+        expanded_keep = list(range(c_out))
+    else:
+        _, prune_idx = torch.topk(scores, prune_count, largest=False, sorted=False)
+        expanded_prune = sorted(int(v) for v in prune_idx.tolist())
+        prune_set = set(expanded_prune)
+        expanded_keep = [idx for idx in range(c_out) if idx not in prune_set]
+
+    idx_to_unit = _unit_by_idx(units)
+    candidate = AtomicPruneUnit(
+        candidate_id=f"{scope.group_id}::flat_output_groups_fixed",
+        scope_id=scope.group_id,
+        candidate_type="grouped_flat_output_groups_fixed",
+        source_coupled_units=[idx_to_unit[idx].unit_id for idx in expanded_prune if idx in idx_to_unit],
+        ref_indices=expanded_prune,
+        local_indices_by_item=_local_indices_by_item(scope, expanded_prune),
+        importance=_candidate_importance(units, expanded_prune),
+        importance_mode=cfg.importance_mode,
+        protected=bool(scope.protected),
+        protected_reason=scope.protected_reason or None,
+        constraints=scope_constraints(scope),
+        metadata={
+            "groups": groups,
+            "target_prune_count": target_prune,
+            "adjusted_prune_count": prune_count,
+            "ratio_adjusted": prune_count != target_prune,
+        },
+    )
+    metrics = _reinterpretation_metrics(c_out, len(expanded_keep), groups, expanded_keep)
+    group_keep_counts = metrics["old_group_keep_count"]
+    report.update(
+        {
+            "groups_after": groups,
+            "per_group_after": len(expanded_keep) // groups if groups else 0,
+            "expanded_keep_indices": expanded_keep,
+            "expanded_prune_indices": expanded_prune,
+            "per_group_kept_count": group_keep_counts,
+            "per_group_kept_count_align8": True,
+            "structure_legal": bool(len(expanded_keep) > 0 and len(expanded_keep) % groups == 0),
+            "target_prune_count": target_prune,
+            "adjusted_prune_count": prune_count,
+            "ratio_adjusted": prune_count != target_prune,
+            "grouped_keep_pattern_mismatch": metrics["grouped_keep_pattern_mismatch"],
+            "old_group_keep_count": group_keep_counts,
+            "old_to_new_out_map": metrics["old_to_new_out_map"],
+            "reinterpretation_count": metrics["reinterpretation_count"],
+            "reinterpretation_ratio": metrics["reinterpretation_ratio"],
+            "warnings": ["grouped_keep_pattern_mismatch"] if metrics["grouped_keep_pattern_mismatch"] else [],
+        }
+    )
+    selected = [] if not expanded_prune else [candidate]
+    return [candidate], selected, report
+
+
 def _grouped_candidates(
     scope: PruningGroup,
     units: Sequence[CoupledChannelUnit],
@@ -422,9 +528,31 @@ def _grouped_candidates(
     if not grouped.get("has_grouped_conv") or not grouped.get("per_group"):
         return [], [], {}
     mode = cfg.group_conv_selection_mode
+    if mode == "flat_output_groups_fixed":
+        return _build_flat_output_groups_fixed_candidate(scope, units, scores, cfg, grouped)
+    if mode == "group_balanced_output_groups_fixed":
+        candidates, selected, report = _build_independent_topk_candidate(scope, units, scores, cfg, grouped)
+        if report:
+            report["group_conv_selection_mode"] = "group_balanced_output_groups_fixed"
+            report["group_balance_pass"] = len(set(report.get("per_group_kept_count", {}).values())) <= 1
+            report["reinterpretation_ratio"] = 0.0 if report["group_balance_pass"] else None
+        for candidate in candidates:
+            candidate.candidate_type = "grouped_group_balanced_output_groups_fixed"
+            candidate.metadata["group_balance_pass"] = True
+        return candidates, selected, report
+    if mode == "group_coarsening_zero_padded_reblock":
+        candidates, selected, report = _build_flat_output_groups_fixed_candidate(scope, units, scores, cfg, grouped)
+        if report:
+            report["group_coarsening_requested"] = True
+            report["group_coarsening_resolver_status"] = "not_yet_bucket_local_zero_padded_reblock"
+            report.setdefault("warnings", []).append("group_coarsening_zero_padded_reblock_not_completed")
+        for candidate in candidates:
+            candidate.candidate_type = "grouped_group_coarsening_zero_padded_reblock_attempt"
+            candidate.metadata["group_coarsening_resolver_status"] = "not_yet_bucket_local_zero_padded_reblock"
+        return candidates, selected, report
     if mode == "independent_group_topk":
         return _build_independent_topk_candidate(scope, units, scores, cfg, grouped)
-    if mode == "remove_groups":
+    if mode in {"remove_groups", "true_group_block_pruning"}:
         return _build_remove_groups_candidate(scope, units, scores, cfg, grouped)
     return _build_shared_local_candidates(scope, units, scores, cfg, grouped)
 
@@ -523,7 +651,7 @@ def build_pruning_plan(
 ) -> PruningPlan:
     if cfg.selection_mode not in {"local_scope", "root_node_local_unit_ratio", "global_coupled_channel", "constrained_global"}:
         raise ValueError(f"Unsupported selection_mode: {cfg.selection_mode}")
-    if cfg.group_conv_selection_mode not in {"shared_local_mean", "independent_group_topk", "remove_groups"}:
+    if cfg.group_conv_selection_mode not in {"shared_local_mean", "independent_group_topk", "remove_groups", "true_group_block_pruning", "flat_output_groups_fixed", "group_balanced_output_groups_fixed", "group_coarsening_zero_padded_reblock"}:
         raise ValueError(f"Unsupported group_conv_selection_mode: {cfg.group_conv_selection_mode}")
 
     coupled_units: list[CoupledChannelUnit] = []

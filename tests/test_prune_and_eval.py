@@ -325,8 +325,45 @@ def apply_prune_replay(model: nn.Module, replay: list[dict[str, Any]], logger: l
                 local_keep = group_keep_map.get(str(group_id), group_keep_map.get(group_id, []))
                 keep.extend(group_id * before_per + int(local_idx) for local_idx in local_keep)
             fn = grouped_conv_pruning_fn("independent_group_topk")
+        elif axis == "grouped_group_balanced_output":
+            before = int(op.get("before_out", op.get("before", getattr(module, "out_channels", after))))
+            keep_indices = op.get("keep_indices")
+            prune_indices = op.get("prune_indices")
+            if keep_indices:
+                keep = [int(v) for v in keep_indices]
+            elif prune_indices:
+                prune = {int(v) for v in prune_indices}
+                keep = [idx for idx in range(before) if idx not in prune]
+            else:
+                keep = list(range(after))
+            fn = grouped_conv_pruning_fn("group_balanced_output_groups_fixed")
+        elif axis == "grouped_flat_output":
+            before = int(op.get("before_out", op.get("before", getattr(module, "out_channels", after))))
+            after = int(op.get("after_out", op.get("after", after)))
+            prune_indices = op.get("prune_indices")
+            keep_indices = op.get("keep_indices")
+            if keep_indices:
+                keep = [int(v) for v in keep_indices]
+            elif prune_indices:
+                prune = {int(v) for v in prune_indices}
+                keep = [idx for idx in range(before) if idx not in prune]
+            else:
+                # Older replay rows did not store the exact flat keep map. They
+                # used sorted compact keep indices, so replay the leading prefix
+                # to preserve shape. New v9.3 artifacts store keep_indices.
+                keep = list(range(after))
+            fn = grouped_conv_pruning_fn("flat_output_groups_fixed")
         else:
-            keep = list(range(after))
+            keep_indices = op.get("keep_indices")
+            prune_indices = op.get("prune_indices")
+            before = int(op.get("before", getattr(module, "out_channels", after)))
+            if keep_indices:
+                keep = [int(v) for v in keep_indices]
+            elif prune_indices:
+                prune = {int(v) for v in prune_indices}
+                keep = [idx for idx in range(before) if idx not in prune]
+            else:
+                keep = list(range(after))
             fn = get_pruning_fn(module, direction)
         if fn is None:
             logger.warning("prune_replay no pruning fn: layer=%s direction=%s axis=%s", layer, direction, axis)

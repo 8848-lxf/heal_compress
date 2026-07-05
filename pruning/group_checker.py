@@ -95,6 +95,48 @@ def check_pruning_group(
                                 "kept_per_group": kept_per_group,
                                 "align": group_conv_align,
                             })
+            if fn_name == "prune_grouped_flat_output_groups_fixed":
+                new_in = module.in_channels
+                new_out = len(local)
+                g = module.groups
+                if module.in_channels % g != 0 or new_out % g != 0:
+                    issues.append({
+                        "issue": "groups_divisibility",
+                        "layer": item.name,
+                        "groups": g,
+                        "new_in": new_in,
+                        "new_out": new_out,
+                    })
+                if item.direction != "out":
+                    issues.append({
+                        "issue": "flat_output_groups_fixed_requires_out_axis",
+                        "layer": item.name,
+                        "direction": item.direction,
+                    })
+            if fn_name == "prune_grouped_group_balanced_output_groups_fixed":
+                new_in = module.in_channels
+                new_out = len(local)
+                g = module.groups
+                if module.in_channels % g != 0 or new_out % g != 0:
+                    issues.append({
+                        "issue": "groups_divisibility",
+                        "layer": item.name,
+                        "groups": g,
+                        "new_in": new_in,
+                        "new_out": new_out,
+                    })
+                per = module.out_channels // g if g else 0
+                counts = []
+                for gi in range(g):
+                    start = gi * per
+                    counts.append(len([idx for idx in local if start <= idx < start + per]))
+                if len(set(counts)) > 1:
+                    issues.append({
+                        "issue": "group_balance_violation",
+                        "layer": item.name,
+                        "groups": g,
+                        "old_group_keep_counts": counts,
+                    })
             if fn_name == "prune_grouped_independent_topk":
                 new_in = new_out = len(local)
                 g = module.groups
@@ -198,6 +240,8 @@ def check_pruning_group(
             elif g > 0 and fn_name not in (
                 "prune_grouped_remove_groups",
                 "prune_grouped_keep_groups",
+                "prune_grouped_flat_output_groups_fixed",
+                "prune_grouped_group_balanced_output_groups_fixed",
                 "prune_grouped_independent_topk",
             ):
                 if new_out % g != 0 or new_in % g != 0:

@@ -65,6 +65,67 @@ def classify_grouped_conv(module: nn.Conv2d, align: int) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Handler A0: flat output-only, groups fixed
+# --------------------------------------------------------------------------- #
+def _prune_grouped_flat_output_groups_fixed(module: nn.Conv2d, keep: List[int]) -> Dict[str, Any]:
+    """Slice only output filters of a regular grouped Conv2d.
+
+    This is the project-pruner implementation of the TP-like output pruning
+    baseline. It intentionally does *not* prune the current grouped conv input
+    axis and does *not* change ``groups``. Uneven old-group keep counts are
+    allowed; they are recorded by the selector as a reinterpretation risk.
+    """
+    if module.groups <= 1:
+        raise ValueError("flat_output_groups_fixed expects groups > 1")
+    if _is_depthwise(module):
+        raise ValueError("flat_output_groups_fixed excludes depthwise conv")
+    if module.in_channels % module.groups != 0:
+        raise ValueError(
+            f"flat_output_groups_fixed: in_channels {module.in_channels} not divisible by groups {module.groups}"
+        )
+    if len(keep) <= 0:
+        raise ValueError("flat_output_groups_fixed: must keep at least one output channel")
+    if len(keep) % module.groups != 0:
+        raise ValueError(
+            f"flat_output_groups_fixed: C_out_after {len(keep)} not divisible by groups {module.groups}"
+        )
+    before_in, before_out, before_groups = module.in_channels, module.out_channels, module.groups
+    idx = _index(sorted(keep), module.weight.device)
+    module.weight = nn.Parameter(module.weight.data.index_select(0, idx).clone())
+    if module.bias is not None:
+        module.bias = nn.Parameter(module.bias.data.index_select(0, idx).clone())
+    module.out_channels = len(keep)
+    return {
+        "axis": "grouped_flat_output",
+        "before_in": before_in,
+        "after_in": module.in_channels,
+        "before_out": before_out,
+        "after_out": module.out_channels,
+        "before_groups": before_groups,
+        "after_groups": module.groups,
+        "input_pruned": False,
+        "groups_changed": False,
+    }
+
+
+def _prune_grouped_group_balanced_output_groups_fixed(module: nn.Conv2d, keep: List[int]) -> Dict[str, Any]:
+    """Output-only grouped Conv2d pruning with equal old-group keep counts."""
+    if module.groups <= 1:
+        raise ValueError("group_balanced_output_groups_fixed expects groups > 1")
+    if _is_depthwise(module):
+        raise ValueError("group_balanced_output_groups_fixed excludes depthwise conv")
+    keep_map = _group_local_keep_map(sorted(keep), module.out_channels, module.groups)
+    counts = {len(v) for v in keep_map.values()}
+    if len(counts) != 1:
+        raise ValueError("group_balanced_output_groups_fixed requires equal old-group keep counts")
+    return _prune_grouped_flat_output_groups_fixed(module, keep) | {
+        "axis": "grouped_group_balanced_output",
+        "group_keep_map": keep_map,
+        "group_balance_pass": True,
+    }
+
+
+# --------------------------------------------------------------------------- #
 # Handler A: keep groups fixed, shared local keep
 # --------------------------------------------------------------------------- #
 def _shared_local_keep(keep: List[int], channels: int, groups: int) -> List[int]:
@@ -223,6 +284,10 @@ def _grouped_supports(module: nn.Module) -> bool:
 
 _prune_grouped_keep_groups.__name__ = "prune_grouped_keep_groups"
 _prune_grouped_keep_groups.supports = _grouped_supports  # type: ignore[attr-defined]
+_prune_grouped_flat_output_groups_fixed.__name__ = "prune_grouped_flat_output_groups_fixed"
+_prune_grouped_flat_output_groups_fixed.supports = _grouped_supports  # type: ignore[attr-defined]
+_prune_grouped_group_balanced_output_groups_fixed.__name__ = "prune_grouped_group_balanced_output_groups_fixed"
+_prune_grouped_group_balanced_output_groups_fixed.supports = _grouped_supports  # type: ignore[attr-defined]
 _prune_grouped_independent_topk.__name__ = "prune_grouped_independent_topk"
 _prune_grouped_independent_topk.supports = _grouped_supports  # type: ignore[attr-defined]
 _prune_grouped_remove_groups.__name__ = "prune_grouped_remove_groups"
@@ -231,6 +296,10 @@ _prune_grouped_remove_groups.supports = _grouped_supports  # type: ignore[attr-d
 
 def grouped_conv_pruning_fn(mode: str) -> Callable[[nn.Module, List[int]], Dict[str, Any]]:
     """Return the grouped-conv pruning_fn for ``mode``."""
+    if mode in {"flat_output_groups_fixed", "group_coarsening_zero_padded_reblock"}:
+        return _prune_grouped_flat_output_groups_fixed
+    if mode == "group_balanced_output_groups_fixed":
+        return _prune_grouped_group_balanced_output_groups_fixed
     if mode == "remove_groups":
         return _prune_grouped_remove_groups
     if mode == "independent_group_topk":

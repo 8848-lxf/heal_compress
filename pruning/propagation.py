@@ -108,8 +108,9 @@ class GroupBuilder:
 
         self._merge_add_branches()
         self._merge_cat_branches()
-        self._merge_grouped_conv_producers()
-        self._merge_bottleneck_grouped_conv_triplets()
+        if self.grouped_conv_mode not in {"flat_output_groups_fixed", "group_balanced_output_groups_fixed", "group_coarsening_zero_padded_reblock"}:
+            self._merge_grouped_conv_producers()
+            self._merge_bottleneck_grouped_conv_triplets()
 
         # bucket roots by union-find root
         buckets: Dict[str, List[str]] = {}

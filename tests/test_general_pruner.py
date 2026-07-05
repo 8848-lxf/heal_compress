@@ -99,6 +99,7 @@ import logging
 import sys
 from pathlib import Path
 from typing import Any
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -125,6 +126,7 @@ from heal_compress.pruning.units import (
     coupled_channel_unit_rows,
     dataclass_to_json_dict,
     dependency_scope_rows,
+    instantiate_concrete_pruning_group,
 )
 from heal_compress.search.importance import (
     compute_group_importance,
@@ -477,6 +479,8 @@ def build_prune_replay(applied: list[dict[str, Any]], pre_ops: list[dict[str, An
                 "kept_groups": op.get("kept_groups", []),
                 "group_keep_map": op.get("group_keep_map", {}),
                 "per_group_after": int(op.get("per_group_after", 0) or 0),
+                "keep_indices": result.get("keep_indices", []),
+                "prune_indices": result.get("prune_indices", []),
             })
     return replay
 
@@ -520,6 +524,99 @@ def build_protected_layers(
     return sorted(protected)
 
 
+def apply_only_prune_module_filter(groups: list[Any], only_prefixes: list[str] | None) -> None:
+    if not only_prefixes:
+        return
+    prefixes = tuple(str(prefix) for prefix in only_prefixes if str(prefix))
+    for group in groups:
+        item_names = [str(getattr(item, "name", "")) for item in getattr(group, "items", [])]
+        root = str(getattr(group, "root_name", getattr(group, "group_id", "")))
+        matched = any(
+            name == prefix or name.startswith(prefix + ".") or root == prefix or root.startswith(prefix + ".")
+            for prefix in prefixes
+            for name in item_names
+        )
+        if not matched:
+            group.protected = True
+            group.protected_reason = "only_prune_module_filter"
+
+
+def apply_only_regular_grouped_conv_filter(groups: list[Any], enabled: bool) -> None:
+    if not enabled:
+        return
+    for group in groups:
+        has_regular_grouped = False
+        for item in getattr(group, "items", []):
+            module = getattr(item, "module", None)
+            if (
+                isinstance(module, nn.Conv2d)
+                and module.groups > 1
+                and not (module.groups == module.in_channels == module.out_channels)
+            ):
+                has_regular_grouped = True
+                break
+        if not has_regular_grouped:
+            group.protected = True
+            group.protected_reason = "only_prune_regular_grouped_conv_filter"
+
+
+def apply_explicit_prune_indices_override(plan: Any, scopes: list[Any], module_name: str | None, idxs: list[int] | None) -> None:
+    """Override one concrete pruning group with explicit root indices.
+
+    The normal selector remains unchanged. This narrow hook is used by
+    equivalence audits that must compare current replay against a TP oracle for
+    the exact same root output indices.
+    """
+    if not module_name or idxs is None:
+        return
+    scope = next(
+        (
+            group
+            for group in scopes
+            if any(str(getattr(item, "name", "")) == module_name for item in getattr(group, "items", []))
+        ),
+        None,
+    )
+    if scope is None:
+        plan.selected_atomic_units = []
+        plan.concrete_groups = []
+        return
+    units_by_scope: dict[str, list[Any]] = {}
+    for unit in plan.coupled_units:
+        units_by_scope.setdefault(unit.scope_id, []).append(unit)
+    plan.selected_atomic_units = []
+    plan.concrete_groups = [
+        instantiate_concrete_pruning_group(
+            scope,
+            sorted({int(idx) for idx in idxs}),
+            coupled_units=units_by_scope.get(scope.group_id, []),
+        )
+    ]
+
+
+def test_only_prune_module_filter_protects_non_target_groups():
+    target = SimpleNamespace(
+        group_id="group::backbone.layer0.0.conv2",
+        root_name="backbone.layer0.0.conv2",
+        protected=False,
+        protected_reason=None,
+        items=[SimpleNamespace(name="backbone.layer0.0.conv2")],
+    )
+    other = SimpleNamespace(
+        group_id="group::backbone.layer1.0.conv2",
+        root_name="backbone.layer1.0.conv2",
+        protected=False,
+        protected_reason=None,
+        items=[SimpleNamespace(name="backbone.layer1.0.conv2")],
+    )
+
+    apply_only_prune_module_filter([target, other], ["backbone.layer0.0.conv2"])
+
+    assert target.protected is False
+    assert other.protected is True
+    assert other.protected_reason == "only_prune_module_filter"
+
+
 def select_keep(
     group: Any,
     args: argparse.Namespace,
@@ -541,9 +638,11 @@ def select_keep(
 def configure_grouped_conv_pruning_fns(groups: list[Any], args: argparse.Namespace) -> list[dict[str, Any]]:
     """Set grouped-conv physical handlers from the new selection mode."""
     mode = args.group_conv_selection_mode
+    if mode == "true_group_block_pruning":
+        mode = "remove_groups"
     if mode == "remove_groups" and not args.allow_remove_groups:
         mode = "keep_groups"
-    if mode not in ("independent_group_topk", "remove_groups"):
+    if mode not in ("independent_group_topk", "group_balanced_output_groups_fixed", "remove_groups", "flat_output_groups_fixed", "group_coarsening_zero_padded_reblock"):
         mode = "keep_groups"
     operations: list[dict[str, Any]] = []
     for group in groups:
@@ -594,6 +693,7 @@ def build_selection_summary(
         "actual_prune_ratio": actual_prune_ratio,
         "grouped_conv_num_scopes": len(grouped_reports),
         "grouped_conv_shared_local_mean_used": sum(1 for r in grouped_reports if r.get("group_conv_selection_mode") == "shared_local_mean"),
+        "grouped_conv_flat_output_used": sum(1 for r in grouped_reports if r.get("group_conv_selection_mode") == "flat_output_groups_fixed"),
         "grouped_conv_independent_topk_used": sum(1 for r in grouped_reports if r.get("group_conv_selection_mode") == "independent_group_topk"),
         "grouped_conv_remove_groups_used": sum(1 for r in grouped_reports if r.get("group_conv_selection_mode") == "remove_groups"),
         "num_grouped_conv_align_violations": sum(1 for r in grouped_reports if not r.get("per_group_kept_count_align8", True)),
@@ -716,7 +816,9 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
     baseline_params, baseline_mb = count_params(model)
     structure_before = collect_module_structure(model)
     write_model_structure(model, out / "model_structure_before.txt")
-    pre_prune_ops = normalize_grouped_convs_for_alignment(model, args.group_conv_align)
+    pre_prune_ops = []
+    if not getattr(args, "disable_pre_prune_group_normalization", False):
+        pre_prune_ops = normalize_grouped_convs_for_alignment(model, args.group_conv_align)
     if pre_prune_ops:
         logger.info("Normalized %d grouped conv layers for group/per-channel alignment", len(pre_prune_ops))
     original_params, original_mb = baseline_params, baseline_mb
@@ -731,10 +833,15 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
     )
     op_graph = build_op_graph(trace, model, protected_layers=protected_layers)
     save_json(op_graph.to_dict(), out / "op_graph.json")
+    effective_grouped_conv_mode = (
+        args.group_conv_selection_mode
+        if args.group_conv_selection_mode in {"flat_output_groups_fixed", "group_balanced_output_groups_fixed", "group_coarsening_zero_padded_reblock"}
+        else ("remove_groups" if args.group_conv_selection_mode == "true_group_block_pruning" else args.group_conv_prune_mode)
+    )
     cnn_groups = GroupBuilder(
         op_graph,
         align=args.align,
-        grouped_conv_mode=args.group_conv_prune_mode,
+        grouped_conv_mode=effective_grouped_conv_mode,
         protect_residual_add=args.protect_residual_add,
     ).build()
     transformer_groups = []
@@ -748,6 +855,8 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
             protect_hidden=args.protect_transformer_hidden,
         )
     groups = cnn_groups + transformer_groups
+    apply_only_prune_module_filter(groups, args.only_prune_module_prefix)
+    apply_only_regular_grouped_conv_filter(groups, args.only_prune_regular_grouped_conv)
     grouped_fn_ops = configure_grouped_conv_pruning_fns(groups, args)
     save_json([g.summary() | {"meta": g.meta} for g in groups], out / "pruning_groups.json")
     save_csv(group_rows(groups), out / "pruning_groups.csv")
@@ -800,6 +909,10 @@ def run_pruning(args: argparse.Namespace) -> dict[str, Any]:
         importance_mode=args.importance_mode,
     )
     plan = build_pruning_plan(groups, scope_channel_importance, selection_cfg)
+    explicit_idxs = None
+    if args.explicit_prune_idxs_for_module:
+        explicit_idxs = [int(v) for v in str(args.explicit_prune_idxs_for_module).split(",") if str(v).strip()]
+    apply_explicit_prune_indices_override(plan, groups, args.explicit_prune_module, explicit_idxs)
     save_json([dataclass_to_json_dict(unit) for unit in plan.coupled_units], out / "coupled_channel_units.json")
     save_csv(coupled_channel_unit_rows(plan.coupled_units), out / "coupled_channel_units.csv")
     save_json([dataclass_to_json_dict(unit) for unit in plan.atomic_units], out / "atomic_prune_units.json")
@@ -1016,7 +1129,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--align", type=int, default=16)
     p.add_argument("--group-conv-align", type=int, default=8)
     p.add_argument("--group-conv-prune-mode", default="keep_groups", choices=["keep_groups", "remove_groups"])
-    p.add_argument("--group-conv-selection-mode", default="independent_group_topk", choices=["shared_local_mean", "independent_group_topk", "remove_groups"])
+    p.add_argument("--group-conv-selection-mode", default="flat_output_groups_fixed", choices=["shared_local_mean", "independent_group_topk", "remove_groups", "true_group_block_pruning", "flat_output_groups_fixed", "group_balanced_output_groups_fixed", "group_coarsening_zero_padded_reblock"])
     p.add_argument("--allow-remove-groups", type=str2bool, default=False)
     p.add_argument("--min-groups-after-prune", type=int, default=8)
     p.add_argument("--groups-align", type=int, default=8)
@@ -1034,14 +1147,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--output-dir", default=str(_THIS_DIR / "outputs" / "prune_lidar_pyramid_25_l1"))
     p.add_argument("--protect-neck-and-heads", type=str2bool, default=True)
     p.add_argument("--extra-protected-prefix", action="append", default=None)
+    p.add_argument("--only-prune-module-prefix", action="append", default=None)
+    p.add_argument("--only-prune-regular-grouped-conv", type=str2bool, default=False)
+    p.add_argument("--explicit-prune-module", default=None)
+    p.add_argument("--explicit-prune-idxs-for-module", default=None)
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--skip-forward-check", action="store_true")
     p.add_argument("--allow-save-on-forward-fail", action="store_true")
+    p.add_argument("--disable-pre-prune-group-normalization", action="store_true")
     args = p.parse_args(argv)
     extra = list(args.extra_protected_prefix or [])
     if args.protect_neck_and_heads:
         extra = list(DEFAULT_SAFE_PROTECTED_PREFIXES) + extra
     args.extra_protected_prefix = list(dict.fromkeys(extra))
+    args.only_prune_module_prefix = list(dict.fromkeys(args.only_prune_module_prefix or []))
     return args
 
 
