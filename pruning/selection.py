@@ -287,6 +287,17 @@ def _build_independent_topk_candidate(
 ) -> tuple[list[AtomicPruneUnit], list[AtomicPruneUnit], dict[str, Any]]:
     groups = int(grouped["groups"])
     per = int(grouped["per_group"])
+    if cfg.group_conv_align > 1 and (groups % cfg.group_conv_align != 0 or per % cfg.group_conv_align != 0):
+        report = _grouped_report_base(scope, cfg, grouped, scores)
+        report.update(
+            {
+                "structure_legal": False,
+                "protected_reason": "grouped_conv_base_shape_not_group_conv_aligned",
+                "groups_align": cfg.group_conv_align,
+                "per_group_before": per,
+            }
+        )
+        return [], [], report
     keep_per = _grouped_keep_per_group(int(scope.num_channels), groups, cfg)
     matrix = scores.view(groups, per)
     group_keep_map: dict[int, list[int]] = {}
@@ -458,9 +469,20 @@ def _build_flat_output_groups_fixed_candidate(
         return [], [], report
 
     target_prune = int(round(c_out * float(cfg.prune_ratio)))
-    legal_prune_counts = [count for count in range(0, c_out) if (c_out - count) > 0 and (c_out - count) % groups == 0]
+    legal_prune_counts = []
+    for count in range(0, c_out):
+        c_after = c_out - count
+        if c_after <= 0 or c_after % groups != 0:
+            continue
+        per_after = c_after // groups
+        if cfg.group_conv_align > 1:
+            if groups % cfg.group_conv_align != 0:
+                continue
+            if per_after % cfg.group_conv_align != 0:
+                continue
+        legal_prune_counts.append(count)
     if not legal_prune_counts:
-        report.update({"structure_legal": False, "protected_reason": "no_legal_cout_after"})
+        report.update({"structure_legal": False, "protected_reason": "no_group_conv_aligned_cout_after"})
         return [], [], report
     prune_count = min(legal_prune_counts, key=lambda count: (abs(count - target_prune), count))
     if prune_count <= 0:
@@ -502,7 +524,17 @@ def _build_flat_output_groups_fixed_candidate(
             "expanded_prune_indices": expanded_prune,
             "per_group_kept_count": group_keep_counts,
             "per_group_kept_count_align8": True,
-            "structure_legal": bool(len(expanded_keep) > 0 and len(expanded_keep) % groups == 0),
+            "structure_legal": bool(
+                len(expanded_keep) > 0
+                and len(expanded_keep) % groups == 0
+                and (
+                    cfg.group_conv_align <= 1
+                    or (
+                        groups % cfg.group_conv_align == 0
+                        and (len(expanded_keep) // groups) % cfg.group_conv_align == 0
+                    )
+                )
+            ),
             "target_prune_count": target_prune,
             "adjusted_prune_count": prune_count,
             "ratio_adjusted": prune_count != target_prune,

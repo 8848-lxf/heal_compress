@@ -50,3 +50,29 @@ heal_tests/
 # Note:
 # Lightweight result files under tests/outputs/ and tests/quant_deploy/outputs/,
 # such as json/csv/log/md/txt, may be committed.
+
+# ===== LUT quant engine deployment artifacts =====
+
+# ONNX models
+*.onnx
+
+# TensorRT engines
+*.engine
+*.plan
+*.trt
+
+# Calibration / binary artifacts
+*.cache
+*.raw
+*.so
+
+# Model checkpoints
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.weights
+
+# Python cache
+__pycache__/
+*.pyc

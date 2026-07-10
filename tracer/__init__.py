@@ -21,6 +21,9 @@ __all__ = [
     "TransformerAnalyzer",
     "TransformerGroupBuilder",
     "build_transformer_pruning_groups",
+    "build_dependency_graph",
+    "build_precision_coupling_groups",
+    "PrecisionGroup",
 ]
 
 _EXPORTS = {
@@ -39,6 +42,9 @@ _EXPORTS = {
     "TransformerAnalyzer": ".transformer_analyzer",
     "TransformerGroupBuilder": ".transformer_groups",
     "build_transformer_pruning_groups": ".transformer_groups",
+    "build_dependency_graph": ".dependency_tracer",
+    "build_precision_coupling_groups": ".precision_coupling_tracer",
+    "PrecisionGroup": ".precision_coupling_tracer",
 }
 
 

@@ -26,7 +26,7 @@ def test_full_model_surface_keeps_non_grouped_conv_prunable():
     assert report["num_protected_coupled_units"] == 0
 
 
-def test_full_model_surface_protects_grouped_conv_input_for_A_B():
+def test_full_model_surface_allows_grouped_conv_input_for_v97_resolver():
     from heal_compress.pruning.full_model_surface import apply_full_model_prunable_surface
 
     producer = nn.Conv2d(16, 32, 1)
@@ -39,9 +39,9 @@ def test_full_model_surface_protects_grouped_conv_input_for_A_B():
 
     report = apply_full_model_prunable_surface([group], group_conv_policy="A")
 
-    assert group.protected is True
-    assert group.protected_reason == "protected_grouped_conv_input_contract:A"
-    assert report["num_protected_coupled_units"] == 1
+    assert group.protected is False
+    assert group.protected_reason == ""
+    assert report["num_prunable_coupled_units"] == 1
 
 
 def test_full_model_surface_allows_grouped_conv_output_resolver_A():

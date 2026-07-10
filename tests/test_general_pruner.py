@@ -150,6 +150,7 @@ DEFAULT_SAFE_PROTECTED_PREFIXES = (
     "dir_head",
 )
 HEAD_PROTECTED_KEYWORDS = ("cls_head", "reg_head", "dir_head")
+FIXED_SHAPE_PROTECTED_KEYWORDS = ("pillar_vfe", "pfn_layers", "scatter", "voxel")
 
 
 def str2bool(v: str | bool) -> bool:
@@ -514,7 +515,7 @@ def build_protected_layers(
     protected = {
         name
         for name in adapter_protected
-        if any(k in name.lower() for k in HEAD_PROTECTED_KEYWORDS)
+        if any(k in name.lower() for k in HEAD_PROTECTED_KEYWORDS + FIXED_SHAPE_PROTECTED_KEYWORDS)
     }
     prefixes = tuple(p for p in extra_prefixes if p)
     if prefixes:

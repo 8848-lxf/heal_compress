@@ -631,10 +631,13 @@ def _apply_runtime_env(ctx: FullEngineContext) -> None:
 
 
 def _load_quant_deploy_module(name: str) -> Any:
-    tests_dir = _ROOT / "tests" / "quant_deploy"
-    if str(tests_dir) not in sys.path:
-        sys.path.insert(0, str(tests_dir))
-    return __import__(name)
+    try:
+        return __import__(f"heal_compress.quant_deploy.{name}", fromlist=[name])
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(
+            f"formal_quant_deploy_module_unavailable:{name}; migrate the required deployment helper "
+            "out of test-only locations before running this benchmark"
+        ) from exc
 
 
 def _prefer_heal_opencood(ctx: FullEngineContext) -> None:

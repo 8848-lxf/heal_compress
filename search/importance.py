@@ -189,6 +189,13 @@ class ImportanceEstimator:
         indices: list[int],
     ) -> tuple[torch.Tensor | None, bool, str]:
         weight = module.weight
+        if (
+            direction == "in"
+            and isinstance(module, nn.Conv2d)
+            and int(module.groups) > 1
+            and not (int(module.groups) == int(module.in_channels) == int(module.out_channels))
+        ):
+            return self._grouped_conv_input_importance(layer_name, module, indices)
         if direction == "out":
             axis = 1 if isinstance(module, nn.ConvTranspose2d) else 0
             dim_size = int(weight.shape[axis])
@@ -242,6 +249,64 @@ class ImportanceEstimator:
                 axis = 0
             g = grad.index_select(axis, idx)
             f = fisher.index_select(axis, idx) if fisher is not None else None
+        first = (g * w).abs().sum()
+        if self.method == "first_order_taylor":
+            return first.detach(), False, ""
+        second = 0.5 * (f * w.pow(2)).sum() if f is not None else torch.zeros((), device=w.device)
+        return (first + second).detach(), fisher is None, ""
+
+    def _grouped_conv_input_importance(
+        self,
+        layer_name: str,
+        module: nn.Conv2d,
+        indices: list[int],
+    ) -> tuple[torch.Tensor | None, bool, str]:
+        weight = module.weight
+        if not indices:
+            return None, False, "empty_importance_indices"
+        groups = int(module.groups)
+        if module.in_channels % groups != 0 or module.out_channels % groups != 0:
+            return None, False, f"grouped_input_importance_divisibility:{layer_name}"
+        dim_size = int(module.in_channels)
+        min_idx = min(indices)
+        max_idx = max(indices)
+        if min_idx < 0 or max_idx >= dim_size:
+            msg = (
+                f"importance_index_out_of_bounds:{layer_name}:"
+                f"direction=in:absolute_dim={dim_size}:min={min_idx}:max={max_idx}:num_indices={len(indices)}"
+            )
+            logger.warning(msg)
+            return None, False, msg
+        in_per = module.in_channels // groups
+        out_per = module.out_channels // groups
+
+        def gather_slices(tensor: torch.Tensor) -> torch.Tensor:
+            parts = []
+            for abs_idx in sorted({int(v) for v in indices}):
+                group_id = abs_idx // in_per
+                local = abs_idx % in_per
+                out_start = group_id * out_per
+                out_end = out_start + out_per
+                parts.append(tensor[out_start:out_end, local : local + 1])
+            if not parts:
+                return tensor.new_zeros((0,))
+            return torch.cat([part.reshape(-1) for part in parts], dim=0)
+
+        w = gather_slices(weight)
+        if self.method == "l1_norm":
+            return w.detach().abs().sum(), False, ""
+        if self.method == "l2_norm":
+            return w.detach().pow(2).sum(), False, ""
+        param_name = f"{layer_name}.weight"
+        grad = self._gradients.get(param_name)
+        fisher = self._fisher_diag.get(param_name)
+        if grad is None:
+            logger.warning("Missing gradient for %s; falling back to L1 for this grouped input item", param_name)
+            if self.strict_grad:
+                return None, True, ""
+            return w.detach().abs().sum(), True, ""
+        g = gather_slices(grad)
+        f = gather_slices(fisher) if fisher is not None else None
         first = (g * w).abs().sum()
         if self.method == "first_order_taylor":
             return first.detach(), False, ""

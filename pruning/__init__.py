@@ -18,6 +18,10 @@ __all__ = [
     "is_prunable_module",
     "classify_grouped_conv",
     "grouped_conv_pruning_fn",
+    "resolve_grouped_conv_true_group_block_keep",
+    "prune_grouped_conv_true_group_block",
+    "resolve_grouped_conv_d_compact_frontfill_reblock",
+    "prune_grouped_conv_d_compact_frontfill_reblock",
     "CoupledChannelUnit",
     "AtomicPruneUnit",
     "ConcreteCoupledPruningGroup",
@@ -28,6 +32,8 @@ __all__ = [
     "check_transformer_model_legality",
     "prune_transformer_linear_in",
     "prune_transformer_linear_out",
+    "PruningConfig",
+    "HEALStructuredPruner",
 ]
 
 _EXPORTS = {
@@ -43,6 +49,10 @@ _EXPORTS = {
     "is_prunable_module": ".pruning_fns",
     "classify_grouped_conv": ".grouped_conv",
     "grouped_conv_pruning_fn": ".grouped_conv",
+    "resolve_grouped_conv_true_group_block_keep": ".grouped_conv",
+    "prune_grouped_conv_true_group_block": ".grouped_conv",
+    "resolve_grouped_conv_d_compact_frontfill_reblock": ".grouped_conv",
+    "prune_grouped_conv_d_compact_frontfill_reblock": ".grouped_conv",
     "SelectionConfig": ".selection",
     "PruningPlan": ".selection",
     "build_pruning_plan": ".selection",
@@ -53,6 +63,8 @@ _EXPORTS = {
     "check_transformer_model_legality": ".transformer_checker",
     "prune_transformer_linear_in": ".transformer_pruning_fns",
     "prune_transformer_linear_out": ".transformer_pruning_fns",
+    "PruningConfig": ".config",
+    "HEALStructuredPruner": ".formal_pruner",
 }
 
 

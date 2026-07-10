@@ -16,7 +16,7 @@ for p in (UNIAD, ROOT):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from tests.test_general_pruner import DEFAULT_CHECKPOINT, DEFAULT_CONFIG, DEFAULT_HEAL_ROOT, load_heal_model, setup_logger
+from heal_compress.pruning.model_io import DEFAULT_CHECKPOINT, DEFAULT_CONFIG, DEFAULT_HEAL_ROOT, load_heal_model, setup_logger
 from tools.latency_lut.audit_grouped_conv_keep_distribution_v84 import audit_records, summarize
 from tools.latency_lut.fixed_width_boundary_registry_v84 import protected_prefixes_for_fixed_width_boundaries
 

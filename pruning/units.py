@@ -41,6 +41,9 @@ class CoupledChannelUnit:
     flops_removed: float | None = None
     protected: bool = False
     protected_reason: str | None = None
+    is_minimal_proven: bool = False
+    proof_edges: list[dict[str, Any]] = field(default_factory=list)
+    unsupported_reason: str = ""
     constraints: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -178,13 +181,44 @@ def _dependency_type(scope: PruningGroup, item: GroupItem) -> str:
     return "root_channel"
 
 
+def _grouped_conv_role(item: GroupItem) -> str:
+    module = item.module
+    if not isinstance(module, nn.Conv2d) or int(getattr(module, "groups", 1)) <= 1:
+        return ""
+    if int(module.groups) == int(module.in_channels) == int(module.out_channels):
+        return "depthwise_conv"
+    if item.direction == "in":
+        return "ordinary_grouped_conv_input"
+    return "ordinary_grouped_conv_output"
+
+
+def _transpose_conv_role(item: GroupItem) -> str:
+    if not isinstance(item.module, nn.ConvTranspose2d):
+        return ""
+    return "convtranspose_input" if item.direction == "in" else "convtranspose_output"
+
+
+def _residual_add_id(scope: PruningGroup, item: GroupItem, dep: str) -> str:
+    meta = scope.meta or {}
+    if str(meta.get("group_type", "")) != "add" and "add" not in dep and "residual" not in dep:
+        return ""
+    reasons = meta.get("reasons", []) or []
+    for reason in reasons:
+        text = str(reason)
+        if text.startswith("add:"):
+            return text.split("add:", 1)[1]
+    return str(meta.get("add_node", ""))
+
+
 def _member_rows(scope: PruningGroup, root_idx: int, item: GroupItem, local_indices: Sequence[int]) -> list[dict[str, Any]]:
     group_type = str((scope.meta or {}).get("group_type", ""))
     axis = _axis_for_item(item)
     dep = _dependency_type(scope, item)
+    meta = scope.meta or {}
     rows: list[dict[str, Any]] = []
     for local in local_indices:
-        concat_offset = int(local) - int(root_idx) if group_type == "cat" else 0
+        layout = (meta.get("cat_layout", {}) or {}).get(item.name, {}) if group_type == "cat" else {}
+        concat_offset = int(layout.get("offset", 0) or 0) if group_type == "cat" and item.direction == "out" else 0
         member_axis = axis
         if group_type == "add":
             member_axis = "add_channel" if "Add" in item.name or dep == "residual_add" and item.direction == "out" else axis
@@ -194,14 +228,42 @@ def _member_rows(scope: PruningGroup, root_idx: int, item: GroupItem, local_indi
             {
                 "node": item.name,
                 "module": item.name,
+                "module_name": item.name,
                 "op_type": item.module.__class__.__name__,
+                "module_type": item.module.__class__.__name__,
                 "axis": member_axis,
                 "index": int(local),
+                "local_index": int(local),
+                "dependency_type": dep,
+                "producer_tensor": str(meta.get("cat_node", "")) if group_type == "cat" and item.direction == "in" else str(meta.get("roots", [""])[0] if meta.get("roots") else ""),
+                "consumer_tensor": item.name,
                 "branch_id": str((scope.meta or {}).get("branch_id", "")),
                 "concat_offset": int(concat_offset),
+                "residual_add_id": _residual_add_id(scope, item, dep),
+                "grouped_conv_role": _grouped_conv_role(item),
+                "transpose_conv_role": _transpose_conv_role(item),
             }
         )
     return rows
+
+
+def _proof_edges_for_item(scope: PruningGroup, root_idx: int, item: GroupItem, local_indices: Sequence[int]) -> list[dict[str, Any]]:
+    root = scope.items[0].name if scope.items else _scope_id(scope)
+    dep = _dependency_type(scope, item)
+    return [
+        {
+            "src": root,
+            "dst": item.name,
+            "root_index": int(root_idx),
+            "local_index": int(local),
+            "axis": _axis_for_item(item),
+            "direction": item.direction,
+            "dependency_type": dep,
+            "reason": item.reason,
+            "proof_basis": "pruning_group_recipe",
+        }
+        for local in local_indices
+    ]
 
 
 def expand_coupled_channel_units(
@@ -221,6 +283,7 @@ def expand_coupled_channel_units(
     for root_idx in range(int(scope.num_channels)):
         local_by_item: dict[str, list[int]] = {}
         members: list[dict[str, Any]] = []
+        proof_edges: list[dict[str, Any]] = []
         dependency_types: list[str] = []
         item_modules: list[str] = []
         item_directions: list[str] = []
@@ -229,6 +292,7 @@ def expand_coupled_channel_units(
             if local:
                 local_by_item[item_key(item)] = local
                 members.extend(_member_rows(scope, root_idx, item, local))
+                proof_edges.extend(_proof_edges_for_item(scope, root_idx, item, local))
                 dependency_types.append(_dependency_type(scope, item))
                 item_modules.append(item.name)
                 item_directions.append(item.direction)
@@ -239,19 +303,42 @@ def expand_coupled_channel_units(
                     "node": root_name,
                     "module": root_name,
                     "op_type": "Unknown",
+                    "module_name": root_name,
+                    "module_type": "Unknown",
                     "axis": "out_channels",
                     "index": int(root_idx),
+                    "local_index": int(root_idx),
+                    "dependency_type": "root_channel",
+                    "producer_tensor": "",
+                    "consumer_tensor": root_name,
                     "branch_id": "",
                     "concat_offset": 0,
+                    "residual_add_id": "",
+                    "grouped_conv_role": "",
+                    "transpose_conv_role": "",
                 }
             )
             dependency_types.append("root_channel")
+            proof_edges.append(
+                {
+                    "src": root_name,
+                    "dst": root_name,
+                    "root_index": int(root_idx),
+                    "local_index": int(root_idx),
+                    "axis": "out_channels",
+                    "direction": "out",
+                    "dependency_type": "root_channel",
+                    "reason": "fallback_empty_members",
+                    "proof_basis": "fallback",
+                }
+            )
         importance = _importance_at(scope_importance, root_idx)
         protected = bool(scope.protected)
         protected_reason = scope.protected_reason or None
         if importance is not None and not math.isfinite(importance):
             protected = True
             protected_reason = protected_reason or "invalid_importance"
+        unsupported_reason = protected_reason or ""
         group_id: int | None = None
         local_idx: int | None = None
         if groups and per_group:
@@ -279,10 +366,14 @@ def expand_coupled_channel_units(
                 importance_mode=importance_mode,
                 protected=protected,
                 protected_reason=protected_reason,
+                is_minimal_proven=bool(not protected and proof_edges),
+                proof_edges=proof_edges,
+                unsupported_reason=str(unsupported_reason),
                 constraints=dict(constraints),
                 metadata={
                     "group_type": (scope.meta or {}).get("group_type", ""),
                     "num_scope_items": len(scope.items),
+                    "proof_scope": "single_trace_dependency_recipe",
                 },
             )
         )
@@ -392,6 +483,9 @@ def coupled_channel_unit_rows(units: Sequence[CoupledChannelUnit]) -> list[dict[
         "params_removed",
         "protected",
         "protected_reason",
+        "is_minimal_proven",
+        "proof_edges",
+        "unsupported_reason",
         "constraints",
         "metadata",
     ]

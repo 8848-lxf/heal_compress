@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
-from types import SimpleNamespace
 from pathlib import Path
 from typing import Any
 
@@ -31,41 +29,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _run_existing_general_pruner(args: argparse.Namespace, plan: dict[str, Any], output_dir: Path) -> dict[str, Any]:
-    tests_dir = Path(__file__).resolve().parents[2] / "tests"
-    if str(tests_dir) not in sys.path:
-        sys.path.insert(0, str(tests_dir))
-    if "pytest" not in sys.modules:
-        try:
-            __import__("pytest")
-        except ImportError:
-            def _skip(reason: str = "") -> None:
-                raise RuntimeError(f"pytest.skip called while pytest is unavailable: {reason}")
-
-            sys.modules["pytest"] = SimpleNamespace(skip=_skip)
-    from test_general_pruner import parse_args as parse_old_args, run_pruning
-
-    ratio = float(args.target_prune_ratio if args.target_prune_ratio is not None else plan.get("target_prune_ratio", 0.2))
-    argv = [
-            "--checkpoint", str(args.checkpoint),
-            "--model-config", str(args.config),
-            "--device", str(args.device),
-            "--prune-ratio", str(ratio),
-            "--importance-mode", str(args.importance_mode),
-            "--selection-mode", str(args.selection_mode),
-            "--group-conv-selection-mode", str(args.group_conv_selection_mode),
-            "--group-conv-align", str(args.group_conv_align),
-            "--align", str(args.align),
-            "--protect-residual-add", "true",
-            "--output-dir", str(output_dir),
-    ]
-    if args.num_calib_batches is not None:
-        argv.extend(["--num-calib-batches", str(int(args.num_calib_batches))])
-    if not args.run_forward_check:
-        argv.append("--skip-forward-check")
-    for prefix in args.extra_protected_prefix or []:
-        argv.extend(["--extra-protected-prefix", str(prefix)])
-    old_args = parse_old_args(argv)
-    return run_pruning(old_args)
+    raise RuntimeError(
+        "execute_general_pruner_legacy_path_removed: formal runtime code may not depend on test helpers; "
+        "use heal_compress.pruning.formal_pruner.HEALStructuredPruner"
+    )
 
 
 def _importance_failure_status(importance_mode: str, error: str) -> str:

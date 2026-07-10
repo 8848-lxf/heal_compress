@@ -1,0 +1,6 @@
+# ninja log v7
+3	406	1783618630246935439	CMakeFiles/pointpillar_scatter_trt.dir/plugin_register.cpp.o	e7d899166b6145
+2	578	1783618630246935439	CMakeFiles/pointpillar_scatter_trt.dir/pointpillar_scatter_plugin.cpp.o	e6de1cceae7e870c
+3	2246	1783618630246935439	CMakeFiles/pointpillar_scatter_trt.dir/pointpillar_scatter_kernel.cu.o	abc773a261da48c6
+2246	2394	1783618632490866294	CMakeFiles/pointpillar_scatter_trt.dir/cmake_device_link.o	4bd2a16c79cc8987
+2394	2534	1783618632638861748	libpointpillar_scatter_trt.so	d3fb9eea0900fa1c

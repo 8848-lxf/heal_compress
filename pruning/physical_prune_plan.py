@@ -8,6 +8,14 @@ from typing import Any, Iterable
 import torch
 import torch.nn as nn
 
+from .grouped_conv import (
+    grouped_conv_pruning_fn,
+    prune_grouped_conv_d_compact_frontfill_reblock,
+    prune_grouped_conv_input_balanced,
+    prune_grouped_conv_true_group_block,
+)
+from .grouped_pergroup8_policy import validate_grouped_input_keep_pergroup8
+
 
 @dataclass
 class ModuleAxisPruneRequest:
@@ -98,6 +106,7 @@ class GlobalPhysicalPrunePlan:
                     "axis": req.axis,
                     "prune_indices": req.prune_indices,
                     "source_recipe_ids": req.source_recipe_ids,
+                    "metadata": req.metadata,
                 }
                 for req in self.requests()
             ],
@@ -114,6 +123,15 @@ class GlobalPhysicalPrunePlan:
             original = _axis_channels(module, req.axis)
             prune = [idx for idx in req.prune_indices if 0 <= idx < original]
             keep = [idx for idx in range(original) if idx not in set(prune)]
+            ordered_keep = req.metadata.get("ordered_keep_indices")
+            if ordered_keep is not None:
+                ordered = [int(idx) for idx in ordered_keep if 0 <= int(idx) < original]
+                if len(ordered) != len(set(ordered)) or set(ordered) != set(keep):
+                    raise ValueError(
+                        f"ordered_keep_indices_mismatch:{req.module_name}:{req.axis}:"
+                        f"ordered={ordered}:natural_keep={keep}"
+                    )
+                keep = ordered
             op_extra = _apply_keep(module, req.axis, keep, req.metadata)
             replay_axis = str(req.metadata.get("replay_axis", req.axis))
             op = {
@@ -146,7 +164,17 @@ def _idx(indices: list[int], device: torch.device) -> torch.Tensor:
 
 def _axis_channels(module: nn.Module, axis: str) -> int:
     if isinstance(module, nn.Conv2d):
+        if axis == "grouped_true_group_block":
+            return int(module.groups)
+        if axis == "grouped_d_compact_frontfill_reblock":
+            return int(module.out_channels)
+        if axis == "grouped_independent_keep":
+            return int(module.out_channels)
+        if axis == "grouped_input_pergroup8":
+            return int(module.in_channels)
         return int(module.out_channels if axis in {"out", "grouped_coarsen_out"} else module.in_channels)
+    if isinstance(module, nn.ConvTranspose2d):
+        return int(module.out_channels if axis == "out" else module.in_channels)
     if isinstance(module, nn.modules.batchnorm._BatchNorm):
         return int(module.num_features)
     if isinstance(module, nn.Linear):
@@ -157,8 +185,38 @@ def _axis_channels(module: nn.Module, axis: str) -> int:
 def _apply_keep(module: nn.Module, axis: str, keep: list[int], metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     metadata = metadata or {}
     if isinstance(module, nn.Conv2d):
+        if axis == "grouped_true_group_block":
+            return prune_grouped_conv_true_group_block(module, keep)
+        if axis == "grouped_d_compact_frontfill_reblock":
+            old_output_keep = metadata.get("old_output_keep_indices", keep)
+            old_input_keep = metadata.get("old_input_keep_indices", list(range(int(module.in_channels))))
+            groups_new = int(metadata.get("groups_new") or 0)
+            return prune_grouped_conv_d_compact_frontfill_reblock(
+                module,
+                old_output_keep_indices=[int(v) for v in old_output_keep],
+                old_input_keep_indices=[int(v) for v in old_input_keep],
+                groups_new=groups_new,
+            )
         if axis == "grouped_coarsen_out":
             return _apply_grouped_coarsen_out(module, keep, metadata)
+        if axis == "grouped_independent_keep":
+            return grouped_conv_pruning_fn("independent_group_topk")(module, keep)
+        if axis == "grouped_input_pergroup8":
+            resolved = validate_grouped_input_keep_pergroup8(
+                module_name=str(metadata.get("module_name", "")),
+                keep_indices=keep,
+                groups=int(module.groups),
+                C_in_before=int(module.in_channels),
+                align=int(metadata.get("align_channels", 8) or 8),
+            )
+            if not resolved.get("legal", False):
+                raise ValueError(str(resolved.get("skipped_input_prune_reason") or "grouped_input_pergroup8_illegal"))
+            op = prune_grouped_conv_input_balanced(module, keep)
+            op["axis"] = "grouped_input_pergroup8"
+            op["legality_passed"] = True
+            return op
+        if axis == "grouped_input_balanced":
+            return prune_grouped_conv_input_balanced(module, keep)
         if axis == "out":
             index = _idx(keep, module.weight.device)
             module.weight = nn.Parameter(module.weight.data.index_select(0, index).clone())
@@ -169,10 +227,26 @@ def _apply_keep(module: nn.Module, axis: str, keep: list[int], metadata: dict[st
                 pass
             return {}
         if axis == "in":
+            if module.groups != 1 and str(metadata.get("replay_axis", "")) == "grouped_input_balanced":
+                return prune_grouped_conv_input_balanced(module, keep)
             if module.groups != 1:
                 raise ValueError("one_shot grouped Conv2d input slicing requires policy-specific grouped surgery")
             index = _idx(keep, module.weight.device)
             module.weight = nn.Parameter(module.weight.data.index_select(1, index).clone())
+            module.in_channels = len(keep)
+            return {}
+    if isinstance(module, nn.ConvTranspose2d):
+        if module.groups != 1:
+            raise ValueError("unsupported_grouped_convtranspose")
+        index = _idx(keep, module.weight.device)
+        if axis == "out":
+            module.weight = nn.Parameter(module.weight.data.index_select(1, index).clone())
+            if module.bias is not None:
+                module.bias = nn.Parameter(module.bias.data.index_select(0, index).clone())
+            module.out_channels = len(keep)
+            return {}
+        if axis == "in":
+            module.weight = nn.Parameter(module.weight.data.index_select(0, index).clone())
             module.in_channels = len(keep)
             return {}
     if isinstance(module, nn.modules.batchnorm._BatchNorm):

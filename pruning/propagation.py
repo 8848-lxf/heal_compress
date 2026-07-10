@@ -34,7 +34,7 @@ from ..tracer.op_graph import (
     OpGraph, OpNode,
 )
 from ..tracer.pruning_group import PruningGroup, identity_transform, offset_transform
-from .grouped_conv import classify_grouped_conv, grouped_conv_pruning_fn
+from .grouped_conv import classify_grouped_conv, grouped_conv_pruning_fn, prune_grouped_conv_input_balanced
 from .pruning_fns import get_pruning_fn
 
 logger = logging.getLogger(__name__)
@@ -370,10 +370,15 @@ class GroupBuilder:
         is_cat = any(r in self._cat_layout for r in members)
         is_add = any(r in self._add_roots for r in members)
         cat_node = None
+        cat_layout_meta: Dict[str, Dict[str, int | str]] = {}
         for r in members:
             if r in self._cat_layout:
                 cat_node = self._cat_layout[r][0]
                 break
+        for r in members:
+            if r in self._cat_layout:
+                node_name, off, size = self._cat_layout[r]
+                cat_layout_meta[r] = {"cat_node": str(node_name), "offset": int(off), "size": int(size)}
 
         # Reference channel space size.
         if is_cat:
@@ -395,6 +400,7 @@ class GroupBuilder:
                 "group_type": "cat" if is_cat else ("add" if is_add else "plain"),
                 "reasons": sorted(reasons),
                 "cat_node": cat_node,
+                "cat_layout": cat_layout_meta,
                 "roots": members,
             },
         )
@@ -513,10 +519,18 @@ class GroupBuilder:
                     if cur in member_set:
                         queue.extend(self._channel_outgoing(cur))
                         continue
-                    # grouped (non-depthwise) consumer input cannot be sliced on
-                    # in-axis alone; protect the whole group to stay atomic.
-                    group.protect(f"grouped_consumer_in:{cur}")
-                    return
+                    # TP-like root=upstream.out case: the grouped consumer's
+                    # input axis may be compacted with a group-balanced keep
+                    # pattern while its output/groups stay unchanged.
+                    group.add_dep(
+                        cur,
+                        module,
+                        prune_grouped_conv_input_balanced,
+                        "in",
+                        idx_transform=transform,
+                        reason="grouped_consumer_in_balanced",
+                    )
+                    continue
                 if cur in member_set:
                     queue.extend(self._channel_outgoing(cur))
                     continue

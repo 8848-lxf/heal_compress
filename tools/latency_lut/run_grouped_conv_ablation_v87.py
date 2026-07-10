@@ -20,7 +20,7 @@ for p in (UNIAD, ROOT):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from tests.test_general_pruner import DEFAULT_CHECKPOINT, DEFAULT_CONFIG, DEFAULT_HEAL_ROOT, load_heal_model, setup_logger
+from heal_compress.pruning.model_io import DEFAULT_CHECKPOINT, DEFAULT_CONFIG, DEFAULT_HEAL_ROOT, load_heal_model, setup_logger
 
 
 POLICIES = [

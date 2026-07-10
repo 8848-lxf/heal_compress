@@ -37,6 +37,17 @@ def group_has_unsupported_deblock_contract(group: Any) -> bool:
             return True
         if "pyramid_backbone.deblocks" in name:
             return True
+        if "pyramid_backbone.single_head" in name:
+            return True
+    return False
+
+
+def group_has_fixed_shape_interface(group: Any) -> bool:
+    fixed_keywords = ("pillar_vfe", "pfn_layers", "scatter", "voxel")
+    for item in getattr(group, "items", []):
+        name = str(getattr(item, "name", "")).lower()
+        if any(key in name for key in fixed_keywords):
+            return True
     return False
 
 
@@ -131,7 +142,8 @@ def apply_full_model_prunable_surface(groups: list[Any], *, group_conv_policy: s
             group.protected = True
             group.protected_reason = "protected_convtranspose_deblock_or_fpn_output_contract"
             continue
-        if policy in {"A", "B", "D"} and group_has_grouped_input_contract(group):
+        if group_has_fixed_shape_interface(group):
             group.protected = True
-            group.protected_reason = f"protected_grouped_conv_input_contract:{policy}"
+            group.protected_reason = "protected_fixed_shape_pfn_scatter_voxel_contract"
+            continue
     return surface_inventory(groups, total_model_params=total_model_params, group_conv_policy=policy)

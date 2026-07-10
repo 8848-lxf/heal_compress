@@ -259,14 +259,11 @@ def _diagnostics(candidate_id: str, candidate: dict[str, Any], result: dict[str,
 def _prediction_sanity(args: argparse.Namespace, baseline_result: dict[str, Any], light_result: dict[str, Any]) -> dict[str, Any]:
     if args.skip_prediction_sanity:
         return {"success": False, "skipped": True, "reason": "skip_prediction_sanity"}
-    qd = _ROOT / "tests" / "quant_deploy"
-    if str(qd) not in sys.path:
-        sys.path.insert(0, str(qd))
     try:
         import torch
-        from run_dynamic_single_engine_maxk import _dataset_loader, _prepare_inputs
-        from deployment_equivalence import TensorRTEngineRunner
-        from export_lidar_pyramid_onnx import _to_device
+        from heal_compress.quant_deploy.run_dynamic_single_engine_maxk import _dataset_loader, _prepare_inputs
+        from heal_compress.quant_deploy.deployment_equivalence import TensorRTEngineRunner
+        from heal_compress.quant_deploy.export_lidar_pyramid_onnx import _to_device
 
         if args.cuda_visible_devices is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda_visible_devices)

@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import yaml
+
+ROOT = Path(__file__).resolve().parents[1]
+UNIAD = ROOT.parent
+for path in (UNIAD, ROOT):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 
 def test_quantization_formal_imports_and_default_config():
@@ -108,3 +116,53 @@ def test_old_quant_deploy_wrappers_import_compatibly():
     for name in modules:
         mod = importlib.import_module(name)
         assert hasattr(mod, "main") or hasattr(mod, "parse_args")
+
+
+def test_formal_trt_evaluator_parses_benchmark_ap_thresholds():
+    evaluator = importlib.import_module("trt_runtime.heal_trt_evaluator")
+
+    assert evaluator.parse_ap_thresholds("0.03,0.3,0.5,0.7") == (0.03, 0.30, 0.50, 0.70)
+    assert evaluator.threshold_key(0.03) == "AP@0.03"
+
+
+def test_formal_single_engine_build_wrapper_delegates_to_legacy(monkeypatch, tmp_path):
+    build_mod = importlib.import_module("quantization.build.build_single_engine_maxk_engine")
+    calls = {}
+
+    class FakeLegacy:
+        @staticmethod
+        def build_all(args):
+            calls["args"] = args
+            return {
+                "build_success": True,
+                "builds": [
+                    {
+                        "precision": args.precisions[0],
+                        "build_success": True,
+                        "engine_path": str(tmp_path / "engine.plan"),
+                    }
+                ],
+            }
+
+    monkeypatch.setattr(build_mod, "load_quant_deploy_module", lambda name: FakeLegacy)
+    args = SimpleNamespace(
+        onnx=str(tmp_path / "model.onnx"),
+        precision="fp16",
+        fixed_k=29696,
+        trt_root="/trt",
+        trtexec_path="/trtexec",
+        plugin=str(tmp_path / "plugin.so"),
+        output_dir=str(tmp_path / "artifacts" / "engines" / "fixedK29696" / "dynamic_agent_single_engine_maxK" / "fp16"),
+        calibration_frames=200,
+        profile_calibration_frames=200,
+        timeout=7,
+        rebuild=False,
+        force_recalibrate=False,
+    )
+
+    report = build_mod.build_single_engine_maxk_engine(args)
+
+    assert report["formal_tool"] == "quantization.build.build_single_engine_maxk_engine"
+    assert report["success"] is True
+    assert calls["args"].precisions == ["fp16"]
+    assert calls["args"].output_root == str(tmp_path)
