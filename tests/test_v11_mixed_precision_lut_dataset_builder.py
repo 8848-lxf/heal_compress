@@ -1761,6 +1761,94 @@ def test_channel_alignment_report_does_not_hard_fail_fp16_deblock_convtranspose(
     ]
 
 
+def test_manifest_shape_fallback_uses_sampling_before_when_no_physical_delta() -> None:
+    import tools.latency_lut.run_v11_mixed_precision_lut_dataset_builder as builder
+
+    manifest = {
+        "materialized_from_random_dependency_domains": True,
+        "before_after_shapes": [
+            {
+                "module_name": "conv",
+                "module_type": "Conv2d",
+                "before": {"attrs": {"in_channels": 64, "out_channels": 64, "groups": 1}},
+                "after": {"attrs": {"in_channels": 56, "out_channels": 56, "groups": 1}},
+            }
+        ],
+        "module_channel_before_after": [],
+    }
+
+    rows = builder._manifest_shapes_by_module(manifest)
+
+    assert builder._after_attrs_from_manifest_shape(rows["conv"]) == {"in_channels": 64, "out_channels": 64, "groups": 1}
+
+
+def test_manifest_shape_fallback_uses_physical_delta_over_sampling_request() -> None:
+    import tools.latency_lut.run_v11_mixed_precision_lut_dataset_builder as builder
+
+    manifest = {
+        "materialized_from_random_dependency_domains": True,
+        "before_after_shapes": [
+            {"module_name": "conv", "before": {"attrs": {"in_channels": 64, "out_channels": 64, "groups": 1}}, "after": {"attrs": {"in_channels": 56, "out_channels": 56, "groups": 1}}}
+        ],
+        "module_channel_before_after": [
+            {"module_name": "conv", "after": {"in_channels": 60, "out_channels": 60, "groups": 1}}
+        ],
+    }
+
+    rows = builder._manifest_shapes_by_module(manifest)
+
+    assert builder._after_attrs_from_manifest_shape(rows["conv"]) == {"in_channels": 60, "out_channels": 60, "groups": 1}
+
+
+def test_manifest_shape_snapshot_has_priority_over_sampling_and_delta() -> None:
+    import tools.latency_lut.run_v11_mixed_precision_lut_dataset_builder as builder
+
+    manifest = {
+        "materialized_from_random_dependency_domains": True,
+        "before_after_shapes": [{"module_name": "conv", "before": {"attrs": {"in_channels": 64, "out_channels": 64}}, "after": {"attrs": {"in_channels": 56, "out_channels": 56}}}],
+        "module_channel_before_after": [{"module_name": "conv", "after": {"in_channels": 60, "out_channels": 60}}],
+        "physical_structure_snapshot_v2": {
+            "modules": [{"canonical_module_name": "conv", "module_type": "Conv2d", "in_channels": 64, "out_channels": 64, "groups": 1, "weight_shape": [64, 64, 3, 3]}]
+        },
+    }
+
+    rows = builder._manifest_shapes_by_module(manifest)
+
+    assert builder._after_attrs_from_manifest_shape(rows["conv"]) == {"in_channels": 64, "out_channels": 64, "groups": 1}
+
+
+def test_physical_preflight_failure_blocks_trtexec(tmp_path: Path, monkeypatch) -> None:
+    import tools.latency_lut.run_v11_mixed_precision_lut_dataset_builder as builder
+
+    profile_dir = tmp_path / "subnets/subnet_000/profile_000"
+    profile_dir.mkdir(parents=True)
+    calls: list[str] = []
+    monkeypatch.setattr(builder, "run_profile_legality_stage", lambda ctx: {"profile_legality_passed": True})
+    monkeypatch.setattr(builder, "run_onnx_qdq_stage", lambda ctx: {"success": True, "output_onnx": str(profile_dir / "onnx/model_mixed_qdq.onnx")})
+    monkeypatch.setattr(builder, "run_physical_structure_preflight_stage", lambda ctx: {"preflight_passed": False, "failure_reason": "shape_mismatch"})
+    monkeypatch.setattr(builder, "run_engine_build_stage", lambda ctx: calls.append("trtexec") or {"build_success": True})
+
+    result = builder.run_one_profile_pipeline(
+        {
+            "args": argparse.Namespace(allow_precision_mismatch_eval=False),
+            "subnet_dir": profile_dir.parents[1],
+            "subnet_id": "subnet_000",
+            "subnet_index": 0,
+            "structure_hash": "hash",
+            "groups": [],
+            "profile": {"layer_precision_assignment": {}},
+            "profile_id": "profile_000",
+            "profile_index": 0,
+            "profile_dir": profile_dir,
+            "existing_hashes": set(),
+        }
+    )
+
+    assert result["status"] == "physical_structure_preflight_failed"
+    assert calls == []
+
+
+
 def test_pilot_latency_report_reads_flat_latency_summary() -> None:
     import tools.latency_lut.run_v11_random_deployment_aware_pilot_engine_eval as pilot
 

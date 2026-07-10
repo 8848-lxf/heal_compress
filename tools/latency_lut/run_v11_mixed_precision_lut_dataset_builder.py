@@ -44,6 +44,10 @@ from heal_compress.quant_deploy.pruned_signal_maxk_exporter import (
 from heal_compress.trt_runtime.heal_trt_evaluator import run_real_heal_validation_eval, run_trt_smoke
 from heal_compress.tracer.dependency_tracer import build_dependency_graph
 from heal_compress.tracer.precision_coupling_tracer import PrecisionGroup, build_precision_coupling_groups, precision_groups_to_json
+from tools.latency_lut.physical_structure_v2 import (
+    HASH_SCHEMA_VERSION as PHYSICAL_HASH_SCHEMA_VERSION,
+    run_physical_structure_preflight,
+)
 
 
 PRECISIONS = ("fp32", "fp16", "int8")
@@ -306,11 +310,31 @@ def _module_shape_index_from_manifest(manifest: Mapping[str, Any]) -> dict[str, 
             "after_in": _int_value(after_attrs, "in_channels", default=_int_value(before_attrs, "in_channels", default=0)),
             "after_out": _int_value(after_attrs, "out_channels", default=_int_value(before_attrs, "out_channels", default=0)),
         }
+    for row in (manifest.get("physical_structure_snapshot_v2") or {}).get("modules", []):
+        if not isinstance(row, Mapping):
+            continue
+        module_name = str(row.get("canonical_module_name", ""))
+        if not module_name:
+            continue
+        existing = shapes.get(module_name, {})
+        shapes[module_name] = {
+            "module_name": module_name,
+            "groups": _int_value(row, "groups", default=1),
+            "before_in": _int_value(existing, "before_in", default=_int_value(row, "in_channels", default=0)),
+            "before_out": _int_value(existing, "before_out", default=_int_value(row, "out_channels", default=0)),
+            "after_in": _int_value(row, "in_channels", "in_features", default=0),
+            "after_out": _int_value(row, "out_channels", "out_features", default=0),
+            "physical_truth_source": "physical_structure_snapshot_v2",
+        }
     return shapes
 
 
 def _module_shape_index_from_subnet_dir(subnet_dir: Path) -> dict[str, dict[str, Any]]:
     manifest = _read_json_if_exists(subnet_dir / "pruning_manifest.json", {})
+    snapshot = _read_json_if_exists(subnet_dir / "physical_structure_snapshot_v2.json", {})
+    if isinstance(manifest, Mapping) and isinstance(snapshot, Mapping) and snapshot.get("modules"):
+        manifest = dict(manifest)
+        manifest["physical_structure_snapshot_v2"] = snapshot
     return _module_shape_index_from_manifest(manifest if isinstance(manifest, Mapping) else {})
 
 
@@ -3345,6 +3369,41 @@ def run_engine_build_stage(ctx: dict[str, Any]) -> dict[str, Any]:
     return report
 
 
+def run_physical_structure_preflight_stage(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Gate engine build on the complete materialized physical structure."""
+    subnet_dir = Path(ctx["subnet_dir"])
+    profile_dir = Path(ctx["profile_dir"])
+    args = ctx.get("args")
+    snapshot_path = subnet_dir / "physical_structure_snapshot_v2.json"
+    required = bool(getattr(args, "require_preflight_pass", False) or getattr(args, "require_physical_metadata_v2", False) or snapshot_path.is_file())
+    if not required:
+        return {
+            "preflight_schema_version": "physical-onnx-preflight-v2",
+            "preflight_passed": True,
+            "preflight_skipped": True,
+            "skip_reason": "legacy_artifact_without_physical_metadata_v2",
+            "check_count": 0,
+            "checks": [],
+        }
+    try:
+        return run_physical_structure_preflight(
+            subnet_dir=subnet_dir,
+            profile_dir=profile_dir,
+            require_snapshot=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        report = {
+            "preflight_schema_version": "physical-onnx-preflight-v2",
+            "preflight_passed": False,
+            "failure_reason": f"physical_structure_preflight_exception:{type(exc).__name__}: {exc}",
+            "traceback": traceback.format_exc(),
+            "check_count": 0,
+            "checks": [],
+        }
+        write_json(profile_dir / "physical_structure_preflight_report.json", report)
+        return report
+
+
 def _read_json_if_exists(path: Path, default: Any) -> Any:
     if not path.is_file():
         return default
@@ -3461,12 +3520,53 @@ def _manifest_rows_by_module(value: Any) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _sampling_row_with_physical_before(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Represent an unapplied sampling request as an unchanged physical row."""
+    physical = copy.deepcopy(dict(row))
+    before = copy.deepcopy(physical.get("before", {}))
+    physical["sampling_requested_after"] = copy.deepcopy(physical.get("after", {}))
+    physical["after"] = before
+    physical["physical_truth_source"] = "sampling_before_unless_overlaid_by_physical_delta"
+    return physical
+
+
+def _snapshot_rows_by_module(snapshot: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
+    rows: dict[str, dict[str, Any]] = {}
+    for raw in (snapshot or {}).get("modules", []):
+        if not isinstance(raw, Mapping):
+            continue
+        module_name = str(raw.get("canonical_module_name", ""))
+        if not module_name:
+            continue
+        attrs = {
+            key: raw.get(key)
+            for key in ("in_channels", "out_channels", "in_features", "out_features", "num_features", "groups")
+            if raw.get(key) is not None
+        }
+        rows[module_name] = {
+            "module_name": module_name,
+            "module_type": str(raw.get("module_type", "")),
+            "after": {"attrs": attrs},
+            "weight_shape": list(raw.get("weight_shape") or []),
+            "bias_shape": list(raw.get("bias_shape") or []),
+            "physical_truth_source": "physical_structure_snapshot_v2",
+        }
+    return rows
+
+
 def _manifest_shapes_by_module(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
-    out = _manifest_rows_by_module(manifest.get("before_after_shapes"))
-    # Physical materialization writes the authoritative after channels here.
-    # The sampling-time shape estimate can be stale for stem, projection, and
-    # coupled bottleneck layers after dependency repair.
+    sampling = _manifest_rows_by_module(manifest.get("before_after_shapes"))
+    is_materialized = bool(manifest.get("materialized_from_random_dependency_domains")) or "module_channel_before_after" in manifest
+    out = {
+        module_name: _sampling_row_with_physical_before(row) if is_materialized else dict(row)
+        for module_name, row in sampling.items()
+    }
+    # This legacy artifact is a sparse physical delta. It only overrides rows
+    # for modules whose materialized shape actually changed.
     out.update(_manifest_rows_by_module(manifest.get("module_channel_before_after")))
+    # A complete snapshot is the physical hard truth and overrides both legacy
+    # sampling requests and sparse deltas.
+    out.update(_snapshot_rows_by_module(manifest.get("physical_structure_snapshot_v2")))
     return out
 
 
@@ -3622,6 +3722,12 @@ def run_engine_structure_stage(ctx: dict[str, Any]) -> dict[str, Any]:
         onnx_path = subnet_dir / "onnx" / "model_signal_maxk.onnx"
 
     manifest = _read_json_if_exists(manifest_path, {})
+    snapshot = _read_json_if_exists(subnet_dir / "physical_structure_snapshot_v2.json", {})
+    physical_hash = _read_json_if_exists(subnet_dir / "physical_hash_v2.json", {})
+    if isinstance(manifest, Mapping):
+        manifest = dict(manifest)
+        if isinstance(snapshot, Mapping) and snapshot.get("modules"):
+            manifest["physical_structure_snapshot_v2"] = snapshot
     export_report = _read_json_if_exists(export_report_path, {})
     onnx_summary = _onnx_graph_summary(onnx_path)
     input_names = list(onnx_summary.get("input_names") or export_report.get("input_names") or [])
@@ -3718,6 +3824,10 @@ def run_engine_structure_stage(ctx: dict[str, Any]) -> dict[str, Any]:
         "structure_check_passed": not reasons,
         "status": "engine_structure_passed" if not reasons else "engine_structure_mismatch",
         "structure_hash": structure_hash,
+        "hash_schema_version": physical_hash.get("hash_schema_version", ""),
+        "structure_hash_v2": physical_hash.get("structure_hash_v2", ""),
+        "shape_hash_v2": physical_hash.get("shape_hash_v2", ""),
+        "physical_structure_snapshot_used": bool(snapshot.get("modules")) if isinstance(snapshot, Mapping) else False,
         "actual_param_prune_ratio": manifest.get("actual_param_prune_ratio", ""),
         "actual_channel_prune_ratio": manifest.get("actual_channel_prune_ratio", manifest.get("actual_channel_prune_ratio_on_searchable_surface", "")),
         "onnx_path": str(onnx_path),
@@ -4377,6 +4487,20 @@ def run_one_profile_pipeline(ctx: dict[str, Any]) -> dict[str, Any]:
             blocked = _write_blocked_downstream_reports(profile_dir, blocked_by=failed_status, reason=str(onnx_report.get("failure_reason", "")))
             reports.update(blocked)
             reports["failure"] = _failure_report(profile_dir, subnet_id=subnet_id, profile_id=profile_id, stage=failed_status, reason=str(onnx_report.get("failure_reason", "")), traceback_text=str(onnx_report.get("traceback", "")))
+            return reports
+
+        preflight_report = run_physical_structure_preflight_stage(ctx)
+        reports["preflight"] = preflight_report
+        if not preflight_report.get("preflight_passed"):
+            reports["status"] = "physical_structure_preflight_failed"
+            reports["failure"] = _failure_report(
+                profile_dir,
+                subnet_id=subnet_id,
+                profile_id=profile_id,
+                stage="physical_structure_preflight_failed",
+                reason=str(preflight_report.get("failure_reason", "")),
+                traceback_text=str(preflight_report.get("traceback", "")),
+            )
             return reports
 
         build_report = run_engine_build_stage(ctx)

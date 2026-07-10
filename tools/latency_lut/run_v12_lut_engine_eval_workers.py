@@ -8,10 +8,12 @@ import csv
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
 import traceback
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -28,6 +30,11 @@ from tools.latency_lut.prepare_v12_combined_lut_dataset import (  # noqa: E402
     DATASET_VERSION,
     summarize_surface_contract_from_manifest,
 )
+from tools.latency_lut.physical_structure_v2 import (  # noqa: E402
+    HASH_SCHEMA_VERSION,
+    atomic_write_json,
+    compute_deployment_profile_hash_v2,
+)
 
 
 GATE_FAILURE_STAGES = {
@@ -41,6 +48,7 @@ GATE_FAILURE_STAGES = {
     "eval_failed",
     "label_unavailable",
     "worker_crashed",
+    "physical_structure_preflight_failed",
 }
 
 
@@ -139,6 +147,115 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def _requested_int8_modules(profile: Mapping[str, Any]) -> list[str]:
+    return sorted(
+        str(module)
+        for module, precision_value in (profile.get("layer_precision_assignment") or {}).items()
+        if str(precision_value).lower() == "int8"
+    )
+
+
+def _current_deployment_profile_hash(subnet_dir: Path, profile: Mapping[str, Any]) -> str:
+    physical_hash = read_json(subnet_dir / "physical_hash_v2.json", {})
+    return compute_deployment_profile_hash_v2(
+        shape_hash_v2=str(physical_hash.get("shape_hash_v2", "")),
+        profile=profile,
+        requested_int8_modules=_requested_int8_modules(profile),
+    )
+
+
+def _build_command_onnx_paths(build_report: Mapping[str, Any]) -> list[str]:
+    paths = []
+    for token in build_report.get("command", []) or []:
+        token = str(token)
+        if token.startswith("--onnx="):
+            paths.append(token.split("=", 1)[1])
+    return paths
+
+
+def capture_engine_provenance_v2(
+    *,
+    subnet_dir: Path,
+    profile_dir: Path,
+    profile: Mapping[str, Any],
+    capture_mode: str,
+) -> dict[str, Any]:
+    engine_path = profile_dir / "engine.plan"
+    qdq_path = profile_dir / "onnx/model_mixed_qdq.onnx"
+    build_report_path = profile_dir / "build_report.json"
+    mapping_path = profile_dir / "canonical_precision_mapping.json"
+    layer_info_path = profile_dir / "trt_layer_info.json"
+    build_report = read_json(build_report_path, {})
+    command_paths = _build_command_onnx_paths(build_report)
+    command_matches = any(Path(value).resolve() == qdq_path.resolve() for value in command_paths)
+    qdq_older_than_engine = qdq_path.is_file() and engine_path.is_file() and qdq_path.stat().st_mtime <= engine_path.stat().st_mtime
+    layer_info_current = layer_info_path.is_file() and engine_path.is_file() and layer_info_path.stat().st_mtime >= engine_path.stat().st_mtime
+    payload = {
+        "provenance_schema_version": "engine-provenance-v2",
+        "capture_mode": capture_mode,
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "engine_path": str(engine_path.resolve()),
+        "engine_sha256": sha256_file(engine_path),
+        "engine_size_bytes": engine_path.stat().st_size if engine_path.is_file() else 0,
+        "mixed_qdq_onnx_path": str(qdq_path.resolve()),
+        "mixed_qdq_onnx_sha256": sha256_file(qdq_path),
+        "canonical_mapping_sha256": sha256_file(mapping_path),
+        "trt_layer_info_sha256": sha256_file(layer_info_path),
+        "build_report_sha256": sha256_file(build_report_path),
+        "build_report_success": bool(build_report.get("build_success")),
+        "build_report_returncode": build_report.get("returncode"),
+        "build_command_onnx_paths": command_paths,
+        "build_command_matches_current_onnx": command_matches,
+        "qdq_onnx_not_newer_than_engine": qdq_older_than_engine,
+        "trt_layer_info_not_older_than_engine": layer_info_current,
+        "physical_hash_v2": read_json(subnet_dir / "physical_hash_v2.json", {}),
+        "deployment_profile_hash_v2": _current_deployment_profile_hash(subnet_dir, profile),
+    }
+    payload["provenance_valid"] = bool(
+        payload["engine_sha256"]
+        and payload["engine_size_bytes"] > 0
+        and payload["mixed_qdq_onnx_sha256"]
+        and payload["canonical_mapping_sha256"]
+        and payload["build_report_success"]
+        and command_matches
+        and qdq_older_than_engine
+        and payload["trt_layer_info_sha256"]
+        and layer_info_current
+    )
+    atomic_write_json(profile_dir / "engine_provenance_v2.json", payload)
+    return payload
+
+
+def validate_existing_engine_for_reuse(
+    *, subnet_dir: Path, profile_dir: Path, profile: Mapping[str, Any]
+) -> dict[str, Any]:
+    engine_path = profile_dir / "engine.plan"
+    existing = read_json(profile_dir / "engine_provenance_v2.json", {})
+    current_engine_hash = sha256_file(engine_path)
+    current_qdq_hash = sha256_file(profile_dir / "onnx/model_mixed_qdq.onnx")
+    current_mapping_hash = sha256_file(profile_dir / "canonical_precision_mapping.json")
+    current_layer_info_hash = sha256_file(profile_dir / "trt_layer_info.json")
+    current_profile_hash = _current_deployment_profile_hash(subnet_dir, profile)
+    if existing:
+        valid = bool(
+            existing.get("provenance_valid")
+            and current_engine_hash
+            and current_engine_hash == existing.get("engine_sha256")
+            and current_qdq_hash == existing.get("mixed_qdq_onnx_sha256")
+            and current_mapping_hash == existing.get("canonical_mapping_sha256")
+            and current_layer_info_hash == existing.get("trt_layer_info_sha256")
+            and current_profile_hash == existing.get("deployment_profile_hash_v2")
+        )
+        return {"engine_reuse_valid": valid, "validation_source": "engine_provenance_v2", "provenance": existing}
+    captured = capture_engine_provenance_v2(
+        subnet_dir=subnet_dir,
+        profile_dir=profile_dir,
+        profile=profile,
+        capture_mode="legacy_reconstructed_build_command_path_mtime_and_hash",
+    )
+    return {"engine_reuse_valid": bool(captured.get("provenance_valid")), "validation_source": "legacy_reconstructed", "provenance": captured}
+
+
 def _truthy(value: Any) -> bool:
     return builder.truthy(value)
 
@@ -178,10 +295,12 @@ def build_lut_sample_label(
     profile_id: str,
     source_subset: str,
     required_eval_frames: int,
+    require_physical_metadata_v2: bool = False,
     failure_stage: str = "",
     failure_reason: str = "",
 ) -> dict[str, Any]:
     manifest = read_json(subnet_dir / "pruning_manifest.json", {})
+    physical_hash = read_json(subnet_dir / "physical_hash_v2.json", {})
     profile = read_json(profile_dir / "mixed_precision_profile.json", {})
     qdq = read_json(profile_dir / "qdq_insert_report.json", {})
     build = read_json(profile_dir / "build_report.json", {})
@@ -195,6 +314,16 @@ def build_lut_sample_label(
     grouped_unsupported = _grouped_unsupported_count(subnet_dir)
     true_mismatch = int(precision.get("precision_realization_mismatch_count", precision.get("mismatch_count", 0)) or 0)
     requested_int8_count = sum(1 for value in (profile.get("layer_precision_assignment") or {}).values() if str(value).lower() == "int8")
+    requested_int8_modules = sorted(
+        str(module)
+        for module, precision_value in (profile.get("layer_precision_assignment") or {}).items()
+        if str(precision_value).lower() == "int8"
+    )
+    deployment_profile_hash_v2 = compute_deployment_profile_hash_v2(
+        shape_hash_v2=str(physical_hash.get("shape_hash_v2", "")),
+        profile=profile,
+        requested_int8_modules=requested_int8_modules,
+    )
     qdq_nodes = len(qdq.get("inserted_qdq_nodes") or [])
     label_available = (
         bool(build.get("build_success", (profile_dir / "engine.plan").is_file()))
@@ -210,6 +339,14 @@ def build_lut_sample_label(
         and (requested_int8_count == 0 or qdq_nodes > 0)
         and grouped_unsupported == 0
     )
+    physical_metadata_v2_valid = bool(
+        physical_hash.get("hash_schema_version") == HASH_SCHEMA_VERSION
+        and physical_hash.get("structure_hash_v2")
+        and physical_hash.get("shape_hash_v2")
+        and read_json(profile_dir / "physical_structure_preflight_report.json", {}).get("preflight_passed")
+    )
+    if require_physical_metadata_v2:
+        label_available = bool(label_available and physical_metadata_v2_valid)
     if not label_available and not failure_reason:
         failure_reason = str(
             eval_report.get("failure_reason")
@@ -228,6 +365,11 @@ def build_lut_sample_label(
         "profile_id": profile_id,
         "structure_hash": str(manifest.get("structure_hash", "")),
         "shape_hash": str(manifest.get("shape_hash", "")),
+        "hash_schema_version": physical_hash.get("hash_schema_version", ""),
+        "structure_hash_v2": physical_hash.get("structure_hash_v2", ""),
+        "shape_hash_v2": physical_hash.get("shape_hash_v2", ""),
+        "deployment_profile_hash_v2": deployment_profile_hash_v2,
+        "physical_metadata_v2_valid": physical_metadata_v2_valid,
         "onnx_sha256": sha256_file(subnet_dir / "onnx" / "model_signal_maxk.onnx"),
         "engine_sha256": sha256_file(profile_dir / "engine.plan"),
         "uses_taylor_ranking": bool(manifest.get("uses_taylor_ranking", False)),
@@ -293,21 +435,68 @@ def _subnet_index_from_id(subnet_id: str, fallback: int) -> int:
 
 
 def _subnet_row(subnet_dir: Path, manifest: Mapping[str, Any]) -> dict[str, Any]:
+    physical_hash = read_json(subnet_dir / "physical_hash_v2.json", {})
     return {
         "subnet_id": str(manifest.get("subnet_id", subnet_dir.name)),
         "source_subset": manifest.get("source_subset", ""),
         "structure_hash": manifest.get("structure_hash", ""),
         "shape_hash": manifest.get("shape_hash", ""),
+        "hash_schema_version": physical_hash.get("hash_schema_version", ""),
+        "structure_hash_v2": physical_hash.get("structure_hash_v2", ""),
+        "shape_hash_v2": physical_hash.get("shape_hash_v2", ""),
         "actual_param_prune_ratio": manifest.get("actual_param_prune_ratio", manifest.get("achieved_global_param_prune_ratio", "")),
         "actual_channel_prune_ratio": manifest.get("actual_channel_prune_ratio", manifest.get("achieved_global_channel_prune_ratio", "")),
         "pruning_manifest_path": str(subnet_dir / "pruning_manifest.json"),
     }
 
 
+def _load_profile_allowlist(path_value: str | Path) -> set[tuple[str, str]]:
+    path = Path(path_value) if str(path_value) else Path()
+    if not str(path_value) or not path.is_file():
+        return set()
+    if path.suffix.lower() == ".csv":
+        rows: Any = read_csv(path)
+    else:
+        payload = read_json(path, {})
+        rows = payload.get("profiles", []) if isinstance(payload, Mapping) else payload
+    return {
+        (str(row.get("subnet_id", "")), str(row.get("profile_id", "")))
+        for row in rows or []
+        if isinstance(row, Mapping) and row.get("subnet_id") and row.get("profile_id")
+    }
+
+
+def _failure_matches_reasons(profile_dir: Path, reasons: set[str]) -> tuple[bool, str]:
+    report = read_json(profile_dir / "profile_failure_report.json", {})
+    if not report:
+        return False, "profile_failure_report_missing"
+    stage = str(report.get("stage_failed", ""))
+    reason = str(report.get("failure_reason", ""))
+    combined = f"{stage}:{reason}"
+    if reasons and not any(value == stage or value == reason or value in combined for value in reasons):
+        return False, f"failure_reason_not_selected:{combined}"
+    return True, f"selected_failure:{combined}"
+
+
+def _physical_metadata_v2_available(subnet_dir: Path) -> bool:
+    snapshot = read_json(subnet_dir / "physical_structure_snapshot_v2.json", {})
+    physical_hash = read_json(subnet_dir / "physical_hash_v2.json", {})
+    return (
+        (subnet_dir / "physical_structure_snapshot_v2.json").is_file()
+        and isinstance(snapshot.get("modules"), list)
+        and (subnet_dir / "physical_hash_v2.json").is_file()
+        and bool(physical_hash.get("shape_hash_v2"))
+    )
+
+
 def build_pending_jobs(args: argparse.Namespace) -> tuple[list[ProfileJob], list[dict[str, Any]]]:
     dataset_dir = Path(args.dataset_dir)
     jobs: list[ProfileJob] = []
     subnet_rows: list[dict[str, Any]] = []
+    failed_only = bool(getattr(args, "failed_only", False))
+    allowlist_path = str(getattr(args, "profile_allowlist", "") or "")
+    allowlist = _load_profile_allowlist(allowlist_path)
+    failure_reasons = {value.strip() for value in str(getattr(args, "failure_reasons", "") or "").split(",") if value.strip()}
     for fallback_index, subnet_dir in enumerate(_subnet_dirs(dataset_dir, int(getattr(args, "max_subnets", 0) or 0))):
         manifest = read_json(subnet_dir / "pruning_manifest.json", {})
         subnet_id = str(manifest.get("subnet_id", subnet_dir.name))
@@ -315,11 +504,23 @@ def build_pending_jobs(args: argparse.Namespace) -> tuple[list[ProfileJob], list
         structure_hash = str(manifest.get("structure_hash", ""))
         source_subset = str(manifest.get("source_subset", ""))
         subnet_rows.append(_subnet_row(subnet_dir, manifest))
+        if bool(getattr(args, "require_physical_metadata_v2", False)) and not _physical_metadata_v2_available(subnet_dir):
+            continue
         for profile_index in range(int(args.precision_profiles_per_subnet)):
             profile_id = f"profile_{profile_index:03d}"
             profile_dir = subnet_dir / profile_id
+            key = (subnet_id, profile_id)
             if profile_dir.joinpath(".running.lock").exists():
                 continue
+            if allowlist_path and key not in allowlist:
+                continue
+            if failed_only:
+                existing_label = read_json(profile_dir / "lut_sample_label.json", {})
+                if bool(existing_label.get("label_available")):
+                    continue
+                selected, selection_reason = _failure_matches_reasons(profile_dir, failure_reasons)
+                if not selected:
+                    continue
             if bool(getattr(args, "skip_existing_success", False)) and _label_success_complete(profile_dir, int(args.eval_frame_count)):
                 continue
             if _retry_count(profile_dir) > int(getattr(args, "max_retries", 1)):
@@ -336,6 +537,8 @@ def build_pending_jobs(args: argparse.Namespace) -> tuple[list[ProfileJob], list
                     source_subset=source_subset,
                 )
             )
+            if failed_only:
+                print(json.dumps({"selected_profile": f"{subnet_id}/{profile_id}", "selection_reason": selection_reason}, sort_keys=True), flush=True)
     return jobs, subnet_rows
 
 
@@ -458,6 +661,146 @@ def _mark_failed(profile_dir: Path, result: Mapping[str, Any]) -> None:
     write_json(profile_dir / ".failed", payload)
 
 
+def _preserve_before_recovery(profile_dir: Path) -> None:
+    preserved_dir = profile_dir / "recovery_preserved_artifacts"
+    for relative in (
+        "profile_failure_report.json",
+        "lut_sample_label.json",
+        "engine_structure_check_report.json",
+        "engine_precision_realization_report.json",
+        "trt_smoke_report.json",
+        "eval_report.json",
+    ):
+        source = profile_dir / relative
+        destination = preserved_dir / relative
+        if source.is_file() and not destination.exists():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+
+
+def _preserve_engine_build_artifacts(profile_dir: Path) -> None:
+    engine_hash = sha256_file(profile_dir / "engine.plan")[:16] or "missing"
+    preserved_dir = profile_dir / "recovery_preserved_artifacts" / f"engine_build_{engine_hash}"
+    for relative in ("engine.plan", "build_report.json", "build_log.txt", "trt_layer_info.json"):
+        source = profile_dir / relative
+        destination = preserved_dir / relative
+        if source.is_file() and not destination.exists():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+
+
+def _resolve_recovered_failure_report(profile_dir: Path) -> None:
+    path = profile_dir / "profile_failure_report.json"
+    report = read_json(path, {})
+    if not report:
+        return
+    report.update(
+        {
+            "resolved": True,
+            "resolution_status": "canonical_initializer_false_positive_recovered_with_physical_structure_v2",
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_by": "v12_failed_only_recovery",
+        }
+    )
+    atomic_write_json(path, report)
+
+
+def run_failed_profile_recovery_pipeline(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Recover an existing gated profile without regenerating ONNX or Q/DQ."""
+    args: argparse.Namespace = ctx["args"]
+    subnet_dir = Path(ctx["subnet_dir"])
+    profile_dir = Path(ctx["profile_dir"])
+    subnet_id = str(ctx["subnet_id"])
+    profile_id = str(ctx["profile_id"])
+    profile = ctx["profile"]
+    groups = ctx["groups"]
+    reports: dict[str, Any] = {"status": "recovery_started"}
+    ctx["output_onnx"] = str(profile_dir / "onnx/model_mixed_qdq.onnx")
+    try:
+        qdq = read_json(profile_dir / "qdq_insert_report.json", {})
+        mapping = read_json(profile_dir / "canonical_precision_mapping.json", {})
+        if not (profile_dir / "onnx/model_mixed_qdq.onnx").is_file() or not mapping.get("entries") or not bool(qdq.get("success", True)):
+            reason = "existing_onnx_qdq_or_canonical_mapping_not_reusable"
+            reports["status"] = "onnx_or_qdq_failed"
+            reports["failure"] = _failure_report(ProfileJob(subnet_dir, subnet_id, int(ctx.get("subnet_index", 0)), str(ctx.get("structure_hash", "")), profile_id, int(ctx.get("profile_index", 0)), profile_dir, ""), reports["status"], reason)
+            return reports
+
+        preflight = builder.run_physical_structure_preflight_stage(ctx)
+        reports["preflight"] = preflight
+        if not preflight.get("preflight_passed"):
+            reports["status"] = "physical_structure_preflight_failed"
+            reports["failure"] = _failure_report(ProfileJob(subnet_dir, subnet_id, int(ctx.get("subnet_index", 0)), str(ctx.get("structure_hash", "")), profile_id, int(ctx.get("profile_index", 0)), profile_dir, ""), reports["status"], str(preflight.get("failure_reason", "")))
+            return reports
+
+        reuse = {"engine_reuse_valid": False, "validation_source": "reuse_not_requested"}
+        if bool(getattr(args, "reuse_existing_engine_if_valid", False)):
+            reuse = validate_existing_engine_for_reuse(subnet_dir=subnet_dir, profile_dir=profile_dir, profile=profile)
+        reports["engine_reuse"] = reuse
+        if reuse.get("engine_reuse_valid"):
+            build_report = read_json(profile_dir / "build_report.json", {})
+            build_report = {**build_report, "engine_reused": True, "engine_reuse_validation_source": reuse.get("validation_source")}
+        else:
+            if not bool(getattr(args, "build_engine", False)):
+                reports["status"] = "engine_build_failed"
+                reports["failure"] = _failure_report(ProfileJob(subnet_dir, subnet_id, int(ctx.get("subnet_index", 0)), str(ctx.get("structure_hash", "")), profile_id, int(ctx.get("profile_index", 0)), profile_dir, ""), reports["status"], "existing_engine_not_reusable_and_build_engine_disabled")
+                return reports
+            _preserve_engine_build_artifacts(profile_dir)
+            build_report = builder.run_engine_build_stage(ctx)
+            if build_report.get("build_success"):
+                capture_engine_provenance_v2(subnet_dir=subnet_dir, profile_dir=profile_dir, profile=profile, capture_mode="direct_post_build_hash_capture")
+        reports["build"] = build_report
+        ctx["engine_path"] = build_report.get("engine_path") or str(profile_dir / "engine.plan")
+        if not build_report.get("build_success"):
+            reports["status"] = "engine_build_failed"
+            return reports
+
+        structure = builder.run_engine_structure_stage(ctx)
+        reports["structure"] = structure
+        if not structure.get("structure_check_passed"):
+            reports["status"] = "engine_structure_mismatch"
+            return reports
+
+        precision = builder.run_engine_precision_stage(ctx)
+        reports["precision"] = precision
+        if not precision.get("precision_realization_passed"):
+            reports["status"] = "engine_precision_mismatch"
+            return reports
+
+        smoke = builder.run_trt_smoke_stage(ctx)
+        reports["smoke"] = smoke
+        if not smoke.get("success"):
+            reports["status"] = "trt_smoke_failed"
+            return reports
+
+        eval_report = builder.run_real_eval_stage(ctx)
+        reports["eval"] = eval_report
+        builder._ensure_eval_artifacts(profile_dir, eval_report)
+        if not eval_report.get("eval_success"):
+            reports["status"] = "eval_failed"
+            return reports
+        reports["status"] = "eval_success"
+        return reports
+    finally:
+        index_row, eval_row, component_rows, training_row = builder._profile_output_rows(
+            subnet_id=subnet_id,
+            profile_id=profile_id,
+            structure_hash=str(ctx.get("structure_hash", "")),
+            profile=profile,
+            profile_dir=profile_dir,
+            status=str(reports.get("status", "failed")),
+            build_report=reports.get("build"),
+            structure_report=reports.get("structure"),
+            precision_report=reports.get("precision"),
+            smoke_report=reports.get("smoke"),
+            eval_report=reports.get("eval"),
+            groups=groups,
+        )
+        reports["index_row"] = index_row
+        reports["eval_row"] = eval_row
+        reports["component_rows"] = component_rows
+        reports["training_row"] = training_row
+
+
 def run_worker(args: argparse.Namespace) -> int:
     args = _adapt_builder_args(args)
     if str(getattr(args, "worker_gpu", "")):
@@ -484,6 +827,8 @@ def run_worker(args: argparse.Namespace) -> int:
         write_json(result_path, result)
         return 1
     try:
+        if bool(getattr(args, "failed_only", False)):
+            _preserve_before_recovery(job.profile_dir)
         profile, groups, other_hashes = _load_or_generate_profile(args, job)
         ctx = {
             "args": args,
@@ -498,7 +843,7 @@ def run_worker(args: argparse.Namespace) -> int:
             "profile_dir": job.profile_dir,
             "existing_hashes": other_hashes,
         }
-        result = builder.run_one_profile_pipeline(ctx)
+        result = run_failed_profile_recovery_pipeline(ctx) if bool(getattr(args, "failed_only", False)) else builder.run_one_profile_pipeline(ctx)
         label = build_lut_sample_label(
             subnet_dir=job.subnet_dir,
             profile_dir=job.profile_dir,
@@ -506,10 +851,13 @@ def run_worker(args: argparse.Namespace) -> int:
             profile_id=job.profile_id,
             source_subset=job.source_subset,
             required_eval_frames=int(args.eval_frame_count),
+            require_physical_metadata_v2=bool(getattr(args, "require_physical_metadata_v2", False)),
         )
         write_json(job.profile_dir / "lut_sample_label.json", label)
         if label["label_available"]:
             result["status"] = "eval_success"
+            if bool(getattr(args, "failed_only", False)):
+                _resolve_recovered_failure_report(job.profile_dir)
             _mark_done(job.profile_dir)
         else:
             result["status"] = str(result.get("status") or "label_unavailable")
@@ -712,6 +1060,10 @@ def build_worker_command(args: argparse.Namespace, job: ProfileJob, *, slot_id: 
         ("--require-precision-realization-check", args.require_precision_realization_check),
         ("--require-validation-dataloader", args.require_validation_dataloader),
         ("--forbid-synthetic-eval", args.forbid_synthetic_eval),
+        ("--reuse-existing-engine-if-valid", getattr(args, "reuse_existing_engine_if_valid", False)),
+        ("--require-physical-metadata-v2", getattr(args, "require_physical_metadata_v2", False)),
+        ("--require-preflight-pass", getattr(args, "require_preflight_pass", False)),
+        ("--failed-only", getattr(args, "failed_only", False)),
     ):
         if bool(enabled):
             cmd.append(flag)
@@ -832,6 +1184,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--log-dir", default="")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--skip-existing-success", action="store_true")
+    parser.add_argument("--failed-only", action="store_true")
+    parser.add_argument("--failure-reasons", default="")
+    parser.add_argument("--profile-allowlist", default="")
+    parser.add_argument("--reuse-existing-engine-if-valid", action="store_true")
+    parser.add_argument("--require-physical-metadata-v2", action="store_true")
+    parser.add_argument("--require-preflight-pass", action="store_true")
     parser.add_argument("--max-retries", type=int, default=1)
     parser.add_argument("--max-consecutive-failures", type=int, default=999999)
     parser.add_argument("--eval-frame-count", type=int, default=300)

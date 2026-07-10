@@ -200,3 +200,52 @@ def test_gate_dryrun_protects_deblock_output_dependency_domain() -> None:
     assert group.protected_reason == "requires_deblock_output_pruning_but_deblock_output_protected"
     assert report["protected_deblock_output_domains"] == ["pyramid_backbone.deblocks.0.0"]
     assert report["skipped_domains"][0]["skipped_reason"] == "requires_deblock_output_pruning_but_deblock_output_protected"
+
+
+def test_failed_only_scheduler_selects_only_allowlisted_canonical_mismatches(tmp_path: Path) -> None:
+    from tools.latency_lut.run_v12_lut_engine_eval_workers import build_pending_jobs
+
+    dataset = tmp_path / "dataset"
+    selected = dataset / "subnets/subnet_003/profile_000"
+    timeout = dataset / "subnets/subnet_003/profile_001"
+    success = dataset / "subnets/subnet_004/profile_000"
+    other_failure = dataset / "subnets/subnet_004/profile_001"
+    for path in (selected, timeout, success, other_failure):
+        path.mkdir(parents=True, exist_ok=True)
+    for subnet in ("subnet_003", "subnet_004"):
+        _write_json(dataset / f"subnets/{subnet}/pruning_manifest.json", {"subnet_id": subnet, "structure_hash": subnet})
+        _write_json(dataset / f"subnets/{subnet}/physical_hash_v2.json", {"shape_hash_v2": f"shape-{subnet}"})
+        _write_json(dataset / f"subnets/{subnet}/physical_structure_snapshot_v2.json", {"modules": []})
+    _write_json(selected / "profile_failure_report.json", {"stage_failed": "engine_structure_mismatch", "failure_reason": "canonical_onnx_initializer_shape_mismatch"})
+    _write_json(timeout / "profile_failure_report.json", {"stage_failed": "worker_crashed", "failure_reason": "trtexec timed out"})
+    _write_json(success / "lut_sample_label.json", {"label_available": True, "evaluated_frames": 300})
+    _write_json(other_failure / "profile_failure_report.json", {"stage_failed": "engine_precision_mismatch", "failure_reason": "mismatch_count=1"})
+    allowlist = dataset / "allowlist.json"
+    _write_json(allowlist, {"profiles": [{"subnet_id": "subnet_003", "profile_id": "profile_000"}, {"subnet_id": "subnet_003", "profile_id": "profile_001"}]})
+
+    args = argparse.Namespace(
+        dataset_dir=str(dataset),
+        max_subnets=0,
+        precision_profiles_per_subnet=2,
+        resume=True,
+        skip_existing_success=True,
+        eval_frame_count=300,
+        max_retries=1,
+        failed_only=True,
+        failure_reasons="canonical_onnx_initializer_shape_mismatch",
+        profile_allowlist=str(allowlist),
+        require_physical_metadata_v2=True,
+    )
+
+    jobs, _ = build_pending_jobs(args)
+
+    assert [(job.subnet_id, job.profile_id) for job in jobs] == [("subnet_003", "profile_000")]
+
+
+def test_canonical_mismatch_recovery_target_set_is_exact_and_excludes_timeouts() -> None:
+    from tools.latency_lut.prepare_v12_canonical_mismatch_recovery import CANONICAL_MISMATCH_RECOVERY_TARGETS
+
+    assert len(CANONICAL_MISMATCH_RECOVERY_TARGETS) == 35
+    assert len(set(CANONICAL_MISMATCH_RECOVERY_TARGETS)) == 35
+    assert ("subnet_003", "profile_001") not in CANONICAL_MISMATCH_RECOVERY_TARGETS
+    assert ("subnet_043", "profile_002") not in CANONICAL_MISMATCH_RECOVERY_TARGETS

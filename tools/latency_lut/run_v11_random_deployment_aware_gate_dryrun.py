@@ -42,6 +42,14 @@ from tools.latency_lut.random_deployment_aware_subnet_sampler import (
     _nearest_safe_per_group,
     _parse_safe_set,
 )
+from tools.latency_lut.physical_structure_v2 import (
+    atomic_write_json,
+    build_physical_application_ledger,
+    build_physical_structure_snapshot_v2,
+    build_sampling_structure_request,
+    compute_physical_hash_v2,
+    validate_physical_application_ledger,
+)
 from tools.latency_lut.run_v108_complete_taylor_greedy_pruner import (
     _apply_grouped_input_legality_filter,
     _apply_structural_legality_skips,
@@ -488,11 +496,34 @@ def materialize_subnet(
         model_config=str(args.model_config),
         checkpoint_source=str(args.checkpoint),
     )
+    sampling_request = build_sampling_structure_request(manifest)
+    snapshot = build_physical_structure_snapshot_v2(
+        pruned,
+        state_dict=pruned.state_dict(),
+        generated_from="pruned_model_object.pth:model.named_modules+pruned_state_dict_with_manifest.pth",
+    )
+    ledger = build_physical_application_ledger(
+        sampling_request,
+        snapshot,
+        physical_plan=physical_plan.to_json(),
+    )
+    ledger["validation"] = validate_physical_application_ledger(sampling_request, ledger)
+    physical_hash = compute_physical_hash_v2(
+        snapshot,
+        legacy_structure_hash=str(manifest.get("structure_hash", "")),
+        legacy_shape_hash=str(manifest.get("shape_hash", "")),
+    )
+    atomic_write_json(subnet_dir / "sampling_structure_request.json", sampling_request)
+    atomic_write_json(subnet_dir / "physical_pruning_application_ledger.json", ledger)
+    atomic_write_json(subnet_dir / "physical_structure_snapshot_v2.json", snapshot)
+    atomic_write_json(subnet_dir / "physical_hash_v2.json", physical_hash)
     return pruned, precision_groups, {
         "success": bool(forward_ok),
         "failure_reason": forward_reason,
         "params_after": params_after,
         "structure_hash": structure_hash,
+        "structure_hash_v2": physical_hash["structure_hash_v2"],
+        "shape_hash_v2": physical_hash["shape_hash_v2"],
         "pruned_model_path": str(artifacts["model_object"]),
     }
 
