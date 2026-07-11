@@ -222,6 +222,60 @@ def build_frame_manifest(
     }
 
 
+def validate_dataset_frame_binding(
+    manifest_frame_ids: Sequence[str],
+    dataset_split_frame_ids: Sequence[str],
+    dataset_local_sample_indices: Sequence[int],
+) -> dict[str, Any]:
+    """Bind authoritative split frame IDs to HEAL's dataset-local sample indices.
+
+    DAIR-V2X datasets expose the real vehicle frame identity through
+    ``dataset.split_info``.  Their collated ``sample_idx`` field is only the
+    zero-based position in that split and must never be treated as a frame ID.
+    """
+
+    expected = [str(value) for value in manifest_frame_ids]
+    split_ids = [str(value) for value in dataset_split_frame_ids[: len(expected)]]
+    if len(split_ids) != len(expected):
+        raise ExperimentContractError(
+            f"dataset split has {len(split_ids)} entries for {len(expected)} manifest frames"
+        )
+    for index, (manifest_id, split_id) in enumerate(zip(expected, split_ids)):
+        if manifest_id != split_id:
+            raise ExperimentContractError(
+                f"split frame mismatch at {index}: manifest={manifest_id}, dataset={split_id}"
+            )
+    local_indices = [int(value) for value in dataset_local_sample_indices]
+    if len(local_indices) != len(expected):
+        raise ExperimentContractError(
+            f"observed {len(local_indices)} local sample indices for {len(expected)} frames"
+        )
+    for position, local_index in enumerate(local_indices):
+        if local_index != position:
+            raise ExperimentContractError(
+                f"dataset-local sample index mismatch at {position}: observed={local_index}"
+            )
+    return {
+        "frame_ids": expected,
+        "frame_list_hash": _stable_hash(expected),
+        "dataset_local_sample_indices": local_indices,
+        "identity_source": "dataset.split_info",
+        "local_index_source": "batch.ego.sample_idx",
+    }
+
+
+def _dataset_local_sample_index(value: Any) -> int:
+    """Extract one collated HEAL dataset-local index without interpreting it as an ID."""
+
+    if hasattr(value, "detach"):
+        value = value.detach().cpu().reshape(-1).tolist()
+    if isinstance(value, (list, tuple)):
+        if len(value) != 1:
+            raise ExperimentContractError(f"expected one local sample index, got {value!r}")
+        value = value[0]
+    return int(value)
+
+
 def assert_independent_model_origins(rows: Sequence[Mapping[str, Any]], checkpoint_hash: str) -> None:
     """Require every ratio model to originate from the same original checkpoint."""
 
@@ -1095,6 +1149,12 @@ def evaluate_pruning_sweep(args: argparse.Namespace) -> dict[str, Any]:
     frame_ids = [str(value) for value in frame_manifest["frame_ids"]]
     if len(frame_ids) != 500:
         raise ExperimentContractError("validation manifest is not exactly 500 frames")
+    split_info = getattr(dataset, "split_info", None)
+    if not isinstance(split_info, (list, tuple)):
+        raise ExperimentContractError("dataset does not expose authoritative split_info frame IDs")
+    split_binding = validate_dataset_frame_binding(frame_ids, split_info, range(len(frame_ids)))
+    if split_binding["frame_list_hash"] != frame_manifest["frame_list_hash"]:
+        raise ExperimentContractError("dataset split frame hash differs from validation manifest")
     model_ids = ["original"] + [f"prune_{ratio:.1f}" for ratio in (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)]
     thresholds = (0.03, 0.30, 0.50, 0.70)
     rows: list[dict[str, Any]] = []
@@ -1113,18 +1173,14 @@ def evaluate_pruning_sweep(args: argparse.Namespace) -> dict[str, Any]:
             for threshold in thresholds
         }
         observed_ids: list[str] = []
+        observed_local_indices: list[int] = []
         with torch.inference_mode():
             for index, expected_frame_id in enumerate(frame_ids):
                 batch = _batch(dataset, index, args.device, train=False)
-                sample_idx = batch["ego"].get("sample_idx", [expected_frame_id])
-                observed = str(sample_idx[0] if isinstance(sample_idx, (list, tuple)) else sample_idx)
-                if observed.isdigit():
-                    observed = observed.zfill(len(expected_frame_id))
-                if observed != expected_frame_id:
-                    raise ExperimentContractError(
-                        f"validation frame mismatch at {index}: expected={expected_frame_id}, observed={observed}"
-                    )
-                observed_ids.append(observed)
+                if "sample_idx" not in batch["ego"]:
+                    raise ExperimentContractError("HEAL batch is missing dataset-local sample_idx")
+                observed_local_indices.append(_dataset_local_sample_index(batch["ego"]["sample_idx"]))
+                observed_ids.append(expected_frame_id)
                 inference = inference_utils.inference_intermediate_fusion(batch, model, dataset)
                 for threshold in thresholds:
                     eval_utils.caluclate_tp_fp(
@@ -1134,6 +1190,7 @@ def evaluate_pruning_sweep(args: argparse.Namespace) -> dict[str, Any]:
                         result_stat,
                         threshold,
                     )
+        runtime_binding = validate_dataset_frame_binding(frame_ids, split_info, observed_local_indices)
         observed_hash = _stable_hash(observed_ids)
         if observed_hash != frame_manifest["frame_list_hash"]:
             raise ExperimentContractError(f"frame hash changed during evaluation for {model_id}")
@@ -1152,6 +1209,9 @@ def evaluate_pruning_sweep(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "frame_count": len(observed_ids),
             "frame_list_hash": observed_hash,
+            "frame_identity_source": runtime_binding["identity_source"],
+            "dataset_local_sample_index_min": min(observed_local_indices),
+            "dataset_local_sample_index_max": max(observed_local_indices),
             "evaluation_wall_seconds": time.time() - model_started,
             **metrics,
         }

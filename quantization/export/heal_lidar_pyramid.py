@@ -14,6 +14,7 @@ from ..exceptions import OnnxExportError
 
 
 POINTPILLAR_SCATTER_PLUGIN_OP = "PointPillarScatterTRT"
+POINTPILLAR_SCATTER_ONNX_DOMAIN = "trt"
 
 
 def _base_grid(height: int, width: int, value: torch.Tensor, align_corners: bool) -> torch.Tensor:
@@ -75,7 +76,7 @@ class DynamicPointPillarScatterTRT(torch.autograd.Function):
     @staticmethod
     def symbolic(graph: Any, pillar_features: Any, voxel_coords: Any, valid_voxel_mask: Any, pairwise_t_matrix: Any, height: int, width: int) -> Any:
         return graph.op(
-            POINTPILLAR_SCATTER_PLUGIN_OP,
+            f"{POINTPILLAR_SCATTER_ONNX_DOMAIN}::{POINTPILLAR_SCATTER_PLUGIN_OP}",
             pillar_features,
             voxel_coords,
             valid_voxel_mask,

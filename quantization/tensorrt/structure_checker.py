@@ -12,7 +12,7 @@ from ..types import (
     ValidationIssue,
     stable_json_hash,
 )
-from .layer_info import layer_metadata, load_layer_info
+from .layer_info import has_canonical_identity, is_weighted_compute_layer, layer_metadata, load_layer_info
 
 
 def _snapshot_payload(snapshot: Any | None) -> tuple[str, str, dict[str, dict[str, Any]]]:
@@ -81,15 +81,18 @@ def validate_engine_structure(
                 issues.append(ValidationIssue("physical_module_missing", "canonical module is absent from physical snapshot", entry.module_path))
     shape_checks: list[dict[str, Any]] = []
     for entry in precision_mapping.entries:
-        hits = [value for value in metadata if entry.canonical_node_name in value]
-        if not hits:
+        matching_rows = [row for row in rows if has_canonical_identity(row, entry.canonical_node_name)]
+        compute_rows = [row for row in matching_rows if is_weighted_compute_layer(row)]
+        if not compute_rows:
             missing.append(entry.canonical_node_name)
-        elif len(hits) > 1 and all("reformat" not in value.lower() for value in hits):
+        elif len(compute_rows) > 1:
             ambiguous.append(entry.canonical_node_name)
         else:
             matched += 1
+            compute_row = compute_rows[0]
+            hits = [layer_metadata(compute_row)]
             physical_row = physical_rows.get(entry.module_path, {})
-            engine_weight_shape = _layer_weight_shape(hits and next(row for row in rows if entry.canonical_node_name in layer_metadata(row)))
+            engine_weight_shape = _layer_weight_shape(compute_row)
             physical_weight_shape = tuple(int(value) for value in (physical_row.get("weight_shape") or ()))
             groups = int(physical_row.get("groups", 1) or 1)
             type_expected = str(entry.onnx_op_type)

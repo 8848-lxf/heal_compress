@@ -37,6 +37,24 @@ def layer_metadata(row: Mapping[str, Any]) -> str:
     )
 
 
+def has_canonical_identity(row: Mapping[str, Any], canonical_name: str) -> bool:
+    """Match one ONNX compute identity without accepting its Q/DQ descendants."""
+
+    canonical = str(canonical_name)
+    metadata = str(row.get("Metadata") or row.get("metadata") or "")
+    if f"[ONNX Layer: {canonical}]" in metadata:
+        return True
+    name = layer_name(row)
+    return any(token.strip() == canonical for token in name.split(" + "))
+
+
+def is_weighted_compute_layer(row: Mapping[str, Any]) -> bool:
+    """Return whether TensorRT metadata describes a weighted compute layer."""
+
+    kind = str(row.get("LayerType") or row.get("type") or "").lower()
+    return any(token in kind for token in ("conv", "gemm", "matmul", "matrix", "fully"))
+
+
 def precision_name(row: Mapping[str, Any]) -> str:
     direct = str(row.get("Precision") or row.get("precision") or "")
     text = direct or json.dumps(row, sort_keys=True, default=str)
@@ -45,6 +63,6 @@ def precision_name(row: Mapping[str, Any]) -> str:
         return "int8"
     if "FP16" in upper or "HALF" in upper or "FLOAT16" in upper:
         return "fp16"
-    if "FP32" in upper or "FLOAT32" in upper:
+    if "FP32" in upper or "FLOAT32" in upper or '"FLOAT"' in upper or upper.strip() == "FLOAT":
         return "fp32"
     return ""

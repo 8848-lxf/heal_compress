@@ -31,6 +31,10 @@ CMakeCache.txt
 cmake_install.cmake
 Makefile
 build/
+!quantization/build/
+!quantization/build/*.py
+quantization/build/__pycache__/
+quantization/plugins/pointpillar_scatter_trt/build_contaminated_*/
 dist/
 *.egg-info/
 

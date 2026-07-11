@@ -1,10 +1,12 @@
 deployment:
   strategy: single_engine_maxK
   fixed_K: 29696
+  precision: fp16
   allowed_precisions: [fp16, int8]
   calibration_split: train
   eval_split: val
   int8:
+    default_recommended: false
     explicit_qdq: true
     calibration_frames: 200
     grouped_allowed_channels_per_group: [4, 8, 16, 32]

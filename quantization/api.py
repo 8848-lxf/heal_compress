@@ -14,6 +14,7 @@ from .export import (
 )
 from .precision import (
     build_canonical_precision_mapping,
+    collect_calibration_scales,
     generate_precision_profile,
     insert_explicit_qdq,
     trace_qdq_root_initializer,
@@ -32,6 +33,7 @@ from .tensorrt import (
 __all__ = [
     "apply_canonical_node_names",
     "build_canonical_precision_mapping",
+    "collect_calibration_scales",
     "build_heal_signal_maxk_export_module",
     "build_onnx_origin_map",
     "build_trt_command",

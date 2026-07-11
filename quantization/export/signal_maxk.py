@@ -135,6 +135,10 @@ def export_signal_maxk_onnx(
     import torch
 
     policy = config or OnnxExportConfig()
+    if policy.custom_op_domain != "trt":
+        raise OnnxExportError(
+            f"PointPillarScatterTRT requires custom_op_domain='trt', got {policy.custom_op_domain!r}"
+        )
     tensors = tuple(example_inputs[name] for name in policy.input_names) if isinstance(example_inputs, Mapping) else tuple(example_inputs)
     _validate_example_inputs(tensors, policy)
     destination = Path(output_path)
@@ -150,6 +154,7 @@ def export_signal_maxk_onnx(
                 output_names=list(policy.output_names),
                 dynamic_axes=dynamic_axes,
                 opset_version=int(policy.opset_version),
+                custom_opsets={str(policy.custom_op_domain): int(policy.custom_opset_version)},
                 do_constant_folding=bool(policy.do_constant_folding),
             )
         origin = build_onnx_origin_map(destination, calls, naming_config=naming_config)

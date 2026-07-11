@@ -156,13 +156,13 @@ def select_global_units(
     candidates = _bundle_grouped_units(units, grouped_config or GroupedConvConfig())
     selection_policy = selection_config or SelectionConfig()
     alignment_policy = alignment_config or AlignmentConfig()
-    inferred_widths: dict[str, int] = defaultdict(int)
+    declared_widths: dict[str, int] = defaultdict(int)
     for unit in units:
         declared = int(unit.constraints.get("original_channel_count") or 0)
-        observed = max(unit.root_indices, default=-1) + 1
-        inferred_widths[unit.scope_id] = max(inferred_widths[unit.scope_id], declared, observed)
+        if declared > 0:
+            declared_widths[unit.scope_id] = max(declared_widths[unit.scope_id], declared)
     maximum_pruned: dict[str, int] = {}
-    for scope_id, width in inferred_widths.items():
+    for scope_id, width in declared_widths.items():
         minimum = max(
             int(selection_policy.minimum_retained_channels),
             int(alignment_policy.dense_conv_channel_alignment),
@@ -190,7 +190,8 @@ def select_global_units(
         unit_channels = max(int(unit.channel_cost), len(unit.root_indices), 1)
         unit_parameters = max(int(unit.parameter_cost), 0)
         candidate_indices = set(int(value) for value in unit.root_indices)
-        if len(selected_scope_indices[unit.scope_id] | candidate_indices) > maximum_pruned.get(unit.scope_id, 0):
+        scope_limit = maximum_pruned.get(unit.scope_id)
+        if scope_limit is not None and len(selected_scope_indices[unit.scope_id] | candidate_indices) > scope_limit:
             continue
         if channel_budget is not None and channel_cost + unit_channels > channel_budget:
             continue

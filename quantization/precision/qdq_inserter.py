@@ -15,18 +15,36 @@ from ..types import CanonicalPrecisionMappingResult, QDQInsertionRecord, QDQInse
 from ..export.origin_trace import build_weight_trace_index, trace_compute_node_weight
 
 
-def _scale_for(scales: Mapping[str, Any], module_path: str, canonical_name: str) -> tuple[float, dict[str, Any]]:
+def _positive_scale(value: Any, module_path: str, kind: str) -> float:
+    if value is None:
+        raise QDQInsertionError(f"{kind} calibration scale missing for {module_path}")
+    result = float(value)
+    if not math.isfinite(result) or result <= 0.0:
+        raise QDQInsertionError(f"{kind} calibration scale must be positive and finite for {module_path}")
+    return result
+
+
+def _scales_for(
+    scales: Mapping[str, Any], module_path: str, canonical_name: str
+) -> tuple[float, float, float, dict[str, Any]]:
     raw = scales.get(module_path, scales.get(canonical_name))
     metadata: dict[str, Any] = {}
     if isinstance(raw, Mapping):
         metadata = dict(raw)
-        raw = raw.get("scale", raw.get("activation_scale", raw.get("value")))
+        common = raw.get("scale", raw.get("activation_scale", raw.get("value")))
+        activation_input = raw.get("activation_input_scale", common)
+        weight = raw.get("weight_scale", common if common is not None else activation_input)
+        activation_output = raw.get("activation_output_scale", raw.get("output_scale", common if common is not None else activation_input))
+    else:
+        activation_input = weight = activation_output = raw
     if raw is None:
         raise QDQInsertionError(f"calibration scale missing for {module_path}")
-    value = float(raw)
-    if not math.isfinite(value) or value <= 0.0:
-        raise QDQInsertionError(f"calibration scale must be positive and finite for {module_path}")
-    return value, metadata
+    return (
+        _positive_scale(activation_input, module_path, "activation input"),
+        _positive_scale(weight, module_path, "weight"),
+        _positive_scale(activation_output, module_path, "activation output"),
+        metadata,
+    )
 
 
 def _qdq_pair(helper: Any, numpy_helper: Any, np: Any, graph: Any, source: str, prefix: str, scale: float, zero_point: int) -> tuple[list[Any], str, str, str]:
@@ -76,7 +94,7 @@ def insert_explicit_qdq(
     targets = {row.canonical_node_name: row for row in mapping.entries if row.realized_request_precision == "int8"}
     if len(targets) != sum(row.realized_request_precision == "int8" for row in mapping.entries):
         raise QDQInsertionError("canonical INT8 target names are not unique")
-    prepared: dict[str, tuple[Any, float, dict[str, Any]]] = {}
+    prepared: dict[str, tuple[Any, float, float, float, dict[str, Any]]] = {}
     for name, entry in targets.items():
         node = nodes_by_name.get(name)
         if node is None or str(node.op_type) not in {"Conv", "ConvTranspose", "Gemm", "MatMul"}:
@@ -84,8 +102,10 @@ def insert_explicit_qdq(
         trace = trace_compute_node_weight(index, node)
         if not trace.get("success") or str(trace.get("root_initializer", "")) != entry.weight_initializer:
             raise QDQInsertionError(f"canonical weight root mismatch for {entry.module_path}")
-        scale, metadata = _scale_for(scales, entry.module_path, name)
-        prepared[name] = (entry, scale, metadata)
+        activation_input_scale, weight_scale, activation_output_scale, metadata = _scales_for(
+            scales, entry.module_path, name
+        )
+        prepared[name] = (entry, activation_input_scale, weight_scale, activation_output_scale, metadata)
 
     new_nodes: list[Any] = []
     records: list[QDQInsertionRecord] = []
@@ -94,18 +114,21 @@ def insert_explicit_qdq(
         if target is None:
             new_nodes.append(node)
             continue
-        entry, scale, _metadata = target
+        entry, activation_input_scale, weight_scale, activation_output_scale, _metadata = target
         safe = str(node.name).replace("/", "_").replace(".", "_")
         record = QDQInsertionRecord(
             module_path=entry.module_path,
             canonical_node_name=entry.canonical_node_name,
             weight_initializer=entry.weight_initializer,
-            scale=scale,
+            scale=activation_input_scale,
+            activation_input_scale=activation_input_scale,
+            weight_scale=weight_scale,
+            activation_output_scale=activation_output_scale,
             zero_point=int(policy.zero_point),
         )
         if policy.insert_activation_input_qdq:
             pair, dequantized, q_name, dq_name = _qdq_pair(
-                helper, numpy_helper, np, model.graph, str(node.input[0]), f"{safe}__activation_input", scale, policy.zero_point
+                helper, numpy_helper, np, model.graph, str(node.input[0]), f"{safe}__activation_input", activation_input_scale, policy.zero_point
             )
             new_nodes.extend(pair)
             node.input[0] = dequantized
@@ -113,7 +136,7 @@ def insert_explicit_qdq(
             record.activation_dequantize_node = dq_name
         if policy.insert_weight_qdq:
             pair, dequantized, q_name, dq_name = _qdq_pair(
-                helper, numpy_helper, np, model.graph, str(node.input[1]), f"{safe}__weight", scale, policy.zero_point
+                helper, numpy_helper, np, model.graph, str(node.input[1]), f"{safe}__weight", weight_scale, policy.zero_point
             )
             new_nodes.extend(pair)
             node.input[1] = dequantized
@@ -128,7 +151,7 @@ def insert_explicit_qdq(
         new_nodes.append(node)
         for output_index, (raw_name, public_name) in enumerate(output_specs):
             pair, dequantized, q_name, dq_name = _qdq_pair(
-                helper, numpy_helper, np, model.graph, raw_name, f"{safe}__activation_output_{output_index}", scale, policy.zero_point
+                helper, numpy_helper, np, model.graph, raw_name, f"{safe}__activation_output_{output_index}", activation_output_scale, policy.zero_point
             )
             pair[-1].output[0] = public_name
             new_nodes.extend(pair)

@@ -74,6 +74,8 @@ class OnnxExportConfig(ConfigMixin):
     validate_onnx: bool = True
     allow_custom_ops: bool = True
     do_constant_folding: bool = True
+    custom_op_domain: str = "trt"
+    custom_opset_version: int = 1
     schema_version: str = "signal-maxk-onnx-export-v1"
 
     @classmethod

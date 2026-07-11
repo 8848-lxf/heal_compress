@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ..types import CanonicalPrecisionMappingResult, PrecisionRealizationResult
-from .layer_info import layer_metadata, layer_name, load_layer_info, precision_name
+from .layer_info import has_canonical_identity, is_weighted_compute_layer, layer_metadata, layer_name, load_layer_info, precision_name
 
 
 def validate_precision_realization(
@@ -24,13 +24,9 @@ def validate_precision_realization(
     realized_fp16 = 0
     unresolved = 0
     for entry in precision_mapping.entries:
-        matches = [row for row in rows if entry.canonical_node_name in layer_metadata(row)]
-        compute_matches = [
-            row
-            for row in matches
-            if any(token in str(row.get("LayerType") or row.get("type") or "").lower() for token in ("conv", "gemm", "matmul", "matrix"))
-        ]
-        row = compute_matches[0] if compute_matches else matches[0] if len(matches) == 1 else None
+        matches = [row for row in rows if has_canonical_identity(row, entry.canonical_node_name)]
+        compute_matches = [row for row in matches if is_weighted_compute_layer(row)]
+        row = compute_matches[0] if len(compute_matches) == 1 else None
         if row is None:
             unresolved += 1
             mismatches.append(

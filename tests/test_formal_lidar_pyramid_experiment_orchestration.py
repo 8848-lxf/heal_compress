@@ -22,6 +22,7 @@ from tools.experiments.run_lidar_pyramid_formal_pruner_validation import (
     validate_engine_stage_order,
     validate_formal_defaults,
     validate_latency_scope,
+    validate_dataset_frame_binding,
     validate_one_shot_request,
     validate_strict_precision_rows,
     width_feasibility,
@@ -112,6 +113,21 @@ def test_500_frame_manifest_hash_is_deterministic() -> None:
     assert first["frame_list_hash"] == second["frame_list_hash"]
 
 
+def test_dataset_frame_binding_distinguishes_real_id_from_local_sample_index() -> None:
+    report = validate_dataset_frame_binding(
+        ["000211", "000212"],
+        ["000211", "000212", "000214"],
+        [0, 1],
+    )
+    assert report["frame_ids"] == ["000211", "000212"]
+    assert report["dataset_local_sample_indices"] == [0, 1]
+
+
+def test_dataset_frame_binding_fails_on_split_order_mismatch() -> None:
+    with pytest.raises(ExperimentContractError, match="split frame mismatch"):
+        validate_dataset_frame_binding(["000211"], ["000212"], [0])
+
+
 def test_each_ratio_originates_from_original_checkpoint() -> None:
     rows = [{"model_id": f"prune_{ratio}", "source_checkpoint_hash": "original"} for ratio in range(1, 8)]
     assert_independent_model_origins(rows, "original")
@@ -190,4 +206,3 @@ def test_experiment_runtime_has_no_test_or_legacy_algorithm_imports() -> None:
     path = Path("tools/experiments/run_lidar_pyramid_formal_pruner_validation.py")
     report = scan_runtime_dependencies(path)
     assert report["forbidden_imports"] == []
-

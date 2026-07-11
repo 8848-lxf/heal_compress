@@ -821,6 +821,67 @@ def test_qdq_root_trace_and_snapshot_validation(tmp_path: Path) -> None:
     assert validation.passed is True
 
 
+def test_qdq_uses_distinct_activation_weight_and_output_scales(tmp_path: Path) -> None:
+    from quantization.api import (
+        apply_canonical_node_names,
+        build_canonical_precision_mapping,
+        build_onnx_origin_map,
+        generate_precision_profile,
+        insert_explicit_qdq,
+    )
+
+    source = tmp_path / "source.onnx"
+    named = tmp_path / "named.onnx"
+    qdq = tmp_path / "qdq.onnx"
+    _write_weighted_onnx(source)
+    origin = build_onnx_origin_map(
+        source,
+        [{"module_path": "stem", "module_type": "Conv2d", "call_index": 0, "weight_initializer": "stem.weight"}],
+    )
+    apply_canonical_node_names(source, origin, output_path=named)
+    profile = generate_precision_profile(["stem"], profile_id="strict_int8")
+    mapping = build_canonical_precision_mapping(origin, profile)
+    insertion = insert_explicit_qdq(
+        named,
+        qdq,
+        mapping,
+        scales={
+            "stem": {
+                "activation_input_scale": 0.1,
+                "weight_scale": 0.02,
+                "activation_output_scale": 0.3,
+            }
+        },
+    )
+    record = insertion.records[0]
+    assert record.activation_input_scale == pytest.approx(0.1)
+    assert record.weight_scale == pytest.approx(0.02)
+    assert record.activation_output_scale == pytest.approx(0.3)
+
+
+def test_formal_calibration_collects_distinct_absmax_scales() -> None:
+    from quantization.api import collect_calibration_scales
+    from quantization.config import CalibrationConfig
+
+    model = nn.Module()
+    model.stem = nn.Linear(2, 1, bias=False)
+    with torch.no_grad():
+        model.stem.weight.copy_(torch.tensor([[2.0, -1.0]]))
+    batches = [torch.tensor([[1.0, -4.0]]), torch.tensor([[3.0, 2.0]])]
+    result = collect_calibration_scales(
+        model,
+        batches,
+        module_paths=["stem"],
+        forward_fn=lambda current, batch: current.stem(batch),
+        config=CalibrationConfig(frame_count=2),
+    )
+    record = result.records[0]
+    assert record.activation_input_scale == pytest.approx(4.0 / 127.0)
+    assert record.weight_scale == pytest.approx(2.0 / 127.0)
+    assert record.activation_output_scale == pytest.approx(6.0 / 127.0)
+    assert result.frame_count == 2
+
+
 def test_formal_heal_signal_maxk_input_preparation_uses_fixed_k_and_real_agent_count() -> None:
     from quantization.api import prepare_signal_maxk_inputs
     from quantization.config import OnnxExportConfig
@@ -838,6 +899,25 @@ def test_formal_heal_signal_maxk_input_preparation_uses_fixed_k_and_real_agent_c
     assert prepared["voxel_features"].shape == (8, 2, 4)
     assert prepared["valid_voxel_mask"].tolist() == [1, 1, 1, 0, 0, 0, 0, 0]
     assert prepared["pairwise_t_matrix"].shape == (1, 2, 2, 4, 4)
+
+
+def test_pointpillar_scatter_uses_declared_custom_onnx_domain() -> None:
+    from quantization.config import OnnxExportConfig
+    from quantization.export.heal_lidar_pyramid import DynamicPointPillarScatterTRT
+
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class Graph:
+        def op(self, name: str, *_args: object, **kwargs: object) -> str:
+            calls.append((name, kwargs))
+            return name
+
+    result = DynamicPointPillarScatterTRT.symbolic(Graph(), "f", "c", "m", "p", 16, 32)
+    policy = OnnxExportConfig()
+    assert result == "trt::PointPillarScatterTRT"
+    assert calls[0][0] == "trt::PointPillarScatterTRT"
+    assert policy.custom_op_domain == "trt"
+    assert policy.custom_opset_version == 1
 
 
 def test_trt_command_generation_uses_canonical_names_without_execution(tmp_path: Path) -> None:
@@ -904,6 +984,61 @@ def test_precision_realization_and_provenance_validation() -> None:
         "build_policy_version": "trt-fp16-int8-explicit-qdq-v1",
     }
     assert validate_engine_provenance(provenance).passed is True
+
+
+def test_tensorrt_109_float_format_is_recognized_as_fp32() -> None:
+    from quantization.tensorrt.layer_info import precision_name
+
+    row = {
+        "Name": "__canonical__stem__Conv__call00000",
+        "LayerType": "CaskConvolution",
+        "Inputs": [{"Format/Datatype": "Float"}],
+        "Outputs": [{"Format/Datatype": "Float"}],
+    }
+    assert precision_name(row) == "fp32"
+
+
+def test_engine_checkers_do_not_confuse_adjacent_qdq_metadata_with_compute_identity() -> None:
+    from quantization.api import validate_engine_structure, validate_precision_realization
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    canonical = "__canonical__stem__Conv__call00000"
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                module_path="stem",
+                canonical_node_name=canonical,
+                precision_group="pg::stem",
+                requested_precision="int8",
+                realized_request_precision="int8",
+                onnx_op_type="Conv",
+            )
+        ]
+    )
+    rows = [
+        {
+            "Name": "previous_compute",
+            "LayerType": "CaskConvolution",
+            "Metadata": f"[ONNX Layer: {canonical}__activation_input__QuantizeLinear]",
+            "Outputs": [{"Format/Datatype": "Half"}],
+        },
+        {
+            "Name": canonical,
+            "LayerType": "CaskConvolution",
+            "Metadata": f"[ONNX Layer: {canonical}]",
+            "Outputs": [{"Format/Datatype": "Int8"}],
+        },
+    ]
+    snapshot = {
+        "snapshot_schema_version": "physical-structure-snapshot-v2",
+        "modules": [{"canonical_module_name": "stem", "module_type": "Conv2d", "groups": 1, "weight_shape": [4, 3, 1, 1]}],
+    }
+    structure = validate_engine_structure(rows, mapping, physical_snapshot=snapshot)
+    precision = validate_precision_realization(rows, mapping)
+    assert structure.passed is True
+    assert structure.matched_canonical_count == 1
+    assert precision.passed is True
+    assert precision.realized_int8_count == 1
 
 
 def test_structure_checker_requires_physical_snapshot_v2() -> None:

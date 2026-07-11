@@ -116,6 +116,46 @@ class PrecisionProfileResult(ResultMixin):
 
 
 @dataclass
+class CalibrationScaleRecord(ResultMixin):
+    """Observed symmetric per-tensor scales for one weighted module."""
+
+    module_path: str
+    activation_input_scale: float
+    weight_scale: float
+    activation_output_scale: float
+    activation_input_amax: float
+    weight_amax: float
+    activation_output_amax: float
+    observation_count: int
+    zero_point: int = 0
+    scale_method: str = "symmetric_absmax_div127_per_tensor_v1"
+
+
+@dataclass
+class CalibrationResult(ResultMixin):
+    """Source-independent formal activation/weight calibration result."""
+
+    records: list[CalibrationScaleRecord]
+    frame_count: int
+    module_count: int
+    split: str = "train"
+    activation_granularity: str = "per_tensor"
+    weight_granularity: str = "per_tensor"
+    scale_method: str = "symmetric_absmax_div127_per_tensor_v1"
+    schema_version: str = "formal-calibration-result-v1"
+
+    def scales(self) -> dict[str, dict[str, float]]:
+        return {
+            row.module_path: {
+                "activation_input_scale": row.activation_input_scale,
+                "weight_scale": row.weight_scale,
+                "activation_output_scale": row.activation_output_scale,
+            }
+            for row in self.records
+        }
+
+
+@dataclass
 class CanonicalPrecisionEntry(ResultMixin):
     module_path: str
     canonical_node_name: str
@@ -157,6 +197,9 @@ class QDQInsertionRecord(ResultMixin):
     output_quantize_nodes: list[str] = field(default_factory=list)
     output_dequantize_nodes: list[str] = field(default_factory=list)
     scale: float = 0.0
+    activation_input_scale: float = 0.0
+    weight_scale: float = 0.0
+    activation_output_scale: float = 0.0
     zero_point: int = 0
 
 
