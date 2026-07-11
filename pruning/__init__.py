@@ -6,6 +6,22 @@ from importlib import import_module
 from typing import Any
 
 __all__ = [
+    # Formal API
+    "load_model",
+    "score_pruning_units",
+    "select_pruning_request",
+    "build_physical_pruning_plan",
+    "legalize_pruning_plan",
+    "materialize_pruning",
+    "replay_pruning",
+    "build_physical_structure_snapshot",
+    "compute_physical_hashes",
+    "estimate_physical_parameter_count",
+    "validate_physical_model",
+    "ImportanceResult",
+    "SamplingPruningRequest",
+    "PhysicalPruningPlan",
+    "MaterializationResult",
     "PhysicalPruner",
     "ChannelAlignmentChecker",
     "StructureLegalityChecker",
@@ -37,6 +53,21 @@ __all__ = [
 ]
 
 _EXPORTS = {
+    "load_model": ".api",
+    "score_pruning_units": ".api",
+    "select_pruning_request": ".api",
+    "build_physical_pruning_plan": ".api",
+    "legalize_pruning_plan": ".api",
+    "materialize_pruning": ".api",
+    "replay_pruning": ".api",
+    "build_physical_structure_snapshot": ".api",
+    "compute_physical_hashes": ".api",
+    "estimate_physical_parameter_count": ".api",
+    "validate_physical_model": ".api",
+    "ImportanceResult": ".types",
+    "SamplingPruningRequest": ".types",
+    "PhysicalPruningPlan": ".types",
+    "MaterializationResult": ".types",
     "PhysicalPruner": ".physical_pruner",
     "ChannelAlignmentChecker": ".alignment_checker",
     "StructureLegalityChecker": ".legality_checker",
@@ -56,7 +87,7 @@ _EXPORTS = {
     "SelectionConfig": ".selection",
     "PruningPlan": ".selection",
     "build_pruning_plan": ".selection",
-    "AtomicPruneUnit": ".units",
+    "AtomicPruneUnit": ".types",
     "ConcreteCoupledPruningGroup": ".units",
     "CoupledChannelUnit": ".units",
     "check_transformer_group": ".transformer_checker",

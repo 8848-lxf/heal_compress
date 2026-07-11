@@ -10,7 +10,6 @@ from typing import Any
 import torch
 import torch.nn as nn
 
-from heal_compress.pruning.artifacts import save_v108_model_artifacts
 from heal_compress.pruning.config import PruningConfig
 from heal_compress.pruning.greedy_budget_selector import select_greedy_global_budget
 from heal_compress.pruning.shape_invariants import check_model_shape_invariants, snapshot_model_shape_invariants
@@ -107,6 +106,10 @@ class HEALStructuredPruner:
         return self.shape_report
 
     def export_artifacts(self, output_dir: str | Path) -> dict[str, str]:
+        # Import the deprecated serializer only for this compatibility method;
+        # constructing and using the formal pruner no longer emits a warning.
+        from heal_compress.pruning.artifacts import save_v108_model_artifacts
+
         output = Path(output_dir)
         output.mkdir(parents=True, exist_ok=True)
         shape = self.check_shape_invariants()

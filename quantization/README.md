@@ -15,8 +15,8 @@ and `padded_agent_static` are legacy comparison baselines, not defaults.
 
 ```bash
 python -m quantization.export.export_single_engine_maxk_onnx \
-  --config /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml \
-  --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+  --config <model-config.yaml> \
+  --checkpoint <checkpoint.pth> \
   --fixed-k 29696 \
   --precision fp16 \
   --output-dir tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/onnx/fixedK29696/single_engine_maxK/
@@ -25,7 +25,7 @@ python -m quantization.build.build_single_engine_maxk_engine \
   --onnx <onnx_path> \
   --precision fp16 \
   --fixed-k 29696 \
-  --trt-root /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118 \
+  --trt-root <TensorRT-root> \
   --plugin quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so \
   --output-dir tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/engines/fixedK29696/dynamic_agent_single_engine_maxK/fp16/
 

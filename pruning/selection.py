@@ -8,7 +8,10 @@ from typing import Any, Mapping, Sequence
 import torch
 import torch.nn as nn
 
-from ..tracer.pruning_group import PruningGroup
+try:  # Package import: heal_compress.pruning
+    from ..tracer.pruning_group import PruningGroup
+except ImportError:  # Release-root import: pruning
+    from tracer.pruning_group import PruningGroup
 from .units import (
     AtomicPruneUnit,
     ConcreteCoupledPruningGroup,
@@ -287,7 +290,11 @@ def _build_independent_topk_candidate(
 ) -> tuple[list[AtomicPruneUnit], list[AtomicPruneUnit], dict[str, Any]]:
     groups = int(grouped["groups"])
     per = int(grouped["per_group"])
-    if cfg.group_conv_align > 1 and (groups % cfg.group_conv_align != 0 or per % cfg.group_conv_align != 0):
+    # ``group_conv_align`` constrains channels per group, not the number of
+    # groups.  Requiring ``groups`` itself to be a multiple of the channel
+    # alignment incorrectly rejects otherwise legal grouped convolutions (for
+    # example 4 groups with 16 channels per group).
+    if cfg.group_conv_align > 1 and per % cfg.group_conv_align != 0:
         report = _grouped_report_base(scope, cfg, grouped, scores)
         report.update(
             {

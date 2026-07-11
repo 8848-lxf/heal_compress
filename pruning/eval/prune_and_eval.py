@@ -1,7 +1,7 @@
 """Formal real-dataloader pruning evaluation helpers.
 
-The functions here are production copies of the runtime evaluation helpers
-that used to live in tests. They do not import from ``tests``.
+The functions here are compatibility copies of historical runtime evaluation
+helpers. Formal release APIs do not import integration-suite code.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import argparse
 import gc
 import json
 import logging
+import os
 import statistics
 import sys
 import time
@@ -28,9 +29,9 @@ from heal_compress.utils.io_utils import save_csv, save_json
 from heal_compress.utils.model_utils import resolve_device
 
 
-DEFAULT_ORIGINAL = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
-DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"
-DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
+DEFAULT_ORIGINAL = os.environ.get("HEAL_CHECKPOINT")
+DEFAULT_CONFIG = os.environ.get("HEAL_MODEL_CONFIG")
+DEFAULT_HEAL_ROOT = os.environ.get("HEAL_REPOSITORY")
 IOU_THRESHOLDS = (0.03, 0.30, 0.50, 0.70, 0.90)
 
 

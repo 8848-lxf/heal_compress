@@ -16,7 +16,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--precision", default=DEFAULT_PRECISION, choices=["fp32", "fp16", "int8"])
     parser.add_argument("--fixed-k", "--fixed_k", dest="fixed_k", type=int, default=DEFAULT_FIXED_K)
     parser.add_argument("--output-dir", "--output_dir", dest="output_dir", required=True)
-    parser.add_argument("--note", default="Use tests/quant_deploy benchmark runner for GPU latency execution.")
+    parser.add_argument("--note", default="Metadata-only command; runtime measurements require explicit evaluation inputs.")
     return parser.parse_args(argv)
 
 

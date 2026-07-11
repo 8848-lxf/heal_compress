@@ -138,7 +138,12 @@ class GenericTracer:
     def _add_module_node(self, name: str, module: nn.Module) -> None:
         if name in self.nodes:
             return
-        info: Dict[str, Any] = {"type": module.__class__.__name__}
+        info: Dict[str, Any] = {
+            "type": module.__class__.__name__,
+            "executed": False,
+            "input_shapes": [],
+            "output_shapes": [],
+        }
         for attr in ("in_channels", "out_channels", "num_features",
                      "in_features", "out_features", "groups"):
             if hasattr(module, attr):
@@ -153,6 +158,7 @@ class GenericTracer:
 
     def _pre_hook(self, name: str) -> Callable:
         def hook(_m: nn.Module, inputs: tuple) -> None:
+            self.nodes[name]["input_shapes"] = [_shape_of(tensor) for tensor in _iter_tensors(inputs)]
             for idx, tensor in enumerate(_iter_tensors(inputs)):
                 producer = self._producer_of(tensor)
                 if producer:
@@ -162,6 +168,8 @@ class GenericTracer:
 
     def _post_hook(self, name: str) -> Callable:
         def hook(_m: nn.Module, _inp: tuple, output: Any) -> None:
+            self.nodes[name]["executed"] = True
+            self.nodes[name]["output_shapes"] = [_shape_of(tensor) for tensor in _iter_tensors(output)]
             for tensor in _iter_tensors(output):
                 self._set_producer(tensor, name)
             if self.module_stack and self.module_stack[-1] == name:

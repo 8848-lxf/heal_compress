@@ -18,7 +18,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--config", required=True)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--output-dir", "--output_dir", dest="output_dir", required=True)
-    parser.add_argument("--heal-root", "--heal_root", dest="heal_root", default="/home/lixingfeng/UniAD_examine/HEAL")
+    parser.add_argument("--heal-root", "--heal_root", dest="heal_root", required=True)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--split", default="train", choices=["train", "val"])
     return parser.parse_args(argv)

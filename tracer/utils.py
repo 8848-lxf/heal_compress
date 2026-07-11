@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +10,9 @@ def repo_root() -> Path:
 
 
 def add_repo_parent_to_sys_path() -> None:
-    parent = repo_root().parent
-    if str(parent) not in sys.path:
-        sys.path.insert(0, str(parent))
+    """Deprecated no-op; callers must install/import the package normally."""
+
+    return None
 
 
 def ensure_dir(path: str | Path) -> Path:

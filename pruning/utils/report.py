@@ -27,12 +27,6 @@ def status(success: bool, status_text: str, **fields: Any) -> dict[str, Any]:
 
 
 MIGRATED_PRUNING_SOURCES = [
-    "tests/evaluate_l1_grouped_conv_ablation.py",
-    "tests/run_l1_grouped_conv_ablation.py",
-    "tests/test_prune_and_eval.py",
-    "tests/test_general_pruner.py",
-    "tests/test_l1_grouped_conv_ablation_runner.py",
-    "tests/test_tracer.py",
     "tracer/generic_tracer.py",
     "tracer/op_graph.py",
     "pruning/general_pruner.py",
@@ -43,10 +37,10 @@ MIGRATED_PRUNING_SOURCES = [
 
 def build_pruning_migration_report(
     *,
-    smoke_tests: dict[str, Any] | None = None,
+    smoke_evidence: dict[str, Any] | None = None,
     physical_prune_smoke: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    smoke_tests = smoke_tests or {}
+    smoke_evidence = smoke_evidence or {}
     physical_prune_smoke = physical_prune_smoke or {
         "attempted": False,
         "success": False,
@@ -58,13 +52,13 @@ def build_pruning_migration_report(
         formal_tooling=["tracer", "pruning"],
         migrated_sources=MIGRATED_PRUNING_SOURCES,
         capabilities={
-            "full_model_graph_tracing": smoke_tests.get("full_model_graph_tracing", "requires HEAL checkpoint/dataset runtime"),
-            "coupled_channel_group_generation": smoke_tests.get("coupled_channel_group_generation", "schema_smoke_tested"),
-            "physical_prune_plan_generation": smoke_tests.get("physical_prune_plan_generation", "schema_smoke_tested"),
-            "legality_check": smoke_tests.get("legality_check", "schema_smoke_tested"),
+            "full_model_graph_tracing": smoke_evidence.get("full_model_graph_tracing", "requires HEAL checkpoint/dataset runtime"),
+            "coupled_channel_group_generation": smoke_evidence.get("coupled_channel_group_generation", "schema_smoke_tested"),
+            "physical_prune_plan_generation": smoke_evidence.get("physical_prune_plan_generation", "schema_smoke_tested"),
+            "legality_check": smoke_evidence.get("legality_check", "schema_smoke_tested"),
             "optional_real_physical_prune": physical_prune_smoke,
         },
-        smoke_test_evidence=smoke_tests,
+        smoke_test_evidence=smoke_evidence,
         heal_opencood_source_modified=False,
     )
 
@@ -92,10 +86,10 @@ def write_pruning_migration_report(report: dict[str, Any], root: str | Path) -> 
         "## Formal CLI Examples",
         "",
         "```bash",
-        "python -m tracer.export_trace_report --config <config.yaml> --checkpoint <net_epoch_bestval_at17.pth> --output-dir tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/tracer_reports/lidar_pyramid/",
-        "python -m pruning.planner.physical_prune_plan --config <config.yaml> --checkpoint <net_epoch_bestval_at17.pth> --trace-report tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/tracer_reports/lidar_pyramid/coupled_channel_groups.json --importance l1 --target-prune-ratio 0.2 --min-keep-ratio 0.5 --output-dir tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/pruning_reports/lidar_pyramid_plan_only/",
-        "python -m pruning.export.export_pruned_model --config <config.yaml> --checkpoint <net_epoch_bestval_at17.pth> --prune-plan <prune_plan.json> --output-dir tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/pruned_models/lidar_pyramid/ --execute-general-pruner",
-        "python -m pruning.eval.prune_and_eval --config <config.yaml> --checkpoint <net_epoch_bestval_at17.pth> --prune-plan <prune_plan.json> --split val --output-dir tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/pruning_eval/lidar_pyramid/",
+        "python -m tracer.export_trace_report --config <config.yaml> --checkpoint <model.pth> --heal-root <heal_repo> --output-dir outputs/formal/tracer/",
+        "python -m pruning.planner.physical_prune_plan --config <config.yaml> --checkpoint <model.pth> --trace-report outputs/formal/tracer/coupled_channel_groups.json --importance l1 --target-prune-ratio 0.2 --min-keep-ratio 0.5 --output-dir outputs/formal/pruning/",
+        "python -m pruning.export.export_pruned_model --config <config.yaml> --checkpoint <model.pth> --prune-plan <prune_plan.json> --output-dir outputs/formal/models/ --execute-general-pruner",
+        "python -m pruning.eval.prune_and_eval --config <config.yaml> --checkpoint <model.pth> --prune-plan <prune_plan.json> --split val --output-dir outputs/formal/evaluation/",
         "```",
     ]
     save_markdown(lines, md_path)

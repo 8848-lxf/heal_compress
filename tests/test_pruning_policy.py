@@ -1,7 +1,4 @@
 import argparse
-import sys
-from pathlib import Path
-
 import torch
 import torch.nn as nn
 
@@ -15,9 +12,7 @@ from heal_compress.tracer.generic_tracer import trace_model
 from heal_compress.tracer.op_graph import build_op_graph
 from heal_compress.tracer.pruning_group import PruningGroup
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from test_general_pruner import (
+from tests.test_general_pruner import (
     build_protected_layers,
     parse_args,
     select_keep,

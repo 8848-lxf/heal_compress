@@ -8,22 +8,28 @@ kept in test scripts. Production tools should import from here instead of
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
+import os
 import sys
 from pathlib import Path
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import torch
 import torch.nn as nn
 
-from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
-from heal_compress.pruning.grouped_conv import grouped_conv_alignment_merge_factor, grouped_conv_pruning_fn, merge_grouped_conv_groups
+from .exceptions import ModelLoadError, PhysicalStructureMismatchError
+from .grouped_conv import grouped_conv_alignment_merge_factor, grouped_conv_pruning_fn, merge_grouped_conv_groups
+from .types import ModelLoadResult, ModelProvenance
 
 
-DEFAULT_CHECKPOINT = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
-DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"
-DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
+# Compatibility names now come only from caller-controlled environment. New
+# code should pass paths through ProjectPaths/load_model explicitly.
+DEFAULT_CHECKPOINT = os.environ.get("HEAL_CHECKPOINT")
+DEFAULT_CONFIG = os.environ.get("HEAL_MODEL_CONFIG")
+DEFAULT_HEAL_ROOT = os.environ.get("HEAL_REPOSITORY")
 
 STRUCTURE_ATTRS = (
     "in_channels",
@@ -54,7 +60,117 @@ def setup_logger(output_dir: Path, name: str = "heal_structured_pruner") -> logg
     return logger
 
 
-def load_heal_model(args: argparse.Namespace, device: torch.device, logger: logging.Logger) -> tuple[nn.Module, HEALLiDARAdapter]:
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_config_payload(config: Mapping[str, Any] | str | Path | None) -> tuple[dict[str, Any], str]:
+    if config is None:
+        return {}, ""
+    if isinstance(config, Mapping):
+        return dict(config), ""
+    path = Path(config)
+    if not path.is_file():
+        raise ModelLoadError(f"model config not found: {path}")
+    text = path.read_text(encoding="utf-8")
+    try:
+        import yaml
+
+        payload = yaml.safe_load(text)
+    except ImportError:
+        payload = json.loads(text)
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, Mapping):
+        raise ModelLoadError("model config root must be a mapping")
+    return dict(payload), str(path)
+
+
+def _extract_state_dict(payload: Any, state_dict_key: str | None) -> Mapping[str, torch.Tensor]:
+    if state_dict_key:
+        if not isinstance(payload, Mapping) or state_dict_key not in payload:
+            raise ModelLoadError(f"checkpoint lacks requested state_dict key: {state_dict_key}")
+        payload = payload[state_dict_key]
+    elif isinstance(payload, Mapping):
+        for key in ("state_dict", "model_state_dict"):
+            candidate = payload.get(key)
+            if isinstance(candidate, Mapping):
+                payload = candidate
+                break
+    if not isinstance(payload, Mapping) or not all(torch.is_tensor(value) for value in payload.values()):
+        raise ModelLoadError("checkpoint does not contain a tensor-only state_dict")
+    return payload
+
+
+def load_model(
+    model_factory: Callable[[Mapping[str, Any]], nn.Module],
+    *,
+    checkpoint_path: str | Path,
+    model_config: Mapping[str, Any] | str | Path | None = None,
+    device: str | torch.device = "cpu",
+    strict_state_dict: bool = True,
+    training: bool = False,
+    state_dict_key: str | None = None,
+) -> ModelLoadResult:
+    """Construct and load a model without hidden paths or global state.
+
+    ``model_factory`` receives a plain serializable config mapping. The
+    checkpoint is loaded in tensor-only mode and all overlapping shapes are
+    checked before ``load_state_dict`` mutates the new model.
+    """
+
+    checkpoint = Path(checkpoint_path)
+    if not checkpoint.is_file():
+        raise ModelLoadError(f"checkpoint not found: {checkpoint}")
+    config_payload, config_source = _load_config_payload(model_config)
+    model = model_factory(config_payload)
+    if not isinstance(model, nn.Module):
+        raise ModelLoadError("model_factory did not return torch.nn.Module")
+    try:
+        checkpoint_payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    except TypeError as exc:
+        raise ModelLoadError("safe tensor-only checkpoint loading requires a newer PyTorch") from exc
+    state_dict = _extract_state_dict(checkpoint_payload, state_dict_key)
+    live_state = model.state_dict()
+    mismatches = {
+        key: (tuple(live_state[key].shape), tuple(value.shape))
+        for key, value in state_dict.items()
+        if key in live_state and tuple(live_state[key].shape) != tuple(value.shape)
+    }
+    if mismatches:
+        raise PhysicalStructureMismatchError(f"checkpoint/model shape mismatches: {mismatches}")
+    incompatible = model.load_state_dict(state_dict, strict=strict_state_dict)
+    target_device = torch.device(device)
+    model.to(target_device)
+    model.train(bool(training))
+    provenance = ModelProvenance(
+        config_path=config_source,
+        checkpoint_path=str(checkpoint),
+        checkpoint_sha256=_sha256_file(checkpoint),
+        device=str(target_device),
+        training=bool(training),
+        strict_state_dict=bool(strict_state_dict),
+    )
+    return ModelLoadResult(
+        model=model,
+        provenance=provenance,
+        missing_keys=list(incompatible.missing_keys),
+        unexpected_keys=list(incompatible.unexpected_keys),
+    )
+
+
+def load_heal_model(args: argparse.Namespace, device: torch.device, logger: logging.Logger) -> tuple[nn.Module, Any]:
+    """Deprecated argparse wrapper retained for historical command entries."""
+
+    try:
+        from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
+    except ImportError:
+        from adapters.heal_lidar_adapter import HEALLiDARAdapter
+
     checkpoint = Path(args.checkpoint)
     config = Path(args.model_config)
     if not checkpoint.is_file():

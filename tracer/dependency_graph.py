@@ -1,19 +1,27 @@
 """Dependency graph builder for HEAL models.
 
-Traces channel-level dependencies between Conv2d, BatchNorm, Linear,
-residual Add, Concat, and Transformer layers to determine which channels
-must be pruned synchronously.
+Traces legacy channel-level dependencies between Conv2d, BatchNorm, Linear,
+residual Add and Concat. Transformer rows are heuristic metadata only and are
+not a validated pruning capability of the formal API.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 import torch.nn as nn
 
-from ..utils.io_utils import load_json, load_yaml, save_json, save_yaml
+from .serialization import atomic_write_json, read_json
+from .exceptions import AmbiguousDependencyError
+from .types import (
+    DependencyEdge as FormalDependencyEdge,
+    DependencyMember,
+    DependencyScope,
+    ModuleInventoryEntry,
+    ProtectionPolicy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +75,7 @@ class DependencyGraphBuilder:
     - Concat: channel index mapping to downstream input
     - Multi-scale fusion (deblocks cat -> fused_feature)
     - BEV warp channel passthrough
-    - Transformer Q/K/V projection coupling
+    - Unvalidated Transformer Q/K/V heuristic annotations (legacy only)
 
     Protected nodes (not prunable):
     - LSS frustum/camC/D related convolutions
@@ -110,7 +118,7 @@ class DependencyGraphBuilder:
         5. Trace residual Add synchronization constraints.
         6. Trace Concat channel index mappings.
         7. Trace multi-scale pyramid structure.
-        8. Trace Transformer Q/K/V coupling.
+        8. Add legacy, unvalidated Transformer heuristic annotations.
         9. Validate and log warnings.
 
         Returns:
@@ -236,10 +244,11 @@ class DependencyGraphBuilder:
                 break
 
     def _trace_transformer_coupling(self) -> None:
-        """Find Transformer Q/K/V projections and link them as coupled.
+        """Record an unvalidated legacy Transformer heuristic.
 
-        Same attention head's Q/K/V subspaces must be in the same group.
-        FFN intermediate dimensions can be independent.
+        This edge must not be interpreted as formal pruning support. The typed
+        formal tracer rejects/records attention paths unless an adapter proves
+        their channel mapping.
         """
         for name, info in self.nodes.items():
             if info.get("type") == "MultiheadAttention":
@@ -327,7 +336,7 @@ class DependencyGraphBuilder:
         Args:
             json_path: Output file path.
         """
-        save_json(self.to_dict(), json_path)
+        atomic_write_json(json_path, self.to_dict())
         logger.info(f"Dependency graph saved to {json_path}")
 
     @classmethod
@@ -340,4 +349,171 @@ class DependencyGraphBuilder:
         Returns:
             The loaded graph dict.
         """
-        return load_json(json_path)
+        return read_json(json_path)
+
+
+def _formal_output_channels(module: ModuleInventoryEntry) -> int | None:
+    for value in (module.out_channels, module.out_features):
+        if value is not None:
+            return int(value)
+    return None
+
+
+def build_dependency_scopes_from_edges(
+    modules: Sequence[ModuleInventoryEntry],
+    edges: Sequence[FormalDependencyEdge],
+    protection_policies: Sequence[ProtectionPolicy],
+) -> list[DependencyScope]:
+    """Build deterministic dependency closures from formal channel edges.
+
+    Residual branches and depthwise input/output dimensions share one
+    reference index space. Ordinary downstream inputs (including protected
+    heads, FPN outputs and deblocks) remain members of the upstream scope and
+    do not freeze it.
+    """
+
+    module_by_path = {module.module_path: module for module in modules}
+    policy_by_path = {policy.module_path: policy for policy in protection_policies}
+    roots = {
+        module.module_path: _formal_output_channels(module)
+        for module in modules
+        if module.weighted and _formal_output_channels(module)
+    }
+    parent = {name: name for name in roots}
+
+    def find(name: str) -> str:
+        while parent[name] != name:
+            parent[name] = parent[parent[name]]
+            name = parent[name]
+        return name
+
+    def union(left: str, right: str, reason: str) -> None:
+        if left not in parent or right not in parent:
+            return
+        left_root, right_root = find(left), find(right)
+        left_count, right_count = roots[left], roots[right]
+        if left_count != right_count:
+            raise AmbiguousDependencyError(
+                f"{reason} couples incompatible output widths: "
+                f"{left}={left_count}, {right}={right_count}"
+            )
+        if left_root != right_root:
+            # Lexicographic ownership makes the component ID independent of
+            # traversal/edge insertion order.
+            owner, child = sorted((left_root, right_root))
+            parent[child] = owner
+
+    for edge in edges:
+        if edge.dependency_type in {"residual_add", "depthwise_coupling"}:
+            union(edge.source, edge.target, edge.dependency_type)
+
+    components: dict[str, list[str]] = {}
+    for name in sorted(roots):
+        components.setdefault(find(name), []).append(name)
+
+    scopes: list[DependencyScope] = []
+    for _component, root_modules in sorted(components.items()):
+        root_modules = sorted(root_modules)
+        primary = root_modules[0]
+        count = int(roots[primary] or 0)
+        members_by_key: dict[tuple[str, str, str, int, int], DependencyMember] = {}
+
+        def add_member(member: DependencyMember) -> None:
+            scale = 1
+            if member.index_map:
+                first_values = next(iter(member.index_map.values()), [])
+                scale = max(1, len(first_values))
+            key = (
+                member.module_path,
+                member.axis,
+                member.dependency_type,
+                member.channel_offset,
+                scale,
+            )
+            existing = members_by_key.get(key)
+            if existing is None:
+                members_by_key[key] = member
+                return
+            existing.indices = sorted(set(existing.indices + member.indices))
+            for root_index, values in member.index_map.items():
+                existing.index_map.setdefault(root_index, [])
+                existing.index_map[root_index] = sorted(set(existing.index_map[root_index] + values))
+
+        for root_module in root_modules:
+            module = module_by_path[root_module]
+            policy = policy_by_path.get(root_module)
+            add_member(
+                DependencyMember(
+                    module_path=root_module,
+                    module_type=module.module_type,
+                    axis="out",
+                    indices=list(range(count)),
+                    dependency_type="root_output",
+                    index_map={index: [index] for index in range(count)},
+                    protection_reason=(policy.protection_reason if policy and policy.fixed_output_contract else ""),
+                )
+            )
+
+        component_set = set(root_modules)
+        dependency_types: set[str] = set()
+        for edge in edges:
+            if edge.source not in component_set:
+                continue
+            dependency_types.add(edge.dependency_type)
+            if edge.dependency_type == "residual_add" and edge.target in component_set:
+                continue
+            if edge.target in component_set and edge.target_axis == "out":
+                continue
+            scale = max(1, int(edge.metadata.get("index_scale", 1)))
+            offset = int(edge.channel_offset)
+            index_map = {
+                index: list(range(offset + index * scale, offset + (index + 1) * scale))
+                for index in range(count)
+            }
+            indices = sorted({value for values in index_map.values() for value in values})
+            target_module = module_by_path.get(edge.target)
+            add_member(
+                DependencyMember(
+                    module_path=edge.target,
+                    module_type=(
+                        target_module.module_type
+                        if target_module is not None
+                        else ("Concat" if edge.dependency_type == "concat" else "Operation")
+                    ),
+                    axis=edge.target_axis,
+                    indices=indices,
+                    dependency_type=edge.dependency_type,
+                    channel_offset=offset,
+                    index_map=index_map,
+                )
+            )
+
+        protected_roots = [
+            policy_by_path[name]
+            for name in root_modules
+            if name in policy_by_path and not policy_by_path[name].root_pruning_allowed
+        ]
+        reason = ";".join(
+            sorted({policy.protection_reason for policy in protected_roots if policy.protection_reason})
+        )
+        scopes.append(
+            DependencyScope(
+                root_module_path=primary,
+                root_axis="out",
+                channel_count=count,
+                members=sorted(
+                    members_by_key.values(),
+                    key=lambda member: (
+                        member.module_path,
+                        member.axis,
+                        member.dependency_type,
+                        member.channel_offset,
+                    ),
+                ),
+                root_modules=root_modules,
+                dependency_types=sorted(dependency_types),
+                protected=bool(protected_roots),
+                protection_reason=reason,
+            )
+        )
+    return scopes

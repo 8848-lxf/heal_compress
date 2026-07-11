@@ -1,0 +1,55 @@
+"""Stable public API for formal FP16/INT8 quantization deployment."""
+
+from __future__ import annotations
+
+from .evaluation import compute_detection_metrics, evaluate_engine, summarize_latency
+from .export import (
+    apply_canonical_node_names,
+    build_heal_signal_maxk_export_module,
+    build_onnx_origin_map,
+    export_pruned_signal_maxk_onnx,
+    export_signal_maxk_onnx,
+    prepare_signal_maxk_inputs,
+    validate_onnx_against_physical_snapshot,
+)
+from .precision import (
+    build_canonical_precision_mapping,
+    generate_precision_profile,
+    insert_explicit_qdq,
+    trace_qdq_root_initializer,
+    validate_qdq_against_physical_snapshot,
+)
+from .tensorrt import (
+    build_trt_command,
+    build_trt_engine,
+    load_trt_engine,
+    run_engine_smoke,
+    validate_engine_provenance,
+    validate_engine_structure,
+    validate_precision_realization,
+)
+
+__all__ = [
+    "apply_canonical_node_names",
+    "build_canonical_precision_mapping",
+    "build_heal_signal_maxk_export_module",
+    "build_onnx_origin_map",
+    "build_trt_command",
+    "build_trt_engine",
+    "compute_detection_metrics",
+    "evaluate_engine",
+    "export_pruned_signal_maxk_onnx",
+    "export_signal_maxk_onnx",
+    "generate_precision_profile",
+    "insert_explicit_qdq",
+    "prepare_signal_maxk_inputs",
+    "load_trt_engine",
+    "run_engine_smoke",
+    "summarize_latency",
+    "trace_qdq_root_initializer",
+    "validate_engine_provenance",
+    "validate_engine_structure",
+    "validate_onnx_against_physical_snapshot",
+    "validate_precision_realization",
+    "validate_qdq_against_physical_snapshot",
+]

@@ -12,7 +12,7 @@ if(NOT DEFINED TRT_ROOT)
     if(DEFINED ENV{TRT_ROOT})
         set(TRT_ROOT $ENV{TRT_ROOT})
     else()
-        set(TRT_ROOT "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118")
+        message(FATAL_ERROR "TRT_ROOT is required; pass -DTRT_ROOT=<TensorRT root> or set the TRT_ROOT environment variable")
     endif()
 endif()
 

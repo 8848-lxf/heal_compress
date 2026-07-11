@@ -28,12 +28,20 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional, Set, Tuple
 
-from ..tracer.op_graph import (
-    OP_ADD, OP_BN, OP_CAT, OP_CONV, OP_CONVT, OP_DET_HEAD_INPUT,
-    OP_BEV_WARP, OP_LINEAR, OP_MUL, OP_NORM, OP_SPLIT, PARAMETRIC_OPS, PASSTHROUGH_OPS,
-    OpGraph, OpNode,
-)
-from ..tracer.pruning_group import PruningGroup, identity_transform, offset_transform
+try:
+    from ..tracer.op_graph import (
+        OP_ADD, OP_BN, OP_CAT, OP_CONV, OP_CONVT, OP_DET_HEAD_INPUT,
+        OP_BEV_WARP, OP_LINEAR, OP_MUL, OP_NORM, OP_SPLIT, PARAMETRIC_OPS, PASSTHROUGH_OPS,
+        OpGraph, OpNode,
+    )
+    from ..tracer.pruning_group import PruningGroup, identity_transform, offset_transform
+except ImportError:  # formal packages are also supported as top-level imports
+    from tracer.op_graph import (
+        OP_ADD, OP_BN, OP_CAT, OP_CONV, OP_CONVT, OP_DET_HEAD_INPUT,
+        OP_BEV_WARP, OP_LINEAR, OP_MUL, OP_NORM, OP_SPLIT, PARAMETRIC_OPS, PASSTHROUGH_OPS,
+        OpGraph, OpNode,
+    )
+    from tracer.pruning_group import PruningGroup, identity_transform, offset_transform
 from .grouped_conv import classify_grouped_conv, grouped_conv_pruning_fn, prune_grouped_conv_input_balanced
 from .pruning_fns import get_pruning_fn
 

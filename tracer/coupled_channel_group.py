@@ -99,7 +99,8 @@ class CoupledChannelGroupBuilder:
         3. Merge layers connected by residual_add edges.
         4. Merge layers connected by sequential edges (same output dimension).
         5. Handle grouped convolution constraints.
-        6. Handle Transformer Q/K/V coupling.
+        6. Preserve legacy Transformer heuristic metadata (not validated
+           formal pruning support).
         7. Build group objects with channel indices and successor mappings.
         8. Mark protected groups.
 
