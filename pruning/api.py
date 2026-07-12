@@ -18,6 +18,7 @@ from .importance.aggregation import coupled_dependency_mean
 from .importance.first_order_taylor import estimate_unit_parameter_cost, score_first_order_taylor
 from .importance.norm import norm_parameter_slice
 from .importance.normalization import normalize_scope_scores
+from .importance.second_order_fisher import score_second_order_fisher
 from .materialization.executor import materialize_pruning
 from .materialization.legalizer import legalize_pruning_plan
 from .materialization.planner import build_physical_pruning_plan, estimate_physical_parameter_count
@@ -128,35 +129,12 @@ def score_pruning_units(
     if cfg.mode is ImportanceMode.L2_NORM:
         return _score_norm_mode(model, units, config=cfg, order=2)
     if cfg.mode is ImportanceMode.SECOND_ORDER_FISHER:
-        # Fisher is exposed as an optional mode. It intentionally requires
-        # explicit gradients and squares each first-order dependency signal.
-        taylor = score_first_order_taylor(model, units, config=cfg)
-        raw = {
-            stable_id: value * value if math.isfinite(value) else value
-            for stable_id, value in taylor.raw_scores.items()
-        }
-        scope_units: dict[str, list[str]] = defaultdict(list)
-        for unit in units:
-            scope_units[str(unit.scope_id)].append(str(unit.stable_id))
-        normalized_scopes = normalize_scope_scores(
-            {scope: [raw[stable_id] for stable_id in ids] for scope, ids in scope_units.items()},
-            config=cfg.normalization,
-        )
-        normalized = {
-            stable_id: value
-            for scope, ids in scope_units.items()
-            for stable_id, value in zip(ids, normalized_scopes[scope])
-        }
-        return ImportanceResult(
-            mode=cfg.mode.value,
-            normalization=cfg.normalization.strategy.value,
-            aggregation=cfg.aggregation.value,
-            raw_scores=raw,
-            normalized_scores=normalized,
-            unit_parameter_costs=dict(taylor.unit_parameter_costs),
+        return score_second_order_fisher(
+            model,
+            units,
+            config=cfg,
             calibration_batches=calibration_batches,
             task_loss=task_loss,
-            implementation_version="second-order-fisher-v1",
         )
     raise ValueError(f"unsupported importance mode: {cfg.mode}")
 

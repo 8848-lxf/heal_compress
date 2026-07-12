@@ -1,0 +1,59 @@
+"""Mixed-precision model-size retention proxy."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from ..candidate import CandidatePhenotype
+from .parameter_slice_resolver import ParameterSlice
+from .virtual_shape_resolver import resolve_virtual_shapes
+
+
+BIT_WIDTHS = {"FP32": 32, "FP16": 16, "INT8": 8}
+
+
+class SizeProxy:
+    """Estimate retained weight bits relative to original FP32 weights."""
+
+    def __init__(
+        self,
+        model: Any | None = None,
+        layer_parameter_counts: dict[str, int] | None = None,
+        unit_to_parameter_slices: dict[str, list[ParameterSlice]] | None = None,
+    ) -> None:
+        self.model = model
+        self.unit_to_parameter_slices = unit_to_parameter_slices or {}
+        if layer_parameter_counts is None and model is not None:
+            layer_parameter_counts = {
+                name: int(module.weight.numel())
+                for name, module in model.named_modules()
+                if getattr(module, "weight", None) is not None
+            }
+        self.layer_parameter_counts = dict(layer_parameter_counts or {})
+        self.base_bits = sum(count * 32 for count in self.layer_parameter_counts.values()) or 1
+        self.base_fp16_bits = sum(count * 16 for count in self.layer_parameter_counts.values()) or 1
+
+    def evaluate(self, phenotype: CandidatePhenotype) -> float:
+        return float(self.evaluate_breakdown(phenotype)["R_size_vs_fp32"])
+
+    def evaluate_breakdown(self, phenotype: CandidatePhenotype) -> dict[str, float]:
+        if self.model is not None and self.unit_to_parameter_slices:
+            shapes = resolve_virtual_shapes(self.model, phenotype, self.unit_to_parameter_slices)
+            total_bits = 0
+            for layer, shape in shapes.items():
+                precision = phenotype.realized_precision_profile.get(layer, "FP16")
+                total_bits += int(shape.parameter_count_after) * BIT_WIDTHS.get(str(precision).upper(), 16)
+            return {
+                "R_size_vs_fp32": float(total_bits / self.base_bits),
+                "R_size_vs_fp16_deploy": float(total_bits / self.base_fp16_bits),
+                "size_bits_total": float(total_bits),
+            }
+        total = 0
+        for layer, count in self.layer_parameter_counts.items():
+            precision = phenotype.realized_precision_profile.get(layer, "FP16")
+            total += int(count) * BIT_WIDTHS.get(str(precision).upper(), 16)
+        return {
+            "R_size_vs_fp32": float(total / self.base_bits),
+            "R_size_vs_fp16_deploy": float(total / self.base_fp16_bits),
+            "size_bits_total": float(total),
+        }
