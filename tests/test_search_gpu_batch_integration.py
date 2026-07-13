@@ -415,7 +415,7 @@ def test_lidar_runner_ga_uses_proxy_backend_from_evaluator(tmp_path) -> None:
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     (run_dir / "run_manifest.json").write_text("{}", encoding="utf-8")
-    space = SearchSpaceSpec(pruning_unit_ids=["a"], precision_layer_ids=["m"], default_precision="FP16")
+    space = SearchSpaceSpec(pruning_unit_ids=["a", "b", "c", "d"], precision_layer_ids=["m"], default_precision="FP16")
     context = SimpleNamespace(search_space=space, pruning_action_catalog=SimpleNamespace(actions=[]))
     proxy = FakeProxy()
     runner = LidarPyramidTwoStageSearch(config={}, checkpoint=tmp_path / "model.pth", output_root=tmp_path)

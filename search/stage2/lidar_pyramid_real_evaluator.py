@@ -27,6 +27,8 @@ from .candidate_artifacts import write_candidate_summary_artifacts
 from .objective import Stage2ObjectiveConfig, compute_stage2_score
 from .physical_validation import validate_repaired_physical_plan
 from .mixed_precision_export import summarize_qdq_realization
+from .admission import deployment_signature, realized_int8_layer_count, realized_precision_profile_hash
+from .realized_bops import compute_realized_bops
 from .trt_modelopt import build_engine_modelopt
 
 
@@ -58,6 +60,50 @@ def _file_hash(path: str | Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _merge_missing_stage2_metadata(output_dir: str | Path, row: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    destination = Path(output_dir)
+    result = dict(row)
+    changed = False
+    manifest_path = destination / "deployment_manifest.json"
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            manifest = {}
+        for key in (
+            "deployment_signature",
+            "realized_precision_profile_hash",
+            "R_BOPS_realized",
+            "realized_int8_layer_count",
+            "control_only",
+        ):
+            if key in manifest and result.get(key) in (None, ""):
+                result[key] = manifest.get(key)
+                changed = True
+    bops_path = destination / "realized_bops_report.json"
+    if bops_path.is_file() and result.get("R_BOPS_realized") in (None, ""):
+        try:
+            bops = json.loads(bops_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            bops = {}
+        if "R_BOPS_realized" in bops:
+            result["R_BOPS_realized"] = bops.get("R_BOPS_realized")
+            changed = True
+    qdq_path = destination / "qdq_realization_summary.json"
+    if qdq_path.is_file() and result.get("realized_int8_layer_count") in (None, ""):
+        try:
+            qdq = json.loads(qdq_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            qdq = {}
+        if "realized_int8_layer_count" in qdq:
+            result["realized_int8_layer_count"] = qdq.get("realized_int8_layer_count")
+            changed = True
+    if result.get("control_only") in (None, "") and "realized_int8_layer_count" in result and "pruned_unit_count" in result:
+        result["control_only"] = int(result.get("pruned_unit_count") or 0) <= 0 and int(result.get("realized_int8_layer_count") or 0) <= 0
+        changed = True
+    return result, changed
 
 
 def _shape_profiles(fixed_k: int = 29696) -> dict[str, dict[str, tuple[int, ...]]]:
@@ -244,6 +290,9 @@ class LidarPyramidRealEvaluator:
         warmup_frames: int,
         latency_rounds: int,
         stage2_config: Stage2ObjectiveConfig | None = None,
+        runtime_shapes: Any | None = None,
+        full_validation_frames: int = 1789,
+        full_validation_warmup_frames: int = 200,
         artifact_cache: ArtifactCache | None = None,
         real_cache: RealEvalCache | None = None,
     ) -> None:
@@ -252,6 +301,9 @@ class LidarPyramidRealEvaluator:
         self.num_frames = int(num_frames)
         self.warmup_frames = int(warmup_frames)
         self.latency_rounds = int(latency_rounds)
+        self.runtime_shapes = tuple(runtime_shapes or ())
+        self.full_validation_frames = int(full_validation_frames)
+        self.full_validation_warmup_frames = int(full_validation_warmup_frames)
         self.objective_config = stage2_config or Stage2ObjectiveConfig()
         archives = self.run_dir / "archives"
         self.artifacts = artifact_cache or ArtifactCache(archives / "artifact_index.jsonl")
@@ -303,14 +355,16 @@ class LidarPyramidRealEvaluator:
         kind = str(baseline_precision).lower()
         baseline_dir = self.run_dir / "baselines" / f"original_{kind}"
         baseline_dir.mkdir(parents=True, exist_ok=True)
+        eval_num_frames = self.full_validation_frames if full_validation else self.num_frames
+        eval_warmup_frames = self.full_validation_warmup_frames if full_validation else self.warmup_frames
         key = canonical_json_hash(
             {
                 "kind": "original_precision_baseline",
                 "precision": kind,
                 "checkpoint_hash": self.context.checkpoint_hash,
                 "eval_manifest_hash": self.context.eval_manifest_hash,
-                "num_frames": self.num_frames,
-                "warmup_frames": self.warmup_frames,
+                "num_frames": eval_num_frames,
+                "warmup_frames": eval_warmup_frames,
                 "latency_rounds": self.latency_rounds,
                 "full_validation": bool(full_validation),
                 "gpu": self.context.physical_gpu_id,
@@ -322,7 +376,14 @@ class LidarPyramidRealEvaluator:
             cached["cache_hit"] = True
             _write_json(baseline_dir / "baseline_cache_hit.json", {"cache_key": key, "engine_hash": cached.get("engine_hash", "")})
             return dict(cached)
-        existing = self._load_existing_original_baseline(baseline_dir, kind, key)
+        existing = self._load_existing_original_baseline(
+            baseline_dir,
+            kind,
+            key,
+            expected_num_frames=eval_num_frames,
+            expected_warmup_frames=eval_warmup_frames,
+            full_validation=bool(full_validation),
+        )
         if existing is not None:
             self.real_cache.put(key, existing)
             _write_json(baseline_dir / "baseline_cache_hit.json", {"cache_key": key, "engine_hash": existing.get("engine_hash", ""), "cache_source": "existing_baseline_eval"})
@@ -334,6 +395,7 @@ class LidarPyramidRealEvaluator:
             candidate_label=f"original_{kind}",
             pruned_unit_ids=[],
             baseline_precision=kind,
+            full_validation=bool(full_validation),
         )
         if raw.get("status") != "ok":
             result = {
@@ -348,6 +410,12 @@ class LidarPyramidRealEvaluator:
                 "baseline_precision": kind,
                 "cache_key": key,
                 "deployment_hash": raw.get("deployment_hash", ""),
+                "deployment_signature": raw.get("deployment_signature", ""),
+                "realized_precision_profile_hash": raw.get("realized_precision_profile_hash", ""),
+                "R_BOPS_realized": raw.get("R_BOPS_realized"),
+                "realized_int8_layer_count": raw.get("realized_int8_layer_count", 0),
+                "pruned_unit_count": len(phenotype.pruned_unit_ids),
+                "control_only": bool(raw.get("control_only", False)),
                 "eval_hash": raw.get("eval_hash", ""),
                 "physical_hash": raw.get("physical_hash", ""),
                 "engine_hash": raw.get("engine_hash", ""),
@@ -388,7 +456,8 @@ class LidarPyramidRealEvaluator:
         cached = self.real_cache.get(cache_key)
         if cached is not None:
             cached["cache_hit"] = True
-            if not (destination / "stage2_score.json").exists():
+            cached, metadata_changed = _merge_missing_stage2_metadata(destination, cached)
+            if metadata_changed or not (destination / "stage2_score.json").exists():
                 _write_json(destination / "stage2_score.json", cached)
             write_candidate_summary_artifacts(
                 destination,
@@ -417,6 +486,12 @@ class LidarPyramidRealEvaluator:
                 "candidate_hash": candidate_hash,
                 "cache_key": cache_key,
                 "deployment_hash": raw.get("deployment_hash", ""),
+                "deployment_signature": raw.get("deployment_signature", ""),
+                "realized_precision_profile_hash": raw.get("realized_precision_profile_hash", ""),
+                "R_BOPS_realized": raw.get("R_BOPS_realized"),
+                "realized_int8_layer_count": raw.get("realized_int8_layer_count", 0),
+                "pruned_unit_count": len(phenotype.pruned_unit_ids),
+                "control_only": bool(raw.get("control_only", False)),
                 "eval_hash": raw.get("eval_hash", ""),
                 "physical_hash": raw.get("physical_hash", ""),
                 "engine_hash": raw.get("engine_hash", ""),
@@ -432,6 +507,7 @@ class LidarPyramidRealEvaluator:
                 "F2": float("inf"),
                 "artifact_dir": str(destination),
             }
+        result, _metadata_changed = _merge_missing_stage2_metadata(destination, result)
         _write_json(destination / "stage2_score.json", result)
         write_candidate_summary_artifacts(
             destination,
@@ -442,6 +518,44 @@ class LidarPyramidRealEvaluator:
             stage1_manifest_record=self._stage1_manifest_record(candidate_hash),
         )
         self.real_cache.put(cache_key, result)
+        return result
+
+    def evaluate_existing_engine_full_validation(
+        self,
+        *,
+        engine_path: str | Path,
+        output_dir: str | Path,
+        label: str,
+    ) -> dict[str, Any]:
+        """Run the fixed 1789-frame full-validation protocol for an existing engine."""
+
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        key = canonical_json_hash(
+            {
+                "kind": "existing_engine_full_validation",
+                "label": str(label),
+                "engine_hash": _file_hash(engine_path),
+                "checkpoint_hash": self.context.checkpoint_hash,
+                "num_frames": self.full_validation_frames,
+                "warmup_frames": self.full_validation_warmup_frames,
+                "latency_rounds": self.latency_rounds,
+                "gpu": self.context.physical_gpu_id,
+                "tensorrt": _tensorrt_cache_identity(self.context.tensorrt),
+                "protocol": "warmup-reset-200-then-1789-v1",
+            }
+        )
+        cached = self.real_cache.get(key)
+        if cached is not None:
+            cached["cache_hit"] = True
+            _write_json(destination / "full_validation_cache_hit.json", {"cache_key": key})
+            return dict(cached)
+        result = self._evaluate_engine(engine_path, destination, full_validation=True)
+        result["label"] = str(label)
+        result["cache_key"] = key
+        _write_json(destination / "full_validation.json", result)
+        if str(result.get("status", "")) == "ok":
+            self.real_cache.put(key, result)
         return result
 
     def _stage2_reference_baseline(self) -> dict[str, Any]:
@@ -483,6 +597,11 @@ class LidarPyramidRealEvaluator:
             "evaluation": evaluation,
             "physical_hash": manifest.get("physical_hash", ""),
             "deployment_hash": manifest.get("deployment_hash", ""),
+            "deployment_signature": manifest.get("deployment_signature", ""),
+            "realized_precision_profile_hash": manifest.get("realized_precision_profile_hash", ""),
+            "R_BOPS_realized": manifest.get("R_BOPS_realized"),
+            "realized_int8_layer_count": manifest.get("realized_int8_layer_count", 0),
+            "control_only": bool(manifest.get("control_only", False)),
             "eval_hash": manifest.get("eval_hash", ""),
             "engine_hash": manifest.get("engine_hash", _file_hash(engine_path)),
             "engine_path": str(engine_path),
@@ -491,7 +610,15 @@ class LidarPyramidRealEvaluator:
         }
 
     @staticmethod
-    def _load_existing_original_baseline(baseline_dir: Path, kind: str, cache_key: str) -> dict[str, Any] | None:
+    def _load_existing_original_baseline(
+        baseline_dir: Path,
+        kind: str,
+        cache_key: str,
+        *,
+        expected_num_frames: int,
+        expected_warmup_frames: int,
+        full_validation: bool,
+    ) -> dict[str, Any] | None:
         baseline_eval_path = baseline_dir / "baseline_eval.json"
         engine_path = baseline_dir / "engine.plan"
         evaluation_path = baseline_dir / "evaluation.json"
@@ -506,6 +633,17 @@ class LidarPyramidRealEvaluator:
             return None
         recorded_kind = str(result.get("baseline_precision", kind)).lower()
         if recorded_kind and recorded_kind != str(kind).lower():
+            return None
+        if bool(full_validation):
+            if int(evaluation.get("num_evaluated_frames", -1) or -1) != int(expected_num_frames):
+                return None
+            if int(evaluation.get("warmup_executions", -1) or -1) != int(expected_warmup_frames):
+                return None
+            if not bool(evaluation.get("reset_after_warmup", False)):
+                return None
+            if int(evaluation.get("num_skipped_frames", -1) or -1) != 0:
+                return None
+        elif "num_evaluated_frames" in evaluation and int(evaluation.get("num_evaluated_frames", -1) or -1) != int(expected_num_frames):
             return None
         loaded = dict(result)
         loaded["cache_key"] = cache_key
@@ -600,6 +738,7 @@ class LidarPyramidRealEvaluator:
         candidate_label: str,
         pruned_unit_ids: list[str],
         baseline_precision: str | None = None,
+        full_validation: bool = False,
     ) -> dict[str, Any]:
         try:
             physical = self._materialize_physical(phenotype, output_dir)
@@ -607,10 +746,23 @@ class LidarPyramidRealEvaluator:
             trt = self._build_engine(qdq, physical, output_dir, baseline_precision=baseline_precision)
             if trt.get("status") != "ok":
                 return {"status": trt.get("status", "engine_build_failed"), "failure_reason": trt.get("failure_reason", trt.get("status", ""))}
-            evaluation = self._evaluate_engine(trt["engine_path"], output_dir)
+            evaluation = self._evaluate_engine(trt["engine_path"], output_dir, full_validation=full_validation)
             if evaluation.get("status") != "ok":
                 return {"status": "evaluation_failed", "failure_reason": evaluation.get("failure_reason", evaluation.get("status", "")), "evaluation": evaluation}
             calibration_scale_hash = canonical_json_hash(qdq.get("calibration_scales", {}))
+            realized_bops = compute_realized_bops(
+                physical["model"],
+                runtime_shapes=self.runtime_shapes,
+                realized_precision_profile=qdq["realized_precision_profile"],
+            )
+            _write_json(output_dir / "realized_bops_report.json", realized_bops)
+            profile_hash = realized_precision_profile_hash(qdq["realized_precision_profile"])
+            signature = deployment_signature(physical["physical_hash"], profile_hash)
+            int8_layer_count = realized_int8_layer_count(
+                qdq_summary=qdq.get("qdq_realization_summary", {}),
+                realized_profile=qdq.get("realized_precision_profile", {}),
+            )
+            control_only = len(pruned_unit_ids) <= 0 and int8_layer_count <= 0
             deploy_hash = deployment_hash(
                 physical_hash_value=physical["physical_hash"],
                 realized_precision_profile=qdq["realized_precision_profile"],
@@ -625,9 +777,17 @@ class LidarPyramidRealEvaluator:
             eval_key = eval_hash(
                 deployment_hash_value=deploy_hash,
                 validation_manifest_hash=self.context.eval_manifest_hash,
-                evaluation_config_hash=canonical_json_hash({"num_frames": self.num_frames, "warmup": self.warmup_frames, "rounds": self.latency_rounds}),
+                evaluation_config_hash=canonical_json_hash(
+                    {
+                        "num_frames": self.full_validation_frames if full_validation else self.num_frames,
+                        "warmup": self.full_validation_warmup_frames if full_validation else self.warmup_frames,
+                        "rounds": self.latency_rounds,
+                        "full_validation": bool(full_validation),
+                        "reset_after_warmup": bool(full_validation),
+                    }
+                ),
                 postprocess_config={"source": "HEAL dataset.post_process"},
-                warmup=self.warmup_frames,
+                warmup=self.full_validation_warmup_frames if full_validation else self.warmup_frames,
                 rounds=self.latency_rounds,
                 latency_metric_definition=self.objective_config.latency_metric,
             )
@@ -638,8 +798,13 @@ class LidarPyramidRealEvaluator:
                     "pruned_unit_ids": pruned_unit_ids,
                     "physical_hash": physical["physical_hash"],
                     "deployment_hash": deploy_hash,
+                    "realized_precision_profile_hash": profile_hash,
+                    "deployment_signature": signature,
                     "eval_hash": eval_key,
                     "engine_hash": trt.get("engine_hash", ""),
+                    "R_BOPS_realized": realized_bops.get("R_BOPS_realized"),
+                    "realized_int8_layer_count": int8_layer_count,
+                    "control_only": control_only,
                 },
             )
             return {
@@ -647,9 +812,15 @@ class LidarPyramidRealEvaluator:
                 "evaluation": evaluation,
                 "physical_hash": physical["physical_hash"],
                 "deployment_hash": deploy_hash,
+                "realized_precision_profile_hash": profile_hash,
+                "deployment_signature": signature,
                 "eval_hash": eval_key,
                 "engine_hash": trt.get("engine_hash", ""),
                 "engine_path": trt.get("engine_path", ""),
+                "R_BOPS_realized": realized_bops.get("R_BOPS_realized"),
+                "realized_bops_report": realized_bops,
+                "realized_int8_layer_count": int8_layer_count,
+                "control_only": control_only,
                 "baseline_precision_validation": trt.get("baseline_precision_validation", {}),
                 "qdq_realization_summary": qdq.get("qdq_realization_summary", {}),
             }
@@ -954,7 +1125,9 @@ class LidarPyramidRealEvaluator:
                 result["failure_reason"] = ",".join(baseline_report.get("issues", []))
         return result
 
-    def _evaluate_engine(self, engine_path: str | Path, output_dir: Path) -> dict[str, Any]:
+    def _evaluate_engine(self, engine_path: str | Path, output_dir: Path, *, full_validation: bool = False) -> dict[str, Any]:
+        num_frames = self.full_validation_frames if full_validation else self.num_frames
+        warmup_frames = self.full_validation_warmup_frames if full_validation else self.warmup_frames
         result = evaluate_engine_modelopt(
             engine_path=engine_path,
             checkpoint=self.context.checkpoint_path,
@@ -964,11 +1137,14 @@ class LidarPyramidRealEvaluator:
             output_dir=output_dir,
             tensorrt_root=self.context.tensorrt.tensorrt_root,
             plugin_path=self.context.tensorrt.plugin_path,
-            num_frames=self.num_frames,
-            warmup_frames=self.warmup_frames,
+            num_frames=num_frames,
+            warmup_frames=warmup_frames,
             fixed_k=29696,
             latency_rounds=self.latency_rounds,
             conda_env=self.context.tensorrt.conda_env,
+            full_validation=bool(full_validation),
+            reset_after_warmup=bool(full_validation),
+            fail_on_skips=bool(full_validation),
         )
         _write_json(output_dir / "evaluation.json", result)
         self._copy_latency(result, output_dir / "latency.csv")

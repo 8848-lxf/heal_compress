@@ -26,6 +26,7 @@ class ProxyObjectiveConfig:
     bops_penalty_formula: str = "absolute_excess_squared"
     lambda_bops: float = 1.0
     illegal_score: float = float("inf")
+    normalize_proxy_terms: bool = False
 
 
 def bops_target_for_generation(generation: int, num_generations: int, schedule: dict[str, float] | None) -> float | None:
@@ -42,6 +43,13 @@ def bops_target_for_generation(generation: int, num_generations: int, schedule: 
 def bops_target_for_outer_round(round_index: int, outer_rounds: int, schedule: dict[str, float] | None) -> float | None:
     if not schedule:
         return None
+    targets = schedule.get("targets")
+    if targets is not None:
+        rows = [float(value) for value in targets]
+        if not rows:
+            return None
+        index = max(0, min(int(round_index), len(rows) - 1))
+        return rows[index]
     start = float(schedule.get("start_target", schedule.get("start", schedule.get("end_target", schedule.get("end", 0.25)))))
     end = float(schedule.get("end_target", schedule.get("end", start)))
     ratio = max(0.0, min(1.0, float(round_index) / max(float(outer_rounds - 1), 1.0)))
@@ -115,9 +123,11 @@ class ProxyObjective:
         )
         if self.config.bops_threshold is not None:
             penalty += float(self.config.lambda_bops) * bops_penalty
+        objective_fisher = self.normalization.normalize("L_fisher", fisher) if self.config.normalize_proxy_terms else float(fisher)
+        objective_sqnr = self.normalization.normalize("L_sqnr", sqnr) if self.config.normalize_proxy_terms else float(sqnr)
         raw_score = (
-            self.config.alpha_fisher * self.normalization.normalize("L_fisher", fisher)
-            + self.config.beta_sqnr * self.normalization.normalize("L_sqnr", sqnr)
+            self.config.alpha_fisher * objective_fisher
+            + self.config.beta_sqnr * objective_sqnr
             + self.config.gamma_size * size
             + self.config.delta_bops * bops_penalty
             + (penalty - float(self.config.lambda_bops) * bops_penalty)
@@ -149,5 +159,8 @@ class ProxyObjective:
             "proxy_score_raw": float(raw_score),
             "F1": float(score),
             "legal": True,
-            "normalization": self.normalization.to_dict(),
+            "normalization": {
+                **self.normalization.to_dict(),
+                "applied_to_objective": bool(self.config.normalize_proxy_terms),
+            },
         }

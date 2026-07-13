@@ -164,6 +164,8 @@ class QDQConfig(ConfigMixin):
     insert_activation_input_qdq: bool = True
     insert_weight_qdq: bool = True
     insert_activation_output_qdq: bool = True
+    activation_output_qdq_excluded_modules: tuple[str, ...] = ()
+    move_activation_output_qdq_after_relu: bool = False
     require_calibration_scales: bool = True
     symmetric: bool = True
     zero_point: int = 0
@@ -173,7 +175,7 @@ class QDQConfig(ConfigMixin):
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "QDQConfig":
         data = dict(value)
-        for key in ("allowed_precisions", "grouped_conv_int8_allowed_channels_per_group"):
+        for key in ("allowed_precisions", "activation_output_qdq_excluded_modules", "grouped_conv_int8_allowed_channels_per_group"):
             if key in data:
                 data[key] = tuple(data[key])
         return cls(**data)

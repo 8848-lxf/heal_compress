@@ -28,7 +28,33 @@ def _score_value(score: dict[str, Any], name: str) -> float | None:
         return None
 
 
-def collect_round_stage2_results(run_dir: str | Path, *, round_index: int = 0) -> list[dict[str, Any]]:
+def _winner_pool_status(score: dict[str, Any], *, bops_target: float | None = None, bops_tolerance: float = 0.005) -> str:
+    status = str(score.get("status", "missing"))
+    if status != "ok":
+        return status
+    if bool(score.get("control_only", False)):
+        return "control_only"
+    if bops_target is not None:
+        value = _score_value(score, "R_BOPS_realized")
+        if value is None:
+            value = _score_value(score, "R_bops_realized")
+        if value is None:
+            return "missing_realized_bops"
+        if value > float(bops_target) + float(bops_tolerance):
+            return "realized_bops_over_budget"
+    if bops_target is not None and not str(score.get("deployment_signature", score.get("deployment_hash", ""))):
+        return "missing_deployment_signature"
+    return "eligible"
+
+
+def collect_round_stage2_results(
+    run_dir: str | Path,
+    *,
+    round_index: int = 0,
+    bops_target: float | None = None,
+    bops_tolerance: float = 0.005,
+    seen_deployment_signatures: set[str] | None = None,
+) -> list[dict[str, Any]]:
     root = Path(run_dir)
     round_dir = root / f"round_{int(round_index):03d}"
     manifest = _read_json(round_dir / "repaired_top5_manifest.json")
@@ -39,6 +65,7 @@ def collect_round_stage2_results(run_dir: str | Path, *, round_index: int = 0) -
         score_path = candidate_dir / "stage2_score.json"
         score = _read_json(score_path) if score_path.is_file() else {"status": "missing_stage2_score", "F2": float("inf")}
         artifact_dir = str(score.get("artifact_dir") or candidate_dir)
+        pool_status = _winner_pool_status(score, bops_target=bops_target, bops_tolerance=bops_tolerance)
         rows.append(
             {
                 "round_index": int(round_index),
@@ -46,6 +73,7 @@ def collect_round_stage2_results(run_dir: str | Path, *, round_index: int = 0) -
                 "candidate_hash": candidate_hash,
                 "artifact_dir": artifact_dir,
                 "status": str(score.get("status", "missing")),
+                "winner_pool_status": pool_status,
                 "F1": float(candidate.get("repaired_F1", score.get("F1", float("inf")))),
                 "F2": _score_value(score, "F2") if _score_value(score, "F2") is not None else float("inf"),
                 "mAP": _score_value(score, "mAP"),
@@ -57,11 +85,26 @@ def collect_round_stage2_results(run_dir: str | Path, *, round_index: int = 0) -
                 "R_latency_real": _score_value(score, "R_latency_real"),
                 "physical_hash": str(score.get("physical_hash", "")),
                 "deployment_hash": str(score.get("deployment_hash", "")),
+                "deployment_signature": str(score.get("deployment_signature", "")),
+                "realized_precision_profile_hash": str(score.get("realized_precision_profile_hash", "")),
+                "R_BOPS_realized": _score_value(score, "R_BOPS_realized"),
+                "control_only": bool(score.get("control_only", False)),
                 "eval_hash": str(score.get("eval_hash", "")),
                 "engine_hash": str(score.get("engine_hash", "")),
             }
         )
-    return sorted(rows, key=lambda row: (float(row["F2"]), int(row["candidate_rank"]), row["candidate_hash"]))
+    sorted_rows = sorted(rows, key=lambda row: (float(row["F2"]), int(row["candidate_rank"]), row["candidate_hash"]))
+    seen = set(seen_deployment_signatures or set())
+    local_seen: set[str] = set()
+    for row in sorted_rows:
+        if row.get("winner_pool_status") != "eligible":
+            continue
+        signature = str(row.get("deployment_signature") or row.get("deployment_hash") or "")
+        if signature in seen or signature in local_seen:
+            row["winner_pool_status"] = "duplicate_deployment_signature"
+        else:
+            local_seen.add(signature)
+    return sorted_rows
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -70,6 +113,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "candidate_rank",
         "candidate_hash",
         "status",
+        "winner_pool_status",
         "F1",
         "F2",
         "mAP",
@@ -81,6 +125,10 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "R_latency_real",
         "physical_hash",
         "deployment_hash",
+        "deployment_signature",
+        "realized_precision_profile_hash",
+        "R_BOPS_realized",
+        "control_only",
         "eval_hash",
         "engine_hash",
         "artifact_dir",
@@ -100,12 +148,12 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]], winner: dict[str, An
         f"- winner: `{winner.get('candidate_hash', '')}`",
         f"- winner F2: `{winner.get('F2', '')}`",
         "",
-        "| rank | candidate | status | F1 | F2 | mAP | p50 ms |",
-        "|---:|---|---|---:|---:|---:|---:|",
+        "| rank | candidate | status | winner pool | F1 | F2 | mAP | p50 ms |",
+        "|---:|---|---|---|---:|---:|---:|---:|",
     ]
     for row in rows:
         lines.append(
-            f"| {row['candidate_rank']} | `{row['candidate_hash']}` | {row['status']} | "
+            f"| {row['candidate_rank']} | `{row['candidate_hash']}` | {row['status']} | {row.get('winner_pool_status')} | "
             f"{row['F1']} | {row['F2']} | {row.get('mAP')} | {row.get('forward_p50_ms')} |"
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -127,11 +175,24 @@ def _copy_winner_artifacts(round_dir: Path, winner: dict[str, Any]) -> None:
         shutil.copy2(src, round_dir / dst_name)
 
 
-def write_round_stage2_results(run_dir: str | Path, *, round_index: int = 0) -> dict[str, Any]:
+def write_round_stage2_results(
+    run_dir: str | Path,
+    *,
+    round_index: int = 0,
+    bops_target: float | None = None,
+    bops_tolerance: float = 0.005,
+    seen_deployment_signatures: set[str] | None = None,
+) -> dict[str, Any]:
     root = Path(run_dir)
     round_dir = root / f"round_{int(round_index):03d}"
-    rows = collect_round_stage2_results(root, round_index=round_index)
-    ok_rows = [row for row in rows if row.get("status") == "ok"]
+    rows = collect_round_stage2_results(
+        root,
+        round_index=round_index,
+        bops_target=bops_target,
+        bops_tolerance=bops_tolerance,
+        seen_deployment_signatures=seen_deployment_signatures,
+    )
+    ok_rows = [row for row in rows if row.get("winner_pool_status") == "eligible"]
     if not ok_rows:
         raise RuntimeError(f"no_successful_stage2_candidates:round_{int(round_index):03d}")
     winner = ok_rows[0]
@@ -141,4 +202,9 @@ def write_round_stage2_results(run_dir: str | Path, *, round_index: int = 0) -> 
     _write_json(round_dir / "round_best_candidate.json", winner)
     _write_json(round_dir / "round_best_F1_F2.json", {"candidate_hash": winner["candidate_hash"], "F1": winner["F1"], "F2": winner["F2"]})
     _copy_winner_artifacts(round_dir, winner)
-    return {"round_index": int(round_index), "winner": winner, "candidates": rows}
+    accepted_signatures = [
+        str(row.get("deployment_signature") or row.get("deployment_hash") or "")
+        for row in ok_rows
+        if str(row.get("deployment_signature") or row.get("deployment_hash") or "")
+    ]
+    return {"round_index": int(round_index), "winner": winner, "candidates": rows, "accepted_deployment_signatures": accepted_signatures}

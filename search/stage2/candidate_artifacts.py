@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ SUMMARY_ARTIFACTS = [
     "physical_pruning_plan.json",
     "physical_plan_validation.json",
     "physical_structure_snapshot.json",
+    "physical_validation.json",
     "physical_widths.csv",
     "pruned_checkpoint.pth",
     "pruned_state_dict.pth",
@@ -29,6 +31,8 @@ SUMMARY_ARTIFACTS = [
     "evaluation.json",
     "stage2_score.json",
 ]
+
+CACHE_COPY_ARTIFACTS = [name for name in SUMMARY_ARTIFACTS if name != "stage2_score.json"]
 
 
 def _plain(value: Any) -> Any:
@@ -77,6 +81,30 @@ def artifact_hashes(candidate_dir: str | Path, names: list[str] | None = None) -
     return {"candidate_dir": str(root), "artifacts": artifacts}
 
 
+def _copy_cached_artifacts(root: Path, stage2_score: dict[str, Any], *, overwrite: bool) -> str:
+    source_text = str(stage2_score.get("artifact_dir") or "")
+    if not source_text:
+        return ""
+    source = Path(source_text)
+    try:
+        if source.resolve() == root.resolve():
+            return str(source)
+    except OSError:
+        return str(source)
+    if not source.is_dir():
+        return str(source)
+    for name in CACHE_COPY_ARTIFACTS:
+        src = source / name
+        dst = root / name
+        if not src.is_file():
+            continue
+        if dst.exists() and not overwrite:
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+    return str(source)
+
+
 def write_candidate_summary_artifacts(
     candidate_dir: str | Path,
     *,
@@ -88,6 +116,7 @@ def write_candidate_summary_artifacts(
     overwrite: bool = True,
 ) -> None:
     root = Path(candidate_dir)
+    artifact_source_dir = _copy_cached_artifacts(root, stage2_score, overwrite=overwrite)
     evaluation_path = root / "evaluation.json"
     if evaluation_path.is_file():
         evaluation = json.loads(evaluation_path.read_text(encoding="utf-8"))
@@ -98,6 +127,7 @@ def write_candidate_summary_artifacts(
         "phenotype": phenotype.to_dict(),
         "stage1_manifest_record": dict(stage1_manifest_record or {}),
         "artifact_dir": str(root),
+        "artifact_source_dir": artifact_source_dir or str(root),
         "required_artifacts": list(SUMMARY_ARTIFACTS),
     }
     _write_json(root / "candidate_manifest.json", manifest, overwrite=overwrite)

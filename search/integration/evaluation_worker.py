@@ -226,12 +226,46 @@ def main(argv: list[str] | None = None) -> int:
         target = int(request["num_frames"])
         warmup = int(request["warmup_frames"])
         latency_rounds = max(1, int(request.get("latency_rounds", 1)))
+        full_validation = bool(request.get("full_validation", False))
+        reset_after_warmup = bool(request.get("reset_after_warmup", False))
+        fail_on_skips = bool(request.get("fail_on_skips", False))
         output_names: list[str] | None = None
+        evaluated_frame_ids: list[int] = []
+        skipped_frame_ids: list[int] = []
+        if reset_after_warmup and warmup > 0:
+            for frame_idx, batch in enumerate(loader):
+                if warmup_seen >= warmup:
+                    break
+                if batch is None:
+                    skip_reasons["warmup_empty_batch"] += 1
+                    skipped_frame_ids.append(frame_idx)
+                    continue
+                try:
+                    batch, _host_to_device_ms = _timed(lambda: _move(batch, device), device)
+                    ego = batch["ego"] if isinstance(batch, dict) and "ego" in batch else batch
+                    if output_names is None:
+                        with torch.no_grad():
+                            raw = model(ego)
+                        output_names = [name for name in ("cls_preds", "reg_preds", "dir_preds") if name in raw and torch.is_tensor(raw[name])]
+                    tensors_by_name, _input_prepare_ms = _timed(
+                        lambda: prepare_signal_maxk_inputs(ego, config=export_config, modality=request.get("modality", "m1")),
+                        device,
+                    )
+                    for _round_idx in range(latency_rounds):
+                        runner.run_profiled(tensors_by_name)
+                    warmup_seen += 1
+                except Exception as exc:  # noqa: BLE001
+                    skip_reasons[f"warmup_{type(exc).__name__}:{exc}"] += 1
+                    skipped_frame_ids.append(frame_idx)
+                    if warmup_seen == 0 and sum(skip_reasons.values()) >= 3:
+                        break
+            loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=int(request.get("num_workers", 0)), collate_fn=dataset.collate_batch_test)
         for frame_idx, batch in enumerate(loader):
             if actual >= target:
                 break
             if batch is None:
                 skip_reasons["empty_batch"] += 1
+                skipped_frame_ids.append(frame_idx)
                 continue
             try:
                 batch, host_to_device_ms = _timed(lambda: _move(batch, device), device)
@@ -260,7 +294,7 @@ def main(argv: list[str] | None = None) -> int:
                     return dataset.post_process(batch, od)
 
                 (pred_box, pred_score, gt_box), post_ms = _timed(postprocess, device)
-                if warmup_seen < warmup:
+                if not reset_after_warmup and warmup_seen < warmup:
                     warmup_seen += 1
                     rows.append(
                         _latency_row_from_profile(
@@ -276,6 +310,7 @@ def main(argv: list[str] | None = None) -> int:
                 for thr in IOU_THRESHOLDS:
                     calculate_tp_fp_for_threshold(pred_box, pred_score, gt_box, result_stat, thr, "cpu", device)
                 actual += 1
+                evaluated_frame_ids.append(frame_idx)
                 forward_times.append(forward_ms)
                 post_times.append(post_ms)
                 total_times.append(forward_ms + post_ms)
@@ -291,6 +326,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             except Exception as exc:  # noqa: BLE001
                 skip_reasons[f"{type(exc).__name__}:{exc}"] += 1
+                skipped_frame_ids.append(frame_idx)
                 rows.append({"frame_id": frame_idx, "success": False, "skip_reason": f"{type(exc).__name__}:{exc}"})
                 if actual == 0 and sum(skip_reasons.values()) >= 3:
                     break
@@ -301,8 +337,17 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 ap_value = 0.0
             ap[f"AP@{thr:.1f}"] = float(ap_value)
+        skipped = int(sum(skip_reasons.values()))
+        status = "ok" if actual > 0 else "evaluation_failed"
+        failure_reason = ""
+        if (full_validation or fail_on_skips) and skipped != 0:
+            status = "evaluation_failed"
+            failure_reason = "skipped_frames_nonzero"
+        if full_validation and actual != target:
+            status = "evaluation_failed"
+            failure_reason = failure_reason or "full_validation_frame_count_mismatch"
         result = {
-            "status": "ok" if actual > 0 else "evaluation_failed",
+            "status": status,
             "AP@0.3": ap.get("AP@0.3", 0.0),
             "AP@0.5": ap.get("AP@0.5", 0.0),
             "AP@0.7": ap.get("AP@0.7", 0.0),
@@ -311,10 +356,21 @@ def main(argv: list[str] | None = None) -> int:
             **_latency_distribution(post_times, prefix="postprocess"),
             **_latency_distribution(total_times, prefix="total"),
             "num_evaluated_frames": actual,
-            "num_skipped_frames": int(sum(skip_reasons.values())),
+            "evaluated_frames": actual,
+            "latency_measured_frames": len(forward_times),
+            "warmup_executions": warmup_seen,
+            "num_skipped_frames": skipped,
+            "skipped_frames": skipped,
+            "total_manifest_frames": target,
+            "evaluated_frame_ids": evaluated_frame_ids,
+            "skipped_frame_ids": skipped_frame_ids,
             "skip_reason_counts": dict(skip_reasons),
             "latency_rows": rows,
+            "full_validation": full_validation,
+            "reset_after_warmup": reset_after_warmup,
         }
+        if failure_reason:
+            result["failure_reason"] = failure_reason
     except Exception as exc:  # noqa: BLE001
         result = {
             "status": "evaluation_failed",

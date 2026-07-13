@@ -74,8 +74,7 @@ proxy:
   bops_constraint_mode: weighted_penalty
   bops_soft_constraint:
     enabled: true
-    start_target: 0.25
-    end_target: 0.18
+    targets: [0.230, 0.213, 0.197, 0.180]
     formula: squared_relative_excess
 
 search:

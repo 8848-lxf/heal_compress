@@ -71,6 +71,32 @@ def _qdq_pair(helper: Any, numpy_helper: Any, np: Any, graph: Any, source: str, 
     )
 
 
+def _consumer_index(nodes: Any) -> dict[str, list[Any]]:
+    consumers: dict[str, list[Any]] = {}
+    for node in nodes:
+        for name in node.input:
+            consumers.setdefault(str(name), []).append(node)
+    return consumers
+
+
+def _activation_output_boundary(node: Any, output_name: str, consumers: Mapping[str, list[Any]], policy: QDQConfig) -> tuple[Any, str]:
+    if not policy.move_activation_output_qdq_after_relu:
+        return node, output_name
+    direct = consumers.get(str(output_name), [])
+    if len(direct) != 1:
+        return node, output_name
+    first = direct[0]
+    if str(first.op_type) == "Relu" and len(first.output) == 1:
+        return first, str(first.output[0])
+    if str(first.op_type) == "Add" and len(first.output) == 1:
+        add_output = str(first.output[0])
+        second = consumers.get(add_output, [])
+        if len(second) == 1 and str(second[0].op_type) == "Relu" and len(second[0].output) == 1:
+            return second[0], str(second[0].output[0])
+        return first, add_output
+    return node, output_name
+
+
 def insert_explicit_qdq(
     input_onnx: str | Path,
     output_onnx: str | Path,
@@ -90,6 +116,7 @@ def insert_explicit_qdq(
     model = onnx.load(str(input_onnx))
     index = build_weight_trace_index(model)
     nodes_by_name = index["nodes_by_name"]
+    consumers = _consumer_index(model.graph.node)
     requested = [row for row in mapping.entries if row.requested_precision == "int8"]
     targets = {row.canonical_node_name: row for row in mapping.entries if row.realized_request_precision == "int8"}
     if len(targets) != sum(row.realized_request_precision == "int8" for row in mapping.entries):
@@ -109,10 +136,32 @@ def insert_explicit_qdq(
 
     new_nodes: list[Any] = []
     records: list[QDQInsertionRecord] = []
+    deferred_output_qdq: dict[str, list[tuple[str, str, float, int, QDQInsertionRecord]]] = {}
+    planned_output_boundaries: set[tuple[str, str]] = set()
     for node in model.graph.node:
         target = prepared.get(str(node.name))
+        local_output_specs: list[tuple[str, str, str, float, int, QDQInsertionRecord]] = []
         if target is None:
+            for output_index, output_name in enumerate(list(node.output)):
+                boundary_key = (str(node.name), str(output_name))
+                pending = deferred_output_qdq.get(str(node.name), [])
+                matching = [row for row in pending if row[0] == str(output_name)]
+                if not matching:
+                    continue
+                raw_name = f"{output_name}__before_output_qdq"
+                node.output[output_index] = raw_name
+                for _public_name, safe, activation_output_scale, zero_point, record in matching:
+                    local_output_specs.append((raw_name, str(output_name), safe, activation_output_scale, zero_point, record))
+                planned_output_boundaries.add(boundary_key)
             new_nodes.append(node)
+            for raw_name, public_name, safe, activation_output_scale, zero_point, record in local_output_specs:
+                pair, _dequantized, q_name, dq_name = _qdq_pair(
+                    helper, numpy_helper, np, model.graph, raw_name, f"{safe}__activation_output_moved", activation_output_scale, zero_point
+                )
+                pair[-1].output[0] = public_name
+                new_nodes.extend(pair)
+                record.output_quantize_nodes.append(q_name)
+                record.output_dequantize_nodes.append(dq_name)
             continue
         entry, activation_input_scale, weight_scale, activation_output_scale, _metadata = target
         safe = str(node.name).replace("/", "_").replace(".", "_")
@@ -142,21 +191,34 @@ def insert_explicit_qdq(
             node.input[1] = dequantized
             record.weight_quantize_node = q_name
             record.weight_dequantize_node = dq_name
-        output_specs: list[tuple[str, str]] = []
-        if policy.insert_activation_output_qdq:
+        output_qdq_enabled = (
+            policy.insert_activation_output_qdq
+            and entry.module_path not in set(policy.activation_output_qdq_excluded_modules)
+        )
+        if output_qdq_enabled:
             for output_index, output_name in enumerate(list(node.output)):
-                raw_name = f"{output_name}__before_output_qdq"
-                node.output[output_index] = raw_name
-                output_specs.append((raw_name, str(output_name)))
+                boundary_node, boundary_output = _activation_output_boundary(node, str(output_name), consumers, policy)
+                boundary_key = (str(boundary_node.name), str(boundary_output))
+                if boundary_key in planned_output_boundaries:
+                    continue
+                planned_output_boundaries.add(boundary_key)
+                if str(boundary_node.name) == str(node.name) and str(boundary_output) == str(output_name):
+                    raw_name = f"{output_name}__before_output_qdq"
+                    node.output[output_index] = raw_name
+                    local_output_specs.append((raw_name, str(output_name), safe, activation_output_scale, int(policy.zero_point), record))
+                else:
+                    deferred_output_qdq.setdefault(str(boundary_node.name), []).append(
+                        (str(boundary_output), safe, activation_output_scale, int(policy.zero_point), record)
+                    )
         new_nodes.append(node)
-        for output_index, (raw_name, public_name) in enumerate(output_specs):
+        for output_index, (raw_name, public_name, output_safe, output_scale, zero_point, output_record) in enumerate(local_output_specs):
             pair, dequantized, q_name, dq_name = _qdq_pair(
-                helper, numpy_helper, np, model.graph, raw_name, f"{safe}__activation_output_{output_index}", activation_output_scale, policy.zero_point
+                helper, numpy_helper, np, model.graph, raw_name, f"{output_safe}__activation_output_{output_index}", output_scale, zero_point
             )
             pair[-1].output[0] = public_name
             new_nodes.extend(pair)
-            record.output_quantize_nodes.append(q_name)
-            record.output_dequantize_nodes.append(dq_name)
+            output_record.output_quantize_nodes.append(q_name)
+            output_record.output_dequantize_nodes.append(dq_name)
         records.append(record)
     if len(records) != len(targets):
         raise QDQInsertionError("not every canonical INT8 target received Q/DQ")

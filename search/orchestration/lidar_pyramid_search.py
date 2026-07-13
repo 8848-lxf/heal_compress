@@ -59,6 +59,31 @@ def _load_candidate(path: str | Path) -> CandidateGenotype | CandidatePhenotype:
     return CandidateGenotype.from_dict(payload)
 
 
+def _stage2_round_dir_for_candidate_config(run_dir: Path, candidate_config_path: str | Path | None) -> Path:
+    if candidate_config_path is not None:
+        path = Path(candidate_config_path)
+        for parent in [path.parent, *path.parents]:
+            if parent.name.startswith("round_") and parent.name.split("_")[-1].isdigit():
+                return run_dir / parent.name
+    return run_dir / "round_000"
+
+
+def _write_legacy_round_best_candidate_if_missing(
+    round_dir: Path,
+    *,
+    evaluated_rows: list[dict[str, Any]],
+    selected_hashes: set[str],
+) -> None:
+    if (round_dir / "stage2_top5_results.json").is_file():
+        return
+    round_rows = [row for row in evaluated_rows if row.get("candidate_hash") in selected_hashes]
+    if not round_rows:
+        return
+    winner = min(round_rows, key=lambda row: float(row.get("F2", float("inf"))))
+    _write_json(round_dir / "round_best_candidate.json", winner)
+    _write_json(round_dir / "round_best_F1_F2.json", {"candidate_hash": winner.get("candidate_hash"), "F1": winner.get("F1"), "F2": winner.get("F2")})
+
+
 def _proxy_device_from_config(proxy_cfg: dict[str, Any], context: Any) -> str:
     requested = str(proxy_cfg.get("device", "cpu")).lower()
     if requested == "auto":
@@ -237,6 +262,7 @@ class LidarPyramidTwoStageSearch:
             num_frames=int(stage2_cfg.get("num_frames", 5)),
             warmup_frames=int(stage2_cfg.get("warmup_frames", 10)),
             latency_rounds=int(stage2_cfg.get("latency_rounds", stage2_cfg.get("rounds", 1))),
+            runtime_shapes=runtime_shapes.shapes,
             stage2_config=Stage2ObjectiveConfig(
                 eta_map=float(stage2_cfg.get("eta_ap", stage2_cfg.get("eta_map", 1.0))),
                 eta_latency=float(stage2_cfg.get("eta_latency", 1.0)),
@@ -259,7 +285,8 @@ class LidarPyramidTwoStageSearch:
                 candidate = _load_candidate(path)
                 phenotype = candidate if isinstance(candidate, CandidatePhenotype) else canonicalize_candidate(candidate, context.search_space)
                 key = candidate_hash(phenotype, context.search_space)
-                result = real_evaluator.evaluate_candidate(phenotype, output_dir=run_dir / "round_000" / "stage2" / key, candidate_hash=key)
+                stage2_round_dir = _stage2_round_dir_for_candidate_config(run_dir, path)
+                result = real_evaluator.evaluate_candidate(phenotype, output_dir=stage2_round_dir / "stage2" / key, candidate_hash=key)
                 results.append(result)
             return {"run_dir": str(run_dir), "selected_gpu": context.physical_gpu_id, "stage2_only": True, "results": results, "result": results[0] if results else None}
         rows = self._run_ga(context, proxy, real_evaluator, run_dir, search_cfg, stage1_only=stage1_only)
@@ -306,6 +333,7 @@ class LidarPyramidTwoStageSearch:
                     )
                 ),
                 lambda_bops=float(proxy_cfg.get("lambda_bops", 1.0)),
+                normalize_proxy_terms=bool(proxy_cfg.get("normalize_proxy_terms", False)),
             ),
         )
 
@@ -498,6 +526,7 @@ class LidarPyramidTwoStageSearch:
         if not soft_schedule:
             soft_schedule = dict(proxy_cfg.get("bops_target_schedule", {}) or {})
         global_seen_raw_hashes = self._load_seen_raw_hashes(run_dir)
+        global_seen_deployment_signatures = self._load_seen_deployment_signatures(run_dir)
         for round_index in range(outer_rounds):
             round_dir = run_dir / f"round_{round_index:03d}"
             round_dir.mkdir(parents=True, exist_ok=True)
@@ -664,6 +693,9 @@ class LidarPyramidTwoStageSearch:
                     batch_rescore_fn=rescore_batch,
                     topk=topk_stage2,
                     repair_pool_size=int(search_cfg.get("repair_pool_size", max(50, topk_stage2 * 10))),
+                    bops_target=round_bops_target,
+                    bops_tolerance=float(search_cfg.get("stage2_bops_tolerance", 0.005)),
+                    require_compression_or_int8=True,
                 )
                 selected = [type("Selection", (), {"role": "repaired", "record": record}) for record in repaired_records]
                 _write_json(round_dir / "repair_report.json", repair_report)
@@ -722,18 +754,31 @@ class LidarPyramidTwoStageSearch:
                     _write_json(candidate_dir / "repaired_genotype.json", record.genotype.to_dict())
                     result = real_evaluator.evaluate_candidate(record.phenotype, output_dir=candidate_dir, candidate_hash=record.candidate_hash)
                     evaluated_rows.append({"candidate_hash": record.candidate_hash, "F1": record.F1, **result})
-                write_round_stage2_results(run_dir, round_index=round_index)
+                round_result = write_round_stage2_results(
+                    run_dir,
+                    round_index=round_index,
+                    bops_target=round_bops_target,
+                    bops_tolerance=float(search_cfg.get("stage2_bops_tolerance", 0.005)),
+                    seen_deployment_signatures=global_seen_deployment_signatures,
+                )
+                new_signatures = {
+                    str(value)
+                    for value in round_result.get("accepted_deployment_signatures", [])
+                    if str(value)
+                }
+                self._append_seen_deployment_signatures(run_dir, round_index=round_index, signatures=new_signatures)
+                global_seen_deployment_signatures.update(new_signatures)
             previous_elite = [record.genotype for record in records[: max(1, min(5, len(records)))]]
             previous_best = previous_elite[0] if previous_elite else None
             _write_json(round_dir / "round_summary.json", {"best_F1": records[0].F1 if records else None, "selected": len(selected), "evaluated": len(evaluated_rows)})
             if records:
                 _write_json(round_dir / "best_candidate.json", {"candidate_hash": records[0].candidate_hash, "F1": records[0].F1, "phenotype": records[0].phenotype.to_dict()})
             if evaluated_rows:
-                round_rows = [row for row in evaluated_rows if row.get("candidate_hash") in {item.record.candidate_hash for item in selected}]
-                if round_rows:
-                    winner = min(round_rows, key=lambda row: float(row.get("F2", float("inf"))))
-                    _write_json(round_dir / "round_best_candidate.json", winner)
-                    _write_json(round_dir / "round_best_F1_F2.json", {"candidate_hash": winner.get("candidate_hash"), "F1": winner.get("F1"), "F2": winner.get("F2")})
+                _write_legacy_round_best_candidate_if_missing(
+                    round_dir,
+                    evaluated_rows=evaluated_rows,
+                    selected_hashes={item.record.candidate_hash for item in selected},
+                )
         self._write_global(run_dir, evaluated_rows)
         return evaluated_rows
 
@@ -766,6 +811,34 @@ class LidarPyramidTwoStageSearch:
                 if value:
                     seen.add(str(value))
         return seen
+
+    @staticmethod
+    def _load_seen_deployment_signatures(run_dir: Path) -> set[str]:
+        path = run_dir / "seen_deployment_signatures.jsonl"
+        if not path.is_file():
+            return set()
+        seen: set[str] = set()
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                value = row.get("deployment_signature")
+                if value:
+                    seen.add(str(value))
+        return seen
+
+    @staticmethod
+    def _append_seen_deployment_signatures(run_dir: Path, *, round_index: int, signatures: set[str]) -> None:
+        if not signatures:
+            return
+        _append_jsonl(
+            run_dir / "seen_deployment_signatures.jsonl",
+            [{"round": int(round_index), "deployment_signature": signature} for signature in sorted(signatures)],
+        )
 
     @staticmethod
     def _round_stage2_complete(round_dir: Path, topk_stage2: int) -> bool:

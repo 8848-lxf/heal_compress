@@ -547,8 +547,12 @@ class TorchBatchedProxyScorer:
             else:
                 bops_violation = torch.clamp(r_bops - float(target), min=0.0)
             p_bops = bops_violation.square()
-            norm_fisher = fisher / max(abs(float(self.normalization.medians.get("L_fisher", 1.0) or 1.0)), 1.0e-12)
-            norm_sqnr = sqnr / max(abs(float(self.normalization.medians.get("L_sqnr", 1.0) or 1.0)), 1.0e-12)
+            if bool(getattr(self.config, "normalize_proxy_terms", False)):
+                norm_fisher = fisher / max(abs(float(self.normalization.medians.get("L_fisher", 1.0) or 1.0)), 1.0e-12)
+                norm_sqnr = sqnr / max(abs(float(self.normalization.medians.get("L_sqnr", 1.0) or 1.0)), 1.0e-12)
+            else:
+                norm_fisher = fisher
+                norm_sqnr = sqnr
             score = (
                 float(getattr(self.config, "alpha_fisher", 1.0)) * norm_fisher
                 + float(getattr(self.config, "beta_sqnr", 1.0)) * norm_sqnr
@@ -577,7 +581,10 @@ class TorchBatchedProxyScorer:
         metrics_cpu = {key: torch.cat(values, dim=0).cpu() for key, values in metric_chunks.items()}
         fp16_bops_value = float(self.channel_resolver.fp16_bops_baseline.detach().cpu())
         fp32_bops_value = float(self.channel_resolver.fp32_bops_baseline.detach().cpu())
-        normalization_payload = self.normalization.to_dict()
+        normalization_payload = {
+            **self.normalization.to_dict(),
+            "applied_to_objective": bool(getattr(self.config, "normalize_proxy_terms", False)),
+        }
         rows: list[dict[str, Any]] = []
         for idx in range(len(phenotypes)):
             r_size = float(metrics_cpu["R_size"][idx])

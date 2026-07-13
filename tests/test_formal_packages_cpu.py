@@ -694,6 +694,30 @@ def _write_weighted_onnx(path: Path, repeated: bool = False) -> None:
     onnx.save(model, str(path))
 
 
+def _write_weighted_relu_onnx(path: Path) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    initializers = [
+        numpy_helper.from_array(np.ones((4, 3, 1, 1), dtype=np.float32), "stem.weight"),
+        numpy_helper.from_array(np.zeros((4,), dtype=np.float32), "stem.bias"),
+    ]
+    nodes = [
+        helper.make_node("Conv", ["input", "stem.weight", "stem.bias"], ["x"], name="/stem/Conv"),
+        helper.make_node("Relu", ["x"], ["relu_out"], name="/stem/Relu"),
+    ]
+    graph = helper.make_graph(
+        nodes,
+        "formal_relu",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 4, 4])],
+        [helper.make_tensor_value_info("relu_out", TensorProto.FLOAT, [1, 4, 4, 4])],
+        initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 13)])
+    onnx.checker.check_model(model)
+    onnx.save(model, str(path))
+
+
 def test_origin_mapping_canonical_names_and_repeated_calls(tmp_path: Path) -> None:
     import onnx
 
@@ -857,6 +881,81 @@ def test_qdq_uses_distinct_activation_weight_and_output_scales(tmp_path: Path) -
     assert record.activation_input_scale == pytest.approx(0.1)
     assert record.weight_scale == pytest.approx(0.02)
     assert record.activation_output_scale == pytest.approx(0.3)
+
+
+def test_qdq_can_exclude_activation_output_qdq_for_selected_modules(tmp_path: Path) -> None:
+    import onnx
+    from quantization.api import (
+        apply_canonical_node_names,
+        build_canonical_precision_mapping,
+        build_onnx_origin_map,
+        generate_precision_profile,
+        insert_explicit_qdq,
+    )
+    from quantization.config import QDQConfig
+
+    source = tmp_path / "source.onnx"
+    named = tmp_path / "named.onnx"
+    qdq = tmp_path / "qdq.onnx"
+    _write_weighted_onnx(source)
+    origin = build_onnx_origin_map(
+        source,
+        [{"module_path": "stem", "module_type": "Conv2d", "call_index": 0, "weight_initializer": "stem.weight"}],
+    )
+    apply_canonical_node_names(source, origin, output_path=named)
+    profile = generate_precision_profile(["stem"], profile_id="strict_int8")
+    mapping = build_canonical_precision_mapping(origin, profile)
+    insertion = insert_explicit_qdq(
+        named,
+        qdq,
+        mapping,
+        scales={"stem": 0.1},
+        config=QDQConfig(activation_output_qdq_excluded_modules=("stem",)),
+    )
+    op_types = [node.op_type for node in onnx.load(qdq).graph.node]
+    assert insertion.records[0].activation_quantize_node
+    assert insertion.records[0].weight_quantize_node
+    assert insertion.records[0].output_quantize_nodes == []
+    assert op_types.count("QuantizeLinear") == 2
+    assert op_types.count("DequantizeLinear") == 2
+
+
+def test_qdq_can_move_activation_output_qdq_after_relu(tmp_path: Path) -> None:
+    import onnx
+    from quantization.api import (
+        apply_canonical_node_names,
+        build_canonical_precision_mapping,
+        build_onnx_origin_map,
+        generate_precision_profile,
+        insert_explicit_qdq,
+    )
+    from quantization.config import QDQConfig
+
+    source = tmp_path / "source.onnx"
+    named = tmp_path / "named.onnx"
+    qdq = tmp_path / "qdq.onnx"
+    _write_weighted_relu_onnx(source)
+    origin = build_onnx_origin_map(
+        source,
+        [{"module_path": "stem", "module_type": "Conv2d", "call_index": 0, "weight_initializer": "stem.weight"}],
+    )
+    apply_canonical_node_names(source, origin, output_path=named)
+    profile = generate_precision_profile(["stem"], profile_id="strict_int8")
+    mapping = build_canonical_precision_mapping(origin, profile)
+    insertion = insert_explicit_qdq(
+        named,
+        qdq,
+        mapping,
+        scales={"stem": 0.1},
+        config=QDQConfig(move_activation_output_qdq_after_relu=True),
+    )
+    nodes = list(onnx.load(qdq).graph.node)
+    relu = next(node for node in nodes if node.op_type == "Relu")
+    output_q = next(node for node in nodes if node.name == insertion.records[0].output_quantize_nodes[0])
+    assert relu.input[0] == "x"
+    assert relu.output[0] == "relu_out__before_output_qdq"
+    assert output_q.input[0] == "relu_out__before_output_qdq"
+    assert insertion.records[0].output_quantize_nodes
 
 
 def test_formal_calibration_collects_distinct_absmax_scales() -> None:
