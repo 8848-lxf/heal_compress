@@ -114,16 +114,16 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]], winner: dict[str, An
 def _copy_winner_artifacts(round_dir: Path, winner: dict[str, Any]) -> None:
     source = Path(str(winner["artifact_dir"]))
     copies = {
-        "pruned_checkpoint.pth": "round_best_pruned_model.pth",
-        "pruned_fp32.onnx": "round_best_pruned.onnx",
-        "pruned_qdq.onnx": "round_best_qdq.onnx",
-        "engine.plan": "round_best.engine.plan",
-        "evaluation_300.json": "round_best_evaluation_300.json",
+        ("pruned_checkpoint.pth",): "round_best_pruned_model.pth",
+        ("pruned_fp32.onnx",): "round_best_pruned.onnx",
+        ("pruned_qdq.onnx",): "round_best_qdq.onnx",
+        ("engine.plan",): "round_best.engine.plan",
+        ("evaluation_300.json", "evaluation.json"): "round_best_evaluation_300.json",
     }
-    for src_name, dst_name in copies.items():
-        src = source / src_name
-        if not src.is_file():
-            raise FileNotFoundError(f"winner_artifact_missing:{src}")
+    for source_names, dst_name in copies.items():
+        src = next((source / name for name in source_names if (source / name).is_file()), None)
+        if src is None:
+            raise FileNotFoundError(f"winner_artifact_missing:{source}:{'|'.join(source_names)}")
         shutil.copy2(src, round_dir / dst_name)
 
 

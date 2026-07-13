@@ -19,7 +19,7 @@ from ..integration.calibration_provider import collect_or_load_fisher_statistics
 from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.fisher_proxy import FisherTaylorProxy
-from ..proxy.normalization import build_normalization_stats
+from ..proxy.normalization import NormalizationStats, build_normalization_stats
 from ..proxy.objective import ProxyObjective, ProxyObjectiveConfig, bops_soft_penalty, bops_target_for_generation, bops_target_for_outer_round
 from ..proxy.gpu_batch_proxy import TorchBatchedProxyScorer
 from ..proxy.parameter_slice_resolver import build_unit_parameter_slices
@@ -101,7 +101,19 @@ class LidarPyramidTwoStageSearch:
         run_dir = self._run_dir()
         (run_dir / "archives").mkdir(parents=True, exist_ok=True)
         (run_dir / "baseline").mkdir(parents=True, exist_ok=True)
-        _write_json(run_dir / "run_manifest.json", {"checkpoint": str(self.checkpoint), "resume": str(self.resume or ""), "stage1_only": stage1_only, "stage2_only": stage2_only})
+        manifest_path = run_dir / "run_manifest.json"
+        initial_manifest: dict[str, Any] = {}
+        if self.resume is not None and manifest_path.is_file():
+            initial_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        initial_manifest.update(
+            {
+                "checkpoint": str(self.checkpoint),
+                "resume": str(self.resume or ""),
+                "stage1_only": stage1_only,
+                "stage2_only": stage2_only,
+            }
+        )
+        _write_json(manifest_path, initial_manifest)
         runtime = dict(self.config.get("runtime", {}))
         search_cfg = dict(self.config.get("search", {}))
         pruning_cfg = dict(self.config.get("pruning", {}))
@@ -475,6 +487,18 @@ class LidarPyramidTwoStageSearch:
         }
 
     def _build_normalization(self, context: Any, objective: ProxyObjective, run_dir: Path) -> Any:
+        proxy_cfg = dict(self.config.get("proxy", self.config.get("proxy_objective", {})))
+        strategy = str(proxy_cfg.get("term_normalization", "none")).strip().lower()
+        if strategy in {"", "none", "identity"}:
+            stats = NormalizationStats(version="none-v1")
+            _write_json(
+                run_dir / "archives" / "proxy_normalization.json",
+                {**stats.to_dict(), "strategy": "none"},
+            )
+            return stats
+        if strategy != "fixed_median":
+            raise ValueError(f"unsupported_proxy_term_normalization:{strategy}")
+
         from ..ga.immigrants import random_immigrant
 
         rng = random.Random(int(self.config.get("search", {}).get("seed", 42)) + 999)
@@ -484,7 +508,10 @@ class LidarPyramidTwoStageSearch:
             metrics = objective.evaluate(phenotype)
             rows.append({"L_fisher": float(metrics["L_fisher"]), "L_sqnr": float(metrics["L_sqnr"])})
         stats = build_normalization_stats(rows, ["L_fisher", "L_sqnr"])
-        _write_json(run_dir / "archives" / "proxy_normalization.json", stats.to_dict())
+        _write_json(
+            run_dir / "archives" / "proxy_normalization.json",
+            {**stats.to_dict(), "strategy": "fixed_median"},
+        )
         return stats
 
     def _run_ga(self, context: Any, proxy: Stage1ProxyEvaluator, real_evaluator: LidarPyramidRealEvaluator, run_dir: Path, search_cfg: dict[str, Any], *, stage1_only: bool) -> list[dict[str, Any]]:

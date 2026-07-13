@@ -1,3 +1,54 @@
+# ================================
+# Experiment outputs
+# Keep lightweight reports
+# ================================
+# Ignore generated deployment artifacts
+tests/quant_deploy/outputs/**/artifacts/
+tests/quant_deploy/outputs/**/debug/
+tests/quant_deploy/outputs/**/calibration/
+tests/quant_deploy/outputs/**/trtexec_inputs/
+tests/quant_deploy/outputs/**/pruned_models/
+
+
+# Keep experiment summaries and reports
+!tests/quant_deploy/outputs/**/summary/
+!tests/quant_deploy/outputs/**/summary/**
+!tests/quant_deploy/outputs/**/reports/
+!tests/quant_deploy/outputs/**/reports/**
+
+tests/outputs/
+tests/quant_deploy/outputs/
+outputs/
+outputs/latency_lut
+
+
+# Ignore heavy deployment/model files everywhere
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.weights
+
+*.onnx
+*.engine
+*.plan
+*.trt
+
+*.raw
+*.so
+
+*.cache
+*.npz
+*.npy
+*.bin
+
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
 # Python cache
 __pycache__/
 *.pyc
@@ -41,7 +92,7 @@ dist/
 # Generated heavy model folders
 tests/quant_deploy/outputs/**/pruned_models/
 tests/quant_deploy/outputs/**/artifacts/plugins/*_build/
-outputs/
+
 
 # Local backup / external data symlink
 tests_back/

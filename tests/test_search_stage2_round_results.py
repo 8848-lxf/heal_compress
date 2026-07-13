@@ -76,3 +76,29 @@ def test_round_stage2_results_copies_winner_from_cached_artifact_dir(tmp_path: P
     write_round_stage2_results(run_dir, round_index=1)
 
     assert (round_dir / "round_best_pruned_model.pth").read_bytes() == b"cached-pruned_checkpoint.pth"
+
+
+def test_round_stage2_results_accepts_formal_evaluator_filename(tmp_path: Path) -> None:
+    from search.stage2.round_results import write_round_stage2_results
+
+    run_dir = tmp_path / "run"
+    round_dir = run_dir / "round_000"
+    candidate_hash = "formal-evaluation-name"
+    candidate_dir = round_dir / "stage2" / candidate_hash
+    candidate_dir.mkdir(parents=True)
+    (round_dir / "repaired_top5_manifest.json").write_text(
+        json.dumps({"candidates": [{"candidate_rank": 0, "repaired_phenotype_hash": candidate_hash, "repaired_F1": 0.1}]}),
+        encoding="utf-8",
+    )
+    (candidate_dir / "stage2_score.json").write_text(json.dumps({"status": "ok", "F2": 0.2}), encoding="utf-8")
+    for name in ("pruned_checkpoint.pth", "pruned_fp32.onnx", "pruned_qdq.onnx", "engine.plan"):
+        (candidate_dir / name).write_bytes(name.encode("utf-8"))
+    (candidate_dir / "evaluation.json").write_text(
+        json.dumps({"status": "ok", "num_evaluated_frames": 300}),
+        encoding="utf-8",
+    )
+
+    write_round_stage2_results(run_dir, round_index=0)
+
+    copied = json.loads((round_dir / "round_best_evaluation_300.json").read_text(encoding="utf-8"))
+    assert copied["num_evaluated_frames"] == 300

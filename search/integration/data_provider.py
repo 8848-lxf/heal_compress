@@ -47,13 +47,57 @@ def build_dataset_and_loader(adapter: Any, model_config_path: str | Path, *, spl
     return dataset, loader
 
 
-def write_eval_manifest(output_path: str | Path, *, num_frames: int, warmup_frames: int, split: str = "val") -> EvaluationManifest:
+def load_split_frame_ids(adapter: Any, model_config_path: str | Path, *, split: str = "val") -> list[str]:
+    from opencood.hypes_yaml import yaml_utils
+
+    hypes = yaml_utils.load_yaml(adapter._resolve_heal_path(str(model_config_path)))
+    hypes = adapter._absolutize_dataset_paths(hypes)
+    key = "root_dir" if split == "train" else ("test_dir" if split == "test" else "validate_dir")
+    split_path = Path(str(hypes.get(key, ""))).expanduser()
+    if not split_path.is_file():
+        raise RuntimeError(f"dataset_split_manifest_missing:{split}:{split_path}")
+    payload = json.loads(split_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise RuntimeError(f"dataset_split_manifest_not_list:{split}:{split_path}")
+    frame_ids = [str(value) for value in payload]
+    if len(frame_ids) != len(set(frame_ids)):
+        raise RuntimeError(f"dataset_split_manifest_duplicate_ids:{split}:{split_path}")
+    return frame_ids
+
+
+def write_eval_manifest(
+    output_path: str | Path,
+    *,
+    num_frames: int,
+    warmup_frames: int,
+    split: str = "val",
+    available_frame_ids: Iterable[str] | None = None,
+) -> EvaluationManifest:
     total = int(num_frames) + int(warmup_frames)
-    frame_ids = [str(index) for index in range(total)]
+    available = [str(value) for value in available_frame_ids] if available_frame_ids is not None else [str(index) for index in range(total)]
+    if len(available) < total:
+        raise RuntimeError(f"insufficient_manifest_frames:{len(available)}<{total}")
+    frame_ids = available[:total]
+    warmup_ids = frame_ids[: int(warmup_frames)]
+    evaluation_ids = frame_ids[int(warmup_frames) :]
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     manifest_hash = _hash_manifest(frame_ids, split)
-    path.write_text(json.dumps({"split": split, "frame_ids": frame_ids, "manifest_hash": manifest_hash}, indent=2), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {
+                "split": split,
+                "frame_ids": frame_ids,
+                "warmup_frame_ids": warmup_ids,
+                "evaluation_frame_ids": evaluation_ids,
+                "warmup_frames": len(warmup_ids),
+                "num_frames": len(evaluation_ids),
+                "manifest_hash": manifest_hash,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return EvaluationManifest(path, frame_ids, split, manifest_hash)
 
 

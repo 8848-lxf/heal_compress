@@ -240,3 +240,79 @@ def test_original_baseline_reuses_existing_eval_when_cache_key_is_new(tmp_path: 
     assert result["cache_hit"] is True
     assert result["cache_source"] == "existing_baseline_eval"
     assert evaluator.real_cache.get(result["cache_key"]) is not None
+
+
+def test_physical_width_report_checks_only_axes_changed_by_pruning(tmp_path: Path) -> None:
+    import csv
+
+    from search.stage2.lidar_pyramid_real_evaluator import _write_physical_widths_csv
+
+    output = tmp_path / "physical_widths.csv"
+    snapshot = {
+        "modules": [
+            {
+                "canonical_module_name": "cls_head",
+                "module_type": "Conv2d",
+                "in_channels": 256,
+                "out_channels": 2,
+                "groups": 1,
+            },
+            {
+                "canonical_module_name": "single_head",
+                "module_type": "Conv2d",
+                "in_channels": 108,
+                "out_channels": 1,
+                "groups": 1,
+            },
+        ]
+    }
+    plan = {
+        "entries": [
+            {
+                "module_path": "single_head",
+                "axis": "in",
+                "original_axis_size": 128,
+                "keep_indices": list(range(108)),
+            }
+        ]
+    }
+
+    _write_physical_widths_csv(output, snapshot_payload=snapshot, plan_payload=plan)
+
+    with output.open(newline="", encoding="utf-8") as handle:
+        rows = {row["module path"]: row for row in csv.DictReader(handle)}
+    assert rows["cls_head"]["alignment status"] == "not_channel_pruned"
+    assert rows["single_head"]["alignment status"] == "dense_width_aligned"
+
+
+def test_cached_origin_map_reloads_typed_entries(tmp_path: Path) -> None:
+    import json
+
+    from search.stage2.lidar_pyramid_real_evaluator import _load_origin_map_result
+
+    path = tmp_path / "origin_map.json"
+    path.write_text(
+        json.dumps(
+            {
+                "entries": [
+                    {
+                        "module_path": "conv",
+                        "module_type": "Conv2d",
+                        "call_index": 0,
+                        "onnx_op_type": "Conv",
+                        "original_node_name": "node",
+                        "canonical_node_name": "canonical",
+                        "weight_initializer": "weight",
+                    }
+                ],
+                "source_onnx": "model.onnx",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _load_origin_map_result(path)
+
+    assert len(result.entries) == 1
+    assert result.entries[0].module_path == "conv"
+    assert result.origin_map_hash

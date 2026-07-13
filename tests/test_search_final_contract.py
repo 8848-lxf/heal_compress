@@ -85,6 +85,29 @@ def test_proxy_objective_uses_fp32_reference_and_soft_bops_penalty_only() -> Non
     assert metrics["F1"] == pytest.approx(expected)
 
 
+def test_final_runner_uses_direct_unormalized_fisher_and_sqnr_terms(tmp_path) -> None:
+    import json
+
+    from search.orchestration.lidar_pyramid_search import LidarPyramidTwoStageSearch
+
+    class MustNotEvaluate:
+        def evaluate(self, _phenotype):
+            raise AssertionError("identity normalization must not sample proxy candidates")
+
+    runner = LidarPyramidTwoStageSearch(
+        config={"proxy": {"term_normalization": "none"}},
+        checkpoint=tmp_path / "model.pth",
+        output_root=tmp_path,
+    )
+    stats = runner._build_normalization(object(), MustNotEvaluate(), tmp_path)
+
+    assert stats.medians == {}
+    assert stats.normalize("L_fisher", 0.25) == 0.25
+    assert stats.normalize("L_sqnr", 0.50) == 0.50
+    manifest = json.loads((tmp_path / "archives" / "proxy_normalization.json").read_text(encoding="utf-8"))
+    assert manifest == {"medians": {}, "strategy": "none", "version": "none-v1"}
+
+
 def test_outer_round_bops_target_schedule_is_025_to_018() -> None:
     import pytest
 

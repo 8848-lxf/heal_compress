@@ -73,3 +73,19 @@ def test_average_hamming_distance_detects_collapsed_population() -> None:
     ]
 
     assert average_hamming_distance(diverse) > average_hamming_distance(collapsed)
+
+
+def test_average_hamming_distance_matches_pairwise_reference() -> None:
+    from itertools import combinations
+
+    from search.ga.diversity import hamming_distance
+
+    population = [
+        CandidateGenotype({"a": 1, "b": 0, "c": 1}, {"x": "FP16", "y": "INT8"}),
+        CandidateGenotype({"a": 0, "b": 0, "c": 1}, {"x": "FP32", "y": "INT8"}),
+        CandidateGenotype({"a": 1, "b": 1, "c": 0}, {"x": "FP16", "y": "FP32"}),
+        CandidateGenotype({"a": 0, "b": 1, "c": 0}, {"x": "INT8", "y": "FP16"}),
+    ]
+    distances = [hamming_distance(left, right) for left, right in combinations(population, 2)]
+
+    assert average_hamming_distance(population) == sum(distances) / len(distances)

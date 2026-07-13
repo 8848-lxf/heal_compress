@@ -48,17 +48,27 @@ def summarize_qdq_realization(
     records = list(qdq_report.get("records") or [])
     q_count = 0
     dq_count = 0
+
+    def node_count(value: Any) -> int:
+        if isinstance(value, (list, tuple, set)):
+            return sum(1 for item in value if item)
+        return 1 if value else 0
+
     for row in records:
         data = row.to_dict() if hasattr(row, "to_dict") else dict(row)
-        q_count += sum(1 for key, value in data.items() if "quantize" in key.lower() and value)
-        dq_count += sum(1 for key, value in data.items() if "dequantize" in key.lower() and value)
+        q_count += sum(
+            node_count(value)
+            for key, value in data.items()
+            if "quantize" in key.lower() and "dequantize" not in key.lower()
+        )
+        dq_count += sum(node_count(value) for key, value in data.items() if "dequantize" in key.lower())
     requested_int8_groups = [key for key, value in requested_group_profile.items() if str(value).upper() == "INT8"]
     realized_int8_groups = [key for key, value in realized_group_profile.items() if str(value).upper() == "INT8"]
     realized_int8_layers = [key for key, value in realized_canonical_profile.items() if str(value).upper() == "INT8"]
     return {
         "requested_int8_group_count": len(requested_int8_groups),
         "realized_int8_group_count": len(realized_int8_groups),
-        "requested_int8_layer_count": sum(1 for value in realized_canonical_profile.values() if str(value).upper() == "INT8"),
+        "requested_int8_layer_count": int(qdq_report.get("requested_int8_count", len(realized_int8_layers))),
         "realized_int8_layer_count": len(realized_int8_layers),
         "QuantizeLinear_count": int(q_count),
         "DequantizeLinear_count": int(dq_count),

@@ -168,6 +168,7 @@ class CanonicalPrecisionEntry(ResultMixin):
     call_index: int = 0
     fallback_reason: str = ""
     protected_precision: str = ""
+    realized_output_precision: str = ""
 
 
 @dataclass
@@ -198,7 +199,10 @@ class QDQInsertionRecord(ResultMixin):
     output_dequantize_nodes: list[str] = field(default_factory=list)
     scale: float = 0.0
     activation_input_scale: float = 0.0
-    weight_scale: float = 0.0
+    weight_scale: Any = 0.0
+    weight_scale_shape: list[int] = field(default_factory=list)
+    weight_axis: int | None = None
+    weight_granularity: str = "per_tensor"
     activation_output_scale: float = 0.0
     zero_point: int = 0
 

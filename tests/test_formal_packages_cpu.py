@@ -859,6 +859,168 @@ def test_qdq_uses_distinct_activation_weight_and_output_scales(tmp_path: Path) -
     assert record.activation_output_scale == pytest.approx(0.3)
 
 
+def test_qdq_fp16_merge_policy_audits_single_quantized_branch(tmp_path: Path) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.api import (
+        apply_canonical_node_names,
+        build_canonical_precision_mapping,
+        build_onnx_origin_map,
+        insert_explicit_qdq,
+    )
+    from quantization.types import PrecisionAssignment, PrecisionProfileResult
+
+    source = tmp_path / "residual.onnx"
+    named = tmp_path / "residual_named.onnx"
+    qdq = tmp_path / "residual_qdq.onnx"
+    weight = np.ones((4, 4, 1, 1), dtype=np.float32)
+    graph = helper.make_graph(
+        [
+            helper.make_node("Conv", ["input", "left.weight"], ["left_out"], name="/left/Conv"),
+            helper.make_node("Conv", ["input", "right.weight"], ["right_out"], name="/right/Conv"),
+            helper.make_node("Add", ["left_out", "right_out"], ["output"], name="/residual/Add"),
+        ],
+        "residual",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 4, 2, 2])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 4, 2, 2])],
+        [
+            numpy_helper.from_array(weight, "left.weight"),
+            numpy_helper.from_array(weight, "right.weight"),
+        ],
+    )
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 13)]), str(source))
+    origin = build_onnx_origin_map(
+        source,
+        [
+            {"module_path": "left", "module_type": "Conv2d", "call_index": 0, "weight_initializer": "left.weight"},
+            {"module_path": "right", "module_type": "Conv2d", "call_index": 1, "weight_initializer": "right.weight"},
+        ],
+    )
+    apply_canonical_node_names(source, origin, output_path=named)
+    profile = PrecisionProfileResult(
+        profile_id="left_int8",
+        assignments=[
+            PrecisionAssignment("left", "pg_left", "int8", 0),
+            PrecisionAssignment("right", "pg_right", "fp16", 1),
+        ],
+        requested_int8_count=1,
+        requested_int8_ratio=0.5,
+        policy_version="test",
+    )
+    mapping = build_canonical_precision_mapping(origin, profile)
+    result = insert_explicit_qdq(named, qdq, mapping, scales={"left": 0.1})
+    merge = result.calibration_metadata["merge_quantization_audit"][0]
+    assert merge["merge_op_name"] == "/residual/Add"
+    assert merge["policy"] == "A_fp16_merge"
+    assert merge["partial_explicit_qdq_input_count"] == 1
+    assert {row["boundary"] for row in merge["input_branches"]} == {
+        "explicit_dequantize_to_float",
+        "existing_float_path",
+    }
+
+
+def test_qdq_supports_conv_per_channel_weight_scales_with_axis_zero(tmp_path: Path) -> None:
+    import onnx
+    from onnx import numpy_helper
+
+    from quantization.api import (
+        apply_canonical_node_names,
+        build_canonical_precision_mapping,
+        build_onnx_origin_map,
+        generate_precision_profile,
+        insert_explicit_qdq,
+    )
+
+    source = tmp_path / "source.onnx"
+    named = tmp_path / "named.onnx"
+    qdq = tmp_path / "qdq.onnx"
+    _write_weighted_onnx(source)
+    origin = build_onnx_origin_map(
+        source,
+        [{"module_path": "stem", "module_type": "Conv2d", "call_index": 0, "weight_initializer": "stem.weight"}],
+    )
+    apply_canonical_node_names(source, origin, output_path=named)
+    profile = generate_precision_profile(["stem"], profile_id="strict_int8")
+    mapping = build_canonical_precision_mapping(origin, profile)
+    result = insert_explicit_qdq(
+        named,
+        qdq,
+        mapping,
+        scales={
+            "stem": {
+                "activation_input_scale": 0.1,
+                "weight_scale": [0.01, 0.02, 0.03, 0.04],
+                "weight_axis": 0,
+                "weight_granularity": "per_channel",
+                "activation_output_scale": 0.3,
+            }
+        },
+    )
+    graph = onnx.load(str(qdq))
+    qnode = next(node for node in graph.graph.node if node.name == result.records[0].weight_quantize_node)
+    dqnode = next(node for node in graph.graph.node if node.name == result.records[0].weight_dequantize_node)
+    initializers = {row.name: numpy_helper.to_array(row) for row in graph.graph.initializer}
+    assert {attr.name: attr.i for attr in qnode.attribute} == {"axis": 0}
+    assert {attr.name: attr.i for attr in dqnode.attribute} == {"axis": 0}
+    assert initializers[qnode.input[1]].shape == (4,)
+    assert initializers[qnode.input[2]].shape == (4,)
+    assert result.records[0].weight_granularity == "per_channel"
+    assert result.records[0].weight_scale_shape == [4]
+    assert result.records[0].weight_axis == 0
+
+
+def test_qdq_supports_convtranspose_output_channel_axis_one(tmp_path: Path) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.api import (
+        apply_canonical_node_names,
+        build_canonical_precision_mapping,
+        build_onnx_origin_map,
+        generate_precision_profile,
+        insert_explicit_qdq,
+    )
+
+    source = tmp_path / "deconv.onnx"
+    named = tmp_path / "deconv_named.onnx"
+    qdq = tmp_path / "deconv_qdq.onnx"
+    weight = np.arange(3 * 4 * 2 * 2, dtype=np.float32).reshape(3, 4, 2, 2) + 1.0
+    graph = helper.make_graph(
+        [helper.make_node("ConvTranspose", ["input", "up.weight"], ["output"], name="/up/ConvTranspose")],
+        "deconv",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 4, 4])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 4, 5, 5])],
+        [numpy_helper.from_array(weight, "up.weight")],
+    )
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 13)]), str(source))
+    origin = build_onnx_origin_map(
+        source,
+        [{"module_path": "up", "module_type": "ConvTranspose2d", "call_index": 0, "weight_initializer": "up.weight", "weight_shape": weight.shape}],
+    )
+    apply_canonical_node_names(source, origin, output_path=named)
+    mapping = build_canonical_precision_mapping(origin, generate_precision_profile(["up"], profile_id="strict_int8"))
+    result = insert_explicit_qdq(
+        named,
+        qdq,
+        mapping,
+        scales={
+            "up": {
+                "activation_input_scale": 0.1,
+                "weight_scale": [0.01, 0.02, 0.03, 0.04],
+                "weight_axis": 1,
+                "weight_granularity": "per_channel",
+                "activation_output_scale": 0.2,
+            }
+        },
+    )
+    model = onnx.load(str(qdq))
+    qnode = next(node for node in model.graph.node if node.name == result.records[0].weight_quantize_node)
+    assert {attr.name: attr.i for attr in qnode.attribute} == {"axis": 1}
+    assert result.records[0].weight_axis == 1
+    assert result.records[0].weight_scale_shape == [4]
+
+
 def test_formal_calibration_collects_distinct_absmax_scales() -> None:
     from quantization.api import collect_calibration_scales
     from quantization.config import CalibrationConfig
@@ -949,6 +1111,35 @@ def test_trt_command_generation_uses_canonical_names_without_execution(tmp_path:
     assert "--layerPrecisions=__canonical__stem__Conv__call00000:int8" in joined
     assert "--layerOutputTypes=__canonical__stem__Conv__call00000:int8" in joined
     assert "--minShapes=voxel_features:1x32x4" in joined
+
+
+def test_trt_command_separates_int8_compute_from_fp16_merge_output(tmp_path: Path) -> None:
+    from quantization.api import build_trt_command
+    from quantization.config import TensorRTBuildConfig
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    name = "__canonical__single_head_0__Conv__call00000"
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                module_path="single_head_0",
+                canonical_node_name=name,
+                precision_group="pg_merge",
+                requested_precision="int8",
+                realized_request_precision="int8",
+                realized_output_precision="fp16",
+            )
+        ]
+    )
+    result = build_trt_command(
+        tmp_path / "model.onnx",
+        tmp_path / "model.engine",
+        mapping,
+        config=TensorRTBuildConfig(trtexec_path=Path("/opt/tensorrt/bin/trtexec")),
+    )
+    joined = " ".join(result.command)
+    assert f"--layerPrecisions={name}:int8" in joined
+    assert f"--layerOutputTypes={name}:fp16" in joined
 
 
 def test_precision_realization_and_provenance_validation() -> None:

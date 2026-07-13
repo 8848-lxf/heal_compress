@@ -63,7 +63,7 @@ def bops_soft_penalty(r_bops: float, target: float | None, *, formula: str = "ab
 def feasibility_first_key(metrics: dict[str, Any], *, bops_target: float | None) -> tuple[int, float, float]:
     if bops_target is None:
         return (0, 0.0, float(metrics.get("F1", metrics.get("score", float("inf")))))
-    bops = float(metrics.get("R_bops_vs_fp16_deploy", metrics.get("R_bops", float("inf"))))
+    bops = float(metrics.get("R_bops_vs_fp32", metrics.get("R_bops", float("inf"))))
     violation = max(0.0, bops - float(bops_target))
     return (1 if violation > 0.0 else 0, violation, float(metrics.get("F1", metrics.get("score", float("inf")))))
 

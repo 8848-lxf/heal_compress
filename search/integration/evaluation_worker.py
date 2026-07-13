@@ -114,7 +114,7 @@ def _mean_profiles(profiles: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _latency_row_from_profile(
     *,
-    frame_id: int,
+    frame_id: Any,
     warmup: bool,
     input_prepare_ms: float,
     host_to_device_ms: float,
@@ -129,7 +129,7 @@ def _latency_row_from_profile(
     )
     reallocated = bool(profile.get("input_buffer_reallocated")) or bool(profile.get("output_buffer_reallocated"))
     row: dict[str, Any] = {
-        "frame_id": int(frame_id),
+        "frame_id": frame_id,
         "warmup": bool(warmup),
         "forward_ms": forward_ms,
         "input_prepare_ms": float(input_prepare_ms),
@@ -226,12 +226,54 @@ def main(argv: list[str] | None = None) -> int:
         target = int(request["num_frames"])
         warmup = int(request["warmup_frames"])
         latency_rounds = max(1, int(request.get("latency_rounds", 1)))
+        manifest_path = Path(str(request.get("eval_manifest_path", ""))) if request.get("eval_manifest_path") else None
+        manifest_payload: dict[str, Any] = {}
+        manifest_roles: dict[str, str] = {}
+        split_frame_ids: list[str] = []
+        if manifest_path is not None:
+            if not manifest_path.is_file():
+                raise RuntimeError(f"eval_manifest_missing:{manifest_path}")
+            manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            warmup_ids = [str(value) for value in manifest_payload.get("warmup_frame_ids", [])]
+            evaluation_ids = [str(value) for value in manifest_payload.get("evaluation_frame_ids", [])]
+            if len(warmup_ids) != warmup or len(evaluation_ids) != target:
+                raise RuntimeError(
+                    f"eval_manifest_count_mismatch:warmup={len(warmup_ids)}!={warmup}:eval={len(evaluation_ids)}!={target}"
+                )
+            if len(set(warmup_ids + evaluation_ids)) != len(warmup_ids) + len(evaluation_ids):
+                raise RuntimeError("eval_manifest_duplicate_frame_ids")
+            manifest_roles.update({frame_id: "warmup" for frame_id in warmup_ids})
+            manifest_roles.update({frame_id: "evaluation" for frame_id in evaluation_ids})
+            split_path = Path(str(hypes.get("validate_dir", "")))
+            split_payload = json.loads(split_path.read_text(encoding="utf-8"))
+            if not isinstance(split_payload, list):
+                raise RuntimeError(f"validation_split_manifest_not_list:{split_path}")
+            split_frame_ids = [str(value) for value in split_payload]
+            missing = sorted(set(manifest_roles) - set(split_frame_ids))
+            if missing:
+                raise RuntimeError(f"eval_manifest_ids_missing_from_validation_split:{missing[:8]}")
+        evaluated_frame_ids: list[str] = []
+        skipped_frame_ids: list[str] = []
+        skipped_warmup_frame_ids: list[str] = []
         output_names: list[str] | None = None
         for frame_idx, batch in enumerate(loader):
             if actual >= target:
                 break
+            frame_id: Any = frame_idx
+            role = "warmup" if warmup_seen < warmup else "evaluation"
+            if manifest_roles:
+                if frame_idx >= len(split_frame_ids):
+                    break
+                frame_id = split_frame_ids[frame_idx]
+                role = manifest_roles.get(str(frame_id), "")
+                if not role:
+                    continue
             if batch is None:
                 skip_reasons["empty_batch"] += 1
+                if role == "evaluation":
+                    skipped_frame_ids.append(str(frame_id))
+                else:
+                    skipped_warmup_frame_ids.append(str(frame_id))
                 continue
             try:
                 batch, host_to_device_ms = _timed(lambda: _move(batch, device), device)
@@ -260,11 +302,11 @@ def main(argv: list[str] | None = None) -> int:
                     return dataset.post_process(batch, od)
 
                 (pred_box, pred_score, gt_box), post_ms = _timed(postprocess, device)
-                if warmup_seen < warmup:
+                if role == "warmup":
                     warmup_seen += 1
                     rows.append(
                         _latency_row_from_profile(
-                            frame_id=frame_idx,
+                            frame_id=frame_id,
                             warmup=True,
                             input_prepare_ms=input_prepare_ms,
                             host_to_device_ms=host_to_device_ms,
@@ -276,12 +318,13 @@ def main(argv: list[str] | None = None) -> int:
                 for thr in IOU_THRESHOLDS:
                     calculate_tp_fp_for_threshold(pred_box, pred_score, gt_box, result_stat, thr, "cpu", device)
                 actual += 1
+                evaluated_frame_ids.append(str(frame_id))
                 forward_times.append(forward_ms)
                 post_times.append(post_ms)
                 total_times.append(forward_ms + post_ms)
                 rows.append(
                     _latency_row_from_profile(
-                        frame_id=frame_idx,
+                        frame_id=frame_id,
                         warmup=False,
                         input_prepare_ms=input_prepare_ms,
                         host_to_device_ms=host_to_device_ms,
@@ -291,7 +334,11 @@ def main(argv: list[str] | None = None) -> int:
                 )
             except Exception as exc:  # noqa: BLE001
                 skip_reasons[f"{type(exc).__name__}:{exc}"] += 1
-                rows.append({"frame_id": frame_idx, "success": False, "skip_reason": f"{type(exc).__name__}:{exc}"})
+                if role == "evaluation":
+                    skipped_frame_ids.append(str(frame_id))
+                else:
+                    skipped_warmup_frame_ids.append(str(frame_id))
+                rows.append({"frame_id": frame_id, "success": False, "skip_reason": f"{type(exc).__name__}:{exc}"})
                 if actual == 0 and sum(skip_reasons.values()) >= 3:
                     break
         ap: dict[str, float] = {}
@@ -301,8 +348,18 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 ap_value = 0.0
             ap[f"AP@{thr:.1f}"] = float(ap_value)
+        manifest_complete = (
+            not manifest_roles
+            or (
+                actual == target
+                and len(evaluated_frame_ids) == target
+                and not skipped_frame_ids
+                and warmup_seen == warmup
+                and not skipped_warmup_frame_ids
+            )
+        )
         result = {
-            "status": "ok" if actual > 0 else "evaluation_failed",
+            "status": "ok" if actual > 0 and manifest_complete else "evaluation_failed",
             "AP@0.3": ap.get("AP@0.3", 0.0),
             "AP@0.5": ap.get("AP@0.5", 0.0),
             "AP@0.7": ap.get("AP@0.7", 0.0),
@@ -313,6 +370,12 @@ def main(argv: list[str] | None = None) -> int:
             "num_evaluated_frames": actual,
             "num_skipped_frames": int(sum(skip_reasons.values())),
             "skip_reason_counts": dict(skip_reasons),
+            "fixed_manifest_enforced": bool(manifest_roles),
+            "eval_manifest_path": str(manifest_path) if manifest_path is not None else "",
+            "eval_manifest_hash": str(manifest_payload.get("manifest_hash", "")),
+            "evaluated_frame_ids": evaluated_frame_ids,
+            "skipped_frame_ids": skipped_frame_ids,
+            "skipped_warmup_frame_ids": skipped_warmup_frame_ids,
             "latency_rows": rows,
         }
     except Exception as exc:  # noqa: BLE001

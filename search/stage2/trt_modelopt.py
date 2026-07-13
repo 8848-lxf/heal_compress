@@ -80,7 +80,7 @@ def build_engine_modelopt(
     result["worker_returncode"] = completed.returncode
     result["worker_log_path"] = str(destination / "trt_build_worker.log")
     result["worker_invocation"] = {
-        "mode": "conda_run_modelopt_python",
+        "mode": "explicit_conda_activate_modelopt_python",
         "conda_env": str(conda_env),
         "cuda_visible_devices": str(gpu_id) if gpu_id is not None else "",
     }

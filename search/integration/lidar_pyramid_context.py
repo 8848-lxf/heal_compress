@@ -14,7 +14,7 @@ from ..canonicalization import SearchSpaceSpec
 from ..hashing import canonical_json_hash
 from ..pruning_space.action_catalog import PruningActionCatalog, build_pruning_action_catalog
 from ..quantization_space.group_builder import build_quantization_search_groups
-from .data_provider import EvaluationManifest, write_eval_manifest
+from .data_provider import EvaluationManifest, load_split_frame_ids, write_eval_manifest
 from .model_provider import LidarPyramidModelBundle, load_lidar_pyramid_model
 from .runtime_environment import GPUSelection, TensorRTEnvironment, discover_trt_environment, plugin_hashes, select_gpu
 
@@ -143,59 +143,80 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
         from heal_compress.tracer.dependency_tracer import build_dependency_graph
         from heal_compress.tracer.precision_coupling_tracer import PrecisionGroup, build_precision_coupling_groups
     graph = build_dependency_graph(model, None)
-    base_groups = build_precision_coupling_groups(model, graph, sample_batch=None, allow_head_int8=False)
+    # Precision coupling is a deployment contract, not a pruning dependency
+    # scope.  In particular, residual/concat branches may choose independent
+    # compute precision when policy A dequantizes them before an FP16 merge.
+    base_groups = build_precision_coupling_groups(model, graph, sample_batch=None, allow_head_int8=True)
     weighted = set(_precision_layer_ids(model))
-    allowed_by_module: dict[str, list[str]] = {}
-    default_by_module: dict[str, str] = {}
-    reason_by_module: dict[str, str] = {}
-    for group in base_groups:
-        for module in group.member_modules:
-            if module in weighted:
-                allowed_by_module[module] = list(group.allowed_precisions)
-                default_by_module[module] = str(group.default_precision)
-                reason_by_module[module] = str(group.reason)
-    filtered = []
-    covered: set[str] = set()
-    for scope in getattr(trace_result, "dependency_scopes", []) or []:
-        members = sorted(
+    protected = {
+        "encoder_m1.pillar_vfe.pfn_layers.0.linear": "plugin_boundary_or_unmapped_functional_matmul",
+        "pyramid_backbone.single_head_2": "coordinate_grid_generation_requires_fp16_output",
+    }
+    memberships: dict[str, list[tuple[int, Any, list[str]]]] = {name: [] for name in weighted}
+    for group_index, group in enumerate(base_groups):
+        members = [str(module) for module in group.member_modules if str(module) in weighted]
+        for module in members:
+            memberships[module].append((group_index, group, members))
+
+    filtered: list[Any] = []
+    used_ids: set[str] = set()
+    for module in sorted(weighted):
+        rows = memberships.get(module) or []
+        if not rows:
+            raise RuntimeError(f"weighted_module_missing_precision_contract:{module}")
+        group_index, source, source_members = rows[0]
+        independent_merge_branch = len(source_members) > 1 and not bool(source.force_same_precision)
+        if independent_merge_branch:
+            branch_index = source_members.index(module)
+            group_id = f"{source.precision_group_id}__branch_{branch_index:02d}"
+        else:
+            group_id = str(source.precision_group_id)
+        if group_id in used_ids:
+            group_id = f"{group_id}__{canonical_json_hash({'module': module})[:8]}"
+        used_ids.add(group_id)
+        merge_boundaries = [
             {
-                str(getattr(member, "module_path", ""))
-                for member in getattr(scope, "members", []) or []
-                if str(getattr(member, "module_path", "")) in weighted
+                "parent_precision_group_id": str(parent.precision_group_id),
+                "merge_kind": str(parent.reason),
+                "member_layers": list(parent_members),
+                "branch_compute_precision_independent": not bool(parent.force_same_precision),
+                "merge_policy": "A_fp16_merge",
+                "input_qdq_placement": "Q/DQ at each INT8 weighted branch; all merge inputs are float after DQ",
+                "output_qdq_placement": "downstream weighted-node input owns optional requantization",
+                "activation_scale_ownership": "canonical ONNX tensor boundary",
+                "merge_scale_policy": "independent_branch_scales_then_DQ_to_FP16_merge_then_optional_requantization",
             }
+            for _index, parent, parent_members in rows
+            if len(parent_members) > 1 and str(parent.reason) in {"residual", "concat"}
+        ]
+        allowed = list(source.allowed_precisions)
+        reason = str(source.reason)
+        if module in protected:
+            allowed = ["fp32", "fp16"]
+            reason = protected[module]
+        contract = PrecisionGroup(
+            precision_group_id=group_id,
+            member_modules=[module],
+            reason=reason,
+            allowed_precisions=allowed,
+            default_precision="fp16",
+            force_same_precision=True,
         )
-        members = [module for module in members if module not in covered]
-        if len(members) < 2:
-            continue
-        allowed_sets = [set(allowed_by_module.get(module, ["fp32", "fp16", "int8"])) for module in members]
-        allowed = sorted(set.intersection(*allowed_sets), key=["fp32", "fp16", "int8"].index)
-        group_id = f"pg_scope_{canonical_json_hash({'scope': getattr(scope, 'stable_id', ''), 'members': members})[:12]}"
-        filtered.append(
-            PrecisionGroup(
-                precision_group_id=group_id,
-                member_modules=members,
-                reason="trace_dependency_scope",
-                allowed_precisions=allowed or ["fp16"],
-                default_precision="fp16",
-                force_same_precision=True,
-            )
+        setattr(
+            contract,
+            "deployment_contract",
+            {
+                "member_layers": [module],
+                "merge_boundaries": merge_boundaries,
+                "merge_boundary_resolution": "resolved_from_canonical_onnx_during_qdq_export",
+                "input_output_qdq_placement": "canonical_weighted_node_input_weight_output",
+                "activation_scale_ownership": "canonical ONNX tensor boundary",
+                "merge_scale_policy": "A_fp16_merge",
+                "weight_granularity": "per_channel",
+                "weight_axis_policy": {"Conv": 0, "ConvTranspose": 1, "MatMul": 1, "Gemm": "0 if transB else 1"},
+            },
         )
-        covered.update(members)
-    for group in base_groups:
-        members = [module for module in group.member_modules if module in weighted]
-        members = [module for module in members if module not in covered]
-        if not members:
-            continue
-        if members != group.member_modules:
-            group = type(group)(
-                precision_group_id=group.precision_group_id,
-                member_modules=members,
-                reason=group.reason,
-                allowed_precisions=group.allowed_precisions,
-                default_precision=group.default_precision,
-                force_same_precision=group.force_same_precision,
-            )
-        filtered.append(group)
+        filtered.append(contract)
     return filtered
 
 
@@ -234,6 +255,7 @@ def build_lidar_pyramid_context(
     gpu = select_gpu(gpu_id, exclude_gpu_ids)
     device = torch.device(gpu.runtime_device)
     torch.cuda.set_device(device)
+    capability_major, capability_minor = torch.cuda.get_device_capability(device)
     config_path = Path(model_config_path or DEFAULT_CONFIG).expanduser().resolve()
     bundle = load_lidar_pyramid_model(
         checkpoint_path=checkpoint_path,
@@ -274,7 +296,12 @@ def build_lidar_pyramid_context(
     search_quant_groups = build_quantization_search_groups(bundle.model, precision_groups=precision_groups)
     plugin = Path(plugin_path).expanduser().resolve() if plugin_path else (Path.cwd() / DEFAULT_PLUGIN).resolve()
     tensorrt = discover_trt_environment(tensorrt_root, plugin_path=plugin, conda_env=tensorrt_env)
-    manifest = write_eval_manifest(Path(output_dir) / "baseline" / "eval_manifest.json", num_frames=num_frames, warmup_frames=warmup_frames)
+    manifest = write_eval_manifest(
+        Path(output_dir) / "baseline" / "eval_manifest.json",
+        num_frames=num_frames,
+        warmup_frames=warmup_frames,
+        available_frame_ids=load_split_frame_ids(bundle.adapter, config_path, split="val"),
+    )
     builder_flags = {
         "precision_constraints": "obey",
         "fp16": True,
@@ -293,7 +320,7 @@ def build_lidar_pyramid_context(
         calibration_manifest_hash=canonical_json_hash({"fisher_batches": int(fisher_calibration_batches), "quant_batches": int(quant_calibration_batches), "config": str(config_path)}),
         onnx_export_config_hash=canonical_json_hash({"fixed_k": 29696, "min_agents": 1, "opt_agents": 2, "max_agents": 2}),
         tensorrt_version="10.9",
-        gpu_compute_capability="8.9",
+        gpu_compute_capability=f"{capability_major}.{capability_minor}",
         builder_flags=builder_flags,
         plugin_hashes=plugin_hashes([plugin]),
     )

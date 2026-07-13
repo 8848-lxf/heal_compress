@@ -88,6 +88,7 @@ def build_quantization_search_groups(
                     "reason": str(getattr(raw, "reason", "")),
                     "default_precision": str(getattr(raw, "default_precision", "fp16")).upper(),
                     "force_same_precision": bool(getattr(raw, "force_same_precision", True)),
+                    **dict(getattr(raw, "deployment_contract", {}) or {}),
                 },
             )
         )

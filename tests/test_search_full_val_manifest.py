@@ -38,3 +38,25 @@ def test_common_subset_uses_same_frame_ids_across_all_baselines() -> None:
     assert subset["common_subset_frames"] == 2
     assert subset["common_frame_ids"] == ["b", "c"]
     assert subset["skip_sets_comparable"] is True
+
+
+def test_stage2_eval_manifest_uses_real_fixed_warmup_and_evaluation_ids(tmp_path: Path) -> None:
+    import json
+
+    from search.integration.data_provider import write_eval_manifest
+
+    path = tmp_path / "eval_manifest.json"
+    manifest = write_eval_manifest(
+        path,
+        num_frames=3,
+        warmup_frames=2,
+        available_frame_ids=["000211", "000212", "000214", "000215", "000216", "000217"],
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert manifest.frame_ids == ["000211", "000212", "000214", "000215", "000216"]
+    assert payload["warmup_frame_ids"] == ["000211", "000212"]
+    assert payload["evaluation_frame_ids"] == ["000214", "000215", "000216"]
+    assert payload["warmup_frames"] == 2
+    assert payload["num_frames"] == 3
+    assert payload["manifest_hash"] == manifest.manifest_hash

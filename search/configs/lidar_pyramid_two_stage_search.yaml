@@ -36,7 +36,7 @@ precision:
 
 proxy:
   fisher_calibration_batches: 8
-  quant_calibration_batches: 16
+  quant_calibration_batches: 200
   alpha_fisher: 1.0
   beta_sqnr: 1.0
   gamma_size: 1.0

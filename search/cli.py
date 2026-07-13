@@ -195,7 +195,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         run_dir = Path(result["run_dir"])
         _dump_yaml(run_dir / "resolved_config.yaml", config)
-        (run_dir / "commands.sh").write_text("python -m search.cli " + " ".join(argv or []) + "\n", encoding="utf-8")
+        command_path = run_dir / "commands.sh"
+        with command_path.open("a" if command_path.exists() else "w", encoding="utf-8") as handle:
+            handle.write("python -m search.cli " + " ".join(argv or []) + "\n")
         print(json.dumps(result, indent=2, sort_keys=True, default=str))
         return 0
 

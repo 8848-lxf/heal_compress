@@ -93,6 +93,7 @@ def deployment_hash(
     builder_flags: dict[str, Any],
     optimization_profiles: dict[str, Any],
     plugin_hashes: dict[str, str],
+    quantization_contract_hash: str,
 ) -> str:
     return canonical_json_hash(
         {
@@ -105,6 +106,7 @@ def deployment_hash(
             "builder_flags": builder_flags,
             "optimization_profiles": optimization_profiles,
             "plugin_hashes": plugin_hashes,
+            "quantization_contract_hash": quantization_contract_hash,
         }
     )
 

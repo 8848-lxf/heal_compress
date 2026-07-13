@@ -7,7 +7,7 @@ runtime:
   exclude_gpu_ids: [5, 6, 7]
   model_env: univ2x-opt
   tensorrt_env: modelopt
-  tensorrt_root: /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118
+  tensorrt_root: /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
 
 baselines:
   build_before_search: true
@@ -60,7 +60,8 @@ proxy:
   device: auto
   batch_size: 128
   fisher_calibration_batches: 8
-  quant_calibration_batches: 16
+  quant_calibration_batches: 200
+  term_normalization: none
 
   size_reference: original_strict_fp32
   bops_reference: original_strict_fp32

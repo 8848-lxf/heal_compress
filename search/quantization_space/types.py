@@ -83,4 +83,13 @@ class GroupPrecisionLegalization:
                 for group in sorted(self.groups, key=lambda row: row.ordering)
                 for module_path in group.module_paths
             },
+            "quantization_group_contracts": {
+                group.group_id: {
+                    **dict(group.metadata),
+                    "member_layers": list(group.module_paths),
+                    "requested_precision": self.requested_group_profile[group.group_id],
+                    "legalized_precision": self.stage1_legalized_group_profile[group.group_id],
+                }
+                for group in sorted(self.groups, key=lambda row: row.ordering)
+            },
         }

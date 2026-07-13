@@ -168,9 +168,25 @@ def resolve_conda_env_prefix(conda_env: str = "modelopt") -> Path:
 
 
 def modelopt_python_command(conda_env: str = "modelopt") -> list[str]:
-    """Return a conda-run Python command for the TensorRT/modelopt env."""
+    """Return an explicitly activated modelopt Python command.
 
-    return ["conda", "run", "-n", str(conda_env), "--no-capture-output", "python"]
+    ``conda run`` is not used because compiler activation hooks can resolve
+    cross-compiler wrappers against the base prefix on migrated hosts.  The
+    login shell activates the requested environment and then pins every
+    compiler/CUDA entry to that environment before executing Python.
+    """
+
+    script = (
+        "source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh; "
+        "conda activate \"$1\"; "
+        "export PATH=\"$CONDA_PREFIX/bin:$PATH\"; "
+        "export CUDA_HOME=\"$CONDA_PREFIX\"; "
+        "export CC=\"$CONDA_PREFIX/bin/gcc\"; "
+        "export CXX=\"$CONDA_PREFIX/bin/g++\"; "
+        "export CUDACXX=\"$CONDA_PREFIX/bin/nvcc\"; "
+        "shift; exec python \"$@\""
+    )
+    return ["bash", "-lc", script, "modelopt-python", str(conda_env)]
 
 
 def modelopt_subprocess_env(
@@ -199,6 +215,13 @@ def modelopt_subprocess_env(
     env["CONDA_DEFAULT_ENV"] = str(conda_env)
     env["PATH"] = ":".join(str(path) for path in bin_dirs if path.exists()) + ":" + env.get("PATH", "")
     env["LD_LIBRARY_PATH"] = ":".join(str(path) for path in lib_dirs if path.exists()) + ":" + env.get("LD_LIBRARY_PATH", "")
+    env["CUDA_HOME"] = str(prefix)
+    env["CC"] = str(prefix / "bin" / "gcc")
+    env["CXX"] = str(prefix / "bin" / "g++")
+    env["CUDACXX"] = str(prefix / "bin" / "nvcc")
+    env["CMAKE_PREFIX_PATH"] = ":".join(
+        value for value in (str(prefix), env.get("CMAKE_PREFIX_PATH", "")) if value
+    )
     entries = [str(Path(item)) for item in (pythonpath_entries or [])]
     if entries:
         env["PYTHONPATH"] = ":".join(entries + [env.get("PYTHONPATH", "")])

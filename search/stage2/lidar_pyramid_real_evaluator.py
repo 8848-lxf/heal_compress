@@ -7,6 +7,7 @@ import json
 import shutil
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import torch
@@ -16,7 +17,7 @@ from ..cache.artifact_cache import ArtifactCache
 from ..cache.real_eval_cache import RealEvalCache
 from ..candidate import CandidatePhenotype
 from ..hashing import canonical_json_hash, deployment_hash, eval_hash, physical_hash
-from ..integration.calibration_provider import collect_or_load_qdq_calibration_scales
+from ..integration.calibration_provider import QDQ_CALIBRATION_SEMANTICS_VERSION, collect_or_load_qdq_calibration_scales
 from ..integration.evaluation_provider import evaluate_engine_modelopt
 from ..integration.lidar_pyramid_context import LidarPyramidSearchContext
 from ..integration.trt_compatible_export import build_search_trt_compatible_export_module, make_pointpillar_domain_compatible
@@ -58,6 +59,82 @@ def _file_hash(path: str | Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result: Any) -> dict[str, Any]:
+    path = Path(layer_info_path)
+    graph_rows = list(getattr(qdq_result, "calibration_metadata", {}).get("merge_quantization_audit", []))
+    if not path.is_file():
+        return {"status": "layer_info_missing", "merges": graph_rows}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    layers = list(payload.get("Layers", []))
+
+    def formats(rows: list[dict[str, Any]], field: str) -> list[str]:
+        return sorted(
+            {
+                str(tensor.get("Format/Datatype", ""))
+                for layer in rows
+                for tensor in layer.get(field, [])
+                if str(tensor.get("Format/Datatype", ""))
+            }
+        )
+
+    realized = []
+    for merge in graph_rows:
+        name = str(merge.get("merge_op_name", ""))
+        matched = [layer for layer in layers if name and name in str(layer.get("Name", ""))]
+        optimization = "direct_or_fused_layer_name_match"
+        if not matched and str(merge.get("merge_op_type")) == "Concat":
+            downstream_q = [
+                str(row.get("consumer", ""))
+                for row in merge.get("downstream", [])
+                if str(row.get("op_type", "")) == "QuantizeLinear"
+            ]
+            matched = [
+                layer
+                for layer in layers
+                if any(q_name and q_name in str(layer.get("Name", "")) for q_name in downstream_q)
+            ]
+            optimization = "concat_fused_with_common_downstream_quantize" if matched else "not_independently_inspectable"
+        input_formats = formats(matched, "Inputs")
+        output_formats = formats(matched, "Outputs")
+        all_formats = input_formats + output_formats
+        if optimization == "concat_fused_with_common_downstream_quantize" and "Int8" in output_formats:
+            precision = "INT8_common_scale_fused_concat"
+        elif all_formats and set(all_formats) <= {"Half"}:
+            precision = "FP16"
+        elif "Int8" in all_formats:
+            precision = "INT8_or_mixed"
+        elif "Float" in all_formats:
+            precision = "FP32_or_mixed"
+        else:
+            precision = "not_yet_verified"
+        realized.append(
+            {
+                **dict(merge),
+                "engine_layer_names": [str(layer.get("Name", "")) for layer in matched],
+                "engine_input_formats": input_formats,
+                "engine_output_formats": output_formats,
+                "engine_optimization": optimization,
+                "realized_merge_precision": precision,
+            }
+        )
+    return {
+        "status": "ok",
+        "policy": "A_fp16_merge_with_equivalent_common_scale_concat_fusion_allowed",
+        "merges": realized,
+    }
+
+
+def _load_origin_map_result(path: str | Path) -> Any:
+    try:
+        from quantization.types import CanonicalMappingEntry, OnnxOriginMapResult
+    except ImportError:
+        from heal_compress.quantization.types import CanonicalMappingEntry, OnnxOriginMapResult
+
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    payload["entries"] = [CanonicalMappingEntry(**dict(row)) for row in payload.get("entries", [])]
+    return OnnxOriginMapResult(**payload)
 
 
 def _shape_profiles(fixed_k: int = 29696) -> dict[str, dict[str, tuple[int, ...]]]:
@@ -149,18 +226,33 @@ def _write_physical_widths_csv(path: str | Path, *, snapshot_payload: dict[str, 
         before = ""
         after = ""
         status = "not_channel_pruned"
-        if op_type in {"Conv2d", "ConvTranspose2d"}:
-            if groups > 1 and original_out is not None and pruned_out is not None and original_out % groups == 0 and pruned_out % groups == 0:
-                before_value = original_out // groups
-                after_value = pruned_out // groups
+        changed_widths = []
+        if in_entry is not None and original_in is not None and pruned_in is not None:
+            changed_widths.append((original_in, pruned_in))
+        if out_entry is not None and original_out is not None and pruned_out is not None:
+            changed_widths.append((original_out, pruned_out))
+        if op_type in {"Conv2d", "ConvTranspose2d"} and changed_widths:
+            if groups > 1:
+                display_before, display_after = changed_widths[-1]
+                if display_before % groups == 0 and display_after % groups == 0:
+                    before_value = display_before // groups
+                    after_value = display_after // groups
+                else:
+                    before_value = 0
+                    after_value = 0
                 before = before_value
                 after = after_value
-                if after_value in allowed_group_widths:
+                if all(
+                    original % groups == 0
+                    and pruned % groups == 0
+                    and (pruned // groups) in allowed_group_widths
+                    for original, pruned in changed_widths
+                ):
                     status = "grouped_width_safe"
                 else:
                     status = "grouped_width_not_in_safe_set"
-            elif pruned_out is not None:
-                status = "dense_width_aligned" if pruned_out % 4 == 0 else "dense_width_not_multiple_of_4"
+            else:
+                status = "dense_width_aligned" if all(pruned % 4 == 0 for _original, pruned in changed_widths) else "dense_width_not_multiple_of_4"
         elif op_type in {"Linear", "BatchNorm1d", "BatchNorm2d"}:
             status = "not_conv_alignment_target"
         rows.append(
@@ -375,6 +467,8 @@ class LidarPyramidRealEvaluator:
         cache_key = canonical_json_hash(
             {
                 "candidate_hash": candidate_hash,
+                "deployment_pipeline_version": "lidar-pyramid-stage2-bn-fold-aware-v2",
+                "qdq_calibration_semantics_version": QDQ_CALIBRATION_SEMANTICS_VERSION,
                 "eval_manifest_hash": self.context.eval_manifest_hash,
                 "num_frames": self.num_frames,
                 "warmup_frames": self.warmup_frames,
@@ -621,6 +715,12 @@ class LidarPyramidRealEvaluator:
                 builder_flags=self.context.search_space.builder_flags,
                 optimization_profiles=_shape_profiles(),
                 plugin_hashes=self.context.search_space.plugin_hashes,
+                quantization_contract_hash=canonical_json_hash(
+                    {
+                        "groups": qdq.get("quantization_group_contracts", {}),
+                        "merge_precision_realization": qdq.get("merge_precision_realization", {}),
+                    }
+                ),
             )
             eval_key = eval_hash(
                 deployment_hash_value=deploy_hash,
@@ -640,6 +740,12 @@ class LidarPyramidRealEvaluator:
                     "deployment_hash": deploy_hash,
                     "eval_hash": eval_key,
                     "engine_hash": trt.get("engine_hash", ""),
+                    "quantization_contract_hash": canonical_json_hash(
+                        {
+                            "groups": qdq.get("quantization_group_contracts", {}),
+                            "merge_precision_realization": qdq.get("merge_precision_realization", {}),
+                        }
+                    ),
                 },
             )
             return {
@@ -755,28 +861,56 @@ class LidarPyramidRealEvaluator:
             from heal_compress.quantization.types import PrecisionAssignment, PrecisionProfileResult
 
         qcfg = OnnxExportConfig(fixed_k=29696, min_agents=1, opt_agents=2, max_agents=2)
-        wrapper = build_search_trt_compatible_export_module(
-            physical["model"],
-            output_names=qcfg.output_names,
-            fixed_k=qcfg.fixed_k,
-            modality="m1",
-        ).to(self.context.runtime_device).eval()
-        inputs = prepare_signal_maxk_inputs(self.context.trace_example_inputs, config=qcfg, modality="m1")
-        export = export_pruned_signal_maxk_onnx(
-            wrapper,
-            inputs,
-            output_dir / "exported.onnx",
-            physical["snapshot"],
-            config=qcfg,
-            naming_config=CanonicalNamingConfig(),
-            report_path=output_dir / "onnx_export_report.json",
+        cached = self.artifacts.get_onnx(str(physical["physical_hash"]))
+        cached_onnx = Path(str(cached.get("onnx_path", ""))) if cached else Path()
+        cached_origin = Path(str(cached.get("origin_map", ""))) if cached else Path()
+        cached_hash = str(cached.get("onnx_sha256", "")) if cached else ""
+        cache_valid = (
+            cached_onnx.is_file()
+            and cached_origin.is_file()
+            and bool(cached_hash)
+            and _file_hash(cached_onnx) == cached_hash
         )
+        if cache_valid:
+            target_onnx = output_dir / "exported.onnx"
+            if cached_onnx.resolve() != target_onnx.resolve():
+                shutil.copyfile(cached_onnx, target_onnx)
+            elif not target_onnx.is_file():
+                raise RuntimeError("onnx_cache_target_missing")
+            export = SimpleNamespace(onnx_path=str(target_onnx), origin_map=_load_origin_map_result(cached_origin))
+            _write_json(output_dir / "onnx_cache_hit.json", {"physical_hash": physical["physical_hash"], "onnx_sha256": cached_hash})
+        else:
+            wrapper = build_search_trt_compatible_export_module(
+                physical["model"],
+                output_names=qcfg.output_names,
+                fixed_k=qcfg.fixed_k,
+                modality="m1",
+            ).to(self.context.runtime_device).eval()
+            inputs = prepare_signal_maxk_inputs(self.context.trace_example_inputs, config=qcfg, modality="m1")
+            export = export_pruned_signal_maxk_onnx(
+                wrapper,
+                inputs,
+                output_dir / "exported.onnx",
+                physical["snapshot"],
+                config=qcfg,
+                naming_config=CanonicalNamingConfig(),
+                report_path=output_dir / "onnx_export_report.json",
+            )
         origin_map = export.origin_map
         if origin_map is None:
             raise RuntimeError("onnx_export_failed:no_origin_map")
         if not (output_dir / "pruned_fp32.onnx").exists():
             shutil.copyfile(output_dir / "exported.onnx", output_dir / "pruned_fp32.onnx")
         _write_json(output_dir / "origin_map.json", origin_map.to_dict())
+        if not cache_valid:
+            self.artifacts.put_onnx(
+                str(physical["physical_hash"]),
+                {
+                    "onnx_path": str(output_dir / "pruned_fp32.onnx"),
+                    "onnx_sha256": _file_hash(output_dir / "pruned_fp32.onnx"),
+                    "origin_map": str(output_dir / "origin_map.json"),
+                },
+            )
         assignments = []
         requested_profile = {}
         for order, origin in enumerate(sorted(origin_map.entries, key=lambda row: (row.call_index, row.graph_index))):
@@ -812,6 +946,8 @@ class LidarPyramidRealEvaluator:
         )
         qdq_config = QDQConfig(
             allowed_precisions=("fp32", "fp16", "int8"),
+            weight_granularity="per_channel",
+            merge_policy="fp16_merge",
             grouped_conv_int8_allowed_channels_per_group=(4, 8, 16, 32, 64, 128, 256, 512),
         )
         mapping = build_canonical_precision_mapping(origin_map, profile, config=qdq_config)
@@ -839,6 +975,15 @@ class LidarPyramidRealEvaluator:
         _write_json(output_dir / "stage2_realized_precision_profile.json", realized_profile)
         _write_json(output_dir / "stage2_realized_quantization_groups.json", realized_group_profile)
         _write_json(output_dir / "precision_group_expansion.json", phenotype.metadata.get("precision_group_expansion", {}))
+        group_contracts = {
+            str(group_id): {
+                **dict(contract),
+                "realized_precision": realized_group_profile.get(str(group_id), ""),
+                "merge_policy": "A_fp16_merge",
+            }
+            for group_id, contract in dict(phenotype.metadata.get("quantization_group_contracts") or {}).items()
+        }
+        _write_json(output_dir / "quantization_group_contracts.json", group_contracts)
         _write_json(output_dir / "precision_fallback_report.json", fallback_report)
         _write_json(output_dir / "canonical_layer_map.json", mapping.to_dict())
         int8_modules = sorted(row.module_path for row in mapping.entries if row.realized_request_precision == "int8")
@@ -850,10 +995,32 @@ class LidarPyramidRealEvaluator:
                 model_config_path=self.context.model_config,
                 module_paths=int8_modules,
                 device=torch.device(self.context.runtime_device),
-                cache_path=self.run_dir / "archives" / "calibration" / f"{physical['physical_hash']}_{canonical_json_hash(int8_modules)}.json",
+                cache_path=self.run_dir
+                / "archives"
+                / "calibration"
+                / f"{physical['physical_hash']}_{canonical_json_hash({'modules': int8_modules, 'semantics': QDQ_CALIBRATION_SEMANTICS_VERSION, 'onnx_sha256': _file_hash(export.onnx_path), 'weight_granularity': qdq_config.weight_granularity, 'merge_policy': qdq_config.merge_policy, 'activation_calibration_method': 'entropy', 'histogram_bins': 2048, 'fixed_k': 29696})}.json",
                 num_batches=self.context.quant_calibration_batches,
+                onnx_path=export.onnx_path,
+                origin_map=origin_map,
+                weight_granularity=qdq_config.weight_granularity,
+                activation_calibration_method="entropy",
+                histogram_bins=2048,
+                fixed_k=29696,
             )
-        _write_json(output_dir / "calibration_manifest.json", {"module_paths": int8_modules, "batches": self.context.quant_calibration_batches})
+        _write_json(
+            output_dir / "calibration_manifest.json",
+            {
+                "module_paths": int8_modules,
+                "batches": self.context.quant_calibration_batches,
+                "semantics_version": QDQ_CALIBRATION_SEMANTICS_VERSION,
+                "onnx_sha256": _file_hash(export.onnx_path),
+                "weight_granularity": qdq_config.weight_granularity,
+                "merge_policy": qdq_config.merge_policy,
+                "activation_calibration_method": "entropy",
+                "histogram_bins": 2048,
+                "fixed_k": 29696,
+            },
+        )
         _write_json(output_dir / "calibration_scales.json", scales)
         qdq = insert_explicit_qdq(
             export.onnx_path,
@@ -863,9 +1030,45 @@ class LidarPyramidRealEvaluator:
             config=qdq_config,
             calibration_metadata={
                 "calibration_manifest_hash": canonical_json_hash({"module_paths": int8_modules, "batches": self.context.quant_calibration_batches}),
-                "calibration_config": CalibrationConfig(frame_count=max(1, self.context.quant_calibration_batches)).to_dict(),
+                "calibration_config": CalibrationConfig(
+                    frame_count=max(1, self.context.quant_calibration_batches),
+                    weight_granularity=qdq_config.weight_granularity,
+                ).to_dict(),
+                "qdq_config": qdq_config.to_dict(),
+                "quantization_group_contract_hash": canonical_json_hash(group_contracts),
+                "quantization_group_contracts": group_contracts,
             },
         )
+        for merge in qdq.calibration_metadata.get("merge_quantization_audit", []):
+            related_groups = {
+                str(producer.get("quantization_group", ""))
+                for branch in merge.get("input_branches", [])
+                for producer in branch.get("nearest_weighted_producers", [])
+                if str(producer.get("quantization_group", ""))
+            }
+            related_groups.update(
+                str(layer.get("quantization_group", ""))
+                for layer in merge.get("downstream_weighted_layers", [])
+                if str(layer.get("quantization_group", ""))
+            )
+            for group_id in sorted(related_groups):
+                contract = group_contracts.get(group_id)
+                if contract is None:
+                    raise RuntimeError(f"merge_contract_group_missing:{merge.get('merge_op_name')}:{group_id}")
+                contract.setdefault("merge_boundaries", []).append(
+                    {
+                        "merge_op_name": merge.get("merge_op_name"),
+                        "merge_op_type": merge.get("merge_op_type"),
+                        "input_branches": merge.get("input_branches", []),
+                        "downstream_weighted_layers": merge.get("downstream_weighted_layers", []),
+                        "merge_scale_policy": merge.get("merge_scale_policy"),
+                        "graph_policy": merge.get("policy"),
+                    }
+                )
+                contract["merge_boundary_resolution"] = "resolved_from_canonical_onnx_during_qdq_export"
+        qdq.calibration_metadata["quantization_group_contracts"] = group_contracts
+        qdq.calibration_metadata["quantization_group_contract_hash"] = canonical_json_hash(group_contracts)
+        _write_json(output_dir / "quantization_group_contracts.json", group_contracts)
         if not (output_dir / "pruned_qdq.onnx").exists():
             shutil.copyfile(output_dir / "qdq.onnx", output_dir / "pruned_qdq.onnx")
         compatibility = make_pointpillar_domain_compatible(output_dir / "qdq.onnx", output_dir / "qdq_trt_compatible.onnx")
@@ -896,6 +1099,7 @@ class LidarPyramidRealEvaluator:
             "fallback_report": fallback_report,
             "calibration_scales": scales,
             "qdq_realization_summary": qdq_summary,
+            "quantization_group_contracts": group_contracts,
             "qdq": qdq,
             "qdq_onnx": str(output_dir / "qdq.onnx"),
             "trt_build_onnx": str(output_dir / "qdq_trt_compatible.onnx"),
@@ -940,6 +1144,27 @@ class LidarPyramidRealEvaluator:
         if engine_path.is_file():
             result["engine_path"] = str(engine_path)
             result["engine_hash"] = _file_hash(engine_path)
+        merge_realization = _engine_merge_precision_realization(
+            output_dir / "engine_layer_info.json",
+            qdq["qdq"],
+        )
+        result["merge_precision_realization"] = merge_realization
+        qdq["merge_precision_realization"] = merge_realization
+        contracts = qdq.get("quantization_group_contracts", {})
+        realized_by_name = {
+            str(row.get("merge_op_name", "")): row
+            for row in merge_realization.get("merges", [])
+        }
+        for contract in contracts.values():
+            for boundary in contract.get("merge_boundaries", []):
+                realized_boundary = realized_by_name.get(str(boundary.get("merge_op_name", "")), {})
+                boundary["realized_merge_precision"] = realized_boundary.get(
+                    "realized_merge_precision",
+                    "not_yet_verified",
+                )
+                boundary["engine_optimization"] = realized_boundary.get("engine_optimization", "")
+        _write_json(output_dir / "quantization_group_contracts.json", contracts)
+        _write_json(output_dir / "merge_precision_realization.json", merge_realization)
         _write_json(output_dir / "engine_manifest.json", result)
         if "engine_structure_validation" in result:
             _write_json(output_dir / "engine_structure_validation.json", result["engine_structure_validation"])
@@ -969,6 +1194,7 @@ class LidarPyramidRealEvaluator:
             fixed_k=29696,
             latency_rounds=self.latency_rounds,
             conda_env=self.context.tensorrt.conda_env,
+            eval_manifest_path=self.context.eval_manifest_path,
         )
         _write_json(output_dir / "evaluation.json", result)
         self._copy_latency(result, output_dir / "latency.csv")

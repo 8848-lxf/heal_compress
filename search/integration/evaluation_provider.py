@@ -34,6 +34,7 @@ def evaluate_engine_modelopt(
     fixed_k: int = 29696,
     latency_rounds: int = 1,
     conda_env: str = "modelopt",
+    eval_manifest_path: str | Path | None = None,
 ) -> dict[str, Any]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -53,6 +54,7 @@ def evaluate_engine_modelopt(
         "warmup_frames": int(warmup_frames),
         "latency_rounds": int(latency_rounds),
         "fixed_k": int(fixed_k),
+        "eval_manifest_path": str(eval_manifest_path) if eval_manifest_path else "",
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
     root = Path(tensorrt_root)

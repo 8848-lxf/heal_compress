@@ -57,7 +57,7 @@ def test_bops_schedule_and_feasibility_first_sorting() -> None:
     assert bops_target_for_generation(0, 5, {"start": 0.95, "end": 0.80}) == 0.95
     assert bops_target_for_generation(4, 5, {"start": 0.95, "end": 0.80}) == 0.80
 
-    feasible = {"F1": 10.0, "R_bops_vs_fp16_deploy": 0.79}
-    infeasible = {"F1": 1.0, "R_bops_vs_fp16_deploy": 0.81}
+    feasible = {"F1": 10.0, "R_bops_vs_fp32": 0.79, "R_bops_vs_fp16_deploy": 1.58}
+    infeasible = {"F1": 1.0, "R_bops_vs_fp32": 0.81, "R_bops_vs_fp16_deploy": 0.40}
 
     assert feasibility_first_key(feasible, bops_target=0.80) < feasibility_first_key(infeasible, bops_target=0.80)

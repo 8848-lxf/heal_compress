@@ -180,7 +180,11 @@ def test_quantization_adapter_does_not_use_native_int8() -> None:
 def test_modelopt_trt_build_worker_uses_conda_run_python(tmp_path: Path, monkeypatch: Any) -> None:
     calls: dict[str, Any] = {}
 
-    monkeypatch.setattr(trt_modelopt, "modelopt_python_command", lambda conda_env: ["conda", "run", "-n", conda_env, "--no-capture-output", "python"])
+    monkeypatch.setattr(
+        trt_modelopt,
+        "modelopt_python_command",
+        lambda conda_env: ["bash", "-lc", "activate-modelopt", "modelopt-python", conda_env],
+    )
 
     def fake_env(**kwargs: Any) -> dict[str, str]:
         calls["env_kwargs"] = kwargs
@@ -210,6 +214,34 @@ def test_modelopt_trt_build_worker_uses_conda_run_python(tmp_path: Path, monkeyp
     )
 
     assert result["status"] == "ok"
-    assert calls["cmd"][:7] == ["conda", "run", "-n", "modelopt", "--no-capture-output", "python", "-m"]
+    assert calls["cmd"][:6] == ["bash", "-lc", "activate-modelopt", "modelopt-python", "modelopt", "-m"]
     assert calls["env_kwargs"]["cuda_visible_devices"] == 2
     assert calls["run_kwargs"]["env"]["CUDA_VISIBLE_DEVICES"] == "2"
+
+
+def test_modelopt_subprocess_env_pins_conda_cuda_and_compilers(tmp_path: Path, monkeypatch: Any) -> None:
+    from search.integration import runtime_environment
+
+    prefix = tmp_path / "modelopt"
+    trt_root = tmp_path / "TensorRT-10.9"
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "lib").mkdir()
+    (trt_root / "bin").mkdir(parents=True)
+    (trt_root / "lib").mkdir()
+    monkeypatch.setattr(runtime_environment, "resolve_conda_env_prefix", lambda _name: prefix)
+    monkeypatch.setenv("PATH", "/usr/local/cuda/bin:/usr/bin")
+    monkeypatch.setenv("CMAKE_PREFIX_PATH", "/legacy")
+
+    env = runtime_environment.modelopt_subprocess_env(
+        tensorrt_root=trt_root,
+        conda_env="modelopt",
+        cuda_visible_devices=7,
+    )
+
+    assert env["PATH"].split(":", 1)[0] == str(prefix / "bin")
+    assert env["CUDA_HOME"] == str(prefix)
+    assert env["CC"] == str(prefix / "bin" / "gcc")
+    assert env["CXX"] == str(prefix / "bin" / "g++")
+    assert env["CUDACXX"] == str(prefix / "bin" / "nvcc")
+    assert env["CMAKE_PREFIX_PATH"] == f"{prefix}:/legacy"
+    assert env["CUDA_VISIBLE_DEVICES"] == "7"

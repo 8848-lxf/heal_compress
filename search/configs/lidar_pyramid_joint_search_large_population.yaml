@@ -43,7 +43,7 @@ proxy:
   device: auto
   batch_size: 128
   fisher_calibration_batches: 8
-  quant_calibration_batches: 16
+  quant_calibration_batches: 200
   size_reference: strict_fp16
   bops_reference: strict_fp16
   alpha_prune: 1.0

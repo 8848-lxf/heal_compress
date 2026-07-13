@@ -46,6 +46,13 @@ def build_trt_command(
     ]
     if invalid:
         raise TensorRTConfigurationError(f"unsupported realized precisions: {sorted(set(invalid))}")
+    invalid_outputs = [
+        row.realized_output_precision
+        for row in precision_mapping.entries
+        if row.realized_output_precision and row.realized_output_precision not in {"fp32", "fp16", "int8"}
+    ]
+    if invalid_outputs:
+        raise TensorRTConfigurationError(f"unsupported realized output precisions: {sorted(set(invalid_outputs))}")
     source = Path(onnx_path)
     engine = Path(engine_path)
     layer_info = Path(layer_info_path) if layer_info_path is not None else engine.with_suffix(".layerinfo.json")
@@ -70,15 +77,19 @@ def build_trt_command(
     if policy.plugin_path is not None:
         command.append(f"--staticPlugins={policy.plugin_path}")
     command.extend(_shape_flags(policy.shape_profiles))
-    specs = ",".join(
+    compute_specs = ",".join(
         f"{row.canonical_node_name}:{row.realized_request_precision}"
+        for row in sorted(precision_mapping.entries, key=lambda item: item.canonical_node_name)
+    )
+    output_specs = ",".join(
+        f"{row.canonical_node_name}:{row.realized_output_precision or row.realized_request_precision}"
         for row in sorted(precision_mapping.entries, key=lambda item: item.canonical_node_name)
     )
     command.extend(
         [
             f"--precisionConstraints={policy.precision_constraints}",
-            f"--layerPrecisions={specs}",
-            f"--layerOutputTypes={specs}",
+            f"--layerPrecisions={compute_specs}",
+            f"--layerOutputTypes={output_specs}",
         ]
     )
     return TensorRTCommandResult(

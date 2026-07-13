@@ -142,7 +142,18 @@ def validate_calibration_scales(scales: Mapping[str, Any], *, config: Calibratio
             else [raw.get("scale") if isinstance(raw, Mapping) else raw]
         )
         try:
-            valid = all(math.isfinite(float(value)) and float(value) > 0.0 for value in values)
+            flattened = [
+                float(item)
+                for value in values
+                for item in (
+                    value.tolist()
+                    if hasattr(value, "tolist")
+                    else value
+                    if isinstance(value, (list, tuple))
+                    else [value]
+                )
+            ]
+            valid = bool(flattened) and all(math.isfinite(value) and value > 0.0 for value in flattened)
         except (TypeError, ValueError):
             valid = False
         if not valid:
