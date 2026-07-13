@@ -112,6 +112,222 @@ def test_onnx_bn_fold_aware_calibration_uses_folded_weight_and_bn_output(tmp_pat
     assert 0.0 < entropy_scales["block.conv"]["activation_input_scale"] <= expected_input
     assert 0.0 < entropy_scales["block.conv"]["activation_output_scale"] <= expected_output
 
+
+def test_calibration_metadata_uses_each_canonical_node_not_last_node(tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    import onnx
+    import torch
+
+    from search.integration.calibration_provider import collect_onnx_bn_fold_aware_qdq_scales
+
+    class Model(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.first = torch.nn.Conv2d(2, 3, 1)
+            self.second = torch.nn.Conv2d(3, 4, 1)
+
+        def forward(self, value: torch.Tensor) -> torch.Tensor:
+            return self.second(torch.relu(self.first(value)))
+
+    model = Model().eval()
+    sample = torch.randn(1, 2, 3, 3)
+    onnx_path = tmp_path / "two_nodes.onnx"
+    torch.onnx.export(model, sample, onnx_path, opset_version=13, do_constant_folding=True)
+    graph = onnx.load(str(onnx_path))
+    nodes = [node for node in graph.graph.node if node.op_type == "Conv"]
+    assert len(nodes) == 2
+    origin = SimpleNamespace(
+        entries=[
+            SimpleNamespace(
+                module_path=module,
+                canonical_node_name=str(node.name),
+                weight_initializer=str(node.input[1]),
+            )
+            for module, node in zip(("first", "second"), nodes)
+        ]
+    )
+
+    scales, _details = collect_onnx_bn_fold_aware_qdq_scales(
+        model=model,
+        batches=[sample],
+        module_paths=["first", "second"],
+        forward_fn=lambda inner, batch: inner(batch),
+        onnx_path=onnx_path,
+        origin_map=origin,
+        weight_granularity="per_channel",
+        activation_calibration_method="absmax",
+    )
+
+    assert scales["first"]["activation_input_tensor"] == str(nodes[0].input[0])
+    assert scales["first"]["activation_output_tensor"] == str(nodes[0].output[0])
+    assert scales["second"]["activation_input_tensor"] == str(nodes[1].input[0])
+    assert scales["second"]["activation_output_tensor"] == str(nodes[1].output[0])
+
+
+def test_exact_npz_calibration_manifest_verifies_tensor_files(tmp_path: Path) -> None:
+    import hashlib
+    import json
+
+    import numpy as np
+    import pytest
+    import torch
+
+    from search.integration.calibration_provider import (
+        FIXED_K_CALIBRATION_INPUT_NAMES,
+        load_fixed_k_calibration_npz_batches,
+    )
+
+    fixed_k = 4
+    sample = tmp_path / "sample_000000_N1.npz"
+    np.savez_compressed(
+        sample,
+        voxel_features=np.arange(fixed_k * 2 * 4, dtype=np.float32).reshape(fixed_k, 2, 4),
+        voxel_coords=np.arange(fixed_k * 4, dtype=np.int32).reshape(fixed_k, 4),
+        voxel_num_points=np.arange(fixed_k, dtype=np.int32),
+        pairwise_t_matrix=np.eye(4, dtype=np.float32).reshape(1, 1, 1, 4, 4),
+        valid_voxel_mask=np.ones(fixed_k, dtype=np.bool_),
+    )
+    digest = hashlib.sha256(sample.read_bytes()).hexdigest()
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "strategy": "single_engine_maxK",
+                "calibration_split": "train",
+                "fixed_K": fixed_k,
+                "num_samples": 1,
+                "input_names": list(FIXED_K_CALIBRATION_INPUT_NAMES),
+                "train_dataset_indices": [0],
+                "files": [{"name": sample.name, "path": str(sample), "sha256": digest, "bytes": sample.stat().st_size}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    batches, provenance = load_fixed_k_calibration_npz_batches(
+        manifest,
+        num_batches=1,
+        fixed_k=fixed_k,
+        device=torch.device("cpu"),
+    )
+
+    assert len(batches) == 1
+    assert set(batches[0]) == set(FIXED_K_CALIBRATION_INPUT_NAMES)
+    assert torch.equal(batches[0]["voxel_num_points"], torch.arange(fixed_k, dtype=torch.int32))
+    assert provenance["files_verified"] is True
+    assert provenance["sample_count"] == 1
+    assert len(provenance["tensor_manifest_hash"]) == 64
+
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["files"][0]["sha256"] = "0" * 64
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="calibration_npz_file_hash_mismatch"):
+        load_fixed_k_calibration_npz_batches(
+            manifest,
+            num_batches=1,
+            fixed_k=fixed_k,
+            device=torch.device("cpu"),
+        )
+
+
+def test_tensorrt_entropy_cache_requires_exact_boundaries_and_keeps_per_channel_weights(
+    tmp_path: Path,
+) -> None:
+    import struct
+    from types import SimpleNamespace
+
+    import numpy as np
+    import onnx
+    import pytest
+    from onnx import TensorProto, helper, numpy_helper
+
+    from search.integration.calibration_provider import qdq_scales_from_tensorrt_entropy_cache
+
+    weight = np.asarray(
+        [
+            [[[1.0]], [[-2.0]], [[0.5]]],
+            [[[4.0]], [[-1.0]], [[0.25]]],
+        ],
+        dtype=np.float32,
+    )
+    node = helper.make_node(
+        "Conv",
+        ["input_tensor", "weight"],
+        ["output_tensor"],
+        name="canonical_conv",
+    )
+    graph = helper.make_graph(
+        [node],
+        "cache_test",
+        [helper.make_tensor_value_info("input_tensor", TensorProto.FLOAT, [1, 3, 2, 2])],
+        [helper.make_tensor_value_info("output_tensor", TensorProto.FLOAT, [1, 2, 2, 2])],
+        [numpy_helper.from_array(weight, name="weight")],
+    )
+    onnx_path = tmp_path / "model.onnx"
+    onnx.save(helper.make_model(graph), onnx_path)
+    cache_path = tmp_path / "calibration.cache"
+    cache_path.write_text(
+        "\n".join(
+            [
+                "TRT-100900-EntropyCalibration2",
+                f"input_tensor: {struct.pack('!f', 0.125).hex()}",
+                f"output_tensor: {struct.pack('!f', 0.25).hex()}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    origin = SimpleNamespace(
+        entries=[
+            SimpleNamespace(
+                module_path="conv",
+                canonical_node_name="canonical_conv",
+                weight_initializer="weight",
+            )
+        ]
+    )
+
+    scales, details = qdq_scales_from_tensorrt_entropy_cache(
+        onnx_path=onnx_path,
+        origin_map=origin,
+        module_paths=["conv"],
+        cache_path=cache_path,
+        weight_granularity="per_channel",
+    )
+
+    assert scales["conv"]["activation_input_scale"] == pytest.approx(0.125)
+    assert scales["conv"]["activation_output_scale"] == pytest.approx(0.25)
+    assert scales["conv"]["weight_axis"] == 0
+    assert scales["conv"]["weight_scale"] == pytest.approx([2.0 / 127.0, 4.0 / 127.0])
+    assert scales["conv"]["activation_scale_source"].endswith("exact_tensor_match")
+    assert details["exact_activation_scale_match_count"] == 2
+
+    cache_path.write_text(
+        "TRT-100900-EntropyCalibration2\n"
+        f"input_tensor: {struct.pack('!f', 0.125).hex()}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="tensorrt_entropy_exact_tensor_match_missing"):
+        qdq_scales_from_tensorrt_entropy_cache(
+            onnx_path=onnx_path,
+            origin_map=origin,
+            module_paths=["conv"],
+            cache_path=cache_path,
+            weight_granularity="per_channel",
+        )
+
+
+def test_tensorrt_entropy_calibration_profile_uses_manifest_agent_distribution() -> None:
+    from search.integration.tensorrt_entropy_calibration_worker import _profile
+
+    profile = _profile([1, 2, 2, 2], 29696)
+
+    assert profile["pairwise_t_matrix"]["min"] == [1, 1, 1, 4, 4]
+    assert profile["pairwise_t_matrix"]["opt"] == [1, 2, 2, 4, 4]
+    assert profile["pairwise_t_matrix"]["max"] == [1, 2, 2, 4, 4]
+    assert profile["voxel_features"]["opt"] == [29696, 32, 4]
+
 def test_forced_int8_candidate_selects_groups_by_macs() -> None:
     from search.candidate import CandidateGenotype
     from search.quantization_space.types import QuantizationSearchGroup
@@ -214,3 +430,21 @@ def test_evaluation_worker_reports_latency_distribution_tail_and_cv() -> None:
     assert stats["forward_min_ms"] == 1.0
     assert stats["forward_max_ms"] == 100.0
     assert stats["forward_outlier_count"] == 1
+
+
+def test_all_keep_model_identity_is_tensor_exact_and_detects_changes() -> None:
+    import copy
+
+    import torch
+
+    from search.stage2.lidar_pyramid_real_evaluator import _all_keep_model_identity
+
+    original = torch.nn.Sequential(torch.nn.Conv2d(2, 3, 1), torch.nn.BatchNorm2d(3)).eval()
+    physical = copy.deepcopy(original)
+    assert _all_keep_model_identity(original, physical)["passed"] is True
+
+    with torch.no_grad():
+        physical[0].weight.view(-1)[0].add_(1.0)
+    report = _all_keep_model_identity(original, physical)
+    assert report["passed"] is False
+    assert "0.weight" in report["mismatched_tensor_keys"]

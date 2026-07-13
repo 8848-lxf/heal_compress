@@ -40,6 +40,9 @@ class LidarPyramidSearchContext:
     export_example_inputs: Any
     fisher_calibration_batches: int
     quant_calibration_batches: int
+    quant_calibration_npz_manifest: Path | None
+    quant_activation_calibration_backend: str
+    quant_calibration_force_rebuild: bool
     eval_manifest_path: Path
     eval_frame_ids: list[str]
     postprocess_fn: Callable[..., Any] | None
@@ -135,6 +138,38 @@ def _precision_layer_ids(model: nn.Module) -> list[str]:
     return sorted(rows)
 
 
+_FUNCTIONAL_FP16_OUTPUT_BOUNDARIES: dict[str, dict[str, Any]] = {
+    "pyramid_backbone.single_head_0": {
+        "merge_kind": "functional_sigmoid_weight_merge",
+        "following_ops": ["Sigmoid", "Add", "GridSample"],
+    },
+    "pyramid_backbone.single_head_1": {
+        "merge_kind": "functional_sigmoid_weight_merge",
+        "following_ops": ["Sigmoid", "Add", "GridSample"],
+    },
+}
+
+
+def _functional_fp16_output_boundary(module_path: str) -> dict[str, Any] | None:
+    """Return the model-specific compute/output split verified by the H800 ablation."""
+
+    boundary = _FUNCTIONAL_FP16_OUTPUT_BOUNDARIES.get(str(module_path))
+    if boundary is None:
+        return None
+    return {
+        "parent_precision_group_id": "canonical_onnx_pending",
+        "member_layers": [str(module_path)],
+        "branch_compute_precision_independent": True,
+        "merge_policy": "A_fp16_merge",
+        "input_qdq_placement": "INT8 weighted compute input and per-channel weight Q/DQ",
+        "output_qdq_placement": "no weighted-output Q/DQ; FP16 functional path",
+        "activation_scale_ownership": "canonical weighted input; output scale is diagnostic only",
+        "merge_scale_policy": "INT8 compute then FP16 Sigmoid/Add/GridSample functional weighting path",
+        "boundary_source": "lidar_pyramid_export_contract_verified_by_canonical_onnx",
+        **boundary,
+    }
+
+
 def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
     try:
         from tracer.dependency_tracer import build_dependency_graph
@@ -189,6 +224,14 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
             for _index, parent, parent_members in rows
             if len(parent_members) > 1 and str(parent.reason) in {"residual", "concat"}
         ]
+        functional_output_boundary = _functional_fp16_output_boundary(module)
+        if functional_output_boundary is not None:
+            merge_boundaries.append(functional_output_boundary)
+        fp16_output_boundary = functional_output_boundary is not None or any(
+            str(boundary.get("merge_kind", "")) == "concat"
+            and bool(boundary.get("branch_compute_precision_independent", False))
+            for boundary in merge_boundaries
+        )
         allowed = list(source.allowed_precisions)
         reason = str(source.reason)
         if module in protected:
@@ -209,9 +252,16 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
                 "member_layers": [module],
                 "merge_boundaries": merge_boundaries,
                 "merge_boundary_resolution": "resolved_from_canonical_onnx_during_qdq_export",
-                "input_output_qdq_placement": "canonical_weighted_node_input_weight_output",
+                "input_output_qdq_placement": (
+                    "canonical_weighted_input_and_weight; FP16 output before functional/merge boundary"
+                    if fp16_output_boundary
+                    else "canonical_weighted_input_weight_and_output"
+                ),
                 "activation_scale_ownership": "canonical ONNX tensor boundary",
                 "merge_scale_policy": "A_fp16_merge",
+                "compute_precision_policy": "owned_by_quantization_gene",
+                "output_precision_policy": "FP16" if fp16_output_boundary else "same_as_compute",
+                "insert_activation_output_qdq": not fp16_output_boundary,
                 "weight_granularity": "per_channel",
                 "weight_axis_policy": {"Conv": 0, "ConvTranspose": 1, "MatMul": 1, "Gemm": "0 if transB else 1"},
             },
@@ -243,8 +293,12 @@ def build_lidar_pyramid_context(
     tensorrt_env: str = "modelopt",
     fisher_calibration_batches: int = 8,
     quant_calibration_batches: int = 16,
+    quant_calibration_npz_manifest: str | Path | None = None,
+    quant_activation_calibration_backend: str = "modelopt_histogram_entropy",
+    quant_calibration_force_rebuild: bool = False,
     num_frames: int = 5,
     warmup_frames: int = 10,
+    reset_after_warmup: bool = False,
     default_precision: str = "FP16",
     max_pruning_units: int = 96,
     grouped_conv_mode: str = "shared_local_mean",
@@ -301,6 +355,7 @@ def build_lidar_pyramid_context(
         num_frames=num_frames,
         warmup_frames=warmup_frames,
         available_frame_ids=load_split_frame_ids(bundle.adapter, config_path, split="val"),
+        reset_after_warmup=reset_after_warmup,
     )
     builder_flags = {
         "precision_constraints": "obey",
@@ -309,6 +364,26 @@ def build_lidar_pyramid_context(
         "no_tf32": True,
         "shape_profiles": _shape_profiles(),
     }
+    calibration_npz_manifest = (
+        Path(quant_calibration_npz_manifest).expanduser().resolve()
+        if quant_calibration_npz_manifest
+        else None
+    )
+    calibration_npz_manifest_hash = ""
+    if calibration_npz_manifest is not None:
+        if not calibration_npz_manifest.is_file():
+            raise RuntimeError(f"quant_calibration_npz_manifest_missing:{calibration_npz_manifest}")
+        calibration_npz_manifest_hash = canonical_json_hash(
+            json.loads(calibration_npz_manifest.read_text(encoding="utf-8"))
+        )
+    calibration_backend = str(quant_activation_calibration_backend).strip().lower()
+    if calibration_backend not in {
+        "modelopt_histogram_entropy",
+        "tensorrt_entropy_calibration2",
+    }:
+        raise RuntimeError(f"unsupported_quant_activation_calibration_backend:{calibration_backend}")
+    if calibration_backend == "tensorrt_entropy_calibration2" and calibration_npz_manifest is None:
+        raise RuntimeError("tensorrt_entropy_calibration2_requires_exact_npz_manifest")
     search_space = SearchSpaceSpec(
         pruning_unit_ids=search_pruning_ids,
         precision_layer_ids=precision_layers,
@@ -317,7 +392,15 @@ def build_lidar_pyramid_context(
         protected_pruning_unit_ids=set(),
         default_precision=default_precision,
         trace_snapshot_hash=trace_hash,
-        calibration_manifest_hash=canonical_json_hash({"fisher_batches": int(fisher_calibration_batches), "quant_batches": int(quant_calibration_batches), "config": str(config_path)}),
+        calibration_manifest_hash=canonical_json_hash(
+            {
+                "fisher_batches": int(fisher_calibration_batches),
+                "quant_batches": int(quant_calibration_batches),
+                "quant_calibration_npz_manifest_hash": calibration_npz_manifest_hash,
+                "quant_activation_calibration_backend": calibration_backend,
+                "config": str(config_path),
+            }
+        ),
         onnx_export_config_hash=canonical_json_hash({"fixed_k": 29696, "min_agents": 1, "opt_agents": 2, "max_agents": 2}),
         tensorrt_version="10.9",
         gpu_compute_capability=f"{capability_major}.{capability_minor}",
@@ -337,6 +420,9 @@ def build_lidar_pyramid_context(
         export_example_inputs=bundle.trace_example_inputs,
         fisher_calibration_batches=int(fisher_calibration_batches),
         quant_calibration_batches=int(quant_calibration_batches),
+        quant_calibration_npz_manifest=calibration_npz_manifest,
+        quant_activation_calibration_backend=calibration_backend,
+        quant_calibration_force_rebuild=bool(quant_calibration_force_rebuild),
         eval_manifest_path=manifest.path,
         eval_frame_ids=manifest.frame_ids,
         postprocess_fn=None,
@@ -368,6 +454,41 @@ def _write_context_report(path: Path, context: LidarPyramidSearchContext) -> Non
         "search_pruning_unit_count": len(context.search_space.pruning_unit_ids),
         "precision_layer_count": len(context.search_space.precision_layer_ids),
         "precision_group_count": len(context.search_space.precision_gene_ids),
+        "maximal_legal_int8_gene_count": sum(
+            "INT8" in group.allowed_precisions and not group.protected
+            for group in context.search_space.quantization_groups
+        ),
+        "protected_fp16_group_count": sum(group.protected for group in context.search_space.quantization_groups),
+        "pruning_scope_precision_coupling_count": sum(
+            len(group.module_paths) > 1 and bool(group.metadata.get("force_same_precision", True))
+            for group in context.search_space.quantization_groups
+        ),
+        "multi_member_force_same_precision_group_count": sum(
+            len(group.module_paths) > 1 and bool(group.metadata.get("force_same_precision", True))
+            for group in context.search_space.quantization_groups
+        ),
+        "merge_boundary_resolution_status": "deferred_to_canonical_onnx_qdq_export",
+        "quant_calibration_npz_manifest": (
+            str(context.quant_calibration_npz_manifest)
+            if context.quant_calibration_npz_manifest is not None
+            else ""
+        ),
+        "quant_activation_calibration_backend": context.quant_activation_calibration_backend,
+        "quant_calibration_force_rebuild": context.quant_calibration_force_rebuild,
+        "unresolved_mapping_count": "deferred_to_canonical_onnx_qdq_export",
+        "quantization_groups": [
+            {
+                "group_id": group.group_id,
+                "module_paths": list(group.module_paths),
+                "allowed_precisions": list(group.allowed_precisions),
+                "protected": group.protected,
+                "protection_reason": group.protection_reason,
+                "force_same_precision": bool(group.metadata.get("force_same_precision", True)),
+                "merge_boundaries": list(group.metadata.get("merge_boundaries", [])),
+                "output_precision_policy": group.metadata.get("output_precision_policy", "same_as_compute"),
+            }
+            for group in context.search_space.quantization_groups
+        ],
         "grouped_conv_legal_action_count": context.pruning_action_catalog.grouped_action_count if context.pruning_action_catalog else 0,
         "shared_local_mean_bundle_count": context.pruning_action_catalog.shared_local_mean_bundle_count if context.pruning_action_catalog else 0,
         "independent_group_topk_bundle_count": context.pruning_action_catalog.independent_group_topk_bundle_count if context.pruning_action_catalog else 0,

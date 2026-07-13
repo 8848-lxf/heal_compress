@@ -1,68 +1,25 @@
-# ================================
+# ==============================
 # Experiment outputs
-# Keep lightweight reports
-# ================================
-# Ignore generated deployment artifacts
-tests/quant_deploy/outputs/**/artifacts/
-tests/quant_deploy/outputs/**/debug/
-tests/quant_deploy/outputs/**/calibration/
-tests/quant_deploy/outputs/**/trtexec_inputs/
-tests/quant_deploy/outputs/**/pruned_models/
+# ==============================
 
-
-# Keep experiment summaries and reports
-!tests/quant_deploy/outputs/**/summary/
-!tests/quant_deploy/outputs/**/summary/**
-!tests/quant_deploy/outputs/**/reports/
-!tests/quant_deploy/outputs/**/reports/**
-
+outputs/
 tests/outputs/
 tests/quant_deploy/outputs/
-outputs/
-outputs/latency_lut
 
+# ==============================
+# Model checkpoints
+# ==============================
 
-# Ignore heavy deployment/model files everywhere
 *.pth
 *.pt
 *.ckpt
 *.safetensors
 *.weights
 
-*.onnx
-*.engine
-*.plan
-*.trt
+# ==============================
+# TensorRT / deployment
+# ==============================
 
-*.raw
-*.so
-
-*.cache
-*.npz
-*.npy
-*.bin
-
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Model weights / checkpoints
-*.pth
-*.pt
-*.ckpt
-*.safetensors
-*.weights
-
-# Deployment artifacts
 *.onnx
 *.engine
 *.plan
@@ -70,64 +27,38 @@ __pycache__/
 *.raw
 *.so
 
-# Calibration / numpy / binary dumps
+# ==============================
+# Calibration / dumps
+# ==============================
+
 *.cache
 *.npz
 *.npy
 *.bin
 
-# CMake / build artifacts
+# ==============================
+# Python
+# ==============================
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ==============================
+# Build
+# ==============================
+
 CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
 build/
-!quantization/build/
-!quantization/build/*.py
-quantization/build/__pycache__/
-quantization/plugins/pointpillar_scatter_trt/build_contaminated_*/
 dist/
 *.egg-info/
 
-# Generated heavy model folders
-tests/quant_deploy/outputs/**/pruned_models/
-tests/quant_deploy/outputs/**/artifacts/plugins/*_build/
+# ==============================
+# Local
+# ==============================
 
-
-# Local backup / external data symlink
 tests_back/
-heal_tests
 heal_tests/
-
-# Local gitignore backups
 .gitignore.bak.*
-
-# Note:
-# Lightweight result files under tests/outputs/ and tests/quant_deploy/outputs/,
-# such as json/csv/log/md/txt, may be committed.
-
-# ===== LUT quant engine deployment artifacts =====
-
-# ONNX models
-*.onnx
-
-# TensorRT engines
-*.engine
-*.plan
-*.trt
-
-# Calibration / binary artifacts
-*.cache
-*.raw
-*.so
-
-# Model checkpoints
-*.pth
-*.pt
-*.ckpt
-*.safetensors
-*.weights
-
-# Python cache
-__pycache__/
-*.pyc
+quantization/plugins/pointpillar_scatter_trt/build_contaminated_*/

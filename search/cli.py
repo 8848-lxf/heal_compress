@@ -6,7 +6,9 @@ import argparse
 import json
 import os
 import platform
+import shlex
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -120,13 +122,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--stage1-only", action="store_true")
     parser.add_argument("--stage2-only", action="store_true")
+    parser.add_argument("--baseline-only", action="store_true")
     parser.add_argument("--skip-baselines", action="store_true")
     parser.add_argument("--candidate-config", action="append", default=None)
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+    effective_argv = list(argv) if argv is not None else sys.argv[1:]
+    args = parse_args(effective_argv)
     config = _load_config(args.config)
     search_cfg = dict(config.get("search", {}))
     eval_cfg = dict(config.get("evaluation", {}))
@@ -191,13 +195,18 @@ def main(argv: list[str] | None = None) -> int:
         result = runner.run(
             stage1_only=bool(args.stage1_only),
             stage2_only=bool(args.stage2_only),
+            baseline_only=bool(args.baseline_only),
             candidate_config=args.candidate_config,
         )
         run_dir = Path(result["run_dir"])
         _dump_yaml(run_dir / "resolved_config.yaml", config)
         command_path = run_dir / "commands.sh"
         with command_path.open("a" if command_path.exists() else "w", encoding="utf-8") as handle:
-            handle.write("python -m search.cli " + " ".join(argv or []) + "\n")
+            handle.write(
+                "python -m search.cli "
+                + " ".join(shlex.quote(value) for value in effective_argv)
+                + "\n"
+            )
         print(json.dumps(result, indent=2, sort_keys=True, default=str))
         return 0
 

@@ -197,6 +197,8 @@ class QDQInsertionRecord(ResultMixin):
     weight_dequantize_node: str = ""
     output_quantize_nodes: list[str] = field(default_factory=list)
     output_dequantize_nodes: list[str] = field(default_factory=list)
+    activation_output_q_inputs: list[str] = field(default_factory=list)
+    activation_output_boundary_policy: str = ""
     scale: float = 0.0
     activation_input_scale: float = 0.0
     weight_scale: Any = 0.0

@@ -60,3 +60,26 @@ def test_stage2_eval_manifest_uses_real_fixed_warmup_and_evaluation_ids(tmp_path
     assert payload["warmup_frames"] == 2
     assert payload["num_frames"] == 3
     assert payload["manifest_hash"] == manifest.manifest_hash
+
+
+def test_stage2_eval_manifest_can_reset_before_full_validation(tmp_path: Path) -> None:
+    import json
+
+    from search.integration.data_provider import write_eval_manifest
+
+    path = tmp_path / "eval_manifest_reset.json"
+    frame_ids = [f"{index:06d}" for index in range(5)]
+    manifest = write_eval_manifest(
+        path,
+        num_frames=5,
+        warmup_frames=2,
+        available_frame_ids=frame_ids,
+        reset_after_warmup=True,
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert payload["reset_after_warmup"] is True
+    assert payload["warmup_frame_ids"] == frame_ids[:2]
+    assert payload["evaluation_frame_ids"] == frame_ids
+    assert payload["frame_ids"] == frame_ids
+    assert manifest.frame_ids == frame_ids

@@ -97,7 +97,14 @@ class LidarPyramidTwoStageSearch:
         candidate.mkdir(parents=True, exist_ok=False)
         return candidate
 
-    def run(self, *, stage1_only: bool = False, stage2_only: bool = False, candidate_config: str | Path | list[str] | list[Path] | None = None) -> dict[str, Any]:
+    def run(
+        self,
+        *,
+        stage1_only: bool = False,
+        stage2_only: bool = False,
+        baseline_only: bool = False,
+        candidate_config: str | Path | list[str] | list[Path] | None = None,
+    ) -> dict[str, Any]:
         run_dir = self._run_dir()
         (run_dir / "archives").mkdir(parents=True, exist_ok=True)
         (run_dir / "baseline").mkdir(parents=True, exist_ok=True)
@@ -111,6 +118,7 @@ class LidarPyramidTwoStageSearch:
                 "resume": str(self.resume or ""),
                 "stage1_only": stage1_only,
                 "stage2_only": stage2_only,
+                "baseline_only": baseline_only,
             }
         )
         _write_json(manifest_path, initial_manifest)
@@ -132,8 +140,14 @@ class LidarPyramidTwoStageSearch:
             tensorrt_env=str(runtime.get("tensorrt_env", "modelopt")),
             fisher_calibration_batches=int(proxy_cfg.get("fisher_calibration_batches", 8)),
             quant_calibration_batches=int(proxy_cfg.get("quant_calibration_batches", 16)),
+            quant_calibration_npz_manifest=proxy_cfg.get("quant_calibration_npz_manifest"),
+            quant_activation_calibration_backend=str(
+                proxy_cfg.get("quant_activation_calibration_backend", "modelopt_histogram_entropy")
+            ),
+            quant_calibration_force_rebuild=bool(proxy_cfg.get("quant_calibration_force_rebuild", False)),
             num_frames=int(stage2_cfg.get("num_frames", 5)),
             warmup_frames=int(stage2_cfg.get("warmup_frames", 10)),
+            reset_after_warmup=bool(stage2_cfg.get("reset_after_warmup", False)),
             default_precision=str(self.config.get("precision", {}).get("default", "FP16")),
             max_pruning_units=int(search_cfg.get("max_pruning_units", 96)),
             grouped_conv_mode=str(
@@ -154,6 +168,36 @@ class LidarPyramidTwoStageSearch:
             pruning_gene_type=str(pruning_cfg.get("gene_type", pruning_cfg.get("search_variable", "legal_pruning_action"))),
         )
         _write_json(run_dir / "environment.json", {"gpu": context.gpu_selection.to_dict(), "tensorrt": context.tensorrt.to_dict()})
+        if baseline_only:
+            real_evaluator = LidarPyramidRealEvaluator(
+                context=context,
+                run_dir=run_dir,
+                num_frames=int(stage2_cfg.get("num_frames", 5)),
+                warmup_frames=int(stage2_cfg.get("warmup_frames", 10)),
+                latency_rounds=int(stage2_cfg.get("latency_rounds", stage2_cfg.get("rounds", 1))),
+                stage2_config=Stage2ObjectiveConfig(
+                    eta_map=float(stage2_cfg.get("eta_ap", stage2_cfg.get("eta_map", 1.0))),
+                    eta_latency=float(stage2_cfg.get("eta_latency", 1.0)),
+                    latency_metric=str(stage2_cfg.get("latency_metric", "forward_mean_ms")),
+                    tau_ap=stage2_cfg.get("tau_ap"),
+                    max_map_drop=stage2_cfg.get("max_map_drop"),
+                ),
+            )
+            baseline_cfg = dict(self.config.get("baselines", {}) or {})
+            precisions = [
+                str(value)
+                for value in baseline_cfg.get(
+                    "precisions",
+                    ["strict_fp16", "trusted_explicit_qdq_int8"],
+                )
+            ]
+            rows = real_evaluator.evaluate_original_baselines(precisions)
+            return {
+                "run_dir": str(run_dir),
+                "selected_gpu": context.physical_gpu_id,
+                "baseline_only": True,
+                "baselines": rows,
+            }
         raw_unit_slices = build_unit_parameter_slices(context.model, context.atomic_prune_units)
         pruning_gene_type = str(pruning_cfg.get("gene_type", pruning_cfg.get("search_variable", "legal_pruning_action")))
         unit_slices = raw_unit_slices if pruning_gene_type == "coupled_channel_keep_mask" else self._action_slices(context, raw_unit_slices)

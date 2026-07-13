@@ -164,13 +164,14 @@ class QDQConfig(ConfigMixin):
     insert_activation_input_qdq: bool = True
     insert_weight_qdq: bool = True
     insert_activation_output_qdq: bool = True
+    activation_output_boundary_policy: str = "weighted_output_with_engine_fusion_verification"
     require_calibration_scales: bool = True
     symmetric: bool = True
     zero_point: int = 0
     weight_granularity: str = "per_channel"
     merge_policy: str = "fp16_merge"
     grouped_conv_int8_allowed_channels_per_group: tuple[int, ...] = (4, 8, 16, 32)
-    policy_version: str = "explicit-qdq-canonical-fp16-int8-v2"
+    policy_version: str = "explicit-qdq-canonical-fp16-int8-v4-activation-merge-audited"
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "QDQConfig":

@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import shutil
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, is_dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -17,13 +17,26 @@ from ..cache.artifact_cache import ArtifactCache
 from ..cache.real_eval_cache import RealEvalCache
 from ..candidate import CandidatePhenotype
 from ..hashing import canonical_json_hash, deployment_hash, eval_hash, physical_hash
-from ..integration.calibration_provider import QDQ_CALIBRATION_SEMANTICS_VERSION, collect_or_load_qdq_calibration_scales
+from ..integration.calibration_provider import (
+    QDQ_CALIBRATION_SEMANTICS_VERSION,
+    TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION,
+    build_tensorrt_entropy_calibration_cache_modelopt,
+    collect_or_load_qdq_calibration_scales,
+    fixed_k_calibration_npz_manifest_identity,
+    qdq_scales_from_tensorrt_entropy_cache,
+    save_calibration_scales,
+)
+from ..integration.data_provider import load_split_frame_ids
 from ..integration.evaluation_provider import evaluate_engine_modelopt
 from ..integration.lidar_pyramid_context import LidarPyramidSearchContext
 from ..integration.trt_compatible_export import build_search_trt_compatible_export_module, make_pointpillar_domain_compatible
 from ..pruning_space.action_codec import selected_actions_from_genes
 from ..pruning_space.grouped_bundle_adapter import request_from_pruning_actions
-from ..baselines.original_engines import make_baseline_trt_build_config, validate_baseline_layer_precisions
+from ..baselines.original_engines import (
+    TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES,
+    make_baseline_trt_build_config,
+    validate_baseline_layer_precisions,
+)
 from .candidate_artifacts import write_candidate_summary_artifacts
 from .objective import Stage2ObjectiveConfig, compute_stage2_score
 from .physical_validation import validate_repaired_physical_plan
@@ -119,8 +132,18 @@ def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result:
                 "realized_merge_precision": precision,
             }
         )
+    issues = []
+    for row in realized:
+        precision = str(row.get("realized_merge_precision", ""))
+        op_type = str(row.get("merge_op_type", ""))
+        if op_type == "Add" and precision != "FP16":
+            issues.append(f"residual_add_not_fp16:{row.get('merge_op_name')}:{precision}")
+        elif op_type == "Concat" and precision not in {"FP16", "INT8_common_scale_fused_concat"}:
+            issues.append(f"concat_merge_not_compatible:{row.get('merge_op_name')}:{precision}")
     return {
         "status": "ok",
+        "passed": not issues,
+        "issues": issues,
         "policy": "A_fp16_merge_with_equivalent_common_scale_concat_fusion_allowed",
         "merges": realized,
     }
@@ -149,6 +172,94 @@ def _shape_profiles(fixed_k: int = 29696) -> dict[str, dict[str, tuple[int, ...]
 
 def _param_count(model: torch.nn.Module) -> int:
     return sum(int(param.numel()) for param in model.parameters())
+
+
+def _tensor_sha256(value: torch.Tensor) -> str:
+    import hashlib
+
+    tensor = value.detach().cpu().contiguous()
+    digest = hashlib.sha256()
+    digest.update(str(tensor.dtype).encode("utf-8"))
+    digest.update(json.dumps(list(tensor.shape)).encode("utf-8"))
+    digest.update(tensor.reshape(-1).view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _all_keep_model_identity(original: torch.nn.Module, physical: torch.nn.Module) -> dict[str, Any]:
+    original_state = original.state_dict()
+    physical_state = physical.state_dict()
+    keys_match = list(original_state) == list(physical_state)
+    rows = []
+    for key in sorted(set(original_state) | set(physical_state)):
+        left = original_state.get(key)
+        right = physical_state.get(key)
+        row: dict[str, Any] = {
+            "key": key,
+            "present_original": left is not None,
+            "present_physical": right is not None,
+        }
+        if left is not None and right is not None:
+            row.update(
+                {
+                    "original_shape": list(left.shape),
+                    "physical_shape": list(right.shape),
+                    "original_dtype": str(left.dtype),
+                    "physical_dtype": str(right.dtype),
+                    "shape_equal": tuple(left.shape) == tuple(right.shape),
+                    "dtype_equal": left.dtype == right.dtype,
+                    "exact_equal": bool(torch.equal(left.detach().cpu(), right.detach().cpu())),
+                    "original_sha256": _tensor_sha256(left),
+                    "physical_sha256": _tensor_sha256(right),
+                }
+            )
+        rows.append(row)
+    issues = [
+        row["key"]
+        for row in rows
+        if not (
+            row.get("present_original")
+            and row.get("present_physical")
+            and row.get("shape_equal")
+            and row.get("dtype_equal")
+            and row.get("exact_equal")
+            and row.get("original_sha256") == row.get("physical_sha256")
+        )
+    ]
+    original_count = _param_count(original)
+    physical_count = _param_count(physical)
+    return {
+        "passed": bool(keys_match and not issues and original_count == physical_count),
+        "pruned_unit_count": 0,
+        "state_dict_key_order_equal": keys_match,
+        "original_parameter_count": original_count,
+        "physical_parameter_count": physical_count,
+        "parameter_count_equal": original_count == physical_count,
+        "mismatched_tensor_keys": issues,
+        "tensors": rows,
+    }
+
+
+def _apply_group_output_precision_contract(mapping: Any, contracts: dict[str, Any]) -> Any:
+    """Keep compute precision independent from an explicit FP16 merge output."""
+
+    return type(mapping)(
+        entries=[
+            replace(
+                row,
+                realized_output_precision=(
+                    "fp16"
+                    if row.realized_request_precision == "int8"
+                    and str(contracts.get(row.precision_group, {}).get("output_precision_policy", "")) == "FP16"
+                    else ""
+                ),
+            )
+            for row in mapping.entries
+        ],
+        profile_id=mapping.profile_id,
+        profile_hash=mapping.profile_hash,
+        origin_map_hash=mapping.origin_map_hash,
+        policy_version=mapping.policy_version,
+    )
 
 
 def _physical_selection_key(phenotype: CandidatePhenotype, checkpoint_hash: str) -> str:
@@ -405,6 +516,11 @@ class LidarPyramidRealEvaluator:
                 "warmup_frames": self.warmup_frames,
                 "latency_rounds": self.latency_rounds,
                 "full_validation": bool(full_validation),
+                "qdq_calibration_semantics_version": QDQ_CALIBRATION_SEMANTICS_VERSION,
+                "trusted_explicit_qdq_profile_hash": canonical_json_hash(
+                    list(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES)
+                ),
+                "explicit_qdq_boundary_policy": "weighted_output_with_engine_fusion_verification",
                 "gpu": self.context.physical_gpu_id,
                 "tensorrt": _tensorrt_cache_identity(self.context.tensorrt),
             }
@@ -666,6 +782,16 @@ class LidarPyramidRealEvaluator:
                 metadata={"baseline_precision": kind},
             )
         requested: dict[str, str] = {}
+        trusted_modules = set(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES)
+        known_modules = {
+            module_path
+            for group in self.context.search_space.quantization_groups
+            for module_path in group.module_paths
+        }
+        if kind == "trusted_explicit_qdq_int8":
+            missing = sorted(trusted_modules - known_modules)
+            if missing:
+                raise RuntimeError(f"trusted_explicit_qdq_profile_modules_missing:{missing}")
         for group in self.context.search_space.quantization_groups:
             if kind == "strict_fp32":
                 requested[group.group_id] = "FP32"
@@ -673,6 +799,11 @@ class LidarPyramidRealEvaluator:
                 requested[group.group_id] = "FP16"
             elif kind == "pure_strict_int8":
                 requested[group.group_id] = "INT8"
+            elif kind == "trusted_explicit_qdq_int8":
+                selected = any(module_path in trusted_modules for module_path in group.module_paths)
+                if selected and ("INT8" not in group.allowed_precisions or group.protected):
+                    raise RuntimeError(f"trusted_explicit_qdq_profile_group_not_legal:{group.group_id}")
+                requested[group.group_id] = "INT8" if selected else "FP16"
             else:
                 requested[group.group_id] = "INT8" if "INT8" in group.allowed_precisions and not group.protected else "FP16"
         legalization = legalize_group_precision_genes(
@@ -782,6 +913,11 @@ class LidarPyramidRealEvaluator:
                 parameter_count_pruned=int(result["parameter_count_pruned"]),
                 plan_validation=dict(result.get("plan_validation") or {"passed": True, "cache_hit": True}),
             )
+            if not phenotype.pruned_unit_ids:
+                identity = _all_keep_model_identity(self.context.model, result["model"])
+                _write_json(output_dir / "all_keep_model_identity.json", identity)
+                if not identity["passed"]:
+                    raise RuntimeError("all_keep_physical_model_identity_failed")
             return result
         action_ids = set(getattr(self.context.pruning_action_catalog, "action_ids", []) or []) if getattr(self.context, "pruning_action_catalog", None) is not None else set()
         if action_ids and set(phenotype.pruned_unit_ids).issubset(action_ids):
@@ -846,6 +982,11 @@ class LidarPyramidRealEvaluator:
             parameter_count_pruned=int(result["parameter_count_pruned"]),
             plan_validation=plan_validation,
         )
+        if not phenotype.pruned_unit_ids:
+            identity = _all_keep_model_identity(self.context.model, materialized["model"])
+            _write_json(output_dir / "all_keep_model_identity.json", identity)
+            if not identity["passed"]:
+                raise RuntimeError("all_keep_physical_model_identity_failed")
         self.artifacts.put_physical(physical_key, {"artifact_dir": str(output_dir), "pruned_state_dict": str(output_dir / "pruned_state_dict.pth")})
         self._physical_memory[selection_key] = result
         return result
@@ -854,11 +995,11 @@ class LidarPyramidRealEvaluator:
         try:
             from quantization.api import build_canonical_precision_mapping, export_pruned_signal_maxk_onnx, insert_explicit_qdq, prepare_signal_maxk_inputs
             from quantization.config import CalibrationConfig, CanonicalNamingConfig, OnnxExportConfig, QDQConfig
-            from quantization.types import PrecisionAssignment, PrecisionProfileResult
+            from quantization.types import CanonicalPrecisionMappingResult, PrecisionAssignment, PrecisionProfileResult
         except ImportError:
             from heal_compress.quantization.api import build_canonical_precision_mapping, export_pruned_signal_maxk_onnx, insert_explicit_qdq, prepare_signal_maxk_inputs
             from heal_compress.quantization.config import CalibrationConfig, CanonicalNamingConfig, OnnxExportConfig, QDQConfig
-            from heal_compress.quantization.types import PrecisionAssignment, PrecisionProfileResult
+            from heal_compress.quantization.types import CanonicalPrecisionMappingResult, PrecisionAssignment, PrecisionProfileResult
 
         qcfg = OnnxExportConfig(fixed_k=29696, min_agents=1, opt_agents=2, max_agents=2)
         cached = self.artifacts.get_onnx(str(physical["physical_hash"]))
@@ -950,8 +1091,22 @@ class LidarPyramidRealEvaluator:
             merge_policy="fp16_merge",
             grouped_conv_int8_allowed_channels_per_group=(4, 8, 16, 32, 64, 128, 256, 512),
         )
+        raw_group_contracts = dict(phenotype.metadata.get("quantization_group_contracts") or {})
+        if not raw_group_contracts and self.context.search_space.quantization_groups:
+            raw_group_contracts = {
+                group.group_id: {
+                    **dict(group.metadata),
+                    "member_layers": list(group.module_paths),
+                }
+                for group in self.context.search_space.quantization_groups
+            }
         mapping = build_canonical_precision_mapping(origin_map, profile, config=qdq_config)
+        mapping = _apply_group_output_precision_contract(mapping, raw_group_contracts)
         realized_profile = {row.module_path: str(row.realized_request_precision).upper() for row in mapping.entries}
+        realized_output_profile = {
+            row.module_path: str(row.realized_output_precision or row.realized_request_precision).upper()
+            for row in mapping.entries
+        }
         realized_group_profile: dict[str, str] = {}
         requested_group_profile: dict[str, str] = {}
         for row in mapping.entries:
@@ -973,6 +1128,7 @@ class LidarPyramidRealEvaluator:
         _write_json(output_dir / "legalized_precision_profile.json", phenotype.metadata.get("stage1_legalized_group_profile", requested_group_profile))
         _write_json(output_dir / "realized_precision_profile.json", realized_profile)
         _write_json(output_dir / "stage2_realized_precision_profile.json", realized_profile)
+        _write_json(output_dir / "realized_output_precision_profile.json", realized_output_profile)
         _write_json(output_dir / "stage2_realized_quantization_groups.json", realized_group_profile)
         _write_json(output_dir / "precision_group_expansion.json", phenotype.metadata.get("precision_group_expansion", {}))
         group_contracts = {
@@ -981,44 +1137,182 @@ class LidarPyramidRealEvaluator:
                 "realized_precision": realized_group_profile.get(str(group_id), ""),
                 "merge_policy": "A_fp16_merge",
             }
-            for group_id, contract in dict(phenotype.metadata.get("quantization_group_contracts") or {}).items()
+            for group_id, contract in raw_group_contracts.items()
         }
         _write_json(output_dir / "quantization_group_contracts.json", group_contracts)
         _write_json(output_dir / "precision_fallback_report.json", fallback_report)
         _write_json(output_dir / "canonical_layer_map.json", mapping.to_dict())
         int8_modules = sorted(row.module_path for row in mapping.entries if row.realized_request_precision == "int8")
         scales: dict[str, Any] = {}
-        if int8_modules:
-            scales = collect_or_load_qdq_calibration_scales(
-                model=physical["model"],
-                adapter=self.context.model_bundle.adapter,
-                model_config_path=self.context.model_config,
-                module_paths=int8_modules,
-                device=torch.device(self.context.runtime_device),
-                cache_path=self.run_dir
-                / "archives"
-                / "calibration"
-                / f"{physical['physical_hash']}_{canonical_json_hash({'modules': int8_modules, 'semantics': QDQ_CALIBRATION_SEMANTICS_VERSION, 'onnx_sha256': _file_hash(export.onnx_path), 'weight_granularity': qdq_config.weight_granularity, 'merge_policy': qdq_config.merge_policy, 'activation_calibration_method': 'entropy', 'histogram_bins': 2048, 'fixed_k': 29696})}.json",
+        calibration_seed = 20260713
+        calibration_npz_manifest = getattr(self.context, "quant_calibration_npz_manifest", None)
+        calibration_input_identity: dict[str, Any] = {}
+        if int8_modules and calibration_npz_manifest is not None:
+            calibration_input_identity = fixed_k_calibration_npz_manifest_identity(
+                calibration_npz_manifest,
                 num_batches=self.context.quant_calibration_batches,
-                onnx_path=export.onnx_path,
-                origin_map=origin_map,
-                weight_granularity=qdq_config.weight_granularity,
-                activation_calibration_method="entropy",
-                histogram_bins=2048,
                 fixed_k=29696,
             )
+            train_indices = list(calibration_input_identity.get("train_dataset_indices", []))
+            train_frame_ids = [
+                str(train_indices[index]) if index < len(train_indices) else f"npz:{index:06d}"
+                for index in range(self.context.quant_calibration_batches)
+            ]
+            calibration_order = "npz_manifest_file_order"
+        else:
+            train_frame_ids = load_split_frame_ids(
+                self.context.model_bundle.adapter,
+                self.context.model_config,
+                split="train",
+            )[: self.context.quant_calibration_batches]
+            calibration_order = "dataset_manifest_order_shuffle_false"
+            calibration_input_identity = {
+                "source": "dataset_manifest_with_seeded_train_augmentation",
+                "sample_count": len(train_frame_ids),
+            }
+        if int8_modules and len(train_frame_ids) != self.context.quant_calibration_batches:
+            raise RuntimeError(
+                f"insufficient_train_calibration_manifest_frames:{len(train_frame_ids)}<{self.context.quant_calibration_batches}"
+            )
+        calibration_frame_manifest_hash = str(
+            calibration_input_identity.get("tensor_manifest_hash")
+            or canonical_json_hash(
+                {"split": "train", "frame_ids": train_frame_ids, "order": "dataset_manifest_order"}
+            )
+        )
+        calibration_backend = str(
+            getattr(self.context, "quant_activation_calibration_backend", "modelopt_histogram_entropy")
+        ).lower()
+        calibration_semantics = (
+            TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION
+            if calibration_backend == "tensorrt_entropy_calibration2"
+            else QDQ_CALIBRATION_SEMANTICS_VERSION
+        )
+        activation_calibration_method = (
+            "tensorrt_entropy_calibration2"
+            if calibration_backend == "tensorrt_entropy_calibration2"
+            else "entropy"
+        )
+        histogram_bins: int | None = None if calibration_backend == "tensorrt_entropy_calibration2" else 2048
+        calibration_identity = {
+            "modules": int8_modules,
+            "semantics": calibration_semantics,
+            "onnx_sha256": _file_hash(export.onnx_path),
+            "weight_granularity": qdq_config.weight_granularity,
+            "merge_policy": qdq_config.merge_policy,
+            "activation_output_boundary_policy": qdq_config.activation_output_boundary_policy,
+            "activation_calibration_backend": calibration_backend,
+            "activation_calibration_method": activation_calibration_method,
+            "histogram_bins": histogram_bins,
+            "fixed_k": 29696,
+            "calibration_seed": calibration_seed,
+            "calibration_frame_manifest_hash": calibration_frame_manifest_hash,
+            "calibration_input_manifest_sha256": calibration_input_identity.get("manifest_sha256", ""),
+            "calibration_input_source": calibration_input_identity.get("source", ""),
+        }
+        calibration_cache_path = (
+            self.run_dir
+            / "archives"
+            / "calibration"
+            / f"{physical['physical_hash']}_{canonical_json_hash(calibration_identity)}.json"
+        )
+        calibration_backend_result: dict[str, Any] = {}
+        calibration_compatibility: dict[str, Any] = {}
+        if int8_modules:
+            if calibration_backend == "tensorrt_entropy_calibration2":
+                calibration_onnx = output_dir / "calibration_trt_compatible.onnx"
+                calibration_compatibility = make_pointpillar_domain_compatible(
+                    export.onnx_path,
+                    calibration_onnx,
+                )
+                _write_json(
+                    output_dir / "calibration_onnx_domain_compatibility_report.json",
+                    calibration_compatibility,
+                )
+                calibration_backend_result = build_tensorrt_entropy_calibration_cache_modelopt(
+                    onnx_path=calibration_onnx,
+                    calibration_npz_manifest=calibration_npz_manifest,
+                    output_dir=output_dir / "tensorrt_entropy_calibration",
+                    tensorrt_root=self.context.tensorrt.tensorrt_root,
+                    plugin_path=self.context.tensorrt.plugin_path,
+                    physical_gpu_id=self.context.physical_gpu_id,
+                    num_batches=self.context.quant_calibration_batches,
+                    fixed_k=29696,
+                    conda_env=self.context.tensorrt.conda_env,
+                    force_rebuild=bool(self.context.quant_calibration_force_rebuild),
+                )
+                scales, scale_details = qdq_scales_from_tensorrt_entropy_cache(
+                    onnx_path=export.onnx_path,
+                    origin_map=origin_map,
+                    module_paths=int8_modules,
+                    cache_path=calibration_backend_result["calibration_cache_path"],
+                    weight_granularity=qdq_config.weight_granularity,
+                )
+                save_calibration_scales(
+                    calibration_cache_path,
+                    scales,
+                    {
+                        **scale_details,
+                        "frame_count": self.context.quant_calibration_batches,
+                        "fixed_k": 29696,
+                        "calibration_input_provenance": calibration_input_identity,
+                        "calibration_backend_result_hash": canonical_json_hash(
+                            calibration_backend_result
+                        ),
+                    },
+                )
+            elif calibration_backend == "modelopt_histogram_entropy":
+                scales = collect_or_load_qdq_calibration_scales(
+                    model=physical["model"],
+                    adapter=self.context.model_bundle.adapter,
+                    model_config_path=self.context.model_config,
+                    module_paths=int8_modules,
+                    device=torch.device(self.context.runtime_device),
+                    cache_path=calibration_cache_path,
+                    num_batches=self.context.quant_calibration_batches,
+                    onnx_path=export.onnx_path,
+                    origin_map=origin_map,
+                    weight_granularity=qdq_config.weight_granularity,
+                    activation_calibration_method="entropy",
+                    histogram_bins=2048,
+                    fixed_k=29696,
+                    calibration_frame_ids=train_frame_ids,
+                    calibration_seed=calibration_seed,
+                    calibration_npz_manifest=calibration_npz_manifest,
+                )
+            else:
+                raise RuntimeError(
+                    f"unsupported_quant_activation_calibration_backend:{calibration_backend}"
+                )
+        for row in mapping.entries:
+            if row.realized_request_precision == "int8" and row.realized_output_precision == "fp16":
+                scale = scales.get(row.module_path)
+                if scale is None:
+                    raise RuntimeError(f"fp16_output_contract_calibration_missing:{row.module_path}")
+                scale["insert_activation_output_qdq"] = False
+                scale["activation_output_boundary_policy"] = "fp16_output_before_functional_or_merge_boundary"
         _write_json(
             output_dir / "calibration_manifest.json",
             {
                 "module_paths": int8_modules,
                 "batches": self.context.quant_calibration_batches,
-                "semantics_version": QDQ_CALIBRATION_SEMANTICS_VERSION,
+                "semantics_version": calibration_semantics,
                 "onnx_sha256": _file_hash(export.onnx_path),
                 "weight_granularity": qdq_config.weight_granularity,
                 "merge_policy": qdq_config.merge_policy,
-                "activation_calibration_method": "entropy",
-                "histogram_bins": 2048,
+                "activation_calibration_backend": calibration_backend,
+                "activation_calibration_method": activation_calibration_method,
+                "histogram_bins": histogram_bins,
                 "fixed_k": 29696,
+                "calibration_seed": calibration_seed,
+                "calibration_frame_ids": train_frame_ids,
+                "calibration_frame_manifest_hash": calibration_frame_manifest_hash,
+                "calibration_order": calibration_order,
+                "calibration_input_provenance": calibration_input_identity,
+                "calibration_cache_path": str(calibration_cache_path),
+                "calibration_identity": calibration_identity,
+                "calibration_backend_result": calibration_backend_result,
+                "calibration_onnx_compatibility": calibration_compatibility,
             },
         )
         _write_json(output_dir / "calibration_scales.json", scales)
@@ -1029,7 +1323,19 @@ class LidarPyramidRealEvaluator:
             scales=scales,
             config=qdq_config,
             calibration_metadata={
-                "calibration_manifest_hash": canonical_json_hash({"module_paths": int8_modules, "batches": self.context.quant_calibration_batches}),
+                "calibration_manifest_hash": canonical_json_hash(
+                    {
+                        "module_paths": int8_modules,
+                        "batches": self.context.quant_calibration_batches,
+                        "frame_manifest_hash": calibration_frame_manifest_hash,
+                        "calibration_input_manifest_sha256": calibration_input_identity.get("manifest_sha256", ""),
+                        "calibration_seed": calibration_seed,
+                        "activation_calibration_backend": calibration_backend,
+                        "calibration_backend_cache_sha256": calibration_backend_result.get(
+                            "calibration_cache_sha256", ""
+                        ),
+                    }
+                ),
                 "calibration_config": CalibrationConfig(
                     frame_count=max(1, self.context.quant_calibration_batches),
                     weight_granularity=qdq_config.weight_granularity,
@@ -1067,6 +1373,10 @@ class LidarPyramidRealEvaluator:
                 )
                 contract["merge_boundary_resolution"] = "resolved_from_canonical_onnx_during_qdq_export"
         qdq.calibration_metadata["quantization_group_contracts"] = group_contracts
+        topology_hash = str(qdq.calibration_metadata.get("qdq_topology_hash", ""))
+        for contract in group_contracts.values():
+            contract["qdq_topology_hash"] = topology_hash
+            contract["activation_output_boundary_policy"] = qdq_config.activation_output_boundary_policy
         qdq.calibration_metadata["quantization_group_contract_hash"] = canonical_json_hash(group_contracts)
         _write_json(output_dir / "quantization_group_contracts.json", group_contracts)
         if not (output_dir / "pruned_qdq.onnx").exists():
@@ -1163,6 +1473,19 @@ class LidarPyramidRealEvaluator:
                     "not_yet_verified",
                 )
                 boundary["engine_optimization"] = realized_boundary.get("engine_optimization", "")
+        try:
+            from quantization.reports.qdq_boundary import write_production_qdq_boundary_reports
+        except ImportError:
+            from heal_compress.quantization.reports.qdq_boundary import write_production_qdq_boundary_reports
+        boundary_report = write_production_qdq_boundary_reports(
+            output_dir,
+            qdq["qdq"],
+            output_dir / "engine_layer_info.json",
+        )
+        qdq["qdq"].calibration_metadata["weighted_qdq_boundary_audit"] = boundary_report.get("layers", [])
+        qdq["qdq"].calibration_metadata["boundary_audit_passed"] = bool(boundary_report.get("passed", False))
+        result["qdq_boundary_audit"] = boundary_report
+        _write_json(output_dir / "qdq_report.json", qdq["qdq"].to_dict())
         _write_json(output_dir / "quantization_group_contracts.json", contracts)
         _write_json(output_dir / "merge_precision_realization.json", merge_realization)
         _write_json(output_dir / "engine_manifest.json", result)
@@ -1177,6 +1500,16 @@ class LidarPyramidRealEvaluator:
             if not baseline_report.get("passed", False):
                 result["status"] = baseline_report.get("status", "baseline_precision_validation_failed")
                 result["failure_reason"] = ",".join(baseline_report.get("issues", []))
+        if result.get("status") == "ok" and not bool(merge_realization.get("passed", False)):
+            result["status"] = "merge_precision_realization_failed"
+            result["failure_reason"] = ",".join(merge_realization.get("issues", []))
+        if result.get("status") == "ok" and not bool(boundary_report.get("passed", False)):
+            result["status"] = "qdq_boundary_audit_failed"
+            result["failure_reason"] = ",".join(
+                issue
+                for row in boundary_report.get("issues", [])
+                for issue in row.get("issues", [])
+            )
         return result
 
     def _evaluate_engine(self, engine_path: str | Path, output_dir: Path) -> dict[str, Any]:

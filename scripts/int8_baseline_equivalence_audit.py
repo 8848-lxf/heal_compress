@@ -502,8 +502,21 @@ def qdq_inventory(qdq_path: Path, mapping_path: Path, output: Path) -> dict[str,
             "weight": "weight_scale",
         }.get(role, "")
         expected_scale = calibration_scales.get(module_path, {}).get(calibration_key) if calibration_key else None
+        expected_scale_values = (
+            np.asarray(expected_scale, dtype=np.float64).reshape(-1)
+            if expected_scale is not None
+            else np.asarray([], dtype=np.float64)
+        )
         weight_values = np.asarray(initializers[tensor_name]).astype(np.float64) if role == "weight" and tensor_name in initializers else None
         initializer_absmax_div127 = float(np.max(np.abs(weight_values)) / 127.0) if weight_values is not None and weight_values.size else None
+        initializer_expected_scale = np.asarray([], dtype=np.float64)
+        if weight_values is not None and weight_values.size:
+            if scale_values.size == 1 or axis is None:
+                initializer_expected_scale = np.asarray([initializer_absmax_div127], dtype=np.float64)
+            else:
+                normalized_axis = int(axis) % weight_values.ndim
+                reduce_axes = tuple(index for index in range(weight_values.ndim) if index != normalized_axis)
+                initializer_expected_scale = np.max(np.abs(weight_values), axis=reduce_axes).reshape(-1) / 127.0
         scalar_scale = float(scale_values[0]) if scale_values.size == 1 else None
         row = {
             "tensor": tensor_name,
@@ -532,15 +545,19 @@ def qdq_inventory(qdq_path: Path, mapping_path: Path, output: Path) -> dict[str,
             "extremely_large_scale": bool(scale_values.size and np.any(np.abs(scale_values) > 1.0e4)),
             "fixed_one_scale": bool(scale_values.size and np.all(scale_values == 1.0)),
             "weight_axis_is_conv_output_axis": bool(role == "weight" and axis == 0),
-            "calibration_expected_scale": "" if expected_scale is None else float(expected_scale),
-            "scale_matches_calibration": bool(expected_scale is not None and scalar_scale is not None and np.isclose(scalar_scale, float(expected_scale), rtol=1.0e-7, atol=1.0e-12)),
+            "calibration_expected_scale": ";".join(f"{value:.17g}" for value in expected_scale_values),
+            "scale_matches_calibration": bool(
+                expected_scale_values.size == scale_values.size
+                and expected_scale_values.size > 0
+                and np.allclose(scale_values, expected_scale_values, rtol=1.0e-7, atol=1.0e-12)
+            ),
             "weight_initializer_present": bool(weight_values is not None),
             "weight_initializer_absmax_div127": "" if initializer_absmax_div127 is None else initializer_absmax_div127,
             "weight_scale_matches_final_folded_initializer": bool(
                 role == "weight"
-                and initializer_absmax_div127 is not None
-                and scalar_scale is not None
-                and np.isclose(scalar_scale, initializer_absmax_div127, rtol=1.0e-6, atol=1.0e-12)
+                and initializer_expected_scale.size == scale_values.size
+                and initializer_expected_scale.size > 0
+                and np.allclose(scale_values, initializer_expected_scale, rtol=1.0e-6, atol=1.0e-12)
             ),
         }
         rows.append(row)

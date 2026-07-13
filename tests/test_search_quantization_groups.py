@@ -90,3 +90,49 @@ def test_quantization_group_hash_is_order_stable() -> None:
     right = quantization_group_profile_hash(dict(reversed(list(profile.items()))), list(reversed(groups)))
 
     assert left == right
+
+
+def test_trusted_explicit_qdq_profile_is_fixed_unique_27_layer_control() -> None:
+    from search.baselines.original_engines import TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES
+
+    assert len(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES) == 27
+    assert len(set(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES)) == 27
+    assert "shrink_conv.layers.0.double_conv.0" in TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES
+    assert "shrink_conv.layers.0.double_conv.2" in TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES
+    assert "pyramid_backbone.single_head_2" not in TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES
+
+
+def test_group_output_contract_separates_concat_output_from_int8_compute() -> None:
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+    from search.stage2.lidar_pyramid_real_evaluator import _apply_group_output_precision_contract
+
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                module_path="single_head_0",
+                canonical_node_name="__canonical__single_head_0__Conv__call00000",
+                precision_group="pg_concat_branch",
+                requested_precision="int8",
+                realized_request_precision="int8",
+            )
+        ]
+    )
+    realized = _apply_group_output_precision_contract(
+        mapping,
+        {"pg_concat_branch": {"output_precision_policy": "FP16"}},
+    )
+
+    assert realized.entries[0].realized_request_precision == "int8"
+    assert realized.entries[0].realized_output_precision == "fp16"
+
+
+def test_lidar_pyramid_functional_heads_have_fp16_output_contract() -> None:
+    from search.integration.lidar_pyramid_context import _functional_fp16_output_boundary
+
+    for module in ("pyramid_backbone.single_head_0", "pyramid_backbone.single_head_1"):
+        boundary = _functional_fp16_output_boundary(module)
+        assert boundary is not None
+        assert boundary["merge_kind"] == "functional_sigmoid_weight_merge"
+        assert boundary["following_ops"] == ["Sigmoid", "Add", "GridSample"]
+        assert boundary["output_qdq_placement"].startswith("no weighted-output Q/DQ")
+    assert _functional_fp16_output_boundary("pyramid_backbone.single_head_2") is None

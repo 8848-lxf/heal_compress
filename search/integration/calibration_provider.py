@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -14,7 +15,376 @@ from ..proxy.fisher_proxy import FisherStatistics
 from .data_provider import build_dataset_and_loader, iter_limited, move_batch_to_device
 
 
-QDQ_CALIBRATION_SEMANTICS_VERSION = "onnx-bn-fold-fixedk-entropy-v3"
+QDQ_CALIBRATION_SEMANTICS_VERSION = "onnx-bn-fold-fixedk-entropy-v6-exact-tensor-manifest"
+TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION = (
+    "onnx-trt-entropycalibration2-fixedk-v1-exact-tensor-manifest"
+)
+FIXED_K_CALIBRATION_INPUT_NAMES = (
+    "voxel_features",
+    "voxel_coords",
+    "voxel_num_points",
+    "pairwise_t_matrix",
+    "valid_voxel_mask",
+)
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def fixed_k_calibration_npz_manifest_identity(
+    manifest_path: str | Path,
+    *,
+    num_batches: int,
+    fixed_k: int,
+) -> dict[str, Any]:
+    """Return a content-addressed identity for preprocessed train calibration tensors."""
+
+    path = Path(manifest_path).expanduser().resolve()
+    if not path.is_file():
+        raise RuntimeError(f"calibration_npz_manifest_missing:{path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    files = list(payload.get("files", []) or [])
+    if len(files) != int(num_batches):
+        raise RuntimeError(f"calibration_npz_manifest_count_mismatch:{len(files)}!={int(num_batches)}")
+    if int(payload.get("fixed_K", -1)) != int(fixed_k):
+        raise RuntimeError(f"calibration_npz_fixed_k_mismatch:{payload.get('fixed_K')}!={int(fixed_k)}")
+    if str(payload.get("calibration_split", "")) != "train":
+        raise RuntimeError(f"calibration_npz_split_not_train:{payload.get('calibration_split')}")
+    if str(payload.get("strategy", "")) != "single_engine_maxK":
+        raise RuntimeError(f"calibration_npz_strategy_mismatch:{payload.get('strategy')}")
+    input_names = [str(value) for value in payload.get("input_names", [])]
+    if set(input_names) != set(FIXED_K_CALIBRATION_INPUT_NAMES):
+        raise RuntimeError(f"calibration_npz_input_names_mismatch:{input_names}")
+    file_rows = [
+        {
+            "index": int(index),
+            "name": str(row.get("name") or Path(str(row.get("path", ""))).name),
+            "sha256": str(row.get("sha256", "")),
+            "bytes": int(row.get("bytes", 0) or 0),
+            "path": str(row.get("path", "")),
+        }
+        for index, row in enumerate(files)
+    ]
+    if any(not row["name"] or len(row["sha256"]) != 64 for row in file_rows):
+        raise RuntimeError("calibration_npz_manifest_file_provenance_incomplete")
+    tensor_manifest_hash = canonical_json_hash(
+        [{key: row[key] for key in ("index", "name", "sha256", "bytes")} for row in file_rows]
+    )
+    return {
+        "source": "preprocessed_train_npz_manifest",
+        "manifest_path": str(path),
+        "manifest_sha256": _sha256_file(path),
+        "tensor_manifest_hash": tensor_manifest_hash,
+        "sample_count": len(file_rows),
+        "fixed_k": int(fixed_k),
+        "strategy": "single_engine_maxK",
+        "calibration_split": "train",
+        "input_names": list(FIXED_K_CALIBRATION_INPUT_NAMES),
+        "train_dataset_indices": [int(value) for value in payload.get("train_dataset_indices", [])],
+        "files": file_rows,
+    }
+
+
+def load_fixed_k_calibration_npz_batches(
+    manifest_path: str | Path,
+    *,
+    num_batches: int,
+    fixed_k: int,
+    device: torch.device,
+) -> tuple[list[dict[str, torch.Tensor]], dict[str, Any]]:
+    """Load and verify exact preprocessed tensors in manifest order."""
+
+    import numpy as np
+
+    identity = fixed_k_calibration_npz_manifest_identity(
+        manifest_path,
+        num_batches=num_batches,
+        fixed_k=fixed_k,
+    )
+    manifest = Path(identity["manifest_path"])
+    batches: list[dict[str, torch.Tensor]] = []
+    verified_files: list[dict[str, Any]] = []
+    for row in identity["files"]:
+        raw_path = Path(str(row["path"])).expanduser()
+        candidates = [raw_path, manifest.parent / str(row["name"]), manifest.parent / raw_path.name]
+        source = next((candidate.resolve() for candidate in candidates if candidate.is_file()), None)
+        if source is None:
+            raise RuntimeError(f"calibration_npz_file_missing:{row['index']}:{row['name']}")
+        size = int(source.stat().st_size)
+        digest = _sha256_file(source)
+        if int(row["bytes"]) > 0 and size != int(row["bytes"]):
+            raise RuntimeError(f"calibration_npz_file_size_mismatch:{row['name']}:{size}!={row['bytes']}")
+        if digest != str(row["sha256"]):
+            raise RuntimeError(f"calibration_npz_file_hash_mismatch:{row['name']}:{digest}!={row['sha256']}")
+        with np.load(source) as values:
+            missing = [name for name in FIXED_K_CALIBRATION_INPUT_NAMES if name not in values.files]
+            if missing:
+                raise RuntimeError(f"calibration_npz_inputs_missing:{row['name']}:{missing}")
+            arrays = {name: np.ascontiguousarray(values[name]) for name in FIXED_K_CALIBRATION_INPUT_NAMES}
+        for name in ("voxel_features", "voxel_coords", "voxel_num_points", "valid_voxel_mask"):
+            if int(arrays[name].shape[0]) != int(fixed_k):
+                raise RuntimeError(
+                    f"calibration_npz_fixed_k_tensor_mismatch:{row['name']}:{name}:{arrays[name].shape[0]}!={int(fixed_k)}"
+                )
+        batches.append({name: torch.as_tensor(value, device=device) for name, value in arrays.items()})
+        verified_files.append({"index": row["index"], "name": row["name"], "path": str(source), "size": size, "sha256": digest})
+    return batches, {**identity, "files_verified": True, "verified_files": verified_files}
+
+
+def parse_tensorrt_entropy_calibration_cache(cache_path: str | Path) -> dict[str, float]:
+    """Parse a TensorRT EntropyCalibration2 cache without fuzzy tensor matching."""
+
+    import struct
+
+    path = Path(cache_path).expanduser().resolve()
+    if not path.is_file() or path.stat().st_size <= 0:
+        raise RuntimeError(f"tensorrt_entropy_cache_missing:{path}")
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    if not lines or "EntropyCalibration2" not in lines[0]:
+        raise RuntimeError(f"tensorrt_entropy_cache_header_invalid:{path}")
+    values: dict[str, float] = {}
+    for line in lines[1:]:
+        if ": " not in line:
+            continue
+        tensor_name, encoded = line.rsplit(": ", 1)
+        try:
+            value = float(struct.unpack("!f", bytes.fromhex(encoded))[0])
+        except (ValueError, struct.error):
+            continue
+        if math.isfinite(value) and value > 0.0:
+            values[str(tensor_name)] = value
+    if not values:
+        raise RuntimeError(f"tensorrt_entropy_cache_contains_no_positive_scales:{path}")
+    return values
+
+
+def qdq_scales_from_tensorrt_entropy_cache(
+    *,
+    onnx_path: str | Path,
+    origin_map: Any,
+    module_paths: Sequence[str],
+    cache_path: str | Path,
+    weight_granularity: str = "per_channel",
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    """Create production Q/DQ scales from exact TensorRT cache tensor names.
+
+    Activation scales are accepted only when both the canonical weighted-node
+    input and output names match cache entries exactly.  Weight scales always
+    come from the final ONNX initializer and therefore never come from the
+    implicit TensorRT cache.
+    """
+
+    import numpy as np
+    import onnx
+    from onnx import numpy_helper
+
+    if str(weight_granularity) not in {"per_tensor", "per_channel"}:
+        raise RuntimeError(f"unsupported_qdq_weight_granularity:{weight_granularity}")
+    requested = [str(value) for value in module_paths]
+    if len(requested) != len(set(requested)):
+        raise RuntimeError("qdq_calibration_module_paths_not_unique")
+    cache = parse_tensorrt_entropy_calibration_cache(cache_path)
+    model = onnx.load(str(onnx_path))
+    nodes = {str(node.name): node for node in model.graph.node}
+    initializers = {str(row.name): numpy_helper.to_array(row) for row in model.graph.initializer}
+    entries = {_field(row, "module_path"): row for row in _origin_entries(origin_map)}
+    missing_entries = [name for name in requested if name not in entries]
+    if missing_entries:
+        raise RuntimeError(f"qdq_calibration_origin_entries_missing:{missing_entries}")
+
+    scales: dict[str, dict[str, Any]] = {}
+    exact_matches: list[dict[str, str]] = []
+    for name in requested:
+        entry = entries[name]
+        node = nodes.get(str(_field(entry, "canonical_node_name")))
+        if node is None:
+            raise RuntimeError(f"qdq_calibration_onnx_node_missing:{name}")
+        if not node.input or not node.output:
+            raise RuntimeError(f"qdq_calibration_weighted_node_boundary_missing:{name}")
+        input_tensor = str(node.input[0])
+        output_tensor = str(node.output[0])
+        missing_boundaries = [tensor for tensor in (input_tensor, output_tensor) if tensor not in cache]
+        if missing_boundaries:
+            raise RuntimeError(
+                f"tensorrt_entropy_exact_tensor_match_missing:{name}:{missing_boundaries}"
+            )
+        initializer_name = str(_field(entry, "weight_initializer"))
+        weight = initializers.get(initializer_name)
+        if weight is None:
+            raise RuntimeError(f"qdq_calibration_onnx_initializer_missing:{name}:{initializer_name}")
+        weight_amax = float(np.max(np.abs(weight)))
+        if not math.isfinite(weight_amax) or weight_amax <= 0.0:
+            raise RuntimeError(f"qdq_calibration_nonpositive_or_nonfinite_weight_amax:{name}")
+        weight_axis: int | None = None
+        weight_scale: float | list[float]
+        if str(weight_granularity) == "per_channel":
+            if str(node.op_type) == "Conv":
+                weight_axis = 0
+            elif str(node.op_type) == "ConvTranspose":
+                weight_axis = 1
+            elif str(node.op_type) == "MatMul":
+                weight_axis = 1
+            elif str(node.op_type) == "Gemm":
+                attributes = {
+                    str(attr.name): int(attr.i)
+                    for attr in node.attribute
+                    if str(attr.name) == "transB"
+                }
+                weight_axis = 0 if attributes.get("transB", 0) else 1
+            else:
+                raise RuntimeError(f"qdq_calibration_per_channel_unsupported_op:{name}:{node.op_type}")
+            if weight_axis >= weight.ndim:
+                raise RuntimeError(
+                    f"qdq_calibration_weight_axis_out_of_range:{name}:{weight_axis}:{list(weight.shape)}"
+                )
+            reduce_axes = tuple(axis for axis in range(weight.ndim) if axis != weight_axis)
+            channel_amax = np.max(np.abs(weight), axis=reduce_axes)
+            if not np.all(np.isfinite(channel_amax)) or np.any(channel_amax <= 0.0):
+                raise RuntimeError(f"qdq_calibration_nonpositive_per_channel_weight_amax:{name}")
+            weight_scale = (channel_amax / 127.0).astype(np.float32).tolist()
+        else:
+            weight_scale = weight_amax / 127.0
+        scales[name] = {
+            "activation_input_scale": float(cache[input_tensor]),
+            "activation_output_scale": float(cache[output_tensor]),
+            "activation_input_tensor": input_tensor,
+            "activation_output_tensor": output_tensor,
+            "activation_scale_source": "fresh_TensorRT_IInt8EntropyCalibrator2_exact_tensor_match",
+            "weight_scale": weight_scale,
+            "weight_axis": weight_axis,
+            "weight_granularity": str(weight_granularity),
+            "weight_scale_shape": [len(weight_scale)] if isinstance(weight_scale, list) else [],
+            "weight_scale_source": "final_folded_onnx_initializer",
+        }
+        exact_matches.extend(
+            [
+                {"module_path": name, "role": "input", "tensor": input_tensor},
+                {"module_path": name, "role": "output", "tensor": output_tensor},
+            ]
+        )
+    return scales, {
+        "semantics_version": TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION,
+        "activation_calibration_method": "tensorrt_entropy_calibration2",
+        "activation_scale_source": "fresh_TensorRT_IInt8EntropyCalibrator2_exact_tensor_match",
+        "cache_path": str(Path(cache_path).expanduser().resolve()),
+        "cache_sha256": _sha256_file(Path(cache_path).expanduser().resolve()),
+        "cache_positive_scale_count": len(cache),
+        "exact_activation_scale_match_count": len(exact_matches),
+        "exact_activation_scale_matches": exact_matches,
+        "weight_granularity": str(weight_granularity),
+    }
+
+
+def build_tensorrt_entropy_calibration_cache_modelopt(
+    *,
+    onnx_path: str | Path,
+    calibration_npz_manifest: str | Path,
+    output_dir: str | Path,
+    tensorrt_root: str | Path,
+    plugin_path: str | Path,
+    physical_gpu_id: int,
+    num_batches: int,
+    fixed_k: int = 29696,
+    conda_env: str = "modelopt",
+    force_rebuild: bool = True,
+    timeout_seconds: int = 1800,
+) -> dict[str, Any]:
+    """Fresh-build a TensorRT EntropyCalibration2 cache in an isolated subprocess."""
+
+    import subprocess
+
+    from .runtime_environment import modelopt_python_command, modelopt_subprocess_env
+
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    request_path = destination / "calibration_request.json"
+    result_path = destination / "calibration_result.json"
+    log_path = destination / "calibration_worker.log"
+    cache_path = destination / "calibration.cache"
+    engine_path = destination / "calibration.engine"
+    identity = fixed_k_calibration_npz_manifest_identity(
+        calibration_npz_manifest,
+        num_batches=int(num_batches),
+        fixed_k=int(fixed_k),
+    )
+    dependencies = {
+        "onnx_sha256": _sha256_file(Path(onnx_path).expanduser().resolve()),
+        "calibration_manifest_sha256": identity["manifest_sha256"],
+        "calibration_tensor_manifest_hash": identity["tensor_manifest_hash"],
+        "plugin_sha256": _sha256_file(Path(plugin_path).expanduser().resolve()),
+        "fixed_k": int(fixed_k),
+        "num_batches": int(num_batches),
+        "semantics_version": TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION,
+    }
+    if result_path.is_file() and not force_rebuild:
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        if result.get("dependencies") != dependencies:
+            raise RuntimeError("tensorrt_entropy_calibration_cache_dependency_mismatch")
+        if result.get("status") != "ok" or not cache_path.is_file():
+            raise RuntimeError("tensorrt_entropy_calibration_cache_reuse_invalid")
+        if _sha256_file(cache_path) != str(result.get("calibration_cache_sha256", "")):
+            raise RuntimeError("tensorrt_entropy_calibration_cache_hash_mismatch")
+        return {**result, "reused": True, "log_path": str(log_path)}
+    existing = [path for path in (request_path, result_path, cache_path, engine_path, log_path) if path.exists()]
+    if existing:
+        raise RuntimeError(f"tensorrt_entropy_force_rebuild_destination_not_clean:{existing}")
+    request = {
+        "onnx_path": str(Path(onnx_path).expanduser().resolve()),
+        "calibration_npz_manifest": str(Path(calibration_npz_manifest).expanduser().resolve()),
+        "plugin_path": str(Path(plugin_path).expanduser().resolve()),
+        "cache_path": str(cache_path.resolve()),
+        "engine_path": str(engine_path.resolve()),
+        "output_path": str(result_path.resolve()),
+        "fixed_k": int(fixed_k),
+        "num_batches": int(num_batches),
+        "dependencies": dependencies,
+    }
+    request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
+    env = modelopt_subprocess_env(
+        tensorrt_root=tensorrt_root,
+        conda_env=conda_env,
+        pythonpath_entries=[
+            "/home/lixingfeng/UniAD_examine/HEAL",
+            "/home/lixingfeng/UniAD_examine/heal_compress",
+            "/home/lixingfeng/UniAD_examine",
+        ],
+        cuda_visible_devices=int(physical_gpu_id),
+    )
+    command = modelopt_python_command(conda_env) + [
+        "-m",
+        "search.integration.tensorrt_entropy_calibration_worker",
+        "--request",
+        str(request_path),
+    ]
+    completed = subprocess.run(
+        command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
+        check=False,
+        timeout=int(timeout_seconds),
+    )
+    log_path.write_text(completed.stdout or "", encoding="utf-8")
+    if not result_path.is_file():
+        raise RuntimeError(f"tensorrt_entropy_calibration_worker_no_output_rc_{completed.returncode}")
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["worker_returncode"] = int(completed.returncode)
+    result["log_path"] = str(log_path)
+    if completed.returncode != 0 or result.get("status") != "ok":
+        raise RuntimeError(
+            f"tensorrt_entropy_calibration_failed:{result.get('failure_reason', completed.returncode)}"
+        )
+    if not cache_path.is_file() or cache_path.stat().st_size <= 0:
+        raise RuntimeError("tensorrt_entropy_calibration_cache_not_created")
+    if _sha256_file(cache_path) != str(result.get("calibration_cache_sha256", "")):
+        raise RuntimeError("tensorrt_entropy_calibration_cache_result_hash_mismatch")
+    return result
 
 
 def _tensor_dict_to_cpu(rows: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -117,6 +487,9 @@ def collect_or_load_qdq_calibration_scales(
     activation_calibration_method: str = "entropy",
     histogram_bins: int = 2048,
     fixed_k: int = 29696,
+    calibration_frame_ids: Sequence[str] | None = None,
+    calibration_seed: int = 20260713,
+    calibration_npz_manifest: str | Path | None = None,
 ) -> dict[str, dict[str, Any]]:
     path = Path(cache_path)
     if path.is_file():
@@ -124,8 +497,49 @@ def collect_or_load_qdq_calibration_scales(
         return dict(payload["scales"])
     if int(num_batches) <= 0:
         raise RuntimeError("calibration_scales_missing:num_batches")
-    _dataset, loader = build_dataset_and_loader(adapter, model_config_path, split="train", num_workers=0, visualize=False)
-    batches = [move_batch_to_device(batch, device) for batch in iter_limited(loader, int(num_batches))]
+    import random
+
+    import numpy as np
+
+    expected_frame_ids = [str(value) for value in (calibration_frame_ids or [])]
+    if expected_frame_ids and len(expected_frame_ids) != int(num_batches):
+        raise RuntimeError(
+            f"calibration_manifest_count_mismatch:{len(expected_frame_ids)}!={int(num_batches)}"
+        )
+    calibration_input_provenance: dict[str, Any] = {}
+    python_rng_state = random.getstate()
+    numpy_rng_state = np.random.get_state()
+    torch_rng_state = torch.random.get_rng_state()
+    cuda_rng_states = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    try:
+        random.seed(int(calibration_seed))
+        np.random.seed(int(calibration_seed) % (2**32))
+        torch.manual_seed(int(calibration_seed))
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(int(calibration_seed))
+        if calibration_npz_manifest is not None:
+            batches, calibration_input_provenance = load_fixed_k_calibration_npz_batches(
+                calibration_npz_manifest,
+                num_batches=int(num_batches),
+                fixed_k=int(fixed_k),
+                device=device,
+            )
+        else:
+            _dataset, loader = build_dataset_and_loader(adapter, model_config_path, split="train", num_workers=0, visualize=False)
+            if len(_dataset) < int(num_batches):
+                raise RuntimeError(f"calibration_dataset_too_short:{len(_dataset)}<{int(num_batches)}")
+            batches = [move_batch_to_device(batch, device) for batch in iter_limited(loader, int(num_batches))]
+            calibration_input_provenance = {
+                "source": "dataset_manifest_with_seeded_train_augmentation",
+                "sample_count": len(batches),
+                "fixed_k": int(fixed_k),
+            }
+    finally:
+        random.setstate(python_rng_state)
+        np.random.set_state(numpy_rng_state)
+        torch.random.set_rng_state(torch_rng_state)
+        if cuda_rng_states is not None:
+            torch.cuda.set_rng_state_all(cuda_rng_states)
     if not batches:
         raise RuntimeError("calibration_scales_missing:no_calibration_batches")
 
@@ -146,8 +560,11 @@ def collect_or_load_qdq_calibration_scales(
         ).to(device).eval()
 
         def fixed_k_forward(_inner_model: torch.nn.Module, batch: Any) -> Any:
-            ego = batch["ego"] if isinstance(batch, Mapping) and "ego" in batch else batch
-            prepared = prepare_signal_maxk_inputs(ego, config=export_config, modality="m1")
+            if isinstance(batch, Mapping) and all(name in batch for name in FIXED_K_CALIBRATION_INPUT_NAMES):
+                prepared = {name: batch[name] for name in FIXED_K_CALIBRATION_INPUT_NAMES}
+            else:
+                ego = batch["ego"] if isinstance(batch, Mapping) and "ego" in batch else batch
+                prepared = prepare_signal_maxk_inputs(ego, config=export_config, modality="m1")
             return wrapper(**{name: tensor.to(device) for name, tensor in prepared.items()})
 
         scales, calibration_details = collect_onnx_bn_fold_aware_qdq_scales(
@@ -195,6 +612,17 @@ def collect_or_load_qdq_calibration_scales(
             ),
             "source": "search.collect_onnx_bn_fold_aware_qdq_scales" if onnx_path is not None and origin_map is not None else "quantization.collect_calibration_scales",
             "fixed_k": int(fixed_k),
+            "calibration_seed": int(calibration_seed),
+            "calibration_frame_ids": expected_frame_ids,
+            "calibration_frame_manifest_hash": canonical_json_hash(
+                {"split": "train", "frame_ids": expected_frame_ids, "order": "dataset_manifest_order"}
+            ),
+            "calibration_order": (
+                "npz_manifest_file_order"
+                if calibration_npz_manifest is not None
+                else "dataset_manifest_order_shuffle_false"
+            ),
+            "calibration_input_provenance": calibration_input_provenance,
             **calibration_details,
         },
     )
@@ -423,6 +851,9 @@ def collect_onnx_bn_fold_aware_qdq_scales(
         if row["input_count"] != frame_count or row["output_count"] != frame_count:
             raise RuntimeError(f"qdq_calibration_observation_count_mismatch:{name}")
         initializer_name = str(_field(entries[name], "weight_initializer"))
+        node = node_by_name.get(str(_field(entries[name], "canonical_node_name")))
+        if node is None:
+            raise RuntimeError(f"qdq_calibration_onnx_node_missing:{name}")
         weight = initializers.get(initializer_name)
         if weight is None:
             raise RuntimeError(f"qdq_calibration_onnx_initializer_missing:{name}:{initializer_name}")
@@ -436,8 +867,6 @@ def collect_onnx_bn_fold_aware_qdq_scales(
         weight_axis: int | None = None
         weight_scale: float | list[float]
         if weight_granularity == "per_channel":
-            if node is None:
-                raise RuntimeError(f"qdq_calibration_onnx_node_missing:{name}")
             if str(node.op_type) == "Conv":
                 weight_axis = 0
             elif str(node.op_type) == "ConvTranspose":

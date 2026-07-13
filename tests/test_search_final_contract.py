@@ -221,6 +221,38 @@ def test_stage2_score_uses_tau_ap_and_fp16_latency_reference() -> None:
     assert result["F2"] == pytest.approx(0.8 * 0.5 + 0.2 * 1.5)
 
 
+def test_deployment_hash_changes_with_qdq_topology_and_merge_contract() -> None:
+    from search.hashing import canonical_json_hash, deployment_hash
+
+    common = {
+        "physical_hash_value": "physical",
+        "realized_precision_profile": {"conv": "INT8"},
+        "calibration_scale_hash": "scales",
+        "onnx_export_config_hash": "onnx",
+        "tensorrt_version": "10.9",
+        "gpu_compute_capability": "9.0",
+        "builder_flags": {"fp16": True, "int8": True},
+        "optimization_profiles": {"fixed_k": 29696},
+        "plugin_hashes": {"scatter": "plugin"},
+    }
+    fp16_merge = canonical_json_hash(
+        {"qdq_topology_hash": "topology-a", "merge_policy": "A_fp16_merge"}
+    )
+    int8_merge = canonical_json_hash(
+        {"qdq_topology_hash": "topology-a", "merge_policy": "B_int8_common_scale"}
+    )
+    different_topology = canonical_json_hash(
+        {"qdq_topology_hash": "topology-b", "merge_policy": "A_fp16_merge"}
+    )
+
+    hashes = {
+        deployment_hash(**common, quantization_contract_hash=fp16_merge),
+        deployment_hash(**common, quantization_contract_hash=int8_merge),
+        deployment_hash(**common, quantization_contract_hash=different_topology),
+    }
+    assert len(hashes) == 3
+
+
 def test_raw_grouped_input_parameter_slices_use_local_group_coordinates() -> None:
     import torch
     from types import SimpleNamespace

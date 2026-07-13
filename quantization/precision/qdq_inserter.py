@@ -11,7 +11,7 @@ from typing import Any, Mapping
 from ..artifacts.io import file_sha256
 from ..config import QDQConfig
 from ..exceptions import QDQInsertionError
-from ..types import CanonicalPrecisionMappingResult, QDQInsertionRecord, QDQInsertionResult
+from ..types import CanonicalPrecisionMappingResult, QDQInsertionRecord, QDQInsertionResult, stable_json_hash
 from ..export.origin_trace import build_weight_trace_index, trace_compute_node_weight
 
 
@@ -232,11 +232,141 @@ def _audit_fp16_merge_boundaries(
                     branch["boundary"] == "explicit_dequantize_to_float" for branch in branches
                 ),
                 "input_count": len(branches),
+                "weighted_input_branch_count": sum(
+                    bool(branch["nearest_weighted_producers"]) for branch in branches
+                ),
             }
         )
-        if any(branch["nearest_weighted_producers"] for branch in branches) or downstream_weighted:
+        row["quantization_relevant_merge"] = row["weighted_input_branch_count"] >= 2
+        row["merge_role"] = (
+            "residual_activation_merge"
+            if str(node.op_type) == "Add" and row["quantization_relevant_merge"]
+            else "concat_activation_merge"
+            if str(node.op_type) == "Concat" and row["quantization_relevant_merge"]
+            else "non_activation_shape_or_functional_merge"
+        )
+        if row["quantization_relevant_merge"]:
             rows.append(row)
     return rows
+
+
+def _snapshot_weighted_following_ops(
+    model: Any,
+    mapping: CanonicalPrecisionMappingResult,
+) -> dict[str, dict[str, Any]]:
+    """Capture the pre-Q/DQ semantic path following each weighted node."""
+
+    nodes_by_name = {str(node.name): node for node in model.graph.node}
+    consumers: dict[str, list[Any]] = {}
+    for node in model.graph.node:
+        for input_name in node.input:
+            consumers.setdefault(str(input_name), []).append(node)
+    weighted_names = {str(row.canonical_node_name) for row in mapping.entries}
+    snapshots: dict[str, dict[str, Any]] = {}
+    for entry in mapping.entries:
+        node = nodes_by_name.get(str(entry.canonical_node_name))
+        if node is None:
+            continue
+        following: list[dict[str, Any]] = []
+        queue = [(str(output), 0) for output in node.output]
+        seen_tensors: set[str] = set()
+        while queue:
+            tensor_name, depth = queue.pop(0)
+            if tensor_name in seen_tensors or depth > 8:
+                continue
+            seen_tensors.add(tensor_name)
+            for consumer in consumers.get(tensor_name, []):
+                is_weighted = str(consumer.name) in weighted_names
+                following.append(
+                    {
+                        "name": str(consumer.name),
+                        "op_type": str(consumer.op_type),
+                        "input_tensor": tensor_name,
+                        "output_tensors": [str(value) for value in consumer.output],
+                        "depth": depth,
+                        "next_weighted_node": is_weighted,
+                    }
+                )
+                if not is_weighted:
+                    queue.extend((str(output), depth + 1) for output in consumer.output)
+        snapshots[str(entry.canonical_node_name)] = {
+            "weighted_output_tensors": [str(value) for value in node.output],
+            "following_ops": following,
+        }
+    return snapshots
+
+
+def _audit_weighted_qdq_boundaries(
+    model: Any,
+    mapping: CanonicalPrecisionMappingResult,
+    records: list[QDQInsertionRecord],
+    scales: Mapping[str, Any],
+    snapshots: Mapping[str, Mapping[str, Any]],
+    policy: QDQConfig,
+) -> tuple[list[dict[str, Any]], str]:
+    nodes_by_name = {str(node.name): node for node in model.graph.node}
+    entries = {str(row.canonical_node_name): row for row in mapping.entries}
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        entry = entries[str(record.canonical_node_name)]
+        snapshot = dict(snapshots.get(str(record.canonical_node_name), {}))
+        output_q_nodes = [nodes_by_name.get(str(name)) for name in record.output_quantize_nodes]
+        q_inputs = [str(node.input[0]) for node in output_q_nodes if node is not None and node.input]
+        scale_payload = scales.get(record.module_path, scales.get(record.canonical_node_name, {}))
+        scale_metadata = dict(scale_payload) if isinstance(scale_payload, Mapping) else {}
+        if q_inputs and all(value.endswith("__before_output_qdq") for value in q_inputs):
+            placement = "weighted_output_before_following_ops"
+        elif not q_inputs and entry.realized_output_precision == "fp16":
+            placement = "fp16_weighted_output_no_output_qdq"
+        elif q_inputs:
+            placement = "post_weighted_semantic_boundary"
+        else:
+            placement = "no_activation_output_qdq"
+        rows.append(
+            {
+                "canonical_layer": entry.module_path,
+                "weighted_node": entry.canonical_node_name,
+                "weighted_output_tensor": list(snapshot.get("weighted_output_tensors", [])),
+                "following_ops": list(snapshot.get("following_ops", [])),
+                "q_node_actual_input_tensor": q_inputs,
+                "qdq_placement": placement,
+                "activation_scale_owner": str(scale_metadata.get("activation_output_tensor", "")),
+                "activation_output_scale": float(record.activation_output_scale),
+                "merge_policy": policy.merge_policy,
+                "requested_precision": entry.requested_precision,
+                "legalized_precision": entry.realized_request_precision,
+                "requested_output_precision": entry.realized_output_precision or entry.realized_request_precision,
+                "realized_precision": "not_yet_inspected",
+                "engine_fused_layer": "",
+                "engine_effective_boundary": "not_yet_inspected",
+                "weight_granularity": record.weight_granularity,
+                "weight_axis": record.weight_axis,
+                "activation_output_boundary_policy": policy.activation_output_boundary_policy,
+            }
+        )
+    topology_payload = [
+        {
+            key: row[key]
+            for key in (
+                "canonical_layer",
+                "weighted_node",
+                "weighted_output_tensor",
+                "following_ops",
+                "q_node_actual_input_tensor",
+                "qdq_placement",
+                "activation_scale_owner",
+                "merge_policy",
+                "requested_precision",
+                "legalized_precision",
+                "requested_output_precision",
+                "weight_granularity",
+                "weight_axis",
+                "activation_output_boundary_policy",
+            )
+        }
+        for row in rows
+    ]
+    return rows, stable_json_hash(topology_payload)
 
 
 def insert_explicit_qdq(
@@ -256,6 +386,7 @@ def insert_explicit_qdq(
 
     policy = config or QDQConfig()
     model = onnx.load(str(input_onnx))
+    boundary_snapshots = _snapshot_weighted_following_ops(model, mapping)
     index = build_weight_trace_index(model)
     nodes_by_name = index["nodes_by_name"]
     requested = [row for row in mapping.entries if row.requested_precision == "int8"]
@@ -316,6 +447,7 @@ def insert_explicit_qdq(
             weight_granularity="per_channel" if isinstance(weight_scale, list) else "per_tensor",
             activation_output_scale=activation_output_scale,
             zero_point=int(policy.zero_point),
+            activation_output_boundary_policy=policy.activation_output_boundary_policy,
         )
         if policy.insert_activation_input_qdq:
             pair, dequantized, q_name, dq_name = _qdq_pair(
@@ -357,12 +489,21 @@ def insert_explicit_qdq(
             new_nodes.extend(pair)
             record.output_quantize_nodes.append(q_name)
             record.output_dequantize_nodes.append(dq_name)
+            record.activation_output_q_inputs.append(raw_name)
         records.append(record)
     if len(records) != len(targets):
         raise QDQInsertionError("not every canonical INT8 target received Q/DQ")
     del model.graph.node[:]
     model.graph.node.extend(new_nodes)
     merge_audit = _audit_fp16_merge_boundaries(model, policy.merge_policy, mapping)
+    boundary_audit, topology_hash = _audit_weighted_qdq_boundaries(
+        model,
+        mapping,
+        records,
+        scales,
+        boundary_snapshots,
+        policy,
+    )
     destination = Path(output_onnx)
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix=f".{destination.name}.", suffix=".onnx", dir=destination.parent)
@@ -394,6 +535,8 @@ def insert_explicit_qdq(
     metadata.setdefault("scale_modules", sorted(str(key) for key in scales))
     metadata["merge_policy"] = policy.merge_policy
     metadata["merge_quantization_audit"] = merge_audit
+    metadata["weighted_qdq_boundary_audit"] = boundary_audit
+    metadata["qdq_topology_hash"] = topology_hash
     return QDQInsertionResult(
         input_onnx=str(input_onnx),
         output_onnx=str(destination),

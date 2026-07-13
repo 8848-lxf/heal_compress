@@ -1,0 +1,47 @@
+model:
+  checkpoint: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth
+  config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml
+
+runtime:
+  gpu_id: 6
+  exclude_gpu_ids: []
+  model_env: univ2x-opt
+  tensorrt_env: modelopt
+  tensorrt_root: /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
+
+output:
+  experiment_name: h800_explicit_qdq_production_acceptance
+
+baselines:
+  build_before_search: true
+  precisions:
+    - trusted_explicit_qdq_int8
+
+pruning:
+  gene_type: coupled_channel_keep_mask
+  grouped_conv_mode: shared_local_mean
+  grouped_conv:
+    allowed_channels_per_group: [4, 8, 16, 32, 64, 128, 256, 512]
+
+precision:
+  gene_type: coupled_precision_group
+  candidates: [FP32, FP16, INT8]
+  default: FP16
+
+proxy:
+  fisher_calibration_batches: 0
+  quant_calibration_batches: 200
+  quant_calibration_npz_manifest: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json
+  quant_activation_calibration_backend: tensorrt_entropy_calibration2
+  quant_calibration_force_rebuild: true
+
+search:
+  max_pruning_units: 96
+
+stage2:
+  num_frames: 10
+  warmup_frames: 10
+  reset_after_warmup: true
+  latency_rounds: 1
+  latency_metric: forward_p50_ms

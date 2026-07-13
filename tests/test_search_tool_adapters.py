@@ -245,3 +245,61 @@ def test_modelopt_subprocess_env_pins_conda_cuda_and_compilers(tmp_path: Path, m
     assert env["CUDACXX"] == str(prefix / "bin" / "nvcc")
     assert env["CMAKE_PREFIX_PATH"] == f"{prefix}:/legacy"
     assert env["CUDA_VISIBLE_DEVICES"] == "7"
+
+
+def test_modelopt_python_command_removes_system_cuda_runtime_precedence() -> None:
+    from search.integration.runtime_environment import modelopt_python_command
+
+    command = modelopt_python_command("modelopt")
+    script = command[2]
+
+    assert "requested_ld_library_path" in script
+    assert "requested_path" in script
+    assert "/usr/local/cuda*" in script
+    assert "*/envs/univ2x-opt/*" in script
+    assert 'export PATH="$clean_path"' in script
+    assert 'export LD_LIBRARY_PATH="$clean_ld_library_path"' in script
+
+
+def test_search_cli_records_effective_process_arguments(tmp_path: Path, monkeypatch: Any) -> None:
+    from search import cli
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"model": {"checkpoint": "/model.pth"}}),
+        encoding="utf-8",
+    )
+    run_dir = tmp_path / "run with spaces"
+    run_dir.mkdir()
+
+    class FakeSearch:
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def run(self, **kwargs: Any) -> dict[str, Any]:
+            assert kwargs["baseline_only"] is True
+            return {"run_dir": str(run_dir)}
+
+    monkeypatch.setattr(cli, "LidarPyramidTwoStageSearch", FakeSearch)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "search.cli",
+            "--config",
+            str(config_path),
+            "--output-root",
+            str(tmp_path / "output with spaces"),
+            "--baseline-only",
+        ],
+    )
+
+    assert cli.main() == 0
+    recorded = (run_dir / "commands.sh").read_text(encoding="utf-8")
+    assert recorded == (
+        "python -m search.cli --config "
+        + str(config_path)
+        + " --output-root '"
+        + str(tmp_path / "output with spaces")
+        + "' --baseline-only\n"
+    )

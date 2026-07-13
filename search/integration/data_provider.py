@@ -28,10 +28,26 @@ class EvaluationManifest:
         }
 
 
-def _hash_manifest(frame_ids: list[str], split: str) -> str:
+def _hash_manifest(
+    frame_ids: list[str],
+    split: str,
+    *,
+    warmup_frame_ids: list[str] | None = None,
+    evaluation_frame_ids: list[str] | None = None,
+    reset_after_warmup: bool = False,
+) -> str:
     import hashlib
 
-    payload = json.dumps({"split": split, "frame_ids": frame_ids}, sort_keys=True).encode("utf-8")
+    payload = json.dumps(
+        {
+            "split": split,
+            "frame_ids": frame_ids,
+            "warmup_frame_ids": list(warmup_frame_ids or []),
+            "evaluation_frame_ids": list(evaluation_frame_ids or frame_ids),
+            "reset_after_warmup": bool(reset_after_warmup),
+        },
+        sort_keys=True,
+    ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -72,17 +88,30 @@ def write_eval_manifest(
     warmup_frames: int,
     split: str = "val",
     available_frame_ids: Iterable[str] | None = None,
+    reset_after_warmup: bool = False,
 ) -> EvaluationManifest:
     total = int(num_frames) + int(warmup_frames)
-    available = [str(value) for value in available_frame_ids] if available_frame_ids is not None else [str(index) for index in range(total)]
-    if len(available) < total:
-        raise RuntimeError(f"insufficient_manifest_frames:{len(available)}<{total}")
-    frame_ids = available[:total]
-    warmup_ids = frame_ids[: int(warmup_frames)]
-    evaluation_ids = frame_ids[int(warmup_frames) :]
+    required = max(int(num_frames), int(warmup_frames)) if reset_after_warmup else total
+    available = [str(value) for value in available_frame_ids] if available_frame_ids is not None else [str(index) for index in range(required)]
+    if len(available) < required:
+        raise RuntimeError(f"insufficient_manifest_frames:{len(available)}<{required}")
+    if reset_after_warmup:
+        warmup_ids = available[: int(warmup_frames)]
+        evaluation_ids = available[: int(num_frames)]
+        frame_ids = list(evaluation_ids)
+    else:
+        frame_ids = available[:total]
+        warmup_ids = frame_ids[: int(warmup_frames)]
+        evaluation_ids = frame_ids[int(warmup_frames) :]
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_hash = _hash_manifest(frame_ids, split)
+    manifest_hash = _hash_manifest(
+        frame_ids,
+        split,
+        warmup_frame_ids=warmup_ids,
+        evaluation_frame_ids=evaluation_ids,
+        reset_after_warmup=reset_after_warmup,
+    )
     path.write_text(
         json.dumps(
             {
@@ -92,6 +121,7 @@ def write_eval_manifest(
                 "evaluation_frame_ids": evaluation_ids,
                 "warmup_frames": len(warmup_ids),
                 "num_frames": len(evaluation_ids),
+                "reset_after_warmup": bool(reset_after_warmup),
                 "manifest_hash": manifest_hash,
             },
             indent=2,

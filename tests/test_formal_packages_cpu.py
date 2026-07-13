@@ -857,6 +857,100 @@ def test_qdq_uses_distinct_activation_weight_and_output_scales(tmp_path: Path) -
     assert record.activation_input_scale == pytest.approx(0.1)
     assert record.weight_scale == pytest.approx(0.02)
     assert record.activation_output_scale == pytest.approx(0.3)
+    boundary = insertion.calibration_metadata["weighted_qdq_boundary_audit"][0]
+    assert boundary["qdq_placement"] == "weighted_output_before_following_ops"
+    assert boundary["q_node_actual_input_tensor"] == record.activation_output_q_inputs
+    assert insertion.calibration_metadata["qdq_topology_hash"]
+
+
+def test_qdq_boundary_report_distinguishes_graph_input_from_engine_fusion(tmp_path: Path) -> None:
+    from quantization.reports.qdq_boundary import enrich_weighted_qdq_boundary_audit
+
+    canonical = "__canonical__shrink_conv_0__Conv__call00000"
+    report = enrich_weighted_qdq_boundary_audit(
+        [
+            {
+                "canonical_layer": "shrink_conv.layers.0.double_conv.0",
+                "weighted_node": canonical,
+                "weighted_output_tensor": ["conv_out"],
+                "following_ops": [
+                    {
+                        "name": "/shrink/relu",
+                        "op_type": "Relu",
+                        "input_tensor": "conv_out",
+                        "output_tensors": ["relu_out"],
+                        "depth": 0,
+                        "next_weighted_node": False,
+                    }
+                ],
+                "q_node_actual_input_tensor": ["conv_out__before_output_qdq"],
+                "qdq_placement": "weighted_output_before_following_ops",
+                "activation_scale_owner": "conv_out",
+                "merge_policy": "fp16_merge",
+                "requested_precision": "int8",
+                "legalized_precision": "int8",
+            }
+        ],
+        [
+            {
+                "Name": f"weight + {canonical} + PWN(/shrink/relu)",
+                "LayerType": "CaskConvolution",
+                "Precision": "Int8",
+                "Metadata": f"[ONNX Layer: {canonical}] [ONNX Layer: /shrink/relu]",
+            }
+        ],
+    )
+
+    assert report["passed"] is True
+    assert report["layers"][0]["engine_effective_boundary"] == "fused_weighted_output_plus_relu"
+
+
+def test_qdq_can_leave_concat_branch_output_fp16_without_output_qdq(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from quantization.api import (
+        apply_canonical_node_names,
+        build_canonical_precision_mapping,
+        build_onnx_origin_map,
+        generate_precision_profile,
+        insert_explicit_qdq,
+    )
+    from quantization.types import CanonicalPrecisionMappingResult
+
+    source = tmp_path / "source.onnx"
+    named = tmp_path / "named.onnx"
+    qdq = tmp_path / "qdq.onnx"
+    _write_weighted_onnx(source)
+    origin = build_onnx_origin_map(
+        source,
+        [{"module_path": "stem", "module_type": "Conv2d", "call_index": 0, "weight_initializer": "stem.weight"}],
+    )
+    apply_canonical_node_names(source, origin, output_path=named)
+    raw_mapping = build_canonical_precision_mapping(origin, generate_precision_profile(["stem"], profile_id="strict_int8"))
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[replace(raw_mapping.entries[0], realized_output_precision="fp16")],
+        profile_id=raw_mapping.profile_id,
+        profile_hash=raw_mapping.profile_hash,
+        origin_map_hash=raw_mapping.origin_map_hash,
+    )
+    result = insert_explicit_qdq(
+        named,
+        qdq,
+        mapping,
+        scales={
+            "stem": {
+                "activation_input_scale": 0.1,
+                "weight_scale": 0.02,
+                "activation_output_scale": 0.3,
+                "activation_output_tensor": "output",
+                "insert_activation_output_qdq": False,
+            }
+        },
+    )
+
+    assert result.records[0].output_quantize_nodes == []
+    boundary = result.calibration_metadata["weighted_qdq_boundary_audit"][0]
+    assert boundary["qdq_placement"] == "fp16_weighted_output_no_output_qdq"
 
 
 def test_qdq_fp16_merge_policy_audits_single_quantized_branch(tmp_path: Path) -> None:

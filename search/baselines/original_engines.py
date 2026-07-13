@@ -17,7 +17,43 @@ from quantization.types import OnnxOriginMapResult, PrecisionAssignment, Precisi
 from ..quantization_space.types import QuantizationSearchGroup
 
 
-BASELINE_PRECISIONS = {"strict_fp32", "strict_fp16", "maximal_legal_int8", "pure_strict_int8"}
+TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES = (
+    "backbone_m1.resnet.layer0.0.conv1",
+    "backbone_m1.resnet.layer0.0.conv2",
+    "pyramid_backbone.resnet.layer0.0.conv2",
+    "pyramid_backbone.resnet.layer0.1.conv2",
+    "pyramid_backbone.resnet.layer0.2.conv2",
+    "pyramid_backbone.resnet.layer1.0.conv2",
+    "pyramid_backbone.resnet.layer1.0.conv3",
+    "pyramid_backbone.resnet.layer1.1.conv2",
+    "pyramid_backbone.resnet.layer1.2.conv2",
+    "pyramid_backbone.resnet.layer1.3.conv2",
+    "pyramid_backbone.resnet.layer1.4.conv2",
+    "pyramid_backbone.resnet.layer2.0.conv2",
+    "pyramid_backbone.resnet.layer2.0.conv3",
+    "pyramid_backbone.resnet.layer2.1.conv2",
+    "pyramid_backbone.resnet.layer2.2.conv2",
+    "pyramid_backbone.resnet.layer2.3.conv2",
+    "pyramid_backbone.resnet.layer2.4.conv2",
+    "pyramid_backbone.resnet.layer2.5.conv2",
+    "pyramid_backbone.resnet.layer2.6.conv2",
+    "pyramid_backbone.resnet.layer2.7.conv2",
+    "pyramid_backbone.single_head_0",
+    "pyramid_backbone.single_head_1",
+    "shrink_conv.layers.0.double_conv.0",
+    "shrink_conv.layers.0.double_conv.2",
+    "cls_head",
+    "reg_head",
+    "dir_head",
+)
+
+BASELINE_PRECISIONS = {
+    "strict_fp32",
+    "strict_fp16",
+    "maximal_legal_int8",
+    "pure_strict_int8",
+    "trusted_explicit_qdq_int8",
+}
 
 
 def _normalize_baseline(kind: str) -> str:
@@ -39,8 +75,8 @@ def make_baseline_trt_build_config(
     """Return strict builder flags for one original-model baseline."""
 
     kind = _normalize_baseline(baseline)
-    enable_fp16 = kind in {"strict_fp16", "maximal_legal_int8", "pure_strict_int8"}
-    enable_int8 = kind in {"maximal_legal_int8", "pure_strict_int8"}
+    enable_fp16 = kind in {"strict_fp16", "maximal_legal_int8", "pure_strict_int8", "trusted_explicit_qdq_int8"}
+    enable_int8 = kind in {"maximal_legal_int8", "pure_strict_int8", "trusted_explicit_qdq_int8"}
     return TensorRTBuildConfig(
         trtexec_path=Path(trtexec_path) if trtexec_path is not None else None,
         plugin_path=Path(plugin_path) if plugin_path is not None else None,
@@ -82,6 +118,11 @@ def build_baseline_precision_profile(
 
     kind = _normalize_baseline(baseline)
     module_groups = _module_to_group(groups)
+    trusted_modules = set(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES)
+    if kind == "trusted_explicit_qdq_int8":
+        missing_trusted = sorted(trusted_modules - {str(row.module_path) for row in origin_map.entries})
+        if missing_trusted:
+            raise RuntimeError(f"trusted_explicit_qdq_profile_modules_missing:{missing_trusted}")
     assignments: list[PrecisionAssignment] = []
     missing: list[str] = []
     for ordering, origin in enumerate(sorted(origin_map.entries, key=lambda row: (row.call_index, row.graph_index))):
@@ -93,6 +134,10 @@ def build_baseline_precision_profile(
             requested = "fp32"
         elif kind == "strict_fp16":
             requested = "fp16"
+        elif kind == "trusted_explicit_qdq_int8":
+            requested = "int8" if str(origin.module_path) in trusted_modules else "fp16"
+            if requested == "int8" and ("INT8" not in group.allowed_precisions or group.protected):
+                raise RuntimeError(f"trusted_explicit_qdq_profile_module_not_legal:{origin.module_path}")
         else:
             requested = "int8" if "INT8" in group.allowed_precisions and not group.protected else "fp16"
         assignments.append(
@@ -102,7 +147,13 @@ def build_baseline_precision_profile(
                 requested_precision=requested,
                 ordering=ordering,
                 protected_precision="fp16" if requested == "fp16" and kind in {"maximal_legal_int8", "pure_strict_int8"} else "",
-                fallback_reason=group.protection_reason if requested == "fp16" and group.protected else "",
+                fallback_reason=(
+                    group.protection_reason
+                    if requested == "fp16" and group.protected
+                    else "trusted_profile_not_selected"
+                    if requested == "fp16" and kind == "trusted_explicit_qdq_int8"
+                    else ""
+                ),
             )
         )
     if missing:
@@ -184,6 +235,15 @@ def validate_baseline_layer_precisions(
         if summary["weighted_fp32_count"] or summary["weighted_fp16_count"] or not summary["weighted_int8_count"]:
             issues.append("not_all_weighted_layers_realized_int8")
             status = "pure_strict_int8_failed"
+    elif kind == "trusted_explicit_qdq_int8":
+        if summary["weighted_int8_count"] != len(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES):
+            issues.append(
+                f"trusted_explicit_qdq_int8_count_mismatch:{summary['weighted_int8_count']}!={len(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES)}"
+            )
+            status = "trusted_explicit_qdq_int8_failed"
+        if summary["weighted_fp32_count"]:
+            issues.append("trusted_explicit_qdq_unexpected_fp32_fallback")
+            status = "trusted_explicit_qdq_int8_failed"
     else:
         if not summary["weighted_int8_count"]:
             issues.append("no_weighted_layer_realized_int8")
