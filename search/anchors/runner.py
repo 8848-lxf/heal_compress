@@ -22,6 +22,7 @@ import yaml
 from .bops_021 import (
     QuantizationSensitivity,
     decompose_bops_retention,
+    identify_low_damage_bops_path,
     make_all_fp16_genotype,
     make_all_fp16_pruning_genotype,
     make_mixed_no_prune_genotype,
@@ -151,7 +152,7 @@ def _plugin_dtype_audit(path: str | Path) -> dict[str, Any]:
         "plugin_layer_count": 1,
         "floating_input_dtypes": inputs,
         "output_dtypes": outputs,
-        "boundary": "FP32" if inputs == ["Float", "Float"] and outputs == ["Float"] else "UNKNOWN",
+        "boundary": "FP32" if passed else "UNKNOWN",
     }
 
 
@@ -1046,6 +1047,14 @@ class Bops021AnchorStudy:
             )
         anchors = {"A": result_a, "B": result_b, "C": result_c}
         manifest_audit = validate_manifest_consistency(anchors)
+        stage2 = dict(self.config.get("stage2", {}) or {})
+        low_damage_observation = identify_low_damage_bops_path(
+            strict_fp32,
+            {"B": result_b, "C": result_c},
+            target=float(stage2.get("target_bops_retention", 0.21)),
+            tolerance=float(stage2.get("bops_tolerance", 0.005)),
+            expected_frames=int(stage2.get("num_frames", 200)),
+        )
         summary = {
             "status": "complete",
             "git_commit": context.code_commit,
@@ -1056,10 +1065,11 @@ class Bops021AnchorStudy:
             "strict_fp32": strict_fp32,
             "anchors": anchors,
             "manifest_consistency": manifest_audit,
+            "low_damage_path_observation": low_damage_observation,
             "ANCHOR_FP16_BASELINE_PASS": bool(result_a.get("passed", False)),
             "ANCHOR_FP16_PRUNING_PASS": bool(result_b.get("passed", False)),
             "ANCHOR_MIXED_NO_PRUNE_PASS": bool(result_c.get("passed", False)),
-            "LOW_DAMAGE_BOPS_021_PATH_IDENTIFIED": False,
+            "LOW_DAMAGE_BOPS_021_PATH_IDENTIFIED": bool(low_damage_observation["identified"]),
             "MULTIGPU_TOP5_SMOKE_PASS": False,
             "STAGE_A_ALLOWED": False,
             "STAGE_A_STARTED": False,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -201,3 +202,66 @@ def test_mixed_precision_prefix_uses_mac_not_layer_count() -> None:
     assert selection["selected_group_ids"] == ["g_large", "g_small"]
     assert selection["int8_macs_ratio"] == pytest.approx(0.22)
     assert selection["bops_retention"] == pytest.approx(0.20875)
+
+
+def test_scatter_fp32_boundary_summary_accepts_all_three_float_inputs(tmp_path: Path) -> None:
+    from search.anchors.runner import _plugin_dtype_audit
+
+    path = tmp_path / "engine_layer_info.json"
+    path.write_text(
+        json.dumps(
+            {
+                "Layers": [
+                    {
+                        "Name": "/PointPillarScatterTRT",
+                        "PluginType": "PointPillarScatterTRT",
+                        "Inputs": [
+                            {"Format/Datatype": "Float"},
+                            {"Format/Datatype": "Int32"},
+                            {"Format/Datatype": "Float"},
+                            {"Format/Datatype": "Float"},
+                        ],
+                        "Outputs": [{"Format/Datatype": "Float"}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = _plugin_dtype_audit(path)
+
+    assert report["passed"] is True
+    assert report["boundary"] == "FP32"
+
+
+def test_low_damage_path_is_a_relative_pareto_observation_not_an_ap_gate() -> None:
+    from search.anchors.bops_021 import identify_low_damage_bops_path
+
+    reference = {"mAP": 0.72, "AP@0.7": 0.59, "forward_p50_ms": 7.3}
+    anchors = {
+        "B": {
+            "passed": True,
+            "evaluated": 200,
+            "skipped": 0,
+            "R_BOPS_realized": 0.211,
+            "mAP": 0.721,
+            "AP@0.7": 0.591,
+            "forward_p50_ms": 5.6,
+        },
+        "C": {
+            "passed": True,
+            "evaluated": 200,
+            "skipped": 0,
+            "R_BOPS_realized": 0.213,
+            "mAP": 0.722,
+            "AP@0.7": 0.592,
+            "forward_p50_ms": 3.9,
+        },
+    }
+
+    observation = identify_low_damage_bops_path(reference, anchors)
+
+    assert observation["identified"] is True
+    assert observation["qualifying_anchors"] == ["B", "C"]
+    assert observation["formal_ap_hard_gate_applied"] is False

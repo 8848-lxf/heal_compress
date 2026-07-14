@@ -258,6 +258,87 @@ def decompose_bops_retention(
     }
 
 
+def identify_low_damage_bops_path(
+    strict_fp32: Mapping[str, Any],
+    anchors: Mapping[str, Mapping[str, Any]],
+    *,
+    target: float = 0.21,
+    tolerance: float = 0.005,
+    expected_frames: int = 200,
+) -> dict[str, Any]:
+    """Classify observed Pareto points without creating an AP admission gate."""
+
+    reference_keys = ("mAP", "AP@0.7", "forward_p50_ms")
+    missing_reference = [key for key in reference_keys if strict_fp32.get(key) is None]
+    if missing_reference:
+        return {
+            "identified": False,
+            "status": "strict_fp32_metrics_missing",
+            "missing_reference_metrics": missing_reference,
+            "qualifying_anchors": [],
+            "formal_ap_hard_gate_applied": False,
+        }
+
+    reference = {key: float(strict_fp32[key]) for key in reference_keys}
+    observations: dict[str, Any] = {}
+    qualifying: list[str] = []
+    for name in sorted(anchors):
+        row = anchors[name]
+        required = (*reference_keys, "R_BOPS_realized")
+        missing = [key for key in required if row.get(key) is None]
+        issues: list[str] = []
+        if not bool(row.get("passed", False)):
+            issues.append("anchor_audit_failed")
+        if int(row.get("evaluated", -1)) != int(expected_frames):
+            issues.append("evaluated_frame_count_mismatch")
+        if int(row.get("skipped", -1)) != 0:
+            issues.append("evaluation_skip")
+        if missing:
+            issues.append("metrics_missing:" + ",".join(missing))
+
+        deltas: dict[str, float] = {}
+        bops_passed = False
+        pareto_noninferior = False
+        if not missing:
+            deltas = {
+                "delta_mAP_vs_strict_fp32": float(row["mAP"]) - reference["mAP"],
+                "delta_AP07_vs_strict_fp32": float(row["AP@0.7"]) - reference["AP@0.7"],
+                "delta_p50_ms_vs_strict_fp32": float(row["forward_p50_ms"])
+                - reference["forward_p50_ms"],
+            }
+            bops_passed = realized_bops_gate(
+                float(row["R_BOPS_realized"]),
+                target=target,
+                tolerance=tolerance,
+            )["passed"]
+            pareto_noninferior = (
+                deltas["delta_mAP_vs_strict_fp32"] >= 0.0
+                and deltas["delta_AP07_vs_strict_fp32"] >= 0.0
+                and deltas["delta_p50_ms_vs_strict_fp32"] < 0.0
+            )
+        if not bops_passed:
+            issues.append("realized_BOPS_out_of_budget")
+        if not pareto_noninferior:
+            issues.append("not_observed_pareto_noninferior")
+        passed = not issues
+        if passed:
+            qualifying.append(str(name))
+        observations[str(name)] = {
+            "qualifies": passed,
+            "issues": issues,
+            **deltas,
+        }
+
+    return {
+        "identified": bool(qualifying),
+        "status": "observed_low_damage_path" if qualifying else "no_observed_low_damage_path",
+        "basis": "relative_observed_mAP_AP07_p50_vs_same_run_strict_fp32",
+        "qualifying_anchors": qualifying,
+        "observations": observations,
+        "formal_ap_hard_gate_applied": False,
+    }
+
+
 def select_mixed_precision_prefix(
     rows: Sequence[QuantizationSensitivity],
     *,
