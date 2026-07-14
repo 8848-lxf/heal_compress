@@ -143,3 +143,58 @@ entropy/merge/precision/topology audits and 200/200 zero-skip results, and only
 then change `READY_FOR_GA` or start generation 0.
 
 --- Round 3 completed: 2026-07-14 16:49:04 CST ---
+
+## Round 4 - explicit shared-GPU authorization before readiness
+
+Starting point: branch `feature/heal-compress-h800-sync-4090`, commit
+`fce9430`. The user explicitly directed the experiment to continue on cards
+with free capacity despite the resident low-utilization processes.
+
+Implemented changes:
+
+- `search/integration/runtime_environment.py` keeps the default foreign-process
+  rejection, but adds an explicit shared-card authorization and a sampled GPU
+  utilization ceiling. Foreign PID/user/command/memory/duration remain in every
+  report even when the gate passes.
+- `search/integration/lidar_pyramid_context.py` records the shared-card policy
+  in the formal context report.
+- `search/orchestration/lidar_pyramid_search.py` parses the runtime policy once
+  and passes it through context construction and the initial preflight.
+- `search/stage2/lidar_pyramid_real_evaluator.py` and
+  `search/orchestration/budget_final.py` apply the identical policy before and
+  after all real 200/300/500-frame evaluations.
+- The shared-card policy remains available as an explicit opt-in, but before
+  push the user freed GPUs 4-7. Both formal 4090 configs therefore select
+  physical GPU 5 with `allow_foreign_gpu_processes: false` and retain the
+  20-percent unexplained-utilization ceiling. Other configs are unchanged.
+
+Test-first evidence:
+
+- low-utilization shared-card audit failed before the API existed, then passed;
+- utilization 21 percent is rejected at a configured 20 percent ceiling;
+- default foreign-process rejection remains covered;
+- YAML contract tests first failed on the previous `gpu_id: auto`, passed for
+  the shared GPU-1 authorization, then failed/passed again when the final
+  experiment selection moved to isolated GPU 5;
+- 19 focused runtime/config/final-evaluation tests passed.
+
+Final live preflight on GPU 5:
+
+- UUID: `GPU-d4b8342a-7038-f567-ce40-a4705b23854b`;
+- free memory: 24,080 MiB;
+- sampled utilization: 0 percent;
+- compute PID count: 0;
+- strict isolation gate: passed.
+
+Current gates:
+
+- `READY_FOR_GA = false` pending the fresh strict-FP16/E67 engine and 200-frame
+  results;
+- Stage A started: no;
+- Stage B allowed: no.
+
+Next round: commit this policy so deployment signatures bind the correct code,
+then run the fresh readiness config on GPU 1. Do not start generation 0 unless
+the full E67 and strict-FP16 audits pass.
+
+--- Round 4 completed: 2026-07-14 17:34:28 CST ---

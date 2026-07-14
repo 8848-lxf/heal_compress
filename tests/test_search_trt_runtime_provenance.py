@@ -245,3 +245,71 @@ def test_gpu_isolation_audit_accepts_only_current_process() -> None:
 
     assert report["passed"] is True
     assert report["foreign_compute_processes"] == []
+
+
+def test_gpu_isolation_audit_allows_explicit_low_utilization_shared_gpu() -> None:
+    from search.integration.runtime_environment import audit_gpu_isolation
+
+    report = audit_gpu_isolation(
+        [
+            {
+                "index": 1,
+                "uuid": "GPU-SHARED",
+                "utilization_gpu_pct": 7,
+                "processes": [
+                    {"pid": 404, "process_name": "foreign-server", "used_memory_mib": 3900}
+                ],
+            }
+        ],
+        gpu_index=1,
+        allowed_pids={303},
+        allow_foreign_processes=True,
+        max_gpu_utilization_pct=20,
+    )
+
+    assert report["passed"] is True
+    assert report["shared_gpu_authorized"] is True
+    assert [row["pid"] for row in report["foreign_compute_processes"]] == [404]
+    assert report["issues"] == []
+
+
+def test_gpu_isolation_audit_rejects_busy_shared_gpu() -> None:
+    from search.integration.runtime_environment import audit_gpu_isolation
+
+    report = audit_gpu_isolation(
+        [
+            {
+                "index": 1,
+                "uuid": "GPU-SHARED",
+                "utilization_gpu_pct": 21,
+                "processes": [
+                    {"pid": 404, "process_name": "foreign-server", "used_memory_mib": 3900}
+                ],
+            }
+        ],
+        gpu_index=1,
+        allowed_pids={303},
+        allow_foreign_processes=True,
+        max_gpu_utilization_pct=20,
+    )
+
+    assert report["passed"] is False
+    assert report["issues"] == ["gpu_utilization_above_shared_limit"]
+
+
+def test_lidar_runner_parses_explicit_shared_gpu_policy() -> None:
+    from search.orchestration.lidar_pyramid_search import _gpu_isolation_policy
+
+    assert _gpu_isolation_policy(
+        {
+            "allow_foreign_gpu_processes": True,
+            "max_gpu_utilization_pct": 20,
+        }
+    ) == {
+        "allow_foreign_processes": True,
+        "max_gpu_utilization_pct": 20,
+    }
+    assert _gpu_isolation_policy({}) == {
+        "allow_foreign_processes": False,
+        "max_gpu_utilization_pct": 20,
+    }

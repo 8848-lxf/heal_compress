@@ -1785,6 +1785,12 @@ class LidarPyramidRealEvaluator:
         require_gpu_isolation(
             self.context.physical_gpu_id,
             report_path=output_dir / "gpu_preflight.json",
+            allow_foreign_processes=bool(
+                getattr(self.context, "allow_foreign_gpu_processes", False)
+            ),
+            max_gpu_utilization_pct=int(
+                getattr(self.context, "max_gpu_utilization_pct", 20)
+            ),
         )
         result = evaluate_engine_modelopt(
             engine_path=engine_path,
@@ -1805,6 +1811,12 @@ class LidarPyramidRealEvaluator:
         require_gpu_isolation(
             self.context.physical_gpu_id,
             report_path=output_dir / "gpu_postflight.json",
+            allow_foreign_processes=bool(
+                getattr(self.context, "allow_foreign_gpu_processes", False)
+            ),
+            max_gpu_utilization_pct=int(
+                getattr(self.context, "max_gpu_utilization_pct", 20)
+            ),
         )
         _write_json(output_dir / "evaluation.json", result)
         self._copy_latency(result, output_dir / "latency.csv")

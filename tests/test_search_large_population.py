@@ -63,6 +63,9 @@ def test_4090_readiness_config_uses_fresh_matched_e67_entropy_gate() -> None:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
 
     assert data["runtime"]["tensorrt_root"] == "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118"
+    assert data["runtime"]["gpu_id"] == "5"
+    assert data["runtime"]["allow_foreign_gpu_processes"] is False
+    assert data["runtime"]["max_gpu_utilization_pct"] == 20
     assert data["baselines"]["precisions"] == ["strict_fp16", "matched_legacy_int8"]
     assert data["proxy"]["quant_activation_calibration_backend"] == "tensorrt_entropy_calibration2"
     assert data["proxy"]["quant_calibration_batches"] == 200
@@ -84,6 +87,9 @@ def test_4090_stage_a_config_is_per_generation_top5_at_fixed_budget() -> None:
     assert data["search"]["per_generation_stage2"] is True
     assert data["search"]["topk_stage2"] == 5
     assert data["search"]["target_bops_retention"] == 0.21
+    assert data["runtime"]["gpu_id"] == "5"
+    assert data["runtime"]["allow_foreign_gpu_processes"] is False
+    assert data["runtime"]["max_gpu_utilization_pct"] == 20
     assert data["search"]["bops_tolerance"] == 0.005
     assert data["stage2"]["num_frames"] == 300
     assert data["stage2"]["target_bops_retention"] == 0.21

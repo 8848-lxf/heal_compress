@@ -55,6 +55,8 @@ class LidarPyramidSearchContext:
     plugin_paths: list[Path]
     physical_gpu_id: int
     runtime_device: str
+    allow_foreign_gpu_processes: bool
+    max_gpu_utilization_pct: int
     gpu_selection: GPUSelection
     tensorrt: TensorRTEnvironment
     search_space: SearchSpaceSpec
@@ -325,6 +327,8 @@ def build_lidar_pyramid_context(
     grouped_conv_align: int = 8,
     grouped_allowed_channels_per_group: list[int] | None = None,
     pruning_gene_type: str = "legal_pruning_action",
+    allow_foreign_gpu_processes: bool = False,
+    max_gpu_utilization_pct: int = 20,
 ) -> LidarPyramidSearchContext:
     gpu = select_gpu(gpu_id, exclude_gpu_ids)
     device = torch.device(gpu.runtime_device)
@@ -472,6 +476,8 @@ def build_lidar_pyramid_context(
         plugin_paths=[plugin],
         physical_gpu_id=gpu.physical_gpu_id,
         runtime_device=gpu.runtime_device,
+        allow_foreign_gpu_processes=bool(allow_foreign_gpu_processes),
+        max_gpu_utilization_pct=int(max_gpu_utilization_pct),
         gpu_selection=gpu,
         tensorrt=tensorrt,
         search_space=search_space,
@@ -541,6 +547,10 @@ def _write_context_report(path: Path, context: LidarPyramidSearchContext) -> Non
         "sample_pruning_unit_ids": context.search_space.pruning_unit_ids[:8],
         "sample_precision_layers": context.search_space.precision_layer_ids[:8],
         "gpu": context.gpu_selection.to_dict(),
+        "gpu_isolation_policy": {
+            "allow_foreign_gpu_processes": context.allow_foreign_gpu_processes,
+            "max_gpu_utilization_pct": context.max_gpu_utilization_pct,
+        },
         "tensorrt": context.tensorrt.to_dict(),
         "eval_manifest": {
             "path": str(context.eval_manifest_path),

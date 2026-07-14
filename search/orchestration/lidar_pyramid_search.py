@@ -79,6 +79,17 @@ def _require_gpu_proxy_if_needed(*, proxy_cfg: dict[str, Any], search_cfg: dict[
         raise RuntimeError("gpu_proxy_required_but_not_active")
 
 
+def _gpu_isolation_policy(runtime_config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "allow_foreign_processes": bool(
+            runtime_config.get("allow_foreign_gpu_processes", False)
+        ),
+        "max_gpu_utilization_pct": int(
+            runtime_config.get("max_gpu_utilization_pct", 20)
+        ),
+    }
+
+
 class LidarPyramidTwoStageSearch:
     def __init__(self, *, config: dict[str, Any], checkpoint: str | Path, output_root: str | Path, resume: str | Path | None = None) -> None:
         self.config = config
@@ -132,6 +143,7 @@ class LidarPyramidTwoStageSearch:
         proxy_cfg = dict(self.config.get("proxy", self.config.get("proxy_objective", {})))
         stage2_cfg = dict(self.config.get("stage2") or self.config.get("stage2_smoke") or self.config.get("evaluation", {}))
         model_cfg = dict(self.config.get("model", {}))
+        gpu_isolation_policy = _gpu_isolation_policy(runtime)
         context = build_lidar_pyramid_context(
             checkpoint_path=self.checkpoint,
             output_dir=run_dir,
@@ -173,12 +185,19 @@ class LidarPyramidTwoStageSearch:
                 )
             ],
             pruning_gene_type=str(pruning_cfg.get("gene_type", pruning_cfg.get("search_variable", "legal_pruning_action"))),
+            allow_foreign_gpu_processes=bool(
+                gpu_isolation_policy["allow_foreign_processes"]
+            ),
+            max_gpu_utilization_pct=int(
+                gpu_isolation_policy["max_gpu_utilization_pct"]
+            ),
         )
         _write_json(run_dir / "environment.json", {"gpu": context.gpu_selection.to_dict(), "tensorrt": context.tensorrt.to_dict()})
         if not stage1_only:
             require_gpu_isolation(
                 context.physical_gpu_id,
                 report_path=run_dir / "gpu_preflight.json",
+                **gpu_isolation_policy,
             )
         if baseline_only:
             real_evaluator = LidarPyramidRealEvaluator(

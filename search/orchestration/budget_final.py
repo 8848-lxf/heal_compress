@@ -135,6 +135,12 @@ def run_budget_final_evaluation(
         gpu_isolation_fn(
             context.physical_gpu_id,
             report_path=destination / "gpu_preflight.json",
+            allow_foreign_processes=bool(
+                getattr(context, "allow_foreign_gpu_processes", False)
+            ),
+            max_gpu_utilization_pct=int(
+                getattr(context, "max_gpu_utilization_pct", 20)
+            ),
         )
         result = evaluate_fn(
             engine_path=engine_path,
@@ -154,6 +160,12 @@ def run_budget_final_evaluation(
         gpu_isolation_fn(
             context.physical_gpu_id,
             report_path=destination / "gpu_postflight.json",
+            allow_foreign_processes=bool(
+                getattr(context, "allow_foreign_gpu_processes", False)
+            ),
+            max_gpu_utilization_pct=int(
+                getattr(context, "max_gpu_utilization_pct", 20)
+            ),
         )
         _require_complete_evaluation(
             result,

@@ -3,8 +3,10 @@ model:
   config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml
 
 runtime:
-  gpu_id: auto
+  gpu_id: "5"
   exclude_gpu_ids: []
+  allow_foreign_gpu_processes: false
+  max_gpu_utilization_pct: 20
   model_env: univ2x-opt
   tensorrt_env: modelopt
   tensorrt_root: /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118
@@ -111,4 +113,3 @@ cache:
   fresh_run: true
   reuse_external_cache: false
   resume: false
-

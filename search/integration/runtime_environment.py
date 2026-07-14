@@ -138,6 +138,8 @@ def audit_gpu_isolation(
     gpu_index: int,
     allowed_pids: set[int] | None = None,
     unexplained_utilization_limit_pct: int = 20,
+    allow_foreign_processes: bool = False,
+    max_gpu_utilization_pct: int = 20,
 ) -> dict[str, Any]:
     selected = next(
         (dict(row) for row in gpu_report if int(row.get("index", -1)) == int(gpu_index)),
@@ -149,8 +151,13 @@ def audit_gpu_isolation(
     processes = [dict(row) for row in selected.get("processes", [])]
     foreign = [row for row in processes if int(row.get("pid", -1)) not in allowed]
     issues: list[str] = []
-    if foreign:
+    if foreign and not allow_foreign_processes:
         issues.append("foreign_compute_processes_present")
+    if (
+        allow_foreign_processes
+        and int(selected.get("utilization_gpu_pct", 0)) > int(max_gpu_utilization_pct)
+    ):
+        issues.append("gpu_utilization_above_shared_limit")
     if (
         not processes
         and int(selected.get("utilization_gpu_pct", 0))
@@ -162,6 +169,8 @@ def audit_gpu_isolation(
         "gpu_index": int(gpu_index),
         "gpu_uuid": str(selected.get("uuid", "")),
         "allowed_pids": sorted(allowed),
+        "shared_gpu_authorized": bool(allow_foreign_processes),
+        "max_gpu_utilization_pct": int(max_gpu_utilization_pct),
         "foreign_compute_processes": foreign,
         "issues": issues,
         "telemetry": selected,
@@ -173,12 +182,16 @@ def require_gpu_isolation(
     *,
     report_path: str | Path | None = None,
     allowed_pids: set[int] | None = None,
+    allow_foreign_processes: bool = False,
+    max_gpu_utilization_pct: int = 20,
 ) -> dict[str, Any]:
     allowed = {os.getpid(), *(allowed_pids or set())}
     report = audit_gpu_isolation(
         query_gpus(),
         gpu_index=int(gpu_index),
         allowed_pids=allowed,
+        allow_foreign_processes=allow_foreign_processes,
+        max_gpu_utilization_pct=max_gpu_utilization_pct,
     )
     if report_path is not None:
         destination = Path(report_path)

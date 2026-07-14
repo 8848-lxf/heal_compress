@@ -122,3 +122,42 @@ Until all eight items pass, `READY_FOR_GA` remains false and no generation-0
 population may be started.
 
 --- Readiness attempt recorded: 2026-07-14 16:49:04 CST ---
+
+## Shared-GPU authorization update
+
+At 2026-07-14 17:34 CST the user explicitly authorized continuing on GPUs
+which still have sufficient free memory. This supersedes only the requirement
+that no foreign compute PID may exist. It does not waive telemetry or allow a
+busy card:
+
+- production defaults remain fail-closed for every non-4090 configuration;
+- the 4090 readiness and Stage-A configs explicitly select physical GPU 1;
+- `allow_foreign_gpu_processes: true` preserves and reports the foreign PID;
+- `max_gpu_utilization_pct: 20` rejects the card whenever sampled utilization
+  is above 20 percent;
+- the same policy is applied before/after readiness, every 300-frame Stage-2
+  evaluation, and every 500-frame budget-final evaluation.
+
+GPU 1 passed the new authorization gate at the update point with 20,175 MiB
+free and 0 percent sampled utilization. The known foreign server used 3,896
+MiB and remained fully visible in the report. `READY_FOR_GA` remains false
+until the fresh strict-FP16/E67 runtime gates themselves pass.
+
+--- Shared-GPU policy recorded: 2026-07-14 17:34:28 CST ---
+
+## Isolated GPU selection update
+
+Before the shared-policy commit was pushed, the user reported that GPUs 4-7
+had become free. A fresh process query confirmed that all four had zero compute
+PIDs. The formal readiness and Stage-A configs were therefore changed to
+physical GPU 5 with `allow_foreign_gpu_processes: false`; the shared mode remains
+available in code but is not enabled for this experiment.
+
+- GPU: physical 5;
+- UUID: `GPU-d4b8342a-7038-f567-ce40-a4705b23854b`;
+- free memory: 24,080 MiB;
+- sampled utilization: 0 percent;
+- compute PID count: 0;
+- isolation mode: strict.
+
+--- Isolated GPU 5 selected: 2026-07-14 17:36 CST ---
