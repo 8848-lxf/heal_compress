@@ -27,7 +27,7 @@ from ..integration.calibration_provider import (
     qdq_scales_from_tensorrt_entropy_cache,
     save_calibration_scales,
 )
-from ..integration.data_provider import load_split_frame_ids
+from ..integration.data_provider import load_split_frame_ids, write_eval_manifest
 from ..integration.evaluation_provider import evaluate_engine_modelopt
 from ..integration.lidar_pyramid_context import LidarPyramidSearchContext
 from ..integration.trt_compatible_export import build_search_trt_compatible_export_module, make_pointpillar_domain_compatible
@@ -821,6 +821,32 @@ class LidarPyramidRealEvaluator:
             "audits": details,
         }
 
+    def _smoke_evaluation_context(
+        self,
+        *,
+        smoke_frames: int,
+        smoke_warmup_frames: int,
+    ) -> LidarPyramidSearchContext:
+        manifest = write_eval_manifest(
+            self.run_dir
+            / "manifests"
+            / f"smoke_{int(smoke_frames)}_warmup_{int(smoke_warmup_frames)}.json",
+            num_frames=int(smoke_frames),
+            warmup_frames=int(smoke_warmup_frames),
+            available_frame_ids=load_split_frame_ids(
+                self.context.model_bundle.adapter,
+                self.context.model_config,
+                split="val",
+            ),
+            reset_after_warmup=True,
+        )
+        return replace(
+            self.context,
+            eval_manifest_path=manifest.path,
+            eval_frame_ids=manifest.frame_ids,
+            eval_manifest_hash=manifest.manifest_hash,
+        )
+
     def evaluate_candidate_two_level(
         self,
         phenotype: CandidatePhenotype,
@@ -838,9 +864,15 @@ class LidarPyramidRealEvaluator:
         baseline = self._stage2_reference_baseline()
         full_frames = self.num_frames
         full_warmup = self.warmup_frames
+        full_context = self.context
+        smoke_context = self._smoke_evaluation_context(
+            smoke_frames=int(smoke_frames),
+            smoke_warmup_frames=int(smoke_warmup_frames),
+        )
         try:
             self.num_frames = int(smoke_frames)
             self.warmup_frames = int(smoke_warmup_frames)
+            self.context = smoke_context
             raw = self._deploy_and_evaluate(
                 phenotype=phenotype,
                 output_dir=destination,
@@ -850,6 +882,7 @@ class LidarPyramidRealEvaluator:
         finally:
             self.num_frames = full_frames
             self.warmup_frames = full_warmup
+            self.context = full_context
         if str(raw.get("status", "")) != "ok":
             return {
                 "candidate_hash": candidate_hash,

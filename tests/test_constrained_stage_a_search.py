@@ -742,6 +742,25 @@ def test_two_level_stage2_builds_once_and_applies_ap_gate_only_to_full200(
     evaluator.warmup_frames = 20
     evaluator.latency_rounds = 1
     evaluator.run_dir = tmp_path
+    evaluator.context = type(
+        "Context",
+        (),
+        {
+            "eval_manifest_path": tmp_path / "full200.json",
+            "eval_manifest_hash": "full200",
+        },
+    )()
+    smoke_context = type(
+        "Context",
+        (),
+        {
+            "eval_manifest_path": tmp_path / "smoke10.json",
+            "eval_manifest_hash": "smoke10",
+        },
+    )()
+    evaluator._smoke_evaluation_context = (
+        lambda **_kwargs: smoke_context
+    )
     evaluator.objective_config = Stage2ObjectiveConfig(
         latency_metric="forward_p50_ms",
         min_map=0.705088,
@@ -761,6 +780,7 @@ def test_two_level_stage2_builds_once_and_applies_ap_gate_only_to_full200(
 
     def deploy(**kwargs):
         calls["deploy"] += 1
+        assert evaluator.context.eval_manifest_hash == "smoke10"
         destination = Path(kwargs["output_dir"])
         destination.mkdir(parents=True, exist_ok=True)
         (destination / "realized_bops_audit.json").write_text(
@@ -829,6 +849,7 @@ def test_two_level_stage2_builds_once_and_applies_ap_gate_only_to_full200(
 
     def evaluate_full(_engine_path, _output_dir):
         calls["full"] += 1
+        assert evaluator.context.eval_manifest_hash == "full200"
         assert evaluator.num_frames == 200
         assert evaluator.warmup_frames == 20
         return {
