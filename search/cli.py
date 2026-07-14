@@ -107,7 +107,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--config", required=True)
     parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--output-root", default="tests/outputs")
-    parser.add_argument("--gpu-id", default="auto")
+    parser.add_argument("--gpu-id", default=None)
     parser.add_argument("--exclude-gpu-ids", default=None)
     parser.add_argument("--resume", nargs="?", const="auto", default=None)
     parser.add_argument("--outer-rounds", type=int, default=None)
@@ -211,7 +211,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     gpu_report = _gpu_report()
-    selected_gpu = _select_gpu(str(args.gpu_id), config, gpu_report)
+    selected_gpu = _select_gpu(
+        str(runtime_cfg.get("gpu_id", "auto")), config, gpu_report
+    )
     pruning_ids, precision_ids, protected_ids = _default_space(config)
     _dump_yaml(output_root / "resolved_config.yaml", config)
     (output_root / "environment.json").write_text(

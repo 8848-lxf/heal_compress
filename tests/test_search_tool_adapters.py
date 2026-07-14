@@ -303,3 +303,91 @@ def test_search_cli_records_effective_process_arguments(tmp_path: Path, monkeypa
         + str(tmp_path / "output with spaces")
         + "' --baseline-only\n"
     )
+
+
+def test_search_cli_preserves_configured_gpu_when_flag_is_omitted(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from search import cli
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "model": {"checkpoint": "/model.pth"},
+                "runtime": {"gpu_id": "5"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    captured: dict[str, Any] = {}
+
+    class FakeSearch:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+        def run(self, **_kwargs: Any) -> dict[str, Any]:
+            return {"run_dir": str(run_dir)}
+
+    monkeypatch.setattr(cli, "LidarPyramidTwoStageSearch", FakeSearch)
+
+    assert (
+        cli.main(
+            [
+                "--config",
+                str(config_path),
+                "--output-root",
+                str(tmp_path / "output"),
+                "--baseline-only",
+            ]
+        )
+        == 0
+    )
+    assert captured["config"]["runtime"]["gpu_id"] == "5"
+
+
+def test_search_cli_explicit_gpu_overrides_configured_gpu(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from search import cli
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "model": {"checkpoint": "/model.pth"},
+                "runtime": {"gpu_id": "5"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    captured: dict[str, Any] = {}
+
+    class FakeSearch:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+        def run(self, **_kwargs: Any) -> dict[str, Any]:
+            return {"run_dir": str(run_dir)}
+
+    monkeypatch.setattr(cli, "LidarPyramidTwoStageSearch", FakeSearch)
+
+    assert (
+        cli.main(
+            [
+                "--config",
+                str(config_path),
+                "--output-root",
+                str(tmp_path / "output"),
+                "--gpu-id",
+                "6",
+                "--baseline-only",
+            ]
+        )
+        == 0
+    )
+    assert captured["config"]["runtime"]["gpu_id"] == "6"

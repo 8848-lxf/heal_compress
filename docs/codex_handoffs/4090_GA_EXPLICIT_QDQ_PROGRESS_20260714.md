@@ -626,3 +626,74 @@ must obtain five unique candidates that pass both realized BOPS and the
 temporary AP gate before serial consistency replay can begin.
 
 --- Round 12 completed: 2026-07-15 02:34:14 CST ---
+
+## Round 13 - four-GPU smoke exhausted the generation and failed closed
+
+Live run:
+
+`outputs/4090_ga_qdq_stage2_multigpu_smoke_20260714_113749/`
+
+The run used commit `a9ed2cc`, explicitly selected GPU5 for Stage-1, and
+started one persistent Stage-2 worker on each physical GPU 4/5/6/7. All four
+workers passed startup isolation. The 1024-candidate Stage-1 population yielded
+24 unique legal, genuinely-compressed candidates in the legalized BOPS
+interval, and ranked backfill deployed all 24 in six concurrent four-GPU waves.
+
+Every attempted candidate produced independent physical-prune, typed ONNX,
+explicit-QDQ, train200 EntropyCalibration2, strongly typed engine and realized
+BOPS artifacts. Thirteen candidates entered the fixed 10-frame evaluation;
+eleven were rejected before evaluation because their engine-realized BOPS was
+outside `[0.205, 0.215]`.
+
+Final admission distribution:
+
+- `realized_BOPS_out_of_budget`: 11;
+- `accuracy_hard_gate_failed`: 11;
+- accepted: 2;
+- accepted candidate 1: BOPS 0.211216, mAP 0.334322;
+- accepted candidate 2: BOPS 0.208798, mAP 0.093220;
+- required unique candidates: 5;
+- terminal error: `insufficient_unique_deployable_candidates:2<5`.
+
+The accuracy gate correctly rejected mAP values of 0.000000, 0.008475,
+0.030367 and 0.033898 instead of letting collapse enter winner selection. The
+two accepted candidates have distinct physical and deployment hashes. No
+candidate was duplicated to fill the Top-5.
+
+All candidate structural/deployment audits inspected so far passed, including
+physical validation, production QDQ boundary, requested/legalized/realized
+precision, merge realization and engine structure. This means the smoke
+failure is not being relabeled as a weakly typed or audit-passing success. A
+same-physical-model all-floating diagnostic is required next to separate
+physical pruning damage from mixed-precision damage.
+
+Worker cleanup:
+
+- all four workers wrote `ready.json` and `stop` markers;
+- no controller, candidate worker, calibration worker, TRT builder or
+  evaluation worker remained after failure;
+- GPUs 4/5/6/7 returned to 0% utilization and approximately 1-5 MiB memory.
+
+Launch reproducibility fix:
+
+- the first launch attempt exposed that `search.cli` used a default
+  `--gpu-id auto` value that silently overwrote YAML `runtime.gpu_id: "5"`;
+- this caused the controller to occupy GPU4 and the GPU4 worker correctly
+  failed isolation instead of sharing an undeclared controller;
+- `search/cli.py` now leaves the CLI value unset unless the flag is explicitly
+  supplied, preserving the configured GPU; dry-run selection uses the merged
+  runtime config;
+- an explicit `--gpu-id` still overrides the YAML value;
+- two CLI integration tests reproduce both paths; the preserve-config test
+  failed before the fix and passes afterward;
+- related CLI/config/worker/process-pool regression: 22 passed;
+- modified Python files compile and `git diff --check` passes.
+
+Current gates:
+
+- strongly typed E67 readiness remains accepted;
+- four-GPU Top-5 smoke pass: false;
+- Stage A started: false;
+- Stage B allowed: false.
+
+--- Round 13 completed: 2026-07-15 03:39:16 CST ---
