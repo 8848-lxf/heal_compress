@@ -110,3 +110,32 @@ def test_4090_stage_a_config_is_per_generation_top5_at_fixed_budget() -> None:
     assert data["stage2"]["target_bops_retention"] == 0.21
     assert data["budget_final"]["num_frames"] == 500
     assert data["budget_final"]["evaluation_offset"] == 300
+
+
+def test_4090_multigpu_stage2_smoke_uses_full_stage1_and_real_top5() -> None:
+    import yaml
+
+    path = Path(
+        "search/configs/lidar_pyramid_4090_ga_stage2_multigpu_smoke.yaml"
+    )
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert data["runtime"]["gpu_id"] == "5"
+    assert data["runtime"]["plugin_boundary_dtype"] == "fp32"
+    assert data["baselines"]["build_before_search"] is False
+    assert data["search"]["initial_population_size"] == 1024
+    assert data["search"]["population_size"] == 512
+    assert data["search"]["offspring_size"] == 512
+    assert data["search"]["generations_per_round"] == 1
+    assert data["search"]["per_generation_stage2"] is True
+    assert data["search"]["topk_stage2"] == 5
+    assert data["search"]["target_bops_retention"] == 0.21
+    assert data["search"]["bops_tolerance"] == 0.005
+    assert data["stage2"]["num_frames"] == 10
+    assert data["stage2"]["warmup_frames"] == 10
+    assert data["stage2"]["reset_after_warmup"] is True
+    assert data["stage2_parallel"]["enabled"] is True
+    assert data["stage2_parallel"]["gpu_ids"] == [4, 5, 6, 7]
+    assert data["budget_final"] == {}
+    assert data["cache"]["fresh_run"] is True
+    assert data["cache"]["reuse_external_cache"] is False

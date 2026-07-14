@@ -474,3 +474,43 @@ Current gates:
 - Stage B: not allowed in this task.
 
 --- Round 9 completed: 2026-07-15 01:54:00 CST ---
+
+## Round 10 - production-sized four-GPU Stage-2 smoke configuration
+
+Starting point: commit `dc72dba`, with strongly typed readiness accepted and
+the production PointPillarScatterTRT boundary fixed to FP32.
+
+Added
+`search/configs/lidar_pyramid_4090_ga_stage2_multigpu_smoke.yaml` for the
+required live gate before Stage A:
+
+- Stage-1 remains on GPU5 and retains the production population sizes
+  1024/512/512;
+- the smoke executes exactly one GA generation rather than shrinking the
+  candidate population;
+- Stage-1 admission remains target BOPS 0.21 +/- 0.005 with real repair,
+  uniqueness and backfill;
+- each generation still requires five unique deployable candidates;
+- persistent Stage-2 workers use physical GPUs 4/5/6/7 and the selected FP32
+  scatter boundary;
+- every worker lazily builds same-GPU strict FP32 AP and strict FP16 latency
+  references before evaluating its candidate;
+- every candidate still performs physical prune replay, typed ONNX, explicit
+  QDQ, fresh train200 calibration, strongly typed engine build and evaluation;
+- smoke evaluation uses 10 warmup frames, resets latency, then measures 10
+  frames; budget-final evaluation is disabled for this pre-Stage-A gate;
+- external artifact/cache reuse is disabled.
+
+`tests/test_search_large_population.py` now pins the smoke's full Stage-1
+sizes, one-generation scope, Top-5, BOPS interval, four-GPU assignment, FP32
+boundary, 10/10 evaluation and empty budget-final block.
+
+Verification:
+
+- smoke config/process-pool/worker/backfill focused suite: 15 passed;
+- this anchor contains configuration and tests only; no live candidate result
+  is claimed yet;
+- next action is the live four-GPU Top-5 run followed by serial replay of the
+  same five phenotypes.
+
+--- Round 10 completed: 2026-07-15 02:01:00 CST ---

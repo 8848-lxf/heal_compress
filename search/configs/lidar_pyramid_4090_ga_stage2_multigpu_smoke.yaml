@@ -1,0 +1,119 @@
+model:
+  checkpoint: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth
+  config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml
+
+runtime:
+  gpu_id: "5"
+  exclude_gpu_ids: []
+  allow_foreign_gpu_processes: false
+  max_gpu_utilization_pct: 20
+  model_env: univ2x-opt
+  tensorrt_env: modelopt
+  tensorrt_root: /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118
+  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
+  plugin_boundary_dtype: fp32
+
+output:
+  experiment_name: 4090_ga_qdq_stage2_multigpu_smoke
+
+baselines:
+  # Every persistent Stage-2 worker builds its own same-GPU references lazily.
+  build_before_search: false
+  precisions: [strict_fp32, strict_fp16]
+
+pruning:
+  gene_type: coupled_channel_keep_mask
+  stage1_importance: second_order_fisher
+  repair_importance: first_order_taylor
+  local_domain_ranking: true
+  minimum_retained_ratio: 0.10
+  dense:
+    alignment: 4
+    repair_mode: monotonic_floor
+  grouped_conv:
+    preserve_group_count: true
+    allow_remove_groups: false
+    position_mode: independent_group_topk
+    repair_mode: mask_preserving_equal_count_floor
+    default_channels_per_group: 8
+    allowed_channels_per_group: [4, 8, 16, 32, 64, 128, 256, 512]
+    require_group_keep_map: true
+
+precision:
+  gene_type: coupled_precision_group
+  candidates: [FP32, FP16, INT8]
+  default: FP16
+  preserve_existing_precision_groups: true
+  forbid_synthetic_per_module_groups: true
+  illegal_int8_policy: strict
+
+proxy:
+  backend: cuda_batched
+  device: auto
+  batch_size: 128
+  fisher_calibration_batches: 8
+  quant_calibration_batches: 200
+  quant_calibration_npz_manifest: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json
+  quant_activation_calibration_backend: tensorrt_entropy_calibration2
+  quant_calibration_force_rebuild: true
+  term_normalization: none
+  size_reference: original_strict_fp32
+  bops_reference: original_strict_fp32
+  bops_definition: weight_bits_times_activation_bits
+  alpha_fisher: 0.55
+  beta_sqnr: 0.25
+  gamma_size: 0.05
+  delta_bops_penalty: 0.15
+  bops_constraint_mode: fixed_interval
+
+search:
+  seed: 42
+  outer_rounds: 1
+  initial_population_size: 1024
+  population_size: 512
+  offspring_size: 512
+  generations_per_round: 1
+  elite_ratio: 0.05
+  crossover_rate: 0.80
+  prune_mutation_rate: 0.03
+  precision_group_mutation_rate: 0.08
+  immigrant_ratio: 0.08
+  stagnation_generations: 3
+  stagnation_immigrant_ratio: 0.25
+  max_pruning_units: 96
+  repair_pool_size: 512
+  topk_stage2: 5
+  per_generation_stage2: true
+  target_bops_retention: 0.21
+  bops_tolerance: 0.005
+  global_cross_round_dedup: true
+
+stage2:
+  num_frames: 10
+  warmup_frames: 10
+  reset_after_warmup: true
+  latency_rounds: 1
+  latency_metric: forward_p50_ms
+  target_bops_retention: 0.21
+  bops_tolerance: 0.005
+  accuracy_reference: original_strict_fp32
+  latency_reference: original_strict_fp16
+  tau_ap: 0.02
+  eta_ap: 0.80
+  eta_latency: 0.20
+  max_map_drop: null
+
+stage2_parallel:
+  enabled: true
+  gpu_ids: [4, 5, 6, 7]
+  allow_controller_process_on_stage1_gpu: true
+  startup_timeout_seconds: 1200
+  task_timeout_seconds: 14400
+  poll_interval_seconds: 0.25
+
+budget_final: {}
+
+cache:
+  fresh_run: true
+  reuse_external_cache: false
+  resume: false
