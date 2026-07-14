@@ -205,6 +205,52 @@ def test_repaired_topk_rescores_and_returns_unique_phenotypes() -> None:
     assert report["duplicate_repaired_phenotype_count"] == 1
 
 
+def test_repaired_topk_rejects_post_repair_bops_infeasible_phenotypes() -> None:
+    from search.candidate import CandidateGenotype
+    from search.canonicalization import SearchSpaceSpec
+    from search.stage1.repair_selection import select_repaired_stage2_topk
+
+    space = SearchSpaceSpec(
+        pruning_unit_ids=["a", "b"], precision_layer_ids=["m"]
+    )
+    raw = [
+        (
+            CandidateGenotype({"a": 1, "b": 1}, {"m": "FP16"}),
+            0.1,
+            {"F1": 0.1},
+        ),
+        (
+            CandidateGenotype({"a": 0, "b": 1}, {"m": "INT8"}),
+            0.2,
+            {"F1": 0.2},
+        ),
+    ]
+
+    def repair(genotype):
+        return genotype, {"status": "ok"}
+
+    def rescore(phenotype):
+        feasible = bool(phenotype.pruned_unit_ids)
+        return {
+            "F1": 0.2 if feasible else 1.0e6,
+            "bops_feasible": feasible,
+        }
+
+    selected, report = select_repaired_stage2_topk(
+        raw,
+        space=space,
+        repair_fn=repair,
+        rescore_fn=rescore,
+        topk=5,
+    )
+
+    assert len(selected) == 1
+    assert selected[0].metrics["bops_feasible"] is True
+    assert report["legal_repaired_phenotype_count"] == 2
+    assert report["post_repair_bops_eligible_count"] == 1
+    assert report["post_repair_bops_ineligible_count"] == 1
+
+
 def test_stage2_score_uses_tau_ap_and_fp16_latency_reference() -> None:
     import pytest
 

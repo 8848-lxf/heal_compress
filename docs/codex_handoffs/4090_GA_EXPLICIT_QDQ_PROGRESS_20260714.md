@@ -697,3 +697,72 @@ Current gates:
 - Stage B allowed: false.
 
 --- Round 13 completed: 2026-07-15 03:39:16 CST ---
+
+## Round 14 - isolate pruning/precision loss and close post-repair BOPS admission
+
+Same-physical-model strongly typed FP32 diagnostics used the same fixed
+10-frame manifest hash
+`c827031ab82bb1925f48ada20dd64d0fa395dbf8d919d04137e95a5d3f35aee4`.
+They changed only the quantization-group profile to FP32, disabled diagnostic
+BOPS admission, and retained the production FP32 scatter boundary and protected
+FP16 functional exceptions.
+
+Collapsed mixed-precision candidate:
+
+- source candidate: `489b3dc112aa637051e64db305f9dff66b0caeda13c5c0ce79a2f359fcce6eab`;
+- mixed profile: 25 INT8 / 16 FP16 / 28 FP32, mAP 0.000000;
+- all-floating weighted profile: 0 INT8 / 2 FP16 / 67 FP32, mAP 0.114810;
+- physical hash remained exactly
+  `ee0bb3eedf2b1d6a707b004d46f03dbf958892295694bd5a450154b9cd5d7c67`;
+- parameter count remained 4,799,387;
+- diagnostic output:
+  `outputs/4090_ga_same_physical_fp32_bad_diagnostic_20260714_124339/`.
+
+Accepted mixed-precision control candidate:
+
+- source candidate: `06ee9dd7f6daaced3c9641a9cb1f390562c2a94bb08076a136f76ce051c2a4b4`;
+- mixed profile: 21 INT8 / 29 FP16 / 19 FP32, mAP 0.334322;
+- all-floating weighted profile: 0 INT8 / 2 FP16 / 67 FP32, mAP 0.516949;
+- physical hash remained exactly
+  `2e7166f254a5f7a4bdc69943c0eca28f9bb0133f474177abc79dd60f513877b7`;
+- parameter count remained 4,787,303;
+- diagnostic output:
+  `outputs/4090_ga_same_physical_fp32_good_diagnostic_20260714_124353/`.
+
+Both diagnostic engines passed physical, typed precision, merge, production
+QDQ boundary and engine-structure audits with 10/10 evaluated and zero skips.
+The comparison proves that physical pruning already causes material AP loss,
+while the selected mixed-precision profiles add a further 0.114810 and 0.182627
+mAP loss respectively. It does not identify a hidden weakly typed fallback or
+merge audit failure.
+
+Post-repair admission bug found in the live failure:
+
+- raw candidates were filtered by proxy BOPS before repair;
+- candidates were then repaired and rescored, including a fresh
+  `bops_feasible` result;
+- `select_repaired_stage2_topk` sorted and returned candidates even when the
+  repaired rescore explicitly set `bops_feasible: false`;
+- live ranks 17-23 already had infeasible F1 values above one million but still
+  consumed seven physical deployments and strongly typed engine builds;
+- this violates the required repair -> legalized BOPS gate -> Stage-2 order.
+
+Minimal TDD fix:
+
+- `search/stage1/repair_selection.py` now excludes only records whose repaired
+  rescore explicitly reports `bops_feasible is False`;
+- configurations without that field preserve their previous behavior;
+- repair reports now distinguish `legal_repaired_phenotype_count`,
+  `post_repair_bops_eligible_count`, and
+  `post_repair_bops_ineligible_count`;
+- `tests/test_search_final_contract.py` reproduces the prior admission and
+  requires the infeasible repaired phenotype to be absent;
+- focused final-contract/generation/config/manifest/process-pool regression:
+  33 passed;
+- modified Python files compile and `git diff --check` passes.
+
+This changes Stage-2 candidate selection semantics. All earlier smoke outputs
+remain diagnostic only; the four-GPU smoke must restart from generation 0 with
+fresh artifacts after this fix is committed. Stage A remains stopped.
+
+--- Round 14 completed: 2026-07-15 03:52:34 CST ---

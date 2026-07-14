@@ -55,10 +55,14 @@ def select_repaired_stage2_topk(
     else:
         rescored_rows = [dict(rescore_fn(item[2])) for item in pending]
     records: list[ProxyCandidateRecord] = []
+    post_repair_bops_ineligible_count = 0
     for (key, repaired_genotype, phenotype, raw_metrics, repair_report), repaired_metrics in zip(pending, rescored_rows):
         repaired_metrics.setdefault("raw_F1", float(raw_metrics.get("F1", 0.0)))
         repaired_metrics["repaired_phenotype_hash"] = key
         repaired_metrics["repair_report"] = dict(repair_report)
+        if repaired_metrics.get("bops_feasible") is False:
+            post_repair_bops_ineligible_count += 1
+            continue
         records.append(
             ProxyCandidateRecord(
                 candidate_hash=key,
@@ -74,7 +78,9 @@ def select_repaired_stage2_topk(
         "processed_raw_candidate_count": len(pool),
         "repair_failed_count": repair_failed_count,
         "duplicate_repaired_phenotype_count": duplicate_count,
-        "legal_repaired_phenotype_count": len(records),
+        "legal_repaired_phenotype_count": len(pending),
+        "post_repair_bops_eligible_count": len(records),
+        "post_repair_bops_ineligible_count": post_repair_bops_ineligible_count,
         "selected_count": len(selected),
         "failure_reasons": failure_reasons,
         "topk_stage2": int(topk),
