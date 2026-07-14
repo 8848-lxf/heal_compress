@@ -61,17 +61,31 @@ class CandidateGenotype:
         object.__setattr__(self, "meta", dict(self.meta))
 
     def to_dict(self) -> dict[str, Any]:
+        pruning = {key: self.pruning_genes[key] for key in sorted(self.pruning_genes)}
+        precision = {key: self.precision_genes[key] for key in sorted(self.precision_genes)}
         return {
-            "pruning_genes": {key: self.pruning_genes[key] for key in sorted(self.pruning_genes)},
-            "precision_genes": {key: self.precision_genes[key] for key in sorted(self.precision_genes)},
+            "group_mask": pruning,
+            "layer_bitwidth": precision,
+            "pruning_genes": pruning,
+            "precision_genes": precision,
             "meta": dict(self.meta),
         }
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "CandidateGenotype":
         return cls(
-            pruning_genes=dict(payload.get("pruning_genes") or payload.get("prune_vars") or {}),
-            precision_genes=dict(payload.get("precision_genes") or payload.get("bitwidth_vars") or {}),
+            pruning_genes=dict(
+                payload.get("group_mask")
+                or payload.get("pruning_genes")
+                or payload.get("prune_vars")
+                or {}
+            ),
+            precision_genes=dict(
+                payload.get("layer_bitwidth")
+                or payload.get("precision_genes")
+                or payload.get("bitwidth_vars")
+                or {}
+            ),
             meta=dict(payload.get("meta") or {}),
         )
 

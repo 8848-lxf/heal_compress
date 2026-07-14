@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from dataclasses import replace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -40,6 +41,25 @@ def test_candidate_genotype_codec_roundtrip() -> None:
     assert decoded == genotype
     assert list(encoded["pruning_genes"]) == ["u1", "u2"]
     assert list(encoded["precision_genes"]) == ["layer.a", "layer.b"]
+
+
+def test_candidate_codec_exposes_group_mask_and_layer_bitwidth_contract() -> None:
+    genotype = CandidateGenotype(
+        pruning_genes={"prune::b": 0, "prune::a": 1},
+        precision_genes={"quant::b": "INT8", "quant::a": "FP16"},
+    )
+
+    encoded = encode_candidate(genotype)
+    decoded = decode_candidate(
+        {
+            "group_mask": encoded["group_mask"],
+            "layer_bitwidth": encoded["layer_bitwidth"],
+        }
+    )
+
+    assert encoded["group_mask"] == {"prune::a": 1, "prune::b": 0}
+    assert encoded["layer_bitwidth"] == {"quant::a": "FP16", "quant::b": "INT8"}
+    assert decoded == genotype
 
 
 def test_repair_protects_units_and_snaps_precision() -> None:
@@ -82,6 +102,20 @@ def test_precision_fallback_hash_uses_realized_profile() -> None:
     )
 
     assert candidate_hash(phenotype_requested_int8, _space()) == candidate_hash(phenotype_requested_fp16, _space())
+
+
+def test_candidate_hash_changes_when_code_commit_changes() -> None:
+    phenotype = canonicalize_candidate(
+        CandidateGenotype(
+            pruning_genes={"u1": 1, "u2": 1, "u3": 1},
+            precision_genes={"layer.a": "FP16", "layer.b": "INT8"},
+        ),
+        _space(),
+    )
+    first = replace(_space(), code_commit="commit-a")
+    second = replace(_space(), code_commit="commit-b")
+
+    assert candidate_hash(phenotype, first) != candidate_hash(phenotype, second)
 
 
 def test_phenotype_keeps_requested_and_realized_precision() -> None:

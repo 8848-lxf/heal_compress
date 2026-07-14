@@ -54,3 +54,38 @@ def test_ga_evaluates_full_initial_population_before_active_population() -> None
 
     assert calls.count(0) == 8
     assert calls.count(1) == 4
+
+
+def test_4090_readiness_config_uses_fresh_matched_e67_entropy_gate() -> None:
+    import yaml
+
+    path = Path("search/configs/lidar_pyramid_4090_explicit_qdq_readiness.yaml")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert data["runtime"]["tensorrt_root"] == "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118"
+    assert data["baselines"]["precisions"] == ["strict_fp16", "matched_legacy_int8"]
+    assert data["proxy"]["quant_activation_calibration_backend"] == "tensorrt_entropy_calibration2"
+    assert data["proxy"]["quant_calibration_batches"] == 200
+    assert data["proxy"]["quant_calibration_force_rebuild"] is True
+    assert data["stage2"]["num_frames"] == 200
+    assert data["stage2"]["reset_after_warmup"] is True
+
+
+def test_4090_stage_a_config_is_per_generation_top5_at_fixed_budget() -> None:
+    import yaml
+
+    path = Path("search/configs/lidar_pyramid_4090_ga_stage_a.yaml")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert data["search"]["initial_population_size"] == 1024
+    assert data["search"]["population_size"] == 512
+    assert data["search"]["offspring_size"] == 512
+    assert data["search"]["generations_per_round"] == 5
+    assert data["search"]["per_generation_stage2"] is True
+    assert data["search"]["topk_stage2"] == 5
+    assert data["search"]["target_bops_retention"] == 0.21
+    assert data["search"]["bops_tolerance"] == 0.005
+    assert data["stage2"]["num_frames"] == 300
+    assert data["stage2"]["target_bops_retention"] == 0.21
+    assert data["budget_final"]["num_frames"] == 500
+    assert data["budget_final"]["evaluation_offset"] == 300

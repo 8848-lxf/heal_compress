@@ -50,6 +50,10 @@ class GeneticSearchEngine:
         previous_best: CandidateGenotype | None = None,
         seen_candidate_keys: Iterable[str] | None = None,
         candidate_key_fn: Callable[[CandidateGenotype], str] | None = None,
+        generation_callback: Callable[
+            [int, list[tuple[CandidateGenotype, float, dict[str, Any]]]], None
+        ]
+        | None = None,
     ) -> list[tuple[CandidateGenotype, float, dict[str, Any]]]:
         seen_keys = {str(key) for key in (seen_candidate_keys or [])}
 
@@ -114,6 +118,8 @@ class GeneticSearchEngine:
                     scored.append((candidate, score, metrics))
                     all_scored.append((candidate, score, metrics))
             scored.sort(key=lambda row: row[1])
+            if generation_callback is not None:
+                generation_callback(generation, list(scored))
             if scored and scored[0][1] < best:
                 best = scored[0][1]
                 stagnant = 0

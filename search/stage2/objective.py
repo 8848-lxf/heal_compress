@@ -46,9 +46,14 @@ def compute_stage2_score(
     ap_scale = float(policy.tau_ap) if policy.tau_ap is not None else (base_map if base_map > 0.0 else policy.epsilon)
     loss_map = max(0.0, base_map - cand_map) / max(ap_scale, policy.epsilon)
     latency_ratio = cand_latency / (base_latency if base_latency > 0.0 else policy.epsilon)
-    score = policy.eta_map * loss_map + policy.eta_latency * latency_ratio
     if policy.max_map_drop is not None and cand_map < base_map - float(policy.max_map_drop):
-        score += policy.large_penalty
+        return {
+            "F2": policy.failure_score,
+            "status": "accuracy_hard_gate_failed",
+            "L_map_real": float(loss_map),
+            "R_latency_real": float(latency_ratio),
+        }
+    score = policy.eta_map * loss_map + policy.eta_latency * latency_ratio
     return {
         "F2": float(score),
         "status": status,

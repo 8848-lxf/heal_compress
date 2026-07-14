@@ -16,7 +16,7 @@ from ..adapters.pruning_adapter import FormalPruningAdapter
 from ..cache.artifact_cache import ArtifactCache
 from ..cache.real_eval_cache import RealEvalCache
 from ..candidate import CandidatePhenotype
-from ..hashing import canonical_json_hash, deployment_hash, eval_hash, physical_hash
+from ..hashing import build_deployment_signature, canonical_json_hash, deployment_hash, eval_hash, physical_hash
 from ..integration.calibration_provider import (
     QDQ_CALIBRATION_SEMANTICS_VERSION,
     TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION,
@@ -32,6 +32,7 @@ from ..integration.lidar_pyramid_context import LidarPyramidSearchContext
 from ..integration.trt_compatible_export import build_search_trt_compatible_export_module, make_pointpillar_domain_compatible
 from ..pruning_space.action_codec import selected_actions_from_genes
 from ..pruning_space.grouped_bundle_adapter import request_from_pruning_actions
+from ..proxy.runtime_shape_profiler import profile_runtime_layer_shapes
 from ..baselines.original_engines import (
     TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES,
     make_baseline_trt_build_config,
@@ -40,6 +41,7 @@ from ..baselines.original_engines import (
 from .candidate_artifacts import write_candidate_summary_artifacts
 from .objective import Stage2ObjectiveConfig, compute_stage2_score
 from .physical_validation import validate_repaired_physical_plan
+from .realized_bops import compute_realized_bops, engine_realized_precision_profile
 from .mixed_precision_export import summarize_qdq_realization
 from .trt_modelopt import build_engine_modelopt
 
@@ -72,6 +74,58 @@ def _file_hash(path: str | Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _qdq_deployment_lineage(
+    *,
+    base_onnx_path: str | Path,
+    canonical_mapping: Any,
+    legalized_precision_profile: dict[str, str],
+    realized_precision_profile: dict[str, str],
+    calibration_recipe: dict[str, Any],
+    qdq_result: Any,
+) -> dict[str, str]:
+    metadata = dict(getattr(qdq_result, "calibration_metadata", {}) or {})
+    return {
+        "base_onnx_hash": _file_hash(base_onnx_path),
+        "qdq_topology_hash": str(metadata.get("qdq_topology_hash", "")),
+        "canonical_mapping_hash": canonical_json_hash(_plain(canonical_mapping)),
+        "legalized_precision_profile_hash": canonical_json_hash(legalized_precision_profile),
+        "realized_precision_profile_hash": canonical_json_hash(realized_precision_profile),
+        "calibration_manifest_hash": str(metadata.get("calibration_manifest_hash", "")),
+        "calibration_recipe_hash": canonical_json_hash(calibration_recipe),
+    }
+
+
+def _candidate_deployment_signature(
+    *,
+    context: Any,
+    physical: dict[str, Any],
+    qdq: dict[str, Any],
+    trt: dict[str, Any],
+) -> dict[str, str]:
+    runtime = dict(trt.get("runtime_provenance") or {})
+    plugin_hashes = dict(context.search_space.plugin_hashes)
+    plugin_binary_hash = (
+        next(iter(plugin_hashes.values()))
+        if len(plugin_hashes) == 1
+        else canonical_json_hash(plugin_hashes)
+    )
+    return build_deployment_signature(
+        code_commit=str(context.code_commit),
+        physical_model_hash=str(physical.get("physical_hash", "")),
+        base_onnx_hash=str(qdq.get("base_onnx_hash", "")),
+        qdq_topology_hash=str(qdq.get("qdq_topology_hash", "")),
+        canonical_mapping_hash=str(qdq.get("canonical_mapping_hash", "")),
+        legalized_precision_profile_hash=str(qdq.get("legalized_precision_profile_hash", "")),
+        realized_precision_profile_hash=str(qdq.get("realized_precision_profile_hash", "")),
+        calibration_manifest_hash=str(qdq.get("calibration_manifest_hash", "")),
+        calibration_recipe_hash=str(qdq.get("calibration_recipe_hash", "")),
+        tensorrt_version=str(runtime.get("tensorrt_version", "")),
+        cuda_version=str(runtime.get("cuda_version", "")),
+        gpu_architecture=str(runtime.get("gpu_architecture", "")),
+        plugin_binary_hash=plugin_binary_hash,
+    )
 
 
 def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result: Any) -> dict[str, Any]:
@@ -476,6 +530,8 @@ class LidarPyramidRealEvaluator:
         num_frames: int,
         warmup_frames: int,
         latency_rounds: int,
+        target_bops_retention: float | None = None,
+        bops_tolerance: float = 0.005,
         stage2_config: Stage2ObjectiveConfig | None = None,
         artifact_cache: ArtifactCache | None = None,
         real_cache: RealEvalCache | None = None,
@@ -485,6 +541,10 @@ class LidarPyramidRealEvaluator:
         self.num_frames = int(num_frames)
         self.warmup_frames = int(warmup_frames)
         self.latency_rounds = int(latency_rounds)
+        self.target_bops_retention = (
+            None if target_bops_retention is None else float(target_bops_retention)
+        )
+        self.bops_tolerance = float(bops_tolerance)
         self.objective_config = stage2_config or Stage2ObjectiveConfig()
         archives = self.run_dir / "archives"
         self.artifacts = artifact_cache or ArtifactCache(archives / "artifact_index.jsonl")
@@ -492,6 +552,8 @@ class LidarPyramidRealEvaluator:
         self.pruning = FormalPruningAdapter()
         self._baseline: dict[str, Any] | None = None
         self._physical_memory: dict[str, dict[str, Any]] = {}
+        self._baseline_bops_shapes: tuple[Any, ...] | None = None
+        self._baseline_bops_snapshot: Any | None = None
 
     def evaluate_baseline(self) -> dict[str, Any]:
         if self._baseline is not None:
@@ -660,7 +722,7 @@ class LidarPyramidRealEvaluator:
                 "eval_hash": raw.get("eval_hash", ""),
                 "physical_hash": raw.get("physical_hash", ""),
                 "engine_hash": raw.get("engine_hash", ""),
-                "status": "ok",
+                "status": str(scored.get("status", "ok")),
                 "artifact_dir": str(destination),
             }
         else:
@@ -862,17 +924,92 @@ class LidarPyramidRealEvaluator:
             trt = self._build_engine(qdq, physical, output_dir, baseline_precision=baseline_precision)
             if trt.get("status") != "ok":
                 return {"status": trt.get("status", "engine_build_failed"), "failure_reason": trt.get("failure_reason", trt.get("status", ""))}
+            engine_precision = engine_realized_precision_profile(
+                output_dir / "engine_layer_info.json",
+                qdq["precision_mapping"],
+            )
+            _write_json(output_dir / "engine_realized_precision_profile.json", engine_precision)
+            if not engine_precision["passed"]:
+                return {
+                    "status": "precision_realization_failure",
+                    "failure_reason": ",".join(engine_precision["issues"]),
+                }
+            lineage = _qdq_deployment_lineage(
+                base_onnx_path=qdq["base_onnx_path"],
+                canonical_mapping=qdq["precision_mapping"],
+                legalized_precision_profile=qdq["legalized_precision_profile"],
+                realized_precision_profile=engine_precision["realized_precision_profile"],
+                calibration_recipe=qdq["calibration_recipe"],
+                qdq_result=qdq["qdq"],
+            )
+            qdq.update(lineage)
+            _write_json(output_dir / "deployment_lineage.json", lineage)
+            physical_shapes = profile_runtime_layer_shapes(
+                physical["model"],
+                self.context.trace_example_inputs,
+                forward_fn=self.context.model_bundle.adapter.forward_for_task,
+            )
+            _write_json(output_dir / "physical_runtime_layer_shapes.json", physical_shapes.to_dict())
+            if self._baseline_bops_shapes is None or self._baseline_bops_snapshot is None:
+                baseline_shapes = profile_runtime_layer_shapes(
+                    self.context.model,
+                    self.context.trace_example_inputs,
+                    forward_fn=self.context.model_bundle.adapter.forward_for_task,
+                )
+                self._baseline_bops_shapes = baseline_shapes.shapes
+                self._baseline_bops_snapshot = self.pruning.snapshot_fn(self.context.model)
+                _write_json(self.run_dir / "baseline" / "fp32_bops_runtime_layer_shapes.json", baseline_shapes.to_dict())
+                _write_json(self.run_dir / "baseline" / "fp32_bops_physical_snapshot.json", self._baseline_bops_snapshot)
+            admission_target = (
+                None
+                if baseline_precision is not None or candidate_label == "baseline"
+                else self.target_bops_retention
+            )
+            bops_audit = compute_realized_bops(
+                physical_runtime_shapes=physical_shapes.shapes,
+                baseline_runtime_shapes=self._baseline_bops_shapes,
+                realized_precision_profile=engine_precision["realized_precision_profile"],
+                physical_snapshot=physical["snapshot"],
+                baseline_snapshot=self._baseline_bops_snapshot,
+                target_retention=admission_target,
+                tolerance=self.bops_tolerance,
+            )
+            _write_json(output_dir / "realized_bops_audit.json", bops_audit)
+            if not bops_audit["passed"]:
+                return {
+                    "status": "realized_BOPS_out_of_budget",
+                    "failure_reason": (
+                        f"{bops_audit['bops_retention']} not in "
+                        f"{bops_audit['legal_interval']}"
+                    ),
+                    "realized_bops_audit": bops_audit,
+                }
             evaluation = self._evaluate_engine(trt["engine_path"], output_dir)
             if evaluation.get("status") != "ok":
                 return {"status": "evaluation_failed", "failure_reason": evaluation.get("failure_reason", evaluation.get("status", "")), "evaluation": evaluation}
+            evaluation.update(
+                {
+                    "realized_BOPS": bops_audit["realized_bops"],
+                    "BOPS_retention": bops_audit["bops_retention"],
+                    "physical_params": bops_audit["physical_params"],
+                    "parameter_retention": bops_audit["parameter_retention"],
+                    "weight_storage_retention": bops_audit["weight_storage_retention"],
+                    "realized_precision_counts": bops_audit["realized_precision_counts"],
+                }
+            )
+            _write_json(output_dir / "evaluation.json", evaluation)
             calibration_scale_hash = canonical_json_hash(qdq.get("calibration_scales", {}))
+            deployment_signature = _candidate_deployment_signature(
+                context=self.context,
+                physical=physical,
+                qdq=qdq,
+                trt=trt,
+            )
+            _write_json(output_dir / "deployment_signature.json", deployment_signature)
             deploy_hash = deployment_hash(
-                physical_hash_value=physical["physical_hash"],
-                realized_precision_profile=qdq["realized_precision_profile"],
+                deployment_signature=deployment_signature,
                 calibration_scale_hash=calibration_scale_hash,
                 onnx_export_config_hash=self.context.search_space.onnx_export_config_hash,
-                tensorrt_version=self.context.search_space.tensorrt_version,
-                gpu_compute_capability=self.context.search_space.gpu_compute_capability,
                 builder_flags=self.context.search_space.builder_flags,
                 optimization_profiles=_shape_profiles(),
                 plugin_hashes=self.context.search_space.plugin_hashes,
@@ -899,6 +1036,8 @@ class LidarPyramidRealEvaluator:
                     "pruned_unit_ids": pruned_unit_ids,
                     "physical_hash": physical["physical_hash"],
                     "deployment_hash": deploy_hash,
+                    "deployment_signature": deployment_signature,
+                    "deployment_signature_hash": canonical_json_hash(deployment_signature),
                     "eval_hash": eval_key,
                     "engine_hash": trt.get("engine_hash", ""),
                     "quantization_contract_hash": canonical_json_hash(
@@ -1041,6 +1180,9 @@ class LidarPyramidRealEvaluator:
             and cached_origin.is_file()
             and bool(cached_hash)
             and _file_hash(cached_onnx) == cached_hash
+            and str(cached.get("code_commit", "")) == self.context.code_commit
+            and str(cached.get("onnx_export_config_hash", ""))
+            == self.context.search_space.onnx_export_config_hash
         )
         if cache_valid:
             target_onnx = output_dir / "exported.onnx"
@@ -1080,6 +1222,8 @@ class LidarPyramidRealEvaluator:
                     "onnx_path": str(output_dir / "pruned_fp32.onnx"),
                     "onnx_sha256": _file_hash(output_dir / "pruned_fp32.onnx"),
                     "origin_map": str(output_dir / "origin_map.json"),
+                    "code_commit": self.context.code_commit,
+                    "onnx_export_config_hash": self.context.search_space.onnx_export_config_hash,
                 },
             )
         assignments = []
@@ -1135,6 +1279,15 @@ class LidarPyramidRealEvaluator:
         mapping, canonical_merge_output_contract = apply_fp16_merge_output_contract(
             export.onnx_path,
             mapping,
+        )
+        from ..group_separation_audit import write_group_separation_audit
+
+        write_group_separation_audit(
+            output_dir / "pruning_quantization_group_audit.json",
+            pruning_group_ids=self.context.search_space.pruning_unit_ids,
+            pruning_group_metadata=self.context.search_space.pruning_unit_metadata,
+            quantization_groups=self.context.search_space.quantization_groups,
+            canonical_mapping=mapping,
         )
         for row in mapping.entries:
             if row.realized_output_precision != "fp16":
@@ -1499,6 +1652,12 @@ class LidarPyramidRealEvaluator:
             int8_macs_ratio=int8_macs_ratio,
         )
         _write_json(output_dir / "qdq_realization_summary.json", qdq_summary)
+        legalized_group_profile = {
+            str(key): str(value).upper()
+            for key, value in dict(
+                phenotype.metadata.get("stage1_legalized_group_profile", requested_group_profile)
+            ).items()
+        }
         return {
             "export": export,
             "origin_map": origin_map,
@@ -1513,6 +1672,9 @@ class LidarPyramidRealEvaluator:
             "qdq": qdq,
             "qdq_onnx": str(output_dir / "qdq.onnx"),
             "trt_build_onnx": str(output_dir / "qdq_trt_compatible.onnx"),
+            "base_onnx_path": str(export.onnx_path),
+            "legalized_precision_profile": legalized_group_profile,
+            "calibration_recipe": calibration_identity,
         }
 
     def _build_engine(self, qdq: dict[str, Any], physical: dict[str, Any], output_dir: Path, *, baseline_precision: str | None = None) -> dict[str, Any]:

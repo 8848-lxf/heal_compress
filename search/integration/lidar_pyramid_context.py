@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -28,6 +29,7 @@ DEFAULT_PLUGIN = Path("quantization/plugins/pointpillar_scatter_trt/build/libpoi
 
 @dataclass
 class LidarPyramidSearchContext:
+    code_commit: str
     checkpoint_path: Path
     model: torch.nn.Module
     model_config: Path
@@ -58,6 +60,22 @@ class LidarPyramidSearchContext:
     search_space: SearchSpaceSpec
     eval_manifest_hash: str
     checkpoint_hash: str
+
+
+def _repository_commit(repo_root: str | Path) -> str:
+    completed = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=Path(repo_root),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=10,
+    )
+    commit = completed.stdout.strip()
+    if completed.returncode != 0 or not commit:
+        raise RuntimeError(f"git_commit_resolution_failed:{completed.stderr.strip()}")
+    return commit
 
 
 def _module_is_weighted(module: nn.Module) -> bool:
@@ -397,6 +415,7 @@ def build_lidar_pyramid_context(
             raise RuntimeError(
                 f"external_tensorrt_entropy_cache_missing:{activation_calibration_cache}"
             )
+    code_commit = _repository_commit(Path(__file__).resolve().parents[2])
     search_space = SearchSpaceSpec(
         pruning_unit_ids=search_pruning_ids,
         precision_layer_ids=precision_layers,
@@ -424,8 +443,10 @@ def build_lidar_pyramid_context(
         gpu_compute_capability=f"{capability_major}.{capability_minor}",
         builder_flags=builder_flags,
         plugin_hashes=plugin_hashes([plugin]),
+        code_commit=code_commit,
     )
     context = LidarPyramidSearchContext(
+        code_commit=code_commit,
         checkpoint_path=Path(checkpoint_path).expanduser().resolve(),
         model=bundle.model,
         model_config=config_path,
@@ -463,6 +484,7 @@ def build_lidar_pyramid_context(
 
 def _write_context_report(path: Path, context: LidarPyramidSearchContext) -> None:
     payload = {
+        "code_commit": context.code_commit,
         "checkpoint_path": str(context.checkpoint_path),
         "checkpoint_hash": context.checkpoint_hash,
         "model_config": str(context.model_config),

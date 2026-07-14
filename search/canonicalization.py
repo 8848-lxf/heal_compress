@@ -29,6 +29,7 @@ class SearchSpaceSpec:
     gpu_compute_capability: str = ""
     builder_flags: dict[str, Any] = field(default_factory=dict)
     plugin_hashes: dict[str, str] = field(default_factory=dict)
+    code_commit: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "pruning_unit_ids", sorted({str(value) for value in self.pruning_unit_ids}))
@@ -39,6 +40,7 @@ class SearchSpaceSpec:
         object.__setattr__(self, "default_precision", normalize_precision(self.default_precision))
         object.__setattr__(self, "builder_flags", dict(self.builder_flags))
         object.__setattr__(self, "plugin_hashes", {str(k): str(v) for k, v in self.plugin_hashes.items()})
+        object.__setattr__(self, "code_commit", str(self.code_commit))
 
     @property
     def precision_gene_ids(self) -> list[str]:

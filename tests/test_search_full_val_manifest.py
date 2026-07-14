@@ -83,3 +83,34 @@ def test_stage2_eval_manifest_can_reset_before_full_validation(tmp_path: Path) -
     assert payload["evaluation_frame_ids"] == frame_ids
     assert payload["frame_ids"] == frame_ids
     assert manifest.frame_ids == frame_ids
+
+
+def test_budget_final_manifest_offset_avoids_stage2_evaluation_frames(tmp_path: Path) -> None:
+    import json
+
+    from search.integration.data_provider import write_eval_manifest
+
+    frame_ids = [f"{index:06d}" for index in range(12)]
+    stage2 = write_eval_manifest(
+        tmp_path / "stage2.json",
+        num_frames=5,
+        warmup_frames=2,
+        available_frame_ids=frame_ids,
+        reset_after_warmup=True,
+        evaluation_offset=0,
+    )
+    budget_final = write_eval_manifest(
+        tmp_path / "budget_final.json",
+        num_frames=5,
+        warmup_frames=2,
+        available_frame_ids=frame_ids,
+        reset_after_warmup=True,
+        evaluation_offset=5,
+    )
+    stage2_payload = json.loads(stage2.path.read_text(encoding="utf-8"))
+    final_payload = json.loads(budget_final.path.read_text(encoding="utf-8"))
+
+    assert stage2_payload["evaluation_frame_ids"] == frame_ids[:5]
+    assert final_payload["evaluation_frame_ids"] == frame_ids[5:10]
+    assert set(stage2_payload["evaluation_frame_ids"]).isdisjoint(final_payload["evaluation_frame_ids"])
+    assert final_payload["evaluation_offset"] == 5

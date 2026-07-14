@@ -221,16 +221,30 @@ def test_stage2_score_uses_tau_ap_and_fp16_latency_reference() -> None:
     assert result["F2"] == pytest.approx(0.8 * 0.5 + 0.2 * 1.5)
 
 
+def test_stage2_configured_map_drop_is_a_hard_admission_gate() -> None:
+    from search.stage2.objective import Stage2ObjectiveConfig, compute_stage2_score
+
+    result = compute_stage2_score(
+        {"status": "ok", "mAP": 0.40, "forward_p50_ms": 2.0},
+        baseline={"mAP": 0.60, "forward_p50_ms": 3.0},
+        config=Stage2ObjectiveConfig(
+            eta_map=0.8,
+            eta_latency=0.2,
+            latency_metric="forward_p50_ms",
+            max_map_drop=0.05,
+        ),
+    )
+
+    assert result["status"] == "accuracy_hard_gate_failed"
+    assert result["F2"] == float("inf")
+
+
 def test_deployment_hash_changes_with_qdq_topology_and_merge_contract() -> None:
-    from search.hashing import canonical_json_hash, deployment_hash
+    from search.hashing import build_deployment_signature, canonical_json_hash, deployment_hash
 
     common = {
-        "physical_hash_value": "physical",
-        "realized_precision_profile": {"conv": "INT8"},
         "calibration_scale_hash": "scales",
         "onnx_export_config_hash": "onnx",
-        "tensorrt_version": "10.9",
-        "gpu_compute_capability": "9.0",
         "builder_flags": {"fp16": True, "int8": True},
         "optimization_profiles": {"fixed_k": 29696},
         "plugin_hashes": {"scatter": "plugin"},
@@ -241,16 +255,66 @@ def test_deployment_hash_changes_with_qdq_topology_and_merge_contract() -> None:
     int8_merge = canonical_json_hash(
         {"qdq_topology_hash": "topology-a", "merge_policy": "B_int8_common_scale"}
     )
-    different_topology = canonical_json_hash(
-        {"qdq_topology_hash": "topology-b", "merge_policy": "A_fp16_merge"}
-    )
+    signature_common = {
+        "code_commit": "commit",
+        "physical_model_hash": "physical",
+        "base_onnx_hash": "base-onnx",
+        "canonical_mapping_hash": "mapping",
+        "legalized_precision_profile_hash": "legalized",
+        "realized_precision_profile_hash": "realized",
+        "calibration_manifest_hash": "manifest",
+        "calibration_recipe_hash": "recipe",
+        "tensorrt_version": "10.9.0.34",
+        "cuda_version": "11.8",
+        "gpu_architecture": "8.9",
+        "plugin_binary_hash": "plugin",
+    }
+    topology_a = build_deployment_signature(**signature_common, qdq_topology_hash="topology-a")
+    topology_b = build_deployment_signature(**signature_common, qdq_topology_hash="topology-b")
 
     hashes = {
-        deployment_hash(**common, quantization_contract_hash=fp16_merge),
-        deployment_hash(**common, quantization_contract_hash=int8_merge),
-        deployment_hash(**common, quantization_contract_hash=different_topology),
+        deployment_hash(**common, deployment_signature=topology_a, quantization_contract_hash=fp16_merge),
+        deployment_hash(**common, deployment_signature=topology_a, quantization_contract_hash=int8_merge),
+        deployment_hash(**common, deployment_signature=topology_b, quantization_contract_hash=fp16_merge),
     }
     assert len(hashes) == 3
+
+
+def test_deployment_signature_requires_complete_explicit_lineage() -> None:
+    import pytest
+
+    from search.hashing import build_deployment_signature, canonical_json_hash
+
+    values = {
+        "code_commit": "commit-a",
+        "physical_model_hash": "physical-a",
+        "base_onnx_hash": "onnx-a",
+        "qdq_topology_hash": "topology-a",
+        "canonical_mapping_hash": "mapping-a",
+        "legalized_precision_profile_hash": "legalized-a",
+        "realized_precision_profile_hash": "realized-a",
+        "calibration_manifest_hash": "manifest-a",
+        "calibration_recipe_hash": "recipe-a",
+        "tensorrt_version": "10.9.0.34",
+        "cuda_version": "11.8",
+        "gpu_architecture": "8.9",
+        "plugin_binary_hash": "plugin-a",
+    }
+
+    signature = build_deployment_signature(**values)
+
+    assert set(values) <= set(signature)
+    assert signature["signature_version"] == "ga-explicit-qdq-deployment-v1"
+    baseline = canonical_json_hash(signature)
+    for field in values:
+        changed = dict(values)
+        changed[field] = f"{values[field]}-changed"
+        assert canonical_json_hash(build_deployment_signature(**changed)) != baseline
+    for field in values:
+        missing = dict(values)
+        missing[field] = ""
+        with pytest.raises(ValueError, match=f"deployment_signature_field_missing:{field}"):
+            build_deployment_signature(**missing)
 
 
 def test_raw_grouped_input_parameter_slices_use_local_group_coordinates() -> None:

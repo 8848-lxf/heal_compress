@@ -29,6 +29,8 @@ def test_quantization_groups_use_existing_precision_group_ids() -> None:
     assert search_groups[0].module_paths == ("branch_a", "branch_b")
     assert search_groups[0].allowed_precisions == ("FP32", "FP16", "INT8")
     assert search_groups[1].allowed_precisions == ("FP32", "FP16")
+    assert search_groups[0].metadata["group_namespace"] == "quantization"
+    assert search_groups[0].metadata["precision_group_source"] == "precision_coupling_tracer"
 
 
 def test_group_gene_expands_to_all_members_and_records_fallback() -> None:

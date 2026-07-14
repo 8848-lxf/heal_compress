@@ -11,6 +11,17 @@ from pathlib import Path
 from typing import Any
 
 
+def _runtime_provenance(trt: Any, torch: Any) -> dict[str, str]:
+    capability = torch.cuda.get_device_capability(0)
+    return {
+        "tensorrt_version": str(trt.__version__),
+        "cuda_version": str(torch.version.cuda),
+        "torch_version": str(torch.__version__),
+        "gpu_architecture": ".".join(str(value) for value in capability),
+        "gpu_name": str(torch.cuda.get_device_name(0)),
+    }
+
+
 def _write_json(path: str | Path, payload: Any) -> None:
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -52,6 +63,10 @@ def main(argv: list[str] | None = None) -> int:
         except ImportError:
             from quantization.api import build_trt_engine, validate_engine_structure, validate_precision_realization
             from quantization.config import TensorRTBuildConfig, TensorRTValidationConfig
+        import tensorrt as trt
+        import torch
+
+        runtime_provenance = _runtime_provenance(trt, torch)
         mapping = _mapping_from_dict(request["precision_mapping"])
         build_config = TensorRTBuildConfig.from_dict(request["build_config"])
         physical_snapshot = request.get("physical_snapshot")
@@ -65,7 +80,11 @@ def main(argv: list[str] | None = None) -> int:
             log_path=request["log_path"],
             raise_on_failure=False,
         )
-        result: dict[str, Any] = {"status": "ok" if build.success else "engine_build_failed", "build": build.to_dict()}
+        result: dict[str, Any] = {
+            "status": "ok" if build.success else "engine_build_failed",
+            "build": build.to_dict(),
+            "runtime_provenance": runtime_provenance,
+        }
         if build.success:
             structure = validate_engine_structure(
                 layer_info_path,

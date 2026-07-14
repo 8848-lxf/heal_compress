@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import random
 import time
 from dataclasses import replace
@@ -34,6 +35,7 @@ from ..stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
 from ..stage2.objective import Stage2ObjectiveConfig
 from ..stage2.repaired_topk_manifest import write_repaired_topk_manifest
 from ..stage2.round_results import write_round_stage2_results
+from .generation_stage2 import deploy_generation_with_backfill, fixed_bops_admission
 
 
 def _write_json(path: str | Path, payload: Any) -> None:
@@ -178,6 +180,8 @@ class LidarPyramidTwoStageSearch:
                 num_frames=int(stage2_cfg.get("num_frames", 5)),
                 warmup_frames=int(stage2_cfg.get("warmup_frames", 10)),
                 latency_rounds=int(stage2_cfg.get("latency_rounds", stage2_cfg.get("rounds", 1))),
+                target_bops_retention=stage2_cfg.get("target_bops_retention"),
+                bops_tolerance=float(stage2_cfg.get("bops_tolerance", stage2_cfg.get("tolerance", 0.005))),
                 stage2_config=Stage2ObjectiveConfig(
                     eta_map=float(stage2_cfg.get("eta_ap", stage2_cfg.get("eta_map", 1.0))),
                     eta_latency=float(stage2_cfg.get("eta_latency", 1.0)),
@@ -256,6 +260,7 @@ class LidarPyramidTwoStageSearch:
                 trace_hash=context.search_space.trace_snapshot_hash,
                 proxy_version="real-fisher-sqnr-size-bops-v1",
                 calibration_statistics_version=fisher_stats.statistics_version + ":" + fisher_stats.manifest_hash,
+                code_commit=context.code_commit,
             ),
             batch_scorer=batch_scorer,
             proxy_backend=proxy_backend,
@@ -296,6 +301,8 @@ class LidarPyramidTwoStageSearch:
             num_frames=int(stage2_cfg.get("num_frames", 5)),
             warmup_frames=int(stage2_cfg.get("warmup_frames", 10)),
             latency_rounds=int(stage2_cfg.get("latency_rounds", stage2_cfg.get("rounds", 1))),
+            target_bops_retention=stage2_cfg.get("target_bops_retention"),
+            bops_tolerance=float(stage2_cfg.get("bops_tolerance", stage2_cfg.get("tolerance", 0.005))),
             stage2_config=Stage2ObjectiveConfig(
                 eta_map=float(stage2_cfg.get("eta_ap", stage2_cfg.get("eta_map", 1.0))),
                 eta_latency=float(stage2_cfg.get("eta_latency", 1.0)),
@@ -571,18 +578,27 @@ class LidarPyramidTwoStageSearch:
         soft_schedule = dict(proxy_cfg.get("bops_soft_constraint", {}) or {})
         if not soft_schedule:
             soft_schedule = dict(proxy_cfg.get("bops_target_schedule", {}) or {})
+        per_generation_stage2 = bool(search_cfg.get("per_generation_stage2", False))
+        fixed_bops_target = search_cfg.get("target_bops_retention")
+        fixed_bops_tolerance = float(search_cfg.get("bops_tolerance", 0.005))
         global_seen_raw_hashes = self._load_seen_raw_hashes(run_dir)
         for round_index in range(outer_rounds):
             round_dir = run_dir / f"round_{round_index:03d}"
             round_dir.mkdir(parents=True, exist_ok=True)
             topk_stage2 = int(search_cfg.get("topk_stage2", search_cfg.get("topk_real", 1)))
-            if self.resume is not None and not stage1_only and self._round_stage2_complete(round_dir, topk_stage2):
+            if self.resume is not None and not per_generation_stage2 and not stage1_only and self._round_stage2_complete(round_dir, topk_stage2):
                 round_results = json.loads((round_dir / "stage2_top5_results.json").read_text(encoding="utf-8"))
                 evaluated_rows.extend(round_results.get("candidates", []) or [])
                 previous_elite = self._round_topk_as_genotypes(round_dir, context)
                 previous_best = previous_elite[0] if previous_elite else previous_best
                 continue
-            round_bops_target = bops_target_for_outer_round(round_index, outer_rounds, soft_schedule) if soft_schedule else None
+            round_bops_target = (
+                float(fixed_bops_target)
+                if fixed_bops_target is not None
+                else bops_target_for_outer_round(round_index, outer_rounds, soft_schedule)
+                if soft_schedule
+                else None
+            )
             proxy_objective = getattr(proxy, "objective", None)
             if round_bops_target is not None and proxy_objective is not None:
                 proxy.objective.config = replace(
@@ -615,6 +631,7 @@ class LidarPyramidTwoStageSearch:
                 trace_hash=context.search_space.trace_snapshot_hash,
                 proxy_version=f"real-fisher-sqnr-size-bops-v2:{_objective_hash}",
                 calibration_statistics_version=f"{getattr(getattr(proxy, 'objective', None), 'fisher_version', '')}:{objective_hash}",
+                code_commit=context.code_commit,
             )
             ga = GeneticSearchEngine(
                 context.search_space,
@@ -654,16 +671,29 @@ class LidarPyramidTwoStageSearch:
                     )
                 if target is not None:
                     bops_value = float(metrics.get("R_bops_vs_fp32", metrics.get("R_bops", float("inf"))))
-                    violation, p_bops = bops_soft_penalty(
-                        bops_value,
-                        float(target),
-                        formula=getattr(getattr(proxy, "objective", None), "config", ProxyObjectiveConfig()).bops_penalty_formula,
-                    )
+                    if fixed_bops_target is not None:
+                        admission = fixed_bops_admission(
+                            bops_value,
+                            target=float(target),
+                            tolerance=fixed_bops_tolerance,
+                        )
+                        violation = float(admission["violation"])
+                        p_bops = violation * violation
+                        metrics["BOPS_legal_interval"] = admission["legal_interval"]
+                    else:
+                        violation, p_bops = bops_soft_penalty(
+                            bops_value,
+                            float(target),
+                            formula=getattr(getattr(proxy, "objective", None), "config", ProxyObjectiveConfig()).bops_penalty_formula,
+                        )
                     metrics["BOPS_target"] = float(target)
                     metrics["bops_violation"] = float(violation)
                     metrics["P_bops"] = float(p_bops)
                     metrics["bops_feasible"] = violation <= 0.0
-                    if str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")) == "feasibility_first" and violation > 0:
+                    if (
+                        fixed_bops_target is not None
+                        or str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")) == "feasibility_first"
+                    ) and violation > 0:
                         metrics["F1"] = 1.0e6 + violation * 1.0e3 + float(metrics.get("proxy_score_raw", metrics.get("F1", 0.0)))
                 return metrics
 
@@ -676,6 +706,99 @@ class LidarPyramidTwoStageSearch:
                 batch.metrics = [annotate_metrics(genotype, metrics, generation) for genotype, metrics in zip(genotypes, batch.metrics)]
                 return batch
 
+            generation_reports: list[dict[str, Any]] = []
+
+            def on_generation(
+                generation: int,
+                generation_scored: list[tuple[CandidateGenotype, float, dict[str, Any]]],
+            ) -> None:
+                self._write_generation(
+                    round_dir / f"generation_{generation + 1:03d}_stage1.csv",
+                    generation_scored,
+                    context,
+                )
+                if not per_generation_stage2 or stage1_only:
+                    return
+                eligible = [
+                    row
+                    for row in generation_scored
+                    if math.isfinite(float(row[1]))
+                    and bool(row[2].get("bops_feasible", fixed_bops_target is None))
+                ]
+
+                def repair_candidate(genotype: CandidateGenotype) -> tuple[CandidateGenotype | None, dict[str, Any]]:
+                    return self._repair_raw_keep_mask(context, genotype)
+
+                def rescore_batch(phenotypes: list[CandidatePhenotype]) -> list[dict[str, Any]]:
+                    batch = proxy.evaluate_batch(
+                        phenotypes,
+                        generation=generation,
+                        outer_round=round_index,
+                    )
+                    return [
+                        annotate_metrics(CandidateGenotype({}, {}), row, generation)
+                        for row in batch.metrics
+                    ]
+
+                ranked_records, repair_report = select_repaired_stage2_topk(
+                    eligible,
+                    space=context.search_space,
+                    repair_fn=repair_candidate,
+                    rescore_fn=lambda phenotype: rescore_batch([phenotype])[0],
+                    batch_rescore_fn=rescore_batch,
+                    topk=max(topk_stage2, len(eligible)),
+                    repair_pool_size=max(topk_stage2, len(eligible)),
+                )
+                genuine_records = [
+                    record
+                    for record in ranked_records
+                    if record.phenotype.pruned_unit_ids
+                    or any(
+                        precision == "INT8"
+                        for precision in record.phenotype.realized_precision_profile.values()
+                    )
+                ]
+                repair_report.update(
+                    {
+                        "generation": generation + 1,
+                        "stage1_budget_eligible_count": len(eligible),
+                        "genuinely_compressed_count": len(genuine_records),
+                        "not_genuinely_compressed_count": len(ranked_records) - len(genuine_records),
+                    }
+                )
+                _write_json(
+                    round_dir / f"generation_{generation + 1:03d}_repair_report.json",
+                    repair_report,
+                )
+
+                def deploy(record: ProxyCandidateRecord, candidate_dir: Path) -> dict[str, Any]:
+                    _write_json(candidate_dir / "genotype.json", record.genotype.to_dict())
+                    _write_json(candidate_dir / "repaired_genotype.json", record.genotype.to_dict())
+                    _write_json(candidate_dir / "phenotype.json", record.phenotype.to_dict())
+                    result = real_evaluator.evaluate_candidate(
+                        record.phenotype,
+                        output_dir=candidate_dir,
+                        candidate_hash=record.candidate_hash,
+                    )
+                    evaluated_rows.append(
+                        {
+                            "generation": generation + 1,
+                            "candidate_hash": record.candidate_hash,
+                            "F1": record.F1,
+                            **result,
+                        }
+                    )
+                    return result
+
+                generation_report = deploy_generation_with_backfill(
+                    genuine_records,
+                    generation_index=generation,
+                    output_dir=round_dir,
+                    deploy_fn=deploy,
+                    topk=topk_stage2,
+                )
+                generation_reports.append(generation_report)
+
             scored = ga.run(
                 evaluate_genotype if proxy_backend == "scalar_cpu" else None,
                 batch_evaluator=evaluate_genotypes_batch if proxy_backend != "scalar_cpu" else None,
@@ -683,6 +806,7 @@ class LidarPyramidTwoStageSearch:
                 previous_best=previous_best,
                 seen_candidate_keys=global_seen_raw_hashes,
                 candidate_key_fn=lambda genotype: self._raw_genotype_hash(genotype, context),
+                generation_callback=on_generation,
             )
             global_seen_raw_hashes.update(self._raw_genotype_hash(genotype, context) for genotype, _score, _metrics in scored)
             _append_jsonl(
@@ -714,9 +838,35 @@ class LidarPyramidTwoStageSearch:
             )
             _write_json(run_dir / "run_manifest.json", manifest)
             records = self._records_from_scored(scored, context)
-            for generation in range(int(search_cfg.get("generations_per_round", 5))):
-                self._write_generation(round_dir / f"generation_{generation:03d}.csv", [row for row in scored if int(row[2].get("generation", -1)) == generation], context)
+            if not per_generation_stage2:
+                for generation in range(int(search_cfg.get("generations_per_round", 5))):
+                    self._write_generation(
+                        round_dir / f"generation_{generation:03d}.csv",
+                        [
+                            row
+                            for row in scored
+                            if int(row[2].get("generation", -1)) == generation
+                        ],
+                        context,
+                    )
             self._write_stage1(round_dir / "stage1_scores.csv", records)
+            if per_generation_stage2:
+                previous_elite = [record.genotype for record in records[: max(1, min(5, len(records)))]]
+                previous_best = previous_elite[0] if previous_elite else None
+                _write_json(
+                    round_dir / "generation_winners.json",
+                    [report["winner"] for report in generation_reports],
+                )
+                _write_json(
+                    round_dir / "round_summary.json",
+                    {
+                        "best_F1": records[0].F1 if records else None,
+                        "generation_count": len(generation_reports),
+                        "generation_winner_count": len(generation_reports),
+                        "evaluated": len(evaluated_rows),
+                    },
+                )
+                continue
             use_repaired_topk = str(self.config.get("pruning", {}).get("gene_type", self.config.get("pruning", {}).get("search_variable", ""))) == "coupled_channel_keep_mask" or "topk_stage2" in search_cfg
             if use_repaired_topk:
                 def repair_candidate(genotype: CandidateGenotype) -> tuple[CandidateGenotype | None, dict[str, Any]]:
@@ -819,6 +969,9 @@ class LidarPyramidTwoStageSearch:
                 "precision_genes": genotype.precision_genes,
                 "trace_hash": context.search_space.trace_snapshot_hash,
                 "search_space_version": "coupled-mask-fp32-bops-v1",
+                "code_commit": str(
+                    getattr(context, "code_commit", context.search_space.code_commit)
+                ),
             }
         )
 

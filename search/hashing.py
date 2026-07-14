@@ -52,6 +52,7 @@ def candidate_hash_payload(phenotype: CandidatePhenotype, space: SearchSpaceSpec
         "gpu_compute_capability": space.gpu_compute_capability,
         "builder_flags": space.builder_flags,
         "plugin_hashes": space.plugin_hashes,
+        "code_commit": space.code_commit,
     }
 
 
@@ -59,7 +60,14 @@ def candidate_hash(phenotype: CandidatePhenotype, space: SearchSpaceSpec) -> str
     return canonical_json_hash(candidate_hash_payload(phenotype, space))
 
 
-def search_hash(phenotype: CandidatePhenotype, *, trace_hash: str, proxy_version: str, calibration_statistics_version: str) -> str:
+def search_hash(
+    phenotype: CandidatePhenotype,
+    *,
+    trace_hash: str,
+    proxy_version: str,
+    calibration_statistics_version: str,
+    code_commit: str,
+) -> str:
     return canonical_json_hash(
         {
             "pruned_unit_ids": sorted(phenotype.pruned_unit_ids),
@@ -67,6 +75,7 @@ def search_hash(phenotype: CandidatePhenotype, *, trace_hash: str, proxy_version
             "trace_hash": trace_hash,
             "proxy_version": proxy_version,
             "calibration_statistics_version": calibration_statistics_version,
+            "code_commit": str(code_commit),
         }
     )
 
@@ -82,27 +91,80 @@ def physical_hash(*, legal_physical_plan: Any, physical_snapshot: Any, checkpoin
     )
 
 
+def build_deployment_signature(
+    *,
+    code_commit: str,
+    physical_model_hash: str,
+    base_onnx_hash: str,
+    qdq_topology_hash: str,
+    canonical_mapping_hash: str,
+    legalized_precision_profile_hash: str,
+    realized_precision_profile_hash: str,
+    calibration_manifest_hash: str,
+    calibration_recipe_hash: str,
+    tensorrt_version: str,
+    cuda_version: str,
+    gpu_architecture: str,
+    plugin_binary_hash: str,
+) -> dict[str, str]:
+    """Build the mandatory explicit-QDQ deployment lineage signature."""
+
+    fields = {
+        "code_commit": str(code_commit),
+        "physical_model_hash": str(physical_model_hash),
+        "base_onnx_hash": str(base_onnx_hash),
+        "qdq_topology_hash": str(qdq_topology_hash),
+        "canonical_mapping_hash": str(canonical_mapping_hash),
+        "legalized_precision_profile_hash": str(legalized_precision_profile_hash),
+        "realized_precision_profile_hash": str(realized_precision_profile_hash),
+        "calibration_manifest_hash": str(calibration_manifest_hash),
+        "calibration_recipe_hash": str(calibration_recipe_hash),
+        "tensorrt_version": str(tensorrt_version),
+        "cuda_version": str(cuda_version),
+        "gpu_architecture": str(gpu_architecture),
+        "plugin_binary_hash": str(plugin_binary_hash),
+    }
+    for name, value in fields.items():
+        if not value.strip():
+            raise ValueError(f"deployment_signature_field_missing:{name}")
+    return {"signature_version": "ga-explicit-qdq-deployment-v1", **fields}
+
+
 def deployment_hash(
     *,
-    physical_hash_value: str,
-    realized_precision_profile: dict[str, str],
+    deployment_signature: Mapping[str, str],
     calibration_scale_hash: str,
     onnx_export_config_hash: str,
-    tensorrt_version: str,
-    gpu_compute_capability: str,
     builder_flags: dict[str, Any],
     optimization_profiles: dict[str, Any],
     plugin_hashes: dict[str, str],
     quantization_contract_hash: str,
 ) -> str:
+    required_names = (
+        "code_commit",
+        "physical_model_hash",
+        "base_onnx_hash",
+        "qdq_topology_hash",
+        "canonical_mapping_hash",
+        "legalized_precision_profile_hash",
+        "realized_precision_profile_hash",
+        "calibration_manifest_hash",
+        "calibration_recipe_hash",
+        "tensorrt_version",
+        "cuda_version",
+        "gpu_architecture",
+        "plugin_binary_hash",
+    )
+    validated_signature = build_deployment_signature(
+        **{name: str(deployment_signature.get(name, "")) for name in required_names}
+    )
+    if str(deployment_signature.get("signature_version", "")) != validated_signature["signature_version"]:
+        raise ValueError("deployment_signature_version_mismatch")
     return canonical_json_hash(
         {
-            "physical_hash": physical_hash_value,
-            "realized_precision_profile": realized_precision_profile,
+            "deployment_signature": validated_signature,
             "calibration_scale_hash": calibration_scale_hash,
             "onnx_export_config_hash": onnx_export_config_hash,
-            "tensorrt_version": tensorrt_version,
-            "gpu_compute_capability": gpu_compute_capability,
             "builder_flags": builder_flags,
             "optimization_profiles": optimization_profiles,
             "plugin_hashes": plugin_hashes,

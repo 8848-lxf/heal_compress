@@ -38,3 +38,40 @@ def test_ga_skips_seen_raw_genotypes() -> None:
     engine.run(evaluator, previous_best=seen, seen_candidate_keys={seen_key}, candidate_key_fn=key_fn)
 
     assert seen_key not in evaluated
+
+
+def test_ga_generation_callback_receives_each_generation_before_reproduction() -> None:
+    from search.canonicalization import SearchSpaceSpec
+    from search.ga.engine import GAConfig, GeneticSearchEngine
+
+    space = SearchSpaceSpec(
+        pruning_unit_ids=[f"u{index}" for index in range(6)],
+        precision_layer_ids=["layer"],
+    )
+    callbacks: list[tuple[int, int, set[int]]] = []
+
+    def evaluator(_genotype, generation: int):
+        return {"F1": float(generation), "generation": generation}
+
+    def on_generation(generation, scored):
+        callbacks.append(
+            (
+                generation,
+                len(scored),
+                {int(metrics["generation"]) for _candidate, _score, metrics in scored},
+            )
+        )
+
+    engine = GeneticSearchEngine(
+        space,
+        GAConfig(
+            initial_population_size=8,
+            population_size=6,
+            offspring_size=6,
+            num_generations=3,
+            random_seed=7,
+        ),
+    )
+    engine.run(evaluator, generation_callback=on_generation)
+
+    assert callbacks == [(0, 8, {0}), (1, 6, {1}), (2, 6, {2})]

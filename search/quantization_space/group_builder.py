@@ -85,6 +85,8 @@ def build_quantization_search_groups(
                 parameter_count=_module_parameter_count(model, modules),
                 baseline_macs=_module_weight_macs_proxy(model, modules),
                 metadata={
+                    "group_namespace": "quantization",
+                    "precision_group_source": "precision_coupling_tracer",
                     "reason": str(getattr(raw, "reason", "")),
                     "default_precision": str(getattr(raw, "default_precision", "fp16")).upper(),
                     "force_same_precision": bool(getattr(raw, "force_same_precision", True)),
