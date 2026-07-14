@@ -253,3 +253,63 @@ Multi-GPU follow-up design requested by the user:
   signatures at the coordinator.
 
 --- Round 5 completed: 2026-07-14 17:56:09 CST ---
+
+## Round 6 - E67 fail-closed result and four-GPU Stage-2 process pool
+
+Starting point: commit `a28b95b`, branch
+`feature/heal-compress-h800-sync-4090`. The required H800 fix remained an
+ancestor and no command targeted the H800 branch.
+
+Second fresh readiness:
+
+- output: `outputs/4090_ga_explicit_qdq_readiness_20260714_030135/`;
+- strict FP16 passed 200/200 with zero skips and mAP 0.724576;
+- E67 preserved the 67 INT8 / 3 FP16 canonical profile and accepted static
+  topology, but the engine inspector proved `/Concat_9` was FP32/mixed;
+- the precise failure was
+  `concat_merge_not_compatible:/Concat_9:FP32_or_mixed`;
+- strong typing, common-scale graph lowering and an isolated Force-FP16 plugin
+  were investigated; all full-graph alternatives were rejected after
+  reproducible TensorRT crashes and all experimental source was removed;
+- `READY_FOR_GA = false`, so generation 0 and all 300/500-frame candidate work
+  remain unstarted.
+
+Implemented multi-GPU search infrastructure:
+
+- `search/orchestration/stage2_process_pool.py`: persistent one-process-per-GPU
+  coordinator, atomic queues, ordered collection, timeout/crash propagation,
+  exact candidate cache and cleanup;
+- `search/stage2/candidate_worker.py`: one formal context/evaluator per GPU,
+  strict startup preflight, same-GPU FP32 AP/FP16 latency references and
+  fail-closed task output;
+- `search/orchestration/generation_stage2.py`: concurrent ranked waves with
+  deterministic uniqueness/backfill/winner semantics;
+- `search/orchestration/lidar_pyramid_search.py`: process-pool lifecycle and
+  candidate dispatch integration;
+- `search/integration/lidar_pyramid_context.py`,
+  `search/stage2/lidar_pyramid_real_evaluator.py`, and
+  `search/orchestration/budget_final.py`: exact controller-PID allowlist
+  propagation;
+- `search/configs/lidar_pyramid_4090_ga_stage_a.yaml`: GPU 4/5/6/7 worker pool.
+
+Verification and live evidence:
+
+- 18 focused multi-GPU tests passed;
+- 312 formal search/package tests passed with 7 known warnings;
+- broad diagnostic suite: 801 passed, 4 unrelated pre-existing failures;
+- live four-worker startup smoke passed at
+  `outputs/4090_stage2_pool_startup_smoke_20260714_043413/`;
+- GPUs 4/5/6/7 matched their expected UUIDs, each worker initialized one formal
+  context, and all processes exited without residue;
+- `docs/codex_handoffs/4090-ga-multigpu-stage2-integration.md` contains the
+  detailed scheduling, cache, isolation and file-level design.
+
+Current gates:
+
+- multi-GPU framework implemented: yes;
+- fresh E67 production merge gate: failed;
+- `READY_FOR_GA = false`;
+- Stage A started: no;
+- Stage B allowed: no.
+
+--- Round 6 completed: 2026-07-14 19:20:45 CST ---

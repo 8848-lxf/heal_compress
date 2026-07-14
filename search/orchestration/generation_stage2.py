@@ -51,7 +51,12 @@ def deploy_generation_with_backfill(
     *,
     generation_index: int,
     output_dir: str | Path,
-    deploy_fn: Callable[[Any, Path], dict[str, Any]],
+    deploy_fn: Callable[[Any, Path], dict[str, Any]] | None,
+    deploy_batch_fn: Callable[
+        [list[tuple[Any, Path]]], list[dict[str, Any]]
+    ]
+    | None = None,
+    parallelism: int = 1,
     topk: int = 5,
 ) -> dict[str, Any]:
     """Deploy ranked candidates until one generation has Top-K unique artifacts."""
@@ -61,68 +66,91 @@ def deploy_generation_with_backfill(
     prefix = f"generation_{generation_number:03d}"
     admitted: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
+    speculative: list[dict[str, Any]] = []
     seen_deployments: set[tuple[str, str]] = set()
     attempted = 0
-    for rank, record in enumerate(ranked_records):
-        if len(admitted) >= int(topk):
-            break
-        attempted += 1
-        candidate_hash = str(record.candidate_hash)
-        candidate_dir = destination / prefix / "stage2" / candidate_hash
-        candidate_dir.mkdir(parents=True, exist_ok=True)
-        result = dict(deploy_fn(record, candidate_dir))
-        base = {
-            "generation": generation_number,
-            "stage1_rank": rank,
-            "candidate_hash": candidate_hash,
-            "F1": float(record.F1),
-        }
-        if str(result.get("status", "")) != "ok":
-            failures.append(
-                {
-                    **base,
-                    "status": str(result.get("status", "deployment_failed")),
-                    "failure_reason": str(
-                        result.get("failure_reason", result.get("status", "deployment_failed"))
-                    ),
-                }
-            )
-            continue
-        physical_hash = str(result.get("physical_hash", ""))
-        deployment_hash = str(result.get("deployment_hash", ""))
-        if not physical_hash or not deployment_hash:
-            failures.append(
-                {
-                    **base,
-                    "status": "deployment_identity_missing",
-                    "failure_reason": "physical_or_deployment_hash_missing",
-                }
-            )
-            continue
-        identity = (physical_hash, deployment_hash)
-        if identity in seen_deployments:
-            failures.append(
-                {
-                    **base,
-                    "status": "duplicate_deployment",
-                    "failure_reason": "duplicate_physical_deployment_hash",
-                    "physical_hash": physical_hash,
-                    "deployment_hash": deployment_hash,
-                }
-            )
-            continue
-        f2 = float(result.get("F2", float("inf")))
-        if not math.isfinite(f2):
-            failures.append(
-                {
-                    **base,
-                    "status": "stage2_score_invalid",
-                    "failure_reason": "finite_F2_required",
-                }
-            )
-            continue
-        seen_deployments.add(identity)
-        admitted.append({**base, **result})
+    width = max(1, int(parallelism))
+    if deploy_batch_fn is None and deploy_fn is None:
+        raise ValueError("deploy_fn_or_deploy_batch_fn_required")
+    rank = 0
+    while rank < len(ranked_records) and len(admitted) < int(topk):
+        wave = list(ranked_records[rank : rank + width])
+        prepared = []
+        for record in wave:
+            candidate_hash = str(record.candidate_hash)
+            candidate_dir = destination / prefix / "stage2" / candidate_hash
+            candidate_dir.mkdir(parents=True, exist_ok=True)
+            prepared.append((record, candidate_dir))
+        if deploy_batch_fn is not None:
+            results = [dict(row) for row in deploy_batch_fn(prepared)]
+            if len(results) != len(prepared):
+                raise RuntimeError(
+                    f"parallel_deploy_result_count_mismatch:{len(results)}!={len(prepared)}"
+                )
+        else:
+            assert deploy_fn is not None
+            results = [dict(deploy_fn(record, path)) for record, path in prepared]
+        attempted += len(prepared)
+        for offset, ((record, _candidate_dir), result) in enumerate(
+            zip(prepared, results)
+        ):
+            candidate_hash = str(record.candidate_hash)
+            base = {
+                "generation": generation_number,
+                "stage1_rank": rank + offset,
+                "candidate_hash": candidate_hash,
+                "F1": float(record.F1),
+            }
+            if len(admitted) >= int(topk):
+                speculative.append({**base, **result})
+                continue
+            if str(result.get("status", "")) != "ok":
+                failures.append(
+                    {
+                        **base,
+                        "status": str(result.get("status", "deployment_failed")),
+                        "failure_reason": str(
+                            result.get("failure_reason", result.get("status", "deployment_failed"))
+                        ),
+                    }
+                )
+                continue
+            physical_hash = str(result.get("physical_hash", ""))
+            deployment_hash = str(result.get("deployment_hash", ""))
+            if not physical_hash or not deployment_hash:
+                failures.append(
+                    {
+                        **base,
+                        "status": "deployment_identity_missing",
+                        "failure_reason": "physical_or_deployment_hash_missing",
+                    }
+                )
+                continue
+            identity = (physical_hash, deployment_hash)
+            if identity in seen_deployments:
+                failures.append(
+                    {
+                        **base,
+                        "status": "duplicate_deployment",
+                        "failure_reason": "duplicate_physical_deployment_hash",
+                        "physical_hash": physical_hash,
+                        "deployment_hash": deployment_hash,
+                    }
+                )
+                continue
+            f2 = float(result.get("F2", float("inf")))
+            if not math.isfinite(f2):
+                failures.append(
+                    {
+                        **base,
+                        "status": "stage2_score_invalid",
+                        "failure_reason": "finite_F2_required",
+                    }
+                )
+                continue
+            seen_deployments.add(identity)
+            admitted.append({**base, **result})
+        rank += len(wave)
 
     status = "ok" if len(admitted) == int(topk) else "insufficient_unique_deployable_candidates"
     report = {
@@ -130,9 +158,11 @@ def deploy_generation_with_backfill(
         "generation": generation_number,
         "topk_required": int(topk),
         "attempted_count": attempted,
+        "parallelism": width if deploy_batch_fn is not None else 1,
         "selected_count": len(admitted),
         "candidates": admitted,
         "failure_records": failures,
+        "speculative_deployments": speculative,
     }
     top5_path = destination / f"{prefix}_top5.json"
     _write_json(top5_path, report)

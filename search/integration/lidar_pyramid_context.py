@@ -56,6 +56,7 @@ class LidarPyramidSearchContext:
     physical_gpu_id: int
     runtime_device: str
     allow_foreign_gpu_processes: bool
+    allowed_gpu_pids: set[int]
     max_gpu_utilization_pct: int
     gpu_selection: GPUSelection
     tensorrt: TensorRTEnvironment
@@ -328,6 +329,7 @@ def build_lidar_pyramid_context(
     grouped_allowed_channels_per_group: list[int] | None = None,
     pruning_gene_type: str = "legal_pruning_action",
     allow_foreign_gpu_processes: bool = False,
+    allowed_gpu_pids: set[int] | None = None,
     max_gpu_utilization_pct: int = 20,
 ) -> LidarPyramidSearchContext:
     gpu = select_gpu(gpu_id, exclude_gpu_ids)
@@ -477,6 +479,7 @@ def build_lidar_pyramid_context(
         physical_gpu_id=gpu.physical_gpu_id,
         runtime_device=gpu.runtime_device,
         allow_foreign_gpu_processes=bool(allow_foreign_gpu_processes),
+        allowed_gpu_pids={int(value) for value in (allowed_gpu_pids or set())},
         max_gpu_utilization_pct=int(max_gpu_utilization_pct),
         gpu_selection=gpu,
         tensorrt=tensorrt,
@@ -501,6 +504,7 @@ def _write_context_report(path: Path, context: LidarPyramidSearchContext) -> Non
         "search_pruning_unit_count": len(context.search_space.pruning_unit_ids),
         "precision_layer_count": len(context.search_space.precision_layer_ids),
         "precision_group_count": len(context.search_space.precision_gene_ids),
+        "allowed_gpu_pids": sorted(context.allowed_gpu_pids),
         "maximal_legal_int8_gene_count": sum(
             "INT8" in group.allowed_precisions and not group.protected
             for group in context.search_space.quantization_groups

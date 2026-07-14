@@ -203,3 +203,53 @@ promoted. A fresh run from a new directory and new commit is required.
 `READY_FOR_GA = false`
 
 --- First full attempt analyzed: 2026-07-14 17:56:09 CST ---
+
+## Second fresh readiness result
+
+Run directory:
+`outputs/4090_ga_explicit_qdq_readiness_20260714_030135/`.
+
+The run used commit `a28b95b` on isolated physical GPU 5. The strict FP16
+baseline passed build, serialize/deserialize, structure, precision, merge and
+200-frame evaluation gates:
+
+- evaluated/skipped: 200/0;
+- AP@0.30: 0.811332;
+- AP@0.50: 0.769881;
+- AP@0.70: 0.592514;
+- mAP: 0.724576;
+- forward p50/p90/p95: 2.996810/3.294223/3.680619 ms;
+- engine hash:
+  `5140896af812d363ddf3e97cdb6507fcf6b9d6b1826dc31c832d26fb503df119`.
+
+The matched E67 engine passed build, deserialize, canonical precision and QDQ
+topology generation but failed before evaluation:
+
+`concat_merge_not_compatible:/Concat_9:FP32_or_mixed`
+
+The engine inspector proves that the three INT8 ConvTranspose tactics are
+`i8f32...f32`; their deblock ReLU outputs and the compiler-backend layers that
+produce `/Concat_9_output_0` are `Float`. The graph contains explicit FP16 Cast
+nodes and obey/output constraints, but TensorRT 10.9 weak typing eliminates the
+conversion before the downstream Q. This is a real 4090 realization failure,
+not the previous layer-name matching defect.
+
+Rejected diagnostics were preserved but not committed as production changes:
+
+- strongly typed parsing crashed at the existing PointPillar plugin;
+- mathematically equivalent common-scale Q/Concat rewrites reached engine
+  generation and then TensorRT segfaulted during serialization;
+- a tested FP32-to-FP16 plugin passed small and large isolated engines but the
+  full E67 graph also segfaulted after engine generation;
+- all experimental graph/plugin source changes were removed and the original
+  PointPillar plugin was rebuilt.
+
+The first E67 attempt's 200-frame AP remains diagnostic only. This second run
+does not have a valid E67 evaluation because the merge audit correctly stopped
+the path before scoring.
+
+`READY_FOR_GA = false`
+
+`STAGE_A_STARTED = false`
+
+--- Second fresh readiness analyzed: 2026-07-14 19:20:45 CST ---

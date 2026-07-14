@@ -135,6 +135,7 @@ def run_budget_final_evaluation(
         gpu_isolation_fn(
             context.physical_gpu_id,
             report_path=destination / "gpu_preflight.json",
+            allowed_pids=set(getattr(context, "allowed_gpu_pids", set())),
             allow_foreign_processes=bool(
                 getattr(context, "allow_foreign_gpu_processes", False)
             ),
@@ -160,6 +161,7 @@ def run_budget_final_evaluation(
         gpu_isolation_fn(
             context.physical_gpu_id,
             report_path=destination / "gpu_postflight.json",
+            allowed_pids=set(getattr(context, "allowed_gpu_pids", set())),
             allow_foreign_processes=bool(
                 getattr(context, "allow_foreign_gpu_processes", False)
             ),

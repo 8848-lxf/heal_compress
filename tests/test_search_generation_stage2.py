@@ -79,6 +79,41 @@ def test_generation_stage2_writes_failure_report_before_insufficient_top5(tmp_pa
     assert not (tmp_path / "generation_003_winner.json").exists()
 
 
+def test_generation_stage2_parallel_batches_preserve_ranked_backfill(tmp_path: Path) -> None:
+    from search.orchestration.generation_stage2 import deploy_generation_with_backfill
+
+    records = [_record(name, rank) for rank, name in enumerate("abcdefg")]
+    results = {
+        "a": {"status": "engine_build_failure", "failure_reason": "build"},
+        "b": {"status": "ok", "physical_hash": "p1", "deployment_hash": "d1", "F2": 0.5},
+        "c": {"status": "ok", "physical_hash": "p1", "deployment_hash": "d1", "F2": 0.4},
+        "d": {"status": "ok", "physical_hash": "p2", "deployment_hash": "d2", "F2": 0.3},
+        "e": {"status": "ok", "physical_hash": "p3", "deployment_hash": "d3", "F2": 0.1},
+        "f": {"status": "ok", "physical_hash": "p4", "deployment_hash": "d4", "F2": 0.2},
+        "g": {"status": "ok", "physical_hash": "p5", "deployment_hash": "d5", "F2": 0.6},
+    }
+    batches = []
+
+    def deploy_batch(items):
+        batches.append([record.candidate_hash for record, _path in items])
+        return [dict(results[record.candidate_hash]) for record, _path in items]
+
+    report = deploy_generation_with_backfill(
+        records,
+        generation_index=0,
+        output_dir=tmp_path,
+        deploy_fn=None,
+        deploy_batch_fn=deploy_batch,
+        parallelism=3,
+        topk=5,
+    )
+
+    assert batches == [list("abc"), list("def"), ["g"]]
+    assert [row["candidate_hash"] for row in report["candidates"]] == ["b", "d", "e", "f", "g"]
+    assert report["attempted_count"] == 7
+    assert report["parallelism"] == 3
+
+
 @pytest.mark.parametrize(
     ("retention", "passed"),
     [(0.2049, False), (0.205, True), (0.21, True), (0.215, True), (0.2151, False)],

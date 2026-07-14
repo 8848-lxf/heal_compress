@@ -1798,6 +1798,7 @@ class LidarPyramidRealEvaluator:
         require_gpu_isolation(
             self.context.physical_gpu_id,
             report_path=output_dir / "gpu_preflight.json",
+            allowed_pids=set(getattr(self.context, "allowed_gpu_pids", set())),
             allow_foreign_processes=bool(
                 getattr(self.context, "allow_foreign_gpu_processes", False)
             ),
@@ -1824,6 +1825,7 @@ class LidarPyramidRealEvaluator:
         require_gpu_isolation(
             self.context.physical_gpu_id,
             report_path=output_dir / "gpu_postflight.json",
+            allowed_pids=set(getattr(self.context, "allowed_gpu_pids", set())),
             allow_foreign_processes=bool(
                 getattr(self.context, "allow_foreign_gpu_processes", False)
             ),

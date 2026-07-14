@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import random
 import time
 from dataclasses import replace
@@ -38,6 +39,7 @@ from ..stage2.repaired_topk_manifest import write_repaired_topk_manifest
 from ..stage2.round_results import write_round_stage2_results
 from .budget_final import run_budget_final_evaluation
 from .generation_stage2 import deploy_generation_with_backfill, fixed_bops_admission
+from .stage2_process_pool import PersistentStage2ProcessPool
 
 
 def _write_json(path: str | Path, payload: Any) -> None:
@@ -354,7 +356,41 @@ class LidarPyramidTwoStageSearch:
                 result = real_evaluator.evaluate_candidate(phenotype, output_dir=run_dir / "round_000" / "stage2" / key, candidate_hash=key)
                 results.append(result)
             return {"run_dir": str(run_dir), "selected_gpu": context.physical_gpu_id, "stage2_only": True, "results": results, "result": results[0] if results else None}
-        rows = self._run_ga(context, proxy, real_evaluator, run_dir, search_cfg, stage1_only=stage1_only)
+        parallel_cfg = dict(self.config.get("stage2_parallel", {}) or {})
+        stage2_pool = None
+        if (
+            bool(parallel_cfg.get("enabled", False))
+            and bool(search_cfg.get("per_generation_stage2", False))
+            and not stage1_only
+        ):
+            stage2_pool = PersistentStage2ProcessPool(
+                run_dir=run_dir,
+                gpu_ids=[int(value) for value in parallel_cfg.get("gpu_ids", [])],
+                worker_payload={
+                    "config": self.config,
+                    "checkpoint": str(self.checkpoint),
+                    "code_commit": context.code_commit,
+                    "controller_pid": os.getpid(),
+                },
+                startup_timeout_seconds=float(
+                    parallel_cfg.get("startup_timeout_seconds", 1200)
+                ),
+                task_timeout_seconds=float(
+                    parallel_cfg.get("task_timeout_seconds", 14400)
+                ),
+                poll_interval_seconds=float(
+                    parallel_cfg.get("poll_interval_seconds", 0.25)
+                ),
+            )
+        rows = self._run_ga(
+            context,
+            proxy,
+            real_evaluator,
+            run_dir,
+            search_cfg,
+            stage1_only=stage1_only,
+            stage2_pool=stage2_pool,
+        )
         if self.resume is not None:
             manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
             _write_json(
@@ -594,7 +630,17 @@ class LidarPyramidTwoStageSearch:
         )
         return stats
 
-    def _run_ga(self, context: Any, proxy: Stage1ProxyEvaluator, real_evaluator: LidarPyramidRealEvaluator, run_dir: Path, search_cfg: dict[str, Any], *, stage1_only: bool) -> list[dict[str, Any]]:
+    def _run_ga(
+        self,
+        context: Any,
+        proxy: Stage1ProxyEvaluator,
+        real_evaluator: LidarPyramidRealEvaluator,
+        run_dir: Path,
+        search_cfg: dict[str, Any],
+        *,
+        stage1_only: bool,
+        stage2_pool: PersistentStage2ProcessPool | None = None,
+    ) -> list[dict[str, Any]]:
         evaluated_rows: list[dict[str, Any]] = []
         previous_elite: list[CandidateGenotype] = []
         previous_best: CandidateGenotype | None = None
@@ -816,24 +862,92 @@ class LidarPyramidTwoStageSearch:
                     )
                     return result
 
+                def deploy_batch(
+                    items: list[tuple[ProxyCandidateRecord, Path]],
+                ) -> list[dict[str, Any]]:
+                    if stage2_pool is None:
+                        return [deploy(record, path) for record, path in items]
+                    tasks = []
+                    for record, candidate_dir in items:
+                        _write_json(
+                            candidate_dir / "genotype.json",
+                            record.genotype.to_dict(),
+                        )
+                        _write_json(
+                            candidate_dir / "repaired_genotype.json",
+                            record.genotype.to_dict(),
+                        )
+                        _write_json(
+                            candidate_dir / "phenotype.json",
+                            record.phenotype.to_dict(),
+                        )
+                        tasks.append(
+                            {
+                                "candidate_hash": record.candidate_hash,
+                                "phenotype": record.phenotype.to_dict(),
+                                "output_dir": str(candidate_dir.resolve()),
+                            }
+                        )
+                    results = stage2_pool.map_tasks(tasks)
+                    for (record, candidate_dir), result in zip(items, results):
+                        if bool(result.get("pool_cache_hit", False)):
+                            _write_json(
+                                candidate_dir / "stage2_reuse.json",
+                                {
+                                    "candidate_hash": record.candidate_hash,
+                                    "reused_pool_task_id": result.get(
+                                        "reused_pool_task_id", ""
+                                    ),
+                                    "source_artifact_dir": result.get(
+                                        "artifact_dir", ""
+                                    ),
+                                    "engine_path": result.get(
+                                        "engine_path", ""
+                                    ),
+                                    "worker_gpu_id": result.get(
+                                        "worker_gpu_id"
+                                    ),
+                                    "worker_pid": result.get("worker_pid"),
+                                },
+                            )
+                        evaluated_rows.append(
+                            {
+                                "generation": generation + 1,
+                                "candidate_hash": record.candidate_hash,
+                                "F1": record.F1,
+                                **result,
+                            }
+                        )
+                    return results
+
                 generation_report = deploy_generation_with_backfill(
                     genuine_records,
                     generation_index=generation,
                     output_dir=round_dir,
-                    deploy_fn=deploy,
+                    deploy_fn=deploy if stage2_pool is None else None,
+                    deploy_batch_fn=deploy_batch if stage2_pool is not None else None,
+                    parallelism=(
+                        stage2_pool.parallelism if stage2_pool is not None else 1
+                    ),
                     topk=topk_stage2,
                 )
                 generation_reports.append(generation_report)
 
-            scored = ga.run(
-                evaluate_genotype if proxy_backend == "scalar_cpu" else None,
-                batch_evaluator=evaluate_genotypes_batch if proxy_backend != "scalar_cpu" else None,
-                previous_elite=previous_elite,
-                previous_best=previous_best,
-                seen_candidate_keys=global_seen_raw_hashes,
-                candidate_key_fn=lambda genotype: self._raw_genotype_hash(genotype, context),
-                generation_callback=on_generation,
-            )
+            if stage2_pool is not None:
+                stage2_pool.start()
+            try:
+                scored = ga.run(
+                    evaluate_genotype if proxy_backend == "scalar_cpu" else None,
+                    batch_evaluator=evaluate_genotypes_batch if proxy_backend != "scalar_cpu" else None,
+                    previous_elite=previous_elite,
+                    previous_best=previous_best,
+                    seen_candidate_keys=global_seen_raw_hashes,
+                    candidate_key_fn=lambda genotype: self._raw_genotype_hash(genotype, context),
+                    generation_callback=on_generation,
+                )
+            finally:
+                if stage2_pool is not None:
+                    stage2_pool.close()
             global_seen_raw_hashes.update(self._raw_genotype_hash(genotype, context) for genotype, _score, _metrics in scored)
             _append_jsonl(
                 run_dir / "seen_raw_genotypes.jsonl",
