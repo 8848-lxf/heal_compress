@@ -906,3 +906,103 @@ Current gates:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 16 completed: 2026-07-15 05:22:02 CST ---
+
+## Round 17 - BOPS 0.21 anchor measurements and search-region decision
+
+The fresh formal run from committed anchor code `4fb44fe` completed on
+physical RTX 4090 GPU4, UUID
+`GPU-166702d7-bf30-18e0-83ff-83b316d37c0e`:
+
+`outputs/4090_bops_021_anchor_study_20260714_142336/`
+
+The run used one checkpoint, the fixed train200 EntropyCalibration2 manifest,
+one validation200 manifest, the same FP32 scatter plugin boundary, warmup20
+followed by latency reset, and the same strongly typed production evaluator.
+The calibration tensor-manifest hash is
+`eb56308111e20ad7c789b18a8860289fe7357474722dadc43c810868554e0ec5`;
+the validation-manifest hash is
+`6f601374e573a5ed7da61eeac07259c0eea34fb5ed72d9bf52265d40a02c9f16`.
+All three anchors passed smoke10 and measured 200/200 with zero skips.
+
+Same-run strict FP32 reference:
+
+- AP03/AP05/AP07/mAP: 0.810864/0.770644/0.593668/0.725059;
+- forward p50/p90/p95: 7.308166/7.568362/7.764058 ms.
+
+Anchor A, all-keep and all-FP16:
+
+- canonical profile 0 INT8 / 70 FP16 / 0 FP32;
+- theoretical/proxy/physical/realized BOPS all exactly 0.25;
+- AP03/AP05/AP07/mAP: 0.810845/0.770418/0.594003/0.725088;
+- p50/p90/p95: 5.721614/5.859551/6.677257 ms.
+
+Anchor B, all-FP16 plus one local physical prune:
+
+- selected `shrink_conv.layers.0.double_conv.0`, retained 184/256 and pruned
+  72 channels;
+- MAC retention 0.844057, parameters 5,049,999;
+- proxy/physical/realized BOPS:
+  0.2110143453/0.2110143492/0.2110143492;
+- AP03/AP05/AP07/mAP: 0.811078/0.770363/0.594374/0.725272;
+- p50/p90/p95: 5.663902/7.020254/8.713158 ms;
+- raw, repaired, requested and realized profiles are the same all-FP16 hash.
+
+Anchor C, all-keep plus one INT8 precision group:
+
+- selected `pg_0141`, `pyramid_backbone.deblocks.2.0`;
+- INT8 MAC share 0.197142 and no physical pruning;
+- canonical profile 1 INT8 / 69 FP16 / 0 FP32;
+- proxy/physical/realized BOPS:
+  0.2130358219/0.2130358219/0.2130358274;
+- AP03/AP05/AP07/mAP: 0.810842/0.769888/0.595260/0.725330;
+- p50/p90/p95: 3.918936/4.554928/5.580226 ms;
+- raw, repaired, requested and realized profiles share hash
+  `03da4b43731c91a5200336063780050f27fe667bd547f0845e54baf37c1fe1a1`.
+
+All anchors have canonical count 70, unresolved count zero, separated pruning
+and quantization namespaces, valid semantic QDQ, valid strongly typed profile,
+valid per-channel weights, valid merge realization and no unexpected fallback.
+`/Concat_9` is Half/Half in every engine. The scatter plugin remains outside
+the quantization genes and BOPS rows.
+
+Both B and C are observed low-damage Pareto points relative to the same-run
+strict FP32 engine. C is the preferred primary mechanism: it preserves every
+channel, has essentially the same measured accuracy as B, and lowers p50 by
+1.744966 ms versus B. B remains a useful boundary/control and supplies a
+Fisher channel order for future hybrid seeds. The proposed Stage A region is
+C-centered with `R_MAC>=0.95`, INT8 MAC share approximately 0.14-0.22, only
+late light pruning, no free FP32 gene, and deterministic B/C-derived seeds.
+These settings and the proposed AP gate remain pending user approval.
+
+Two report-level correctness gaps were closed with regression-first changes:
+
+- the scatter dtype summary now accepts the actual three Float data inputs
+  plus Int32 coordinates and reports the passing Float output as FP32;
+- `LOW_DAMAGE_BOPS_021_PATH_IDENTIFIED` is now computed from observed relative
+  mAP/AP07/p50 Pareto evidence, exact BOPS admission and 200/0 completion,
+  without defining an absolute AP hard gate or unlocking Stage A.
+
+The full evidence, deltas, hashes, BOPS decomposition, search recommendation
+and reproduction commands are recorded in
+`docs/codex_handoffs/4090-bops-021-anchor-study.md`.
+
+Verification:
+
+- 17 focused anchor tests passed;
+- 95 related BOPS, repair, quantization-group, physical-pruning, strongly
+  typed graph, merge, manifest and Stage-2 tests passed;
+- modified Python files compile and `git diff --check` passes in the final
+  delivery verification.
+
+Current gates:
+
+- `ANCHOR_FP16_BASELINE_PASS = true`;
+- `ANCHOR_FP16_PRUNING_PASS = true`;
+- `ANCHOR_MIXED_NO_PRUNE_PASS = true`;
+- `LOW_DAMAGE_BOPS_021_PATH_IDENTIFIED = true`;
+- `MULTIGPU_TOP5_SMOKE_PASS = false`;
+- `STAGE_A_ALLOWED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 17 completed: 2026-07-15 05:51:19 CST ---
