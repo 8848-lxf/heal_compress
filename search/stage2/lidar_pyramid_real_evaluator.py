@@ -15,7 +15,8 @@ import torch
 from ..adapters.pruning_adapter import FormalPruningAdapter
 from ..cache.artifact_cache import ArtifactCache
 from ..cache.real_eval_cache import RealEvalCache
-from ..candidate import CandidatePhenotype
+from ..candidate import CandidatePhenotype, normalize_precision
+from ..constrained.policy import smoke10_admission
 from ..hashing import build_deployment_signature, canonical_json_hash, deployment_hash, eval_hash, physical_hash
 from ..integration.calibration_provider import (
     QDQ_CALIBRATION_SEMANTICS_VERSION,
@@ -761,6 +762,359 @@ class LidarPyramidRealEvaluator:
         self.real_cache.put(cache_key, result)
         return result
 
+    @staticmethod
+    def _deployment_audit_summary(output_dir: Path) -> dict[str, Any]:
+        required = (
+            "physical_validation.json",
+            "pruning_quantization_group_audit.json",
+            "production_qdq_boundary_audit.json",
+            "merge_precision_realization.json",
+            "engine_structure_validation.json",
+            "precision_realization_validation.json",
+            "typed_graph_report.json",
+        )
+        details: dict[str, Any] = {}
+        reasons: list[str] = []
+        for name in required:
+            path = output_dir / name
+            if not path.is_file():
+                details[name] = {"passed": False, "status": "missing"}
+                reasons.append(f"audit_missing:{name}")
+                continue
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                details[name] = {"passed": False, "status": "unreadable"}
+                reasons.append(f"audit_unreadable:{name}")
+                continue
+            status = str(payload.get("status", "")).lower()
+            passed = bool(payload.get("passed", False)) or (
+                status in {"ok", "passed"} and not payload.get("issues")
+            )
+            if name == "typed_graph_report.json":
+                passed = passed or (
+                    bool(payload.get("strongly_typed", False))
+                    and int(payload.get("unresolved_tensor_dtype_count", -1)) == 0
+                    and int(payload.get("plugin_qdq_count", -1)) == 0
+                )
+            details[name] = {"passed": passed, "status": status or None}
+            if not passed:
+                reasons.append(f"audit_failed:{name}")
+        merge_path = output_dir / "merge_precision_realization.json"
+        concat9_count = 0
+        if merge_path.is_file():
+            try:
+                merge_payload = json.loads(merge_path.read_text(encoding="utf-8"))
+                concat9_count = sum(
+                    "/Concat_9" in str(row.get("merge_op_name", ""))
+                    for row in merge_payload.get("merges", []) or []
+                )
+            except (OSError, json.JSONDecodeError):
+                concat9_count = 0
+        if concat9_count != 1:
+            reasons.append(f"Concat_9_contract_match_count:{concat9_count}")
+        return {
+            "passed": not reasons,
+            "status": "passed" if not reasons else "deployment_audit_failed",
+            "failure_reasons": reasons,
+            "Concat_9_match_count": concat9_count,
+            "audits": details,
+        }
+
+    def evaluate_candidate_two_level(
+        self,
+        phenotype: CandidatePhenotype,
+        *,
+        output_dir: str | Path,
+        candidate_hash: str,
+        smoke_frames: int = 10,
+        smoke_warmup_frames: int = 10,
+    ) -> dict[str, Any]:
+        """Build once, use smoke10 only for health, then apply the 200-frame gate."""
+
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        _write_json(destination / "phenotype.json", phenotype.to_dict())
+        baseline = self._stage2_reference_baseline()
+        full_frames = self.num_frames
+        full_warmup = self.warmup_frames
+        try:
+            self.num_frames = int(smoke_frames)
+            self.warmup_frames = int(smoke_warmup_frames)
+            raw = self._deploy_and_evaluate(
+                phenotype=phenotype,
+                output_dir=destination,
+                candidate_label=candidate_hash,
+                pruned_unit_ids=phenotype.pruned_unit_ids,
+            )
+        finally:
+            self.num_frames = full_frames
+            self.warmup_frames = full_warmup
+        if str(raw.get("status", "")) != "ok":
+            return {
+                "candidate_hash": candidate_hash,
+                "status": str(raw.get("status", "two_level_deployment_failed")),
+                "failure_reason": str(
+                    raw.get("failure_reason", raw.get("status", ""))
+                ),
+                "F2": float("inf"),
+                "artifact_dir": str(destination),
+            }
+        smoke_evaluation = dict(raw["evaluation"])
+        smoke_dir = destination / "smoke10"
+        _write_json(smoke_dir / "evaluation.json", smoke_evaluation)
+        self._copy_latency(smoke_evaluation, smoke_dir / "latency.csv")
+        smoke_gate = smoke10_admission(smoke_evaluation)
+        _write_json(smoke_dir / "admission.json", smoke_gate)
+        if not smoke_gate["passed"]:
+            return {
+                "candidate_hash": candidate_hash,
+                "status": "smoke10_admission_failed",
+                "failure_reason": ",".join(smoke_gate["failure_reasons"]),
+                "F2": float("inf"),
+                "physical_hash": raw.get("physical_hash", ""),
+                "deployment_hash": raw.get("deployment_hash", ""),
+                "engine_hash": raw.get("engine_hash", ""),
+                "artifact_dir": str(destination),
+            }
+        bops_audit = json.loads(
+            (destination / "realized_bops_audit.json").read_text(encoding="utf-8")
+        )
+        resource_reasons: list[str] = []
+        if (
+            self.objective_config.r_mac_floor is not None
+            and float(bops_audit.get("R_MAC", 0.0))
+            < float(self.objective_config.r_mac_floor)
+        ):
+            resource_reasons.append("R_MAC_below_floor")
+        int8_share = float(bops_audit.get("int8_macs_share_full", 0.0))
+        if (
+            self.objective_config.int8_mac_share_min is not None
+            and int8_share < float(self.objective_config.int8_mac_share_min)
+        ) or (
+            self.objective_config.int8_mac_share_max is not None
+            and int8_share > float(self.objective_config.int8_mac_share_max)
+        ):
+            resource_reasons.append("INT8_MAC_share_out_of_range")
+        if not bool(bops_audit.get("passed", False)):
+            resource_reasons.append("realized_BOPS_out_of_budget")
+        resource_passed = not resource_reasons
+        _write_json(
+            destination / "realized_resource_admission.json",
+            {
+                "passed": resource_passed,
+                "failure_reasons": resource_reasons,
+                "R_MAC": bops_audit.get("R_MAC"),
+                "int8_macs_share_full": int8_share,
+                "BOPS_retention": bops_audit.get("bops_retention"),
+            },
+        )
+        if not resource_passed:
+            return {
+                "candidate_hash": candidate_hash,
+                "status": "realized_resource_gate_failed",
+                "failure_reason": ",".join(resource_reasons),
+                "F2": float("inf"),
+                "physical_hash": raw.get("physical_hash", ""),
+                "deployment_hash": raw.get("deployment_hash", ""),
+                "engine_hash": raw.get("engine_hash", ""),
+                "artifact_dir": str(destination),
+            }
+        evaluation_dir = destination / f"evaluation_{full_frames}"
+        full_evaluation = self._evaluate_engine(raw["engine_path"], evaluation_dir)
+        if str(full_evaluation.get("status", "")) != "ok":
+            return {
+                "candidate_hash": candidate_hash,
+                "status": "evaluation_failed",
+                "failure_reason": str(
+                    full_evaluation.get("failure_reason", "full_evaluation_failed")
+                ),
+                "F2": float("inf"),
+                "physical_hash": raw.get("physical_hash", ""),
+                "deployment_hash": raw.get("deployment_hash", ""),
+                "engine_hash": raw.get("engine_hash", ""),
+                "artifact_dir": str(destination),
+            }
+        full_evaluation.update(
+            {
+                "realized_BOPS": bops_audit["realized_bops"],
+                "BOPS_retention": bops_audit["bops_retention"],
+                "R_MAC": bops_audit["R_MAC"],
+                "int8_macs_share_full": bops_audit[
+                    "int8_macs_share_full"
+                ],
+                "physical_params": bops_audit["physical_params"],
+                "parameter_retention": bops_audit["parameter_retention"],
+                "weight_storage_retention": bops_audit[
+                    "weight_storage_retention"
+                ],
+                "realized_precision_counts": bops_audit[
+                    "realized_precision_counts"
+                ],
+            }
+        )
+        _write_json(destination / "evaluation.json", full_evaluation)
+        full_eval_hash = ""
+        manifest_path = destination / "deployment_manifest.json"
+        if hasattr(self, "context"):
+            full_eval_hash = eval_hash(
+                deployment_hash_value=str(raw.get("deployment_hash", "")),
+                validation_manifest_hash=str(
+                    full_evaluation.get(
+                        "eval_manifest_hash", self.context.eval_manifest_hash
+                    )
+                ),
+                evaluation_config_hash=canonical_json_hash(
+                    {
+                        "num_frames": full_frames,
+                        "warmup": full_warmup,
+                        "rounds": self.latency_rounds,
+                    }
+                ),
+                postprocess_config={"source": "HEAL dataset.post_process"},
+                warmup=full_warmup,
+                rounds=self.latency_rounds,
+                latency_metric_definition=self.objective_config.latency_metric,
+            )
+            if manifest_path.is_file():
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest["eval_hash"] = full_eval_hash
+                manifest["evaluation_protocol"] = {
+                    "smoke_frames": int(smoke_frames),
+                    "formal_frames": int(full_frames),
+                    "formal_warmup_frames": int(full_warmup),
+                    "warmup_latency_reset": True,
+                }
+                _write_json(manifest_path, manifest)
+        scored = compute_stage2_score(
+            full_evaluation,
+            baseline=baseline,
+            config=self.objective_config,
+        )
+        engine_precision = json.loads(
+            (destination / "engine_realized_precision_profile.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        requested_profile = {
+            str(module_path): normalize_precision(decision.requested_precision)
+            for module_path, decision in sorted(phenotype.precision_profile.items())
+        }
+        realized_full_profile = {
+            str(module_path): normalize_precision(precision)
+            for module_path, precision in dict(
+                engine_precision.get("realized_precision_profile", {})
+            ).items()
+        }
+        realized_profile = {
+            module_path: realized_full_profile.get(module_path, "UNRESOLVED")
+            for module_path in sorted(requested_profile)
+        }
+        requested_hash = canonical_json_hash(requested_profile)
+        realized_hash = canonical_json_hash(realized_profile)
+        precision_identity_passed = requested_hash == realized_hash
+        audit_summary = self._deployment_audit_summary(destination)
+        qdq_summary_path = destination / "qdq_realization_summary.json"
+        qdq_summary = (
+            json.loads(qdq_summary_path.read_text(encoding="utf-8"))
+            if qdq_summary_path.is_file()
+            else {}
+        )
+        precision_validation_path = destination / "precision_realization_validation.json"
+        precision_validation = (
+            json.loads(precision_validation_path.read_text(encoding="utf-8"))
+            if precision_validation_path.is_file()
+            else {}
+        )
+        typed_graph_path = destination / "typed_graph_report.json"
+        typed_graph = (
+            json.loads(typed_graph_path.read_text(encoding="utf-8"))
+            if typed_graph_path.is_file()
+            else {}
+        )
+        lineage_path = destination / "deployment_lineage.json"
+        lineage = (
+            json.loads(lineage_path.read_text(encoding="utf-8"))
+            if lineage_path.is_file()
+            else {}
+        )
+        final_status = str(scored.get("status", "ok"))
+        failure_reasons = list(scored.get("failure_reasons", []) or [])
+        if not precision_identity_passed:
+            final_status = "precision_profile_hash_mismatch"
+            failure_reasons.append("requested_realized_precision_hash_mismatch")
+        if not audit_summary["passed"]:
+            final_status = "deployment_audit_failed"
+            failure_reasons.extend(audit_summary["failure_reasons"])
+        result = {
+            **full_evaluation,
+            **scored,
+            "candidate_hash": candidate_hash,
+            "physical_hash": raw.get("physical_hash", ""),
+            "deployment_hash": raw.get("deployment_hash", ""),
+            "eval_hash": full_eval_hash,
+            "engine_hash": raw.get("engine_hash", ""),
+            "engine_path": raw.get("engine_path", ""),
+            "artifact_dir": str(destination),
+            "status": final_status,
+            "failure_reasons": failure_reasons,
+            "evaluated": int(full_evaluation.get("num_evaluated_frames", -1)),
+            "skipped": int(full_evaluation.get("num_skipped_frames", -1)),
+            "resource_admission_passed": resource_passed,
+            "accuracy_admission_passed": bool(
+                scored.get("accuracy_admission_passed", False)
+            ),
+            "requested_precision_profile_hash": requested_hash,
+            "realized_precision_profile_hash": realized_hash,
+            "precision_identity_passed": precision_identity_passed,
+            "deployment_audits_passed": bool(audit_summary["passed"]),
+            "deployment_audit_summary": audit_summary,
+            "smoke10_admission": smoke_gate,
+            "calibration_manifest_hash": str(
+                lineage.get("calibration_manifest_hash", "")
+            ),
+            "validation_manifest_hash": str(
+                full_evaluation.get("eval_manifest_hash", "")
+            ),
+            "canonical_precision_counts": dict(
+                engine_precision.get("precision_counts", {}) or {}
+            ),
+            "unresolved_precision_count": int(
+                precision_validation.get("unresolved_layer_count", 0) or 0
+            ),
+            "requested_int8_groups": list(
+                qdq_summary.get("requested_int8_groups", []) or []
+            ),
+            "realized_int8_groups": list(
+                qdq_summary.get("realized_int8_groups", []) or []
+            ),
+            "QDQ_count": int(qdq_summary.get("QuantizeLinear_count", 0) or 0)
+            + int(qdq_summary.get("DequantizeLinear_count", 0) or 0),
+            "reformat_count": int(
+                precision_validation.get("reformat_count", 0) or 0
+            ),
+            "plugin_boundary_dtype": str(
+                typed_graph.get("plugin_boundary_dtype", "")
+            ),
+            "engine_size_bytes": (
+                Path(str(raw.get("engine_path", ""))).stat().st_size
+                if Path(str(raw.get("engine_path", ""))).is_file()
+                else 0
+            ),
+        }
+        if final_status != "ok":
+            result["F2"] = float("inf")
+        _write_json(destination / "stage2_score.json", result)
+        write_candidate_summary_artifacts(
+            destination,
+            candidate_hash=candidate_hash,
+            phenotype=phenotype,
+            stage2_score=result,
+            objective_config=self.objective_config,
+            stage1_manifest_record=self._stage1_manifest_record(candidate_hash),
+        )
+        return result
+
     def _stage2_reference_baseline(self) -> dict[str, Any]:
         accuracy = self.evaluate_original_baseline("strict_fp32", full_validation=False)
         latency = self.evaluate_original_baseline("strict_fp16", full_validation=False)
@@ -999,6 +1353,33 @@ class LidarPyramidRealEvaluator:
                     ),
                     "realized_bops_audit": bops_audit,
                 }
+            resource_reasons: list[str] = []
+            if admission_target is not None:
+                if (
+                    self.objective_config.r_mac_floor is not None
+                    and float(bops_audit.get("R_MAC", 0.0))
+                    < float(self.objective_config.r_mac_floor)
+                ):
+                    resource_reasons.append("R_MAC_below_floor")
+                int8_share = float(
+                    bops_audit.get("int8_macs_share_full", 0.0)
+                )
+                if (
+                    self.objective_config.int8_mac_share_min is not None
+                    and int8_share
+                    < float(self.objective_config.int8_mac_share_min)
+                ) or (
+                    self.objective_config.int8_mac_share_max is not None
+                    and int8_share
+                    > float(self.objective_config.int8_mac_share_max)
+                ):
+                    resource_reasons.append("INT8_MAC_share_out_of_range")
+            if resource_reasons:
+                return {
+                    "status": "realized_resource_gate_failed",
+                    "failure_reason": ",".join(resource_reasons),
+                    "realized_bops_audit": bops_audit,
+                }
             evaluation = self._evaluate_engine(trt["engine_path"], output_dir)
             if evaluation.get("status") != "ok":
                 return {"status": "evaluation_failed", "failure_reason": evaluation.get("failure_reason", evaluation.get("status", "")), "evaluation": evaluation}
@@ -1006,6 +1387,10 @@ class LidarPyramidRealEvaluator:
                 {
                     "realized_BOPS": bops_audit["realized_bops"],
                     "BOPS_retention": bops_audit["bops_retention"],
+                    "R_MAC": bops_audit["R_MAC"],
+                    "int8_macs_share_full": bops_audit[
+                        "int8_macs_share_full"
+                    ],
                     "physical_params": bops_audit["physical_params"],
                     "parameter_retention": bops_audit["parameter_retention"],
                     "weight_storage_retention": bops_audit["weight_storage_retention"],

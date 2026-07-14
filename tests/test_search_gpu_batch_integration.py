@@ -231,7 +231,18 @@ def test_torch_batched_proxy_matches_scalar_reference_on_small_candidates() -> N
 
     for phenotype, row in zip(phenotypes, batched):
         ref = scalar.evaluate(phenotype)
-        for key in ("L_fisher", "L_sqnr", "R_size_vs_fp16_deploy", "R_bops_vs_fp16_deploy", "F1"):
+        for key in (
+            "L_fisher",
+            "L_sqnr",
+            "L_quant_incremental",
+            "L_prune_x_quant_prior",
+            "L_MAC_weighted",
+            "R_MAC",
+            "int8_macs_share_full",
+            "R_size_vs_fp16_deploy",
+            "R_bops_vs_fp16_deploy",
+            "F1",
+        ):
             assert row[key] == pytest.approx(ref[key], rel=1e-5, abs=1e-6)
 
 

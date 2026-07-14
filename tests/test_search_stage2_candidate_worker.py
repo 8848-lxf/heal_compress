@@ -113,3 +113,47 @@ def test_candidate_worker_preflight_uses_same_strict_pid_policy(tmp_path: Path) 
     assert policy["allowed_pids"] == {321}
     assert policy["allow_foreign_processes"] is False
     assert policy["max_gpu_utilization_pct"] == 20
+
+
+def test_candidate_worker_requires_raw_repaired_requested_realized_hash_identity(
+    tmp_path: Path,
+) -> None:
+    from search.candidate import CandidatePhenotype, PrecisionDecision
+    from search.stage2.candidate_worker import _evaluate_task
+
+    class Evaluator:
+        def evaluate_candidate_two_level(self, *_args, **_kwargs):
+            return {
+                "status": "ok",
+                "F2": 0.1,
+                "precision_identity_passed": True,
+                "requested_precision_profile_hash": "same",
+                "realized_precision_profile_hash": "same",
+            }
+
+    phenotype = CandidatePhenotype(
+        pruned_unit_ids=[],
+        precision_profile={"layer": PrecisionDecision("FP16", "FP16", "")},
+    )
+    base_task = {
+        "candidate_hash": "candidate",
+        "phenotype": phenotype.to_dict(),
+        "output_dir": str(tmp_path),
+        "smoke_frames": 10,
+        "smoke_warmup_frames": 10,
+        "raw_precision_gene_hash": "same",
+        "repaired_precision_gene_hash": "same",
+    }
+
+    accepted = _evaluate_task(Evaluator(), base_task, 4)
+    rejected = _evaluate_task(
+        Evaluator(),
+        {**base_task, "repaired_precision_gene_hash": "changed"},
+        4,
+    )
+
+    assert accepted["precision_identity_passed"] is True
+    assert accepted["status"] == "ok"
+    assert rejected["precision_identity_passed"] is False
+    assert rejected["status"] == "precision_profile_hash_mismatch"
+    assert rejected["F2"] == float("inf")

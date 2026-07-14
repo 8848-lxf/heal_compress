@@ -106,18 +106,23 @@ class BOPSProxy:
                 )
             fp16_base = self.base_fp16_bops
             fp32_base = sum(float(shape.macs) * 32.0 * 32.0 for shape in self.runtime_shapes) or 1.0
+            fp32_reference_macs = fp32_base / (32.0 * 32.0)
             return {
                 "R_bops_vs_fp16_deploy": float(total / fp16_base),
                 "R_bops_vs_fp32": float(total / fp32_base),
                 "R_bops": float(total / fp16_base),
                 "int8_macs_ratio": float(int8_macs / max(total_macs, 1.0)),
+                "int8_macs_share_full": float(int8_macs / fp32_reference_macs),
+                "R_MAC": float(total_macs / fp32_reference_macs),
                 "bops_total": float(total),
                 "bops_fp16_baseline": float(fp16_base),
                 "bops_fp32_baseline": float(fp32_base),
                 "breakdown": rows,
             }
         if self.model is not None and self.unit_to_parameter_slices:
-            total = 0
+            total = 0.0
+            total_macs = 0.0
+            int8_macs = 0.0
             for layer, shape in resolve_virtual_shapes(self.model, phenotype, self.unit_to_parameter_slices).items():
                 precision = phenotype.realized_precision_profile.get(layer, "FP16")
                 weight_bits = BIT_WIDTHS.get(str(precision).upper(), 16)
@@ -130,11 +135,17 @@ class BOPSProxy:
                 else:
                     continue
                 total += macs * weight_bits * activation_bits
+                total_macs += macs
+                if str(precision).upper() == "INT8":
+                    int8_macs += macs
+            fp32_reference_macs = max(self.base_bops / (32.0 * 32.0), 1.0)
             return {
                 "R_bops_vs_fp16_deploy": float(total / self.base_fp16_bops),
                 "R_bops_vs_fp32": float(total / self.base_bops),
                 "R_bops": float(total / self.base_fp16_bops),
-                "int8_macs_ratio": 0.0,
+                "int8_macs_ratio": float(int8_macs / max(total_macs, 1.0)),
+                "int8_macs_share_full": float(int8_macs / fp32_reference_macs),
+                "R_MAC": float(total_macs / fp32_reference_macs),
                 "bops_total": float(total),
                 "bops_fp16_baseline": float(self.base_fp16_bops),
                 "bops_fp32_baseline": float(self.base_bops),
@@ -151,6 +162,8 @@ class BOPSProxy:
             "R_bops_vs_fp32": float(total / self.base_bops),
             "R_bops": float(total / self.base_fp16_bops),
             "int8_macs_ratio": 0.0,
+            "int8_macs_share_full": 0.0,
+            "R_MAC": 1.0,
             "bops_total": float(total),
             "bops_fp16_baseline": float(self.base_fp16_bops),
             "bops_fp32_baseline": float(self.base_bops),

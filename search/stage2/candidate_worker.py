@@ -140,12 +140,43 @@ def _gpu_isolation_kwargs(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
+    from ..constrained.context import apply_constrained_pruning_context
     from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
     from .lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
     from .objective import Stage2ObjectiveConfig
 
     context = build_lidar_pyramid_context(**_context_kwargs(request))
     config = dict(request.get("config", {}))
+    constrained = dict(config.get("constrained_search", {}) or {})
+    if bool(constrained.get("enabled", False)):
+        pruning = dict(config.get("pruning", {}) or {})
+        grouped = dict(pruning.get("grouped_conv", {}) or {})
+        context, _projection = apply_constrained_pruning_context(
+            context,
+            allowed_root_patterns=[
+                str(value)
+                for value in constrained.get("allowed_pruning_root_patterns", [])
+            ],
+            grouped_conv_mode=str(
+                grouped.get("position_mode", "independent_group_topk")
+            ),
+            grouped_conv_align=int(
+                dict(pruning.get("dense", {}) or {}).get("alignment", 4)
+            ),
+            grouped_allowed_channels_per_group=[
+                int(value)
+                for value in grouped.get(
+                    "allowed_channels_per_group",
+                    [4, 8, 16, 32, 64, 128, 256, 512],
+                )
+            ],
+            allowed_precision_values=[
+                str(value)
+                for value in constrained.get(
+                    "allowed_precision_values", ["FP16", "INT8"]
+                )
+            ],
+        )
     stage2 = dict(
         config.get("stage2")
         or config.get("stage2_smoke")
@@ -171,6 +202,23 @@ def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
             ),
             tau_ap=stage2.get("tau_ap"),
             max_map_drop=stage2.get("max_map_drop"),
+            min_map=stage2.get("min_map"),
+            min_ap07=stage2.get("min_ap07"),
+            required_evaluated_frames=stage2.get(
+                "required_evaluated_frames"
+            ),
+            required_skipped_frames=stage2.get("required_skipped_frames"),
+            r_mac_floor=stage2.get("r_mac_floor"),
+            int8_mac_share_min=(
+                list(stage2.get("int8_mac_share", []))[0]
+                if len(list(stage2.get("int8_mac_share", []))) == 2
+                else None
+            ),
+            int8_mac_share_max=(
+                list(stage2.get("int8_mac_share", []))[1]
+                if len(list(stage2.get("int8_mac_share", []))) == 2
+                else None
+            ),
         ),
     )
     return context, evaluator
@@ -201,16 +249,56 @@ def _evaluate_task(evaluator: Any, task: dict[str, Any], gpu_id: int) -> dict[st
     from ..candidate import CandidatePhenotype
 
     phenotype = CandidatePhenotype.from_dict(dict(task["phenotype"]))
-    result = evaluator.evaluate_candidate(
-        phenotype,
-        output_dir=task["output_dir"],
-        candidate_hash=str(task["candidate_hash"]),
-    )
-    return {
+    smoke_frames = int(task.get("smoke_frames", 0) or 0)
+    if smoke_frames > 0:
+        result = evaluator.evaluate_candidate_two_level(
+            phenotype,
+            output_dir=task["output_dir"],
+            candidate_hash=str(task["candidate_hash"]),
+            smoke_frames=smoke_frames,
+            smoke_warmup_frames=int(task.get("smoke_warmup_frames", 10)),
+        )
+    else:
+        result = evaluator.evaluate_candidate(
+            phenotype,
+            output_dir=task["output_dir"],
+            candidate_hash=str(task["candidate_hash"]),
+        )
+    merged = {
         **dict(result),
+        "seed_family": str(task.get("seed_family", "")),
+        "stage1_metrics": dict(task.get("stage1_metrics", {}) or {}),
+        "raw_precision_gene_hash": str(
+            task.get("raw_precision_gene_hash", "")
+        ),
+        "repaired_precision_gene_hash": str(
+            task.get("repaired_precision_gene_hash", "")
+        ),
+        "saturation_ratio": float(task.get("saturation_ratio", 0.0) or 0.0),
         "worker_gpu_id": int(gpu_id),
         "worker_pid": os.getpid(),
     }
+    hashes = [
+        str(merged.get(key, ""))
+        for key in (
+            "raw_precision_gene_hash",
+            "repaired_precision_gene_hash",
+            "requested_precision_profile_hash",
+            "realized_precision_profile_hash",
+        )
+    ]
+    merged["precision_identity_passed"] = bool(
+        merged.get("precision_identity_passed", False)
+        and all(hashes)
+        and len(set(hashes)) == 1
+    )
+    if str(merged.get("status", "")) == "ok" and not merged[
+        "precision_identity_passed"
+    ]:
+        merged["status"] = "precision_profile_hash_mismatch"
+        merged["failure_reason"] = "raw_repaired_requested_realized_hash_mismatch"
+        merged["F2"] = float("inf")
+    return merged
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

@@ -199,6 +199,13 @@ def compute_realized_bops(
         raise ValueError("baseline_weight_storage_empty")
 
     retention = realized_bops / fp32_reference_bops
+    physical_macs = sum(float(row["MACs"]) for row in breakdown)
+    int8_macs = sum(
+        float(row["MACs"])
+        for row in breakdown
+        if str(row["realized_precision"]) == "INT8"
+    )
+    r_mac = physical_macs / fp32_reference_macs
     lower = None if target_retention is None else float(target_retention) - float(tolerance)
     upper = None if target_retention is None else float(target_retention) + float(tolerance)
     passed = target_retention is None or (float(lower) <= retention <= float(upper))
@@ -213,6 +220,12 @@ def compute_realized_bops(
         "realized_bops": realized_bops,
         "fp32_reference_bops": fp32_reference_bops,
         "bops_retention": retention,
+        "R_MAC": r_mac,
+        "physical_macs": physical_macs,
+        "fp32_reference_macs": fp32_reference_macs,
+        "int8_macs": int8_macs,
+        "int8_macs_share_full": int8_macs / fp32_reference_macs,
+        "int8_macs_share_physical": int8_macs / max(physical_macs, 1.0),
         "physical_params": physical_params,
         "baseline_params": baseline_params,
         "parameter_retention": physical_params / max(baseline_params, 1),

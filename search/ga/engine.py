@@ -48,6 +48,7 @@ class GeneticSearchEngine:
         batch_evaluator: Callable[[list[CandidateGenotype], int], Any] | None = None,
         previous_elite: list[CandidateGenotype] | None = None,
         previous_best: CandidateGenotype | None = None,
+        initial_population: list[CandidateGenotype] | None = None,
         seen_candidate_keys: Iterable[str] | None = None,
         candidate_key_fn: Callable[[CandidateGenotype], str] | None = None,
         generation_callback: Callable[
@@ -85,14 +86,36 @@ class GeneticSearchEngine:
                 raise RuntimeError(f"unable_to_generate_unseen_population:{len(fresh)}<{target_size}")
             return fresh
 
-        population = initialize_population(
-            self.space,
-            max(self.config.population_size, self.config.initial_population_size),
-            self.rng,
-            previous_elite=previous_elite,
-            previous_best=previous_best,
+        initial_size = max(
+            self.config.population_size,
+            self.config.initial_population_size,
         )
-        population = fresh_population(list(population), max(self.config.population_size, self.config.initial_population_size))
+        if initial_population is None:
+            population = initialize_population(
+                self.space,
+                initial_size,
+                self.rng,
+                previous_elite=previous_elite,
+                previous_best=previous_best,
+            )
+            population = fresh_population(list(population), initial_size)
+        else:
+            population = list(initial_population)
+            if len(population) != initial_size:
+                raise RuntimeError(
+                    "explicit_initial_population_size_mismatch:"
+                    f"{len(population)}!={initial_size}"
+                )
+            if candidate_key_fn is not None:
+                keys = [str(candidate_key_fn(candidate)) for candidate in population]
+                if len(set(keys)) != len(keys):
+                    raise RuntimeError("explicit_initial_population_not_unique")
+                overlap = sorted(set(keys) & seen_keys)
+                if overlap:
+                    raise RuntimeError(
+                        f"explicit_initial_population_already_seen:{len(overlap)}"
+                    )
+                seen_keys.update(keys)
         best = float("inf")
         stagnant = 0
         all_scored: list[tuple[CandidateGenotype, float, dict[str, Any]]] = []
@@ -120,6 +143,8 @@ class GeneticSearchEngine:
             scored.sort(key=lambda row: row[1])
             if generation_callback is not None:
                 generation_callback(generation, list(scored))
+            if generation + 1 >= self.config.num_generations:
+                continue
             if scored and scored[0][1] < best:
                 best = scored[0][1]
                 stagnant = 0

@@ -58,6 +58,8 @@ def deploy_generation_with_backfill(
     | None = None,
     parallelism: int = 1,
     topk: int = 5,
+    require_individual_hash_uniqueness: bool = False,
+    raise_on_insufficient: bool = True,
 ) -> dict[str, Any]:
     """Deploy ranked candidates until one generation has Top-K unique artifacts."""
 
@@ -68,6 +70,8 @@ def deploy_generation_with_backfill(
     failures: list[dict[str, Any]] = []
     speculative: list[dict[str, Any]] = []
     seen_deployments: set[tuple[str, str]] = set()
+    seen_physical_hashes: set[str] = set()
+    seen_deployment_hashes: set[str] = set()
     attempted = 0
     width = max(1, int(parallelism))
     if deploy_batch_fn is None and deploy_fn is None:
@@ -127,6 +131,34 @@ def deploy_generation_with_backfill(
                 )
                 continue
             identity = (physical_hash, deployment_hash)
+            if (
+                require_individual_hash_uniqueness
+                and physical_hash in seen_physical_hashes
+            ):
+                failures.append(
+                    {
+                        **base,
+                        "status": "duplicate_physical_hash",
+                        "failure_reason": "duplicate_physical_hash",
+                        "physical_hash": physical_hash,
+                        "deployment_hash": deployment_hash,
+                    }
+                )
+                continue
+            if (
+                require_individual_hash_uniqueness
+                and deployment_hash in seen_deployment_hashes
+            ):
+                failures.append(
+                    {
+                        **base,
+                        "status": "duplicate_deployment_hash",
+                        "failure_reason": "duplicate_deployment_hash",
+                        "physical_hash": physical_hash,
+                        "deployment_hash": deployment_hash,
+                    }
+                )
+                continue
             if identity in seen_deployments:
                 failures.append(
                     {
@@ -149,6 +181,8 @@ def deploy_generation_with_backfill(
                 )
                 continue
             seen_deployments.add(identity)
+            seen_physical_hashes.add(physical_hash)
+            seen_deployment_hashes.add(deployment_hash)
             admitted.append({**base, **result})
         rank += len(wave)
 
@@ -159,6 +193,9 @@ def deploy_generation_with_backfill(
         "topk_required": int(topk),
         "attempted_count": attempted,
         "parallelism": width if deploy_batch_fn is not None else 1,
+        "require_individual_hash_uniqueness": bool(
+            require_individual_hash_uniqueness
+        ),
         "selected_count": len(admitted),
         "candidates": admitted,
         "failure_records": failures,
@@ -168,10 +205,12 @@ def deploy_generation_with_backfill(
     _write_json(top5_path, report)
     _write_json(destination / f"{prefix}_failures.json", failures)
     _write_csv(destination / f"{prefix}_stage2.csv", admitted)
-    if len(admitted) != int(topk):
+    if len(admitted) != int(topk) and raise_on_insufficient:
         raise RuntimeError(
             f"insufficient_unique_deployable_candidates:{len(admitted)}<{int(topk)}"
         )
+    if len(admitted) != int(topk):
+        return report
     winner = min(admitted, key=lambda row: (float(row["F2"]), str(row["candidate_hash"])))
     report["winner"] = winner
     _write_json(destination / f"{prefix}_winner.json", winner)

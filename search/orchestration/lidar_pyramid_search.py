@@ -15,6 +15,23 @@ from typing import Any
 from ..cache.proxy_cache import ProxyCache
 from ..candidate import CandidateGenotype, CandidatePhenotype
 from ..canonicalization import canonicalize_candidate
+from ..constrained.context import (
+    apply_constrained_pruning_context,
+    measure_precision_sensitivity,
+    select_int8_allowlist,
+)
+from ..constrained.policy import (
+    ConstrainedStageAPolicy,
+    constrained_smoke_unlock,
+    constrained_resource_admission,
+    precision_repair_identity,
+    validate_precision_genes,
+)
+from ..constrained.population import (
+    ConstrainedPopulationSupplyError,
+    ConstrainedSeedFactory,
+    pruning_plan_hash,
+)
 from ..ga.engine import GAConfig, GeneticSearchEngine
 from ..hashing import candidate_hash, canonical_json_hash, search_hash
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
@@ -144,6 +161,7 @@ class LidarPyramidTwoStageSearch:
         pruning_cfg = dict(self.config.get("pruning", {}))
         proxy_cfg = dict(self.config.get("proxy", self.config.get("proxy_objective", {})))
         stage2_cfg = dict(self.config.get("stage2") or self.config.get("stage2_smoke") or self.config.get("evaluation", {}))
+        constrained_cfg = dict(self.config.get("constrained_search", {}) or {})
         model_cfg = dict(self.config.get("model", {}))
         gpu_isolation_policy = _gpu_isolation_policy(runtime)
         context = build_lidar_pyramid_context(
@@ -195,6 +213,41 @@ class LidarPyramidTwoStageSearch:
                 gpu_isolation_policy["max_gpu_utilization_pct"]
             ),
         )
+        constrained_state: dict[str, Any] | None = None
+        if bool(constrained_cfg.get("enabled", False)):
+            grouped_cfg = dict(pruning_cfg.get("grouped_conv", {}) or {})
+            context, pruning_projection = apply_constrained_pruning_context(
+                context,
+                allowed_root_patterns=[
+                    str(value)
+                    for value in constrained_cfg.get(
+                        "allowed_pruning_root_patterns", []
+                    )
+                ],
+                grouped_conv_mode=str(
+                    grouped_cfg.get("position_mode", "independent_group_topk")
+                ),
+                grouped_conv_align=int(
+                    dict(pruning_cfg.get("dense", {}) or {}).get("alignment", 4)
+                ),
+                grouped_allowed_channels_per_group=[
+                    int(value)
+                    for value in grouped_cfg.get(
+                        "allowed_channels_per_group",
+                        [4, 8, 16, 32, 64, 128, 256, 512],
+                    )
+                ],
+                allowed_precision_values=[
+                    str(value)
+                    for value in constrained_cfg.get(
+                        "allowed_precision_values", ["FP16", "INT8"]
+                    )
+                ],
+            )
+            _write_json(
+                run_dir / "constrained_pruning_search_space.json",
+                pruning_projection,
+            )
         _write_json(run_dir / "environment.json", {"gpu": context.gpu_selection.to_dict(), "tensorrt": context.tensorrt.to_dict()})
         if not stage1_only:
             require_gpu_isolation(
@@ -217,6 +270,25 @@ class LidarPyramidTwoStageSearch:
                     latency_metric=str(stage2_cfg.get("latency_metric", "forward_mean_ms")),
                     tau_ap=stage2_cfg.get("tau_ap"),
                     max_map_drop=stage2_cfg.get("max_map_drop"),
+                    min_map=stage2_cfg.get("min_map"),
+                    min_ap07=stage2_cfg.get("min_ap07"),
+                    required_evaluated_frames=stage2_cfg.get(
+                        "required_evaluated_frames"
+                    ),
+                    required_skipped_frames=stage2_cfg.get(
+                        "required_skipped_frames"
+                    ),
+                    r_mac_floor=stage2_cfg.get("r_mac_floor"),
+                    int8_mac_share_min=(
+                        list(stage2_cfg.get("int8_mac_share", []))[0]
+                        if len(list(stage2_cfg.get("int8_mac_share", []))) == 2
+                        else None
+                    ),
+                    int8_mac_share_max=(
+                        list(stage2_cfg.get("int8_mac_share", []))[1]
+                        if len(list(stage2_cfg.get("int8_mac_share", []))) == 2
+                        else None
+                    ),
                 ),
             )
             baseline_cfg = dict(self.config.get("baselines", {}) or {})
@@ -256,6 +328,52 @@ class LidarPyramidTwoStageSearch:
             run_dir / "archives" / "fisher_statistics_manifest.json",
             {"manifest_hash": fisher_stats.manifest_hash, "statistics_version": fisher_stats.statistics_version, "path": str(run_dir / "archives" / "fisher_statistics.pt")},
         )
+        if bool(constrained_cfg.get("enabled", False)):
+            sensitivity = measure_precision_sensitivity(
+                context,
+                fisher_statistics=fisher_stats,
+                baseline_runtime_shapes=runtime_shapes.shapes,
+            )
+            allowlist_report = select_int8_allowlist(
+                sensitivity,
+                priority_group_id=str(
+                    constrained_cfg.get("int8_priority_group_id", "pg_0141")
+                ),
+                allowed_module_prefixes=[
+                    str(value)
+                    for value in constrained_cfg.get(
+                        "int8_allowed_module_prefixes", []
+                    )
+                ],
+                max_groups=int(
+                    constrained_cfg.get("int8_allowlist_max_groups", 24)
+                ),
+            )
+            _write_json(run_dir / "precision_int8_allowlist.json", allowlist_report)
+            int8_interval = list(constrained_cfg.get("int8_mac_share", [0.14, 0.22]))
+            if len(int8_interval) != 2:
+                raise ValueError("constrained_INT8_MAC_share_interval_must_have_two_values")
+            policy = ConstrainedStageAPolicy(
+                r_mac_floor=float(constrained_cfg.get("r_mac_floor", 0.95)),
+                int8_mac_share_min=float(int8_interval[0]),
+                int8_mac_share_max=float(int8_interval[1]),
+                bops_target=float(constrained_cfg.get("bops_target", 0.21)),
+                bops_tolerance=float(constrained_cfg.get("bops_tolerance", 0.005)),
+                min_map=float(stage2_cfg.get("min_map", 0.705088)),
+                min_ap07=float(stage2_cfg.get("min_ap07", 0.564003)),
+                allowed_precision_values=tuple(
+                    str(value)
+                    for value in constrained_cfg.get(
+                        "allowed_precision_values", ["FP16", "INT8"]
+                    )
+                ),
+            )
+            constrained_state = {
+                "config": constrained_cfg,
+                "policy": policy,
+                "int8_allowlist": list(allowlist_report["selected_group_ids"]),
+                "allowlist_report": allowlist_report,
+            }
         raw_objective = self._objective(context, unit_slices, fisher_stats, None, runtime_shapes.shapes)
         normalization = self._build_normalization(context, raw_objective, run_dir)
         objective = self._objective(context, unit_slices, fisher_stats, normalization, runtime_shapes.shapes)
@@ -338,6 +456,25 @@ class LidarPyramidTwoStageSearch:
                 latency_metric=str(stage2_cfg.get("latency_metric", "forward_mean_ms")),
                 tau_ap=stage2_cfg.get("tau_ap"),
                 max_map_drop=stage2_cfg.get("max_map_drop"),
+                min_map=stage2_cfg.get("min_map"),
+                min_ap07=stage2_cfg.get("min_ap07"),
+                required_evaluated_frames=stage2_cfg.get(
+                    "required_evaluated_frames"
+                ),
+                required_skipped_frames=stage2_cfg.get(
+                    "required_skipped_frames"
+                ),
+                r_mac_floor=stage2_cfg.get("r_mac_floor"),
+                int8_mac_share_min=(
+                    list(stage2_cfg.get("int8_mac_share", []))[0]
+                    if len(list(stage2_cfg.get("int8_mac_share", []))) == 2
+                    else None
+                ),
+                int8_mac_share_max=(
+                    list(stage2_cfg.get("int8_mac_share", []))[1]
+                    if len(list(stage2_cfg.get("int8_mac_share", []))) == 2
+                    else None
+                ),
             ),
         )
         baseline_cfg = dict(self.config.get("baselines", {}) or {})
@@ -391,6 +528,7 @@ class LidarPyramidTwoStageSearch:
             search_cfg,
             stage1_only=stage1_only,
             stage2_pool=stage2_pool,
+            constrained_state=constrained_state,
         )
         if self.resume is not None:
             manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
@@ -435,6 +573,11 @@ class LidarPyramidTwoStageSearch:
                     )
                 ),
                 lambda_bops=float(proxy_cfg.get("lambda_bops", 1.0)),
+                constrained_loss=bool(proxy_cfg.get("constrained_loss", False)),
+                interaction_weight=float(proxy_cfg.get("interaction_weight", 1.0)),
+                mac_weighted_sensitivity_weight=float(
+                    proxy_cfg.get("mac_weighted_sensitivity_weight", 0.0)
+                ),
             ),
         )
 
@@ -641,6 +784,7 @@ class LidarPyramidTwoStageSearch:
         *,
         stage1_only: bool,
         stage2_pool: PersistentStage2ProcessPool | None = None,
+        constrained_state: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         evaluated_rows: list[dict[str, Any]] = []
         previous_elite: list[CandidateGenotype] = []
@@ -723,6 +867,97 @@ class LidarPyramidTwoStageSearch:
                     random_seed=int(search_cfg.get("seed", 42)) + round_index,
                 ),
             )
+            explicit_initial_population: list[CandidateGenotype] | None = None
+            if constrained_state is not None:
+                scorer = getattr(proxy, "batch_scorer", None)
+                if scorer is None:
+                    raise RuntimeError(
+                        "constrained_population_requires_batched_proxy_scorer"
+                    )
+                fisher_costs = [
+                    float(value)
+                    for value in scorer.action_fisher_cost.detach().cpu().tolist()
+                ]
+                local_fisher_order = [
+                    action_id
+                    for _cost, action_id in sorted(
+                        zip(fisher_costs, scorer.action_ids),
+                        key=lambda row: (float(row[0]), str(row[1])),
+                    )
+                ]
+                constrained_cfg = dict(constrained_state["config"])
+
+                def seed_metrics(
+                    candidates: list[CandidateGenotype],
+                ) -> list[dict[str, Any]]:
+                    if not candidates:
+                        return []
+                    phenotypes = [
+                        canonicalize_candidate(candidate, context.search_space)
+                        for candidate in candidates
+                    ]
+                    return scorer.evaluate_batch(
+                        phenotypes,
+                        generation=-1,
+                        outer_round=round_index,
+                    ).metrics
+
+                factory = ConstrainedSeedFactory(
+                    space=context.search_space,
+                    policy=constrained_state["policy"],
+                    int8_allowlist=constrained_state["int8_allowlist"],
+                    anchor_c_group_id=str(
+                        constrained_cfg.get("anchor_c_group_id", "pg_0141")
+                    ),
+                    local_fisher_order=local_fisher_order,
+                    anchor_b_fisher_order=local_fisher_order,
+                    repair_fn=lambda candidate: self._repair_raw_keep_mask(
+                        context, candidate
+                    ),
+                    metrics_fn=seed_metrics,
+                    alignment=int(constrained_cfg.get("alignment", 4)),
+                    random_seed=int(search_cfg.get("seed", 42)),
+                    proposal_multiplier=int(
+                        constrained_cfg.get("proposal_multiplier", 40)
+                    ),
+                    max_light_pruned_units=(
+                        int(constrained_cfg["max_light_pruned_units"])
+                        if constrained_cfg.get("max_light_pruned_units")
+                        is not None
+                        else None
+                    ),
+                )
+                try:
+                    explicit_initial_population, seed_report = factory.build(
+                        max(
+                            int(search_cfg.get("population_size", 8)),
+                            int(
+                                search_cfg.get(
+                                    "initial_population_size",
+                                    search_cfg.get("population_size", 8),
+                                )
+                            ),
+                        )
+                    )
+                except ConstrainedPopulationSupplyError as exc:
+                    _write_json(
+                        round_dir / "constrained_seed_population.json",
+                        exc.report,
+                    )
+                    raise
+                seed_report.update(
+                    {
+                        "local_fisher_order": local_fisher_order,
+                        "anchor_b_restoration_source": (
+                            "Anchor_B_Fisher_order_with_channels_restored_by_R_MAC_gate"
+                        ),
+                        "physical_uniqueness_policy": (
+                            "unique_pruning_plan_before_deployment_and_unique_actual_"
+                            "physical_hash_at_Top5_admission"
+                        ),
+                    }
+                )
+                _write_json(round_dir / "constrained_seed_population.json", seed_report)
 
             def annotate_metrics(genotype: CandidateGenotype, metrics: dict[str, Any], generation: int) -> dict[str, Any]:
                 grouped_action_ids = {
@@ -768,6 +1003,25 @@ class LidarPyramidTwoStageSearch:
                         or str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")) == "feasibility_first"
                     ) and violation > 0:
                         metrics["F1"] = 1.0e6 + violation * 1.0e3 + float(metrics.get("proxy_score_raw", metrics.get("F1", 0.0)))
+                if constrained_state is not None:
+                    precision_audit = validate_precision_genes(
+                        genotype.precision_genes,
+                        int8_allowlist=set(constrained_state["int8_allowlist"]),
+                        policy=constrained_state["policy"],
+                    )
+                    resource_audit = constrained_resource_admission(
+                        metrics,
+                        constrained_state["policy"],
+                    )
+                    reasons = [
+                        *precision_audit["failure_reasons"],
+                        *resource_audit["failure_reasons"],
+                    ]
+                    metrics["precision_gene_legal"] = bool(
+                        precision_audit["passed"]
+                    )
+                    metrics["hard_constraints_feasible"] = not reasons
+                    metrics["hard_constraint_failure_reasons"] = reasons
                 return metrics
 
             def evaluate_genotype(genotype: CandidateGenotype, generation: int) -> dict[str, Any]:
@@ -797,10 +1051,28 @@ class LidarPyramidTwoStageSearch:
                     for row in generation_scored
                     if math.isfinite(float(row[1]))
                     and bool(row[2].get("bops_feasible", fixed_bops_target is None))
+                    and bool(
+                        row[2].get(
+                            "hard_constraints_feasible",
+                            constrained_state is None,
+                        )
+                    )
                 ]
 
                 def repair_candidate(genotype: CandidateGenotype) -> tuple[CandidateGenotype | None, dict[str, Any]]:
-                    return self._repair_raw_keep_mask(context, genotype)
+                    repaired, report = self._repair_raw_keep_mask(context, genotype)
+                    if repaired is None:
+                        return None, report
+                    if constrained_state is not None:
+                        identity = precision_repair_identity(genotype, repaired)
+                        report = {**report, "precision_repair_identity": identity}
+                        if not identity["passed"]:
+                            return None, {
+                                **report,
+                                "status": "failed",
+                                "failure_reason": identity["failure_reason"],
+                            }
+                    return repaired, report
 
                 def rescore_batch(phenotypes: list[CandidatePhenotype]) -> list[dict[str, Any]]:
                     batch = proxy.evaluate_batch(
@@ -821,6 +1093,11 @@ class LidarPyramidTwoStageSearch:
                     batch_rescore_fn=rescore_batch,
                     topk=max(topk_stage2, len(eligible)),
                     repair_pool_size=max(topk_stage2, len(eligible)),
+                    hard_gate_fields=(
+                        ("bops_feasible", "hard_constraints_feasible")
+                        if constrained_state is not None
+                        else ()
+                    ),
                 )
                 genuine_records = [
                     record
@@ -831,6 +1108,22 @@ class LidarPyramidTwoStageSearch:
                         for precision in record.phenotype.realized_precision_profile.values()
                     )
                 ]
+                if constrained_state is not None:
+                    unique_physical_plans: list[ProxyCandidateRecord] = []
+                    seen_pruning_plans: set[str] = set()
+                    for record in genuine_records:
+                        plan_key = pruning_plan_hash(record.genotype)
+                        if plan_key in seen_pruning_plans:
+                            continue
+                        seen_pruning_plans.add(plan_key)
+                        unique_physical_plans.append(record)
+                    repair_report["physical_plan_duplicate_rejection_count"] = (
+                        len(genuine_records) - len(unique_physical_plans)
+                    )
+                    repair_report["unique_physical_plan_count"] = len(
+                        unique_physical_plans
+                    )
+                    genuine_records = unique_physical_plans
                 repair_report.update(
                     {
                         "generation": generation + 1,
@@ -853,6 +1146,10 @@ class LidarPyramidTwoStageSearch:
                         output_dir=candidate_dir,
                         candidate_hash=record.candidate_hash,
                     )
+                    result["seed_family"] = str(
+                        record.phenotype.metadata.get("seed_family", "")
+                    )
+                    result["stage1_metrics"] = dict(record.metrics)
                     evaluated_rows.append(
                         {
                             "generation": generation + 1,
@@ -882,15 +1179,119 @@ class LidarPyramidTwoStageSearch:
                             candidate_dir / "phenotype.json",
                             record.phenotype.to_dict(),
                         )
+                        identity = dict(
+                            dict(record.metrics.get("repair_report", {}) or {}).get(
+                                "precision_repair_identity", {}
+                            )
+                            or {}
+                        )
+                        expanded_precision_hash = canonical_json_hash(
+                            {
+                                str(module_path): str(
+                                    decision.requested_precision
+                                ).upper()
+                                for module_path, decision in sorted(
+                                    record.phenotype.precision_profile.items()
+                                )
+                            }
+                        )
+                        saturation_numerator = 0.0
+                        saturation_denominator = 0.0
+                        if constrained_state is not None:
+                            group_rows = {
+                                str(row["group_id"]): row
+                                for row in constrained_state["allowlist_report"].get(
+                                    "groups", []
+                                )
+                            }
+                            for group_id, precision in record.genotype.precision_genes.items():
+                                if str(precision).upper() != "INT8":
+                                    continue
+                                row = group_rows.get(str(group_id), {})
+                                macs = float(row.get("canonical_MAC", 0.0) or 0.0)
+                                saturation_numerator += macs * float(
+                                    row.get("saturation_ratio", 0.0) or 0.0
+                                )
+                                saturation_denominator += macs
                         tasks.append(
                             {
                                 "candidate_hash": record.candidate_hash,
                                 "phenotype": record.phenotype.to_dict(),
                                 "output_dir": str(candidate_dir.resolve()),
+                                "seed_family": str(
+                                    record.phenotype.metadata.get(
+                                        "seed_family", ""
+                                    )
+                                ),
+                                "stage1_metrics": {
+                                    key: record.metrics.get(key)
+                                    for key in (
+                                        "L_fisher",
+                                        "L_quant_incremental",
+                                        "L_prune_x_quant_prior",
+                                        "L_MAC_weighted",
+                                        "R_MAC",
+                                        "int8_macs_share_full",
+                                        "R_bops_vs_fp32",
+                                    )
+                                },
+                                "raw_precision_gene_hash": expanded_precision_hash,
+                                "repaired_precision_gene_hash": expanded_precision_hash,
+                                "group_gene_precision_identity": identity,
+                                "saturation_ratio": (
+                                    saturation_numerator
+                                    / max(saturation_denominator, 1.0)
+                                ),
+                                "smoke_frames": int(
+                                    dict(
+                                        self.config.get("stage2")
+                                        or self.config.get("stage2_smoke")
+                                        or {}
+                                    ).get("smoke_frames", 0)
+                                ),
+                                "smoke_warmup_frames": int(
+                                    dict(
+                                        self.config.get("stage2")
+                                        or self.config.get("stage2_smoke")
+                                        or {}
+                                    ).get("smoke_warmup_frames", 10)
+                                ),
                             }
                         )
                     results = stage2_pool.map_tasks(tasks)
                     for (record, candidate_dir), result in zip(items, results):
+                        if (
+                            constrained_state is not None
+                            and str(result.get("status", "")) == "ok"
+                        ):
+                            measured_hybrid_loss = float(
+                                constrained_state["config"].get(
+                                    "anchor_a_map", 0.725088
+                                )
+                            ) - float(result.get("mAP", 0.0) or 0.0)
+                            predicted_prune_loss = float(
+                                record.metrics.get("L_fisher", 0.0) or 0.0
+                            )
+                            predicted_incremental_quant_loss = float(
+                                record.metrics.get(
+                                    "L_quant_incremental", 0.0
+                                )
+                                or 0.0
+                            )
+                            result["hybrid_interaction_observation"] = {
+                                "measured_hybrid_loss": measured_hybrid_loss,
+                                "predicted_prune_loss": predicted_prune_loss,
+                                "predicted_incremental_quant_loss": (
+                                    predicted_incremental_quant_loss
+                                ),
+                                "observed_interaction_loss": (
+                                    measured_hybrid_loss
+                                    - predicted_prune_loss
+                                    - predicted_incremental_quant_loss
+                                ),
+                                "diagnostic_only": True,
+                                "online_proxy_update_applied": False,
+                            }
                         if bool(result.get("pool_cache_hit", False)):
                             _write_json(
                                 candidate_dir / "stage2_reuse.json",
@@ -931,6 +1332,10 @@ class LidarPyramidTwoStageSearch:
                         stage2_pool.parallelism if stage2_pool is not None else 1
                     ),
                     topk=topk_stage2,
+                    require_individual_hash_uniqueness=(
+                        constrained_state is not None
+                    ),
+                    raise_on_insufficient=(constrained_state is None),
                 )
                 generation_reports.append(generation_report)
 
@@ -942,6 +1347,7 @@ class LidarPyramidTwoStageSearch:
                     batch_evaluator=evaluate_genotypes_batch if proxy_backend != "scalar_cpu" else None,
                     previous_elite=previous_elite,
                     previous_best=previous_best,
+                    initial_population=explicit_initial_population,
                     seen_candidate_keys=global_seen_raw_hashes,
                     candidate_key_fn=lambda genotype: self._raw_genotype_hash(genotype, context),
                     generation_callback=on_generation,
@@ -949,6 +1355,54 @@ class LidarPyramidTwoStageSearch:
             finally:
                 if stage2_pool is not None:
                     stage2_pool.close()
+            if constrained_state is not None and not stage1_only:
+                pool_manifest_path = run_dir / "stage2_workers" / "pool_manifest.json"
+                pool_manifest = (
+                    json.loads(pool_manifest_path.read_text(encoding="utf-8"))
+                    if pool_manifest_path.is_file()
+                    else {}
+                )
+                residual_worker_pids = []
+                for worker in pool_manifest.get("workers", []) or []:
+                    pid = int(worker.get("pid", 0) or 0)
+                    if pid <= 0:
+                        continue
+                    try:
+                        os.kill(pid, 0)
+                    except ProcessLookupError:
+                        continue
+                    except PermissionError:
+                        residual_worker_pids.append(pid)
+                    else:
+                        residual_worker_pids.append(pid)
+                admitted = (
+                    list(generation_reports[-1].get("candidates", []))
+                    if generation_reports
+                    else []
+                )
+                unlock = constrained_smoke_unlock(
+                    admitted,
+                    workers_stopped=str(pool_manifest.get("status", ""))
+                    == "stopped",
+                    residual_gpu_processes=residual_worker_pids,
+                    required=int(search_cfg.get("topk_stage2", 5)),
+                )
+                unlock.update(
+                    {
+                        "auto_start_stage_a": False,
+                        "reason_stage_a_not_started": (
+                            "This turn is approval-gated after generation-0 smoke, "
+                            "even when all five candidates pass."
+                        ),
+                        "stage2_worker_pool": pool_manifest,
+                    }
+                )
+                _write_json(run_dir / "constrained_smoke_verdict.json", unlock)
+                manifest = json.loads(
+                    (run_dir / "run_manifest.json").read_text(encoding="utf-8")
+                )
+                manifest.update(unlock)
+                _write_json(run_dir / "run_manifest.json", manifest)
             global_seen_raw_hashes.update(self._raw_genotype_hash(genotype, context) for genotype, _score, _metrics in scored)
             _append_jsonl(
                 run_dir / "seen_raw_genotypes.jsonl",
@@ -994,7 +1448,11 @@ class LidarPyramidTwoStageSearch:
             if per_generation_stage2:
                 previous_elite = [record.genotype for record in records[: max(1, min(5, len(records)))]]
                 previous_best = previous_elite[0] if previous_elite else None
-                generation_winners = [report["winner"] for report in generation_reports]
+                generation_winners = [
+                    report["winner"]
+                    for report in generation_reports
+                    if "winner" in report
+                ]
                 _write_json(
                     round_dir / "generation_winners.json",
                     generation_winners,
@@ -1213,20 +1671,35 @@ class LidarPyramidTwoStageSearch:
     @staticmethod
     def _write_generation(path: Path, rows: list[tuple[CandidateGenotype, float, dict[str, Any]]], context: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
+        fields = [
+            "candidate_hash", "seed_family", "F1", "L_fisher", "L_sqnr",
+            "L_quant_incremental", "L_prune_x_quant_prior", "L_MAC_weighted",
+            "R_size", "R_size_vs_fp32", "R_size_vs_fp16_deploy", "R_MAC",
+            "R_bops", "R_bops_vs_fp32", "R_bops_vs_fp16_deploy",
+            "BOPS_target", "P_bops", "bops_feasible", "bops_violation",
+            "int8_macs_ratio", "int8_macs_share_full",
+            "hard_constraints_feasible", "hard_constraint_failure_reasons",
+            "grouped_action_count", "pruned_units", "int8_layers", "cache_hit",
+        ]
         with path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["candidate_hash", "F1", "L_fisher", "L_sqnr", "R_size", "R_size_vs_fp32", "R_size_vs_fp16_deploy", "R_bops", "R_bops_vs_fp32", "R_bops_vs_fp16_deploy", "BOPS_target", "P_bops", "bops_feasible", "bops_violation", "int8_macs_ratio", "grouped_action_count", "pruned_units", "int8_layers", "cache_hit"])
+            writer = csv.DictWriter(handle, fieldnames=fields)
             writer.writeheader()
             for genotype, score, metrics in rows:
                 phenotype = canonicalize_candidate(genotype, context.search_space)
                 writer.writerow(
                     {
                         "candidate_hash": candidate_hash(phenotype, context.search_space),
+                        "seed_family": phenotype.metadata.get("seed_family", ""),
                         "F1": score,
                         "L_fisher": metrics.get("L_fisher"),
                         "L_sqnr": metrics.get("L_sqnr"),
+                        "L_quant_incremental": metrics.get("L_quant_incremental"),
+                        "L_prune_x_quant_prior": metrics.get("L_prune_x_quant_prior"),
+                        "L_MAC_weighted": metrics.get("L_MAC_weighted"),
                         "R_size": metrics.get("R_size"),
                         "R_size_vs_fp32": metrics.get("R_size_vs_fp32"),
                         "R_size_vs_fp16_deploy": metrics.get("R_size_vs_fp16_deploy"),
+                        "R_MAC": metrics.get("R_MAC"),
                         "R_bops": metrics.get("R_bops"),
                         "R_bops_vs_fp32": metrics.get("R_bops_vs_fp32"),
                         "R_bops_vs_fp16_deploy": metrics.get("R_bops_vs_fp16_deploy"),
@@ -1235,6 +1708,12 @@ class LidarPyramidTwoStageSearch:
                         "bops_feasible": metrics.get("bops_feasible"),
                         "bops_violation": metrics.get("bops_violation"),
                         "int8_macs_ratio": metrics.get("int8_macs_ratio"),
+                        "int8_macs_share_full": metrics.get("int8_macs_share_full"),
+                        "hard_constraints_feasible": metrics.get("hard_constraints_feasible"),
+                        "hard_constraint_failure_reasons": "|".join(
+                            str(value)
+                            for value in metrics.get("hard_constraint_failure_reasons", [])
+                        ),
                         "grouped_action_count": metrics.get("grouped_action_count"),
                         "pruned_units": len(phenotype.pruned_unit_ids),
                         "int8_layers": sum(value == "INT8" for value in phenotype.realized_precision_profile.values()),
@@ -1244,19 +1723,34 @@ class LidarPyramidTwoStageSearch:
 
     @staticmethod
     def _write_stage1(path: Path, records: list[ProxyCandidateRecord]) -> None:
+        fields = [
+            "candidate_hash", "seed_family", "F1", "L_fisher", "L_sqnr",
+            "L_quant_incremental", "L_prune_x_quant_prior", "L_MAC_weighted",
+            "R_size", "R_size_vs_fp32", "R_size_vs_fp16_deploy", "R_MAC",
+            "R_bops", "R_bops_vs_fp32", "R_bops_vs_fp16_deploy",
+            "BOPS_target", "P_bops", "bops_feasible", "bops_violation",
+            "int8_macs_ratio", "int8_macs_share_full",
+            "hard_constraints_feasible", "hard_constraint_failure_reasons",
+            "grouped_action_count", "pruned_units", "int8_layers",
+        ]
         with path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["candidate_hash", "F1", "L_fisher", "L_sqnr", "R_size", "R_size_vs_fp32", "R_size_vs_fp16_deploy", "R_bops", "R_bops_vs_fp32", "R_bops_vs_fp16_deploy", "BOPS_target", "P_bops", "bops_feasible", "bops_violation", "int8_macs_ratio", "grouped_action_count", "pruned_units", "int8_layers"])
+            writer = csv.DictWriter(handle, fieldnames=fields)
             writer.writeheader()
             for record in records:
                 writer.writerow(
                     {
                         "candidate_hash": record.candidate_hash,
+                        "seed_family": record.phenotype.metadata.get("seed_family", ""),
                         "F1": record.F1,
                         "L_fisher": record.metrics.get("L_fisher"),
                         "L_sqnr": record.metrics.get("L_sqnr"),
+                        "L_quant_incremental": record.metrics.get("L_quant_incremental"),
+                        "L_prune_x_quant_prior": record.metrics.get("L_prune_x_quant_prior"),
+                        "L_MAC_weighted": record.metrics.get("L_MAC_weighted"),
                         "R_size": record.metrics.get("R_size"),
                         "R_size_vs_fp32": record.metrics.get("R_size_vs_fp32"),
                         "R_size_vs_fp16_deploy": record.metrics.get("R_size_vs_fp16_deploy"),
+                        "R_MAC": record.metrics.get("R_MAC"),
                         "R_bops": record.metrics.get("R_bops"),
                         "R_bops_vs_fp32": record.metrics.get("R_bops_vs_fp32"),
                         "R_bops_vs_fp16_deploy": record.metrics.get("R_bops_vs_fp16_deploy"),
@@ -1265,6 +1759,12 @@ class LidarPyramidTwoStageSearch:
                         "bops_feasible": record.metrics.get("bops_feasible"),
                         "bops_violation": record.metrics.get("bops_violation"),
                         "int8_macs_ratio": record.metrics.get("int8_macs_ratio"),
+                        "int8_macs_share_full": record.metrics.get("int8_macs_share_full"),
+                        "hard_constraints_feasible": record.metrics.get("hard_constraints_feasible"),
+                        "hard_constraint_failure_reasons": "|".join(
+                            str(value)
+                            for value in record.metrics.get("hard_constraint_failure_reasons", [])
+                        ),
                         "grouped_action_count": record.metrics.get("grouped_action_count"),
                         "pruned_units": len(record.phenotype.pruned_unit_ids),
                         "int8_layers": sum(value == "INT8" for value in record.phenotype.realized_precision_profile.values()),

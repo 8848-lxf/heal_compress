@@ -464,6 +464,9 @@ class TorchBatchedProxyScorer:
         metric_chunks: dict[str, list[torch.Tensor]] = {
             "L_fisher": [],
             "L_sqnr": [],
+            "L_quant_incremental": [],
+            "L_prune_x_quant_prior": [],
+            "L_MAC_weighted": [],
             "R_size": [],
             "R_size_vs_fp16": [],
             "R_bops": [],
@@ -472,6 +475,8 @@ class TorchBatchedProxyScorer:
             "P_bops": [],
             "bops_violation": [],
             "int8_macs_ratio": [],
+            "int8_macs_share_full": [],
+            "R_MAC": [],
             "F1": [],
         }
         batch_count = 0
@@ -503,6 +508,12 @@ class TorchBatchedProxyScorer:
                 fisher = (fisher_weight + fisher_vector).sum(dim=1) / self.fisher_total.clamp_min(1.0e-12)
                 signal_after = torch.einsum("blo,loi,bli->bl", retained_out, self.sqnr_signal_matrix, retained_in).clamp_min(0.0)
                 noise_after = torch.zeros_like(signal_after)
+                fp16_noise_after = torch.einsum(
+                    "blo,loi,bli->bl",
+                    retained_out,
+                    self.sqnr_noise_matrix[:, :, :, 1],
+                    retained_in,
+                ).clamp_min(0.0)
                 for precision_idx in range(3):
                     candidate_noise = torch.einsum(
                         "blo,loi,bli->bl",
@@ -512,6 +523,10 @@ class TorchBatchedProxyScorer:
                     ).clamp_min(0.0)
                     noise_after = torch.where(layer_precision == precision_idx, candidate_noise, noise_after)
                 sqnr = ((noise_after / (signal_after + 1.0e-12)) * self.sqnr_active_mask.unsqueeze(0)).sum(dim=1)
+                sqnr_fp16 = (
+                    (fp16_noise_after / (signal_after + 1.0e-12))
+                    * self.sqnr_active_mask.unsqueeze(0)
+                ).sum(dim=1)
             else:
                 fisher = pruning.matmul(self.action_fisher_cost) / self.action_fisher_cost.sum().clamp_min(1.0e-12)
                 sqnr_noise_total = torch.gather(
@@ -525,6 +540,15 @@ class TorchBatchedProxyScorer:
                 signal_after = (self.sqnr_signal_by_layer.unsqueeze(0) - signal_reduction).clamp_min(0.0)
                 noise_after = (sqnr_noise_total - noise_reduction).clamp_min(0.0)
                 sqnr = ((noise_after / (signal_after + 1.0e-12)) * self.sqnr_active_mask.unsqueeze(0)).sum(dim=1)
+                fp16_noise_total = self.sqnr_noise_table[:, 1].unsqueeze(0).expand(
+                    layer_precision.shape[0], -1
+                )
+                fp16_noise_reduction = noise_reduction_all[:, :, 1]
+                fp16_noise_after = (fp16_noise_total - fp16_noise_reduction).clamp_min(0.0)
+                sqnr_fp16 = (
+                    (fp16_noise_after / (signal_after + 1.0e-12))
+                    * self.sqnr_active_mask.unsqueeze(0)
+                ).sum(dim=1)
             macs_after = self.channel_resolver.macs_after(channel)
             shape_bits = layer_bits[:, self.channel_resolver.shape_layer_indices]
             bops = (macs_after * shape_bits * shape_bits).sum(dim=1)
@@ -533,6 +557,16 @@ class TorchBatchedProxyScorer:
             shape_precision = layer_precision[:, self.channel_resolver.shape_layer_indices]
             int8_macs = torch.where(shape_precision == 2, macs_after, torch.zeros_like(macs_after)).sum(dim=1)
             total_macs = macs_after.sum(dim=1).clamp_min(1.0)
+            fp32_reference_macs = (fp32_bops / (32.0 * 32.0)).clamp_min(1.0)
+            int8_macs_share_full = int8_macs / fp32_reference_macs
+            r_mac = total_macs / fp32_reference_macs
+            quant_incremental = (sqnr - sqnr_fp16).clamp_min(0.0)
+            interaction_prior = fisher * int8_macs_share_full
+            mac_weighted = torch.where(
+                int8_macs_share_full > 0.0,
+                quant_incremental / int8_macs_share_full.clamp_min(1.0e-12),
+                torch.zeros_like(quant_incremental),
+            )
             fp32_size = self.fp32_size_baseline.clamp_min(1.0)
             r_size_fp16 = size_bits / fp16_size
             r_size = size_bits / fp32_size
@@ -549,14 +583,27 @@ class TorchBatchedProxyScorer:
             p_bops = bops_violation.square()
             norm_fisher = fisher / max(abs(float(self.normalization.medians.get("L_fisher", 1.0) or 1.0)), 1.0e-12)
             norm_sqnr = sqnr / max(abs(float(self.normalization.medians.get("L_sqnr", 1.0) or 1.0)), 1.0e-12)
-            score = (
-                float(getattr(self.config, "alpha_fisher", 1.0)) * norm_fisher
-                + float(getattr(self.config, "beta_sqnr", 1.0)) * norm_sqnr
-                + float(getattr(self.config, "gamma_size", 1.0)) * r_size
-                + float(getattr(self.config, "delta_bops", 1.0)) * p_bops
-            )
+            if bool(getattr(self.config, "constrained_loss", False)):
+                score = (
+                    float(getattr(self.config, "alpha_fisher", 1.0)) * norm_fisher
+                    + float(getattr(self.config, "beta_sqnr", 1.0)) * quant_incremental
+                    + float(getattr(self.config, "interaction_weight", 1.0)) * interaction_prior
+                    + float(getattr(self.config, "mac_weighted_sensitivity_weight", 0.0)) * mac_weighted
+                    + float(getattr(self.config, "gamma_size", 1.0)) * r_size
+                    + float(getattr(self.config, "delta_bops", 1.0)) * p_bops
+                )
+            else:
+                score = (
+                    float(getattr(self.config, "alpha_fisher", 1.0)) * norm_fisher
+                    + float(getattr(self.config, "beta_sqnr", 1.0)) * norm_sqnr
+                    + float(getattr(self.config, "gamma_size", 1.0)) * r_size
+                    + float(getattr(self.config, "delta_bops", 1.0)) * p_bops
+                )
             metric_chunks["L_fisher"].append(fisher.detach())
             metric_chunks["L_sqnr"].append(sqnr.detach())
+            metric_chunks["L_quant_incremental"].append(quant_incremental.detach())
+            metric_chunks["L_prune_x_quant_prior"].append(interaction_prior.detach())
+            metric_chunks["L_MAC_weighted"].append(mac_weighted.detach())
             metric_chunks["R_size"].append(r_size.detach())
             metric_chunks["R_size_vs_fp16"].append(r_size_fp16.detach())
             metric_chunks["R_bops"].append(r_bops.detach())
@@ -565,6 +612,8 @@ class TorchBatchedProxyScorer:
             metric_chunks["P_bops"].append(p_bops.detach())
             metric_chunks["bops_violation"].append(bops_violation.detach())
             metric_chunks["int8_macs_ratio"].append((int8_macs / total_macs).detach())
+            metric_chunks["int8_macs_share_full"].append(int8_macs_share_full.detach())
+            metric_chunks["R_MAC"].append(r_mac.detach())
             metric_chunks["F1"].append(score.detach())
         if self.device.type == "cuda" and start is not None and end is not None:
             end.record()
@@ -587,6 +636,9 @@ class TorchBatchedProxyScorer:
                 {
                     "L_fisher": float(metrics_cpu["L_fisher"][idx]),
                     "L_sqnr": float(metrics_cpu["L_sqnr"][idx]),
+                    "L_quant_incremental": float(metrics_cpu["L_quant_incremental"][idx]),
+                    "L_prune_x_quant_prior": float(metrics_cpu["L_prune_x_quant_prior"][idx]),
+                    "L_MAC_weighted": float(metrics_cpu["L_MAC_weighted"][idx]),
                     "R_size": r_size,
                     "R_size_vs_fp16_deploy": float(metrics_cpu["R_size_vs_fp16"][idx]),
                     "R_size_vs_fp32": r_size,
@@ -598,6 +650,8 @@ class TorchBatchedProxyScorer:
                     "BOPS_target": float(getattr(self.config, "bops_threshold", 0.0)) if getattr(self.config, "bops_threshold", None) is not None else None,
                     "P_bops": float(metrics_cpu["P_bops"][idx]),
                     "int8_macs_ratio": float(metrics_cpu["int8_macs_ratio"][idx]),
+                    "int8_macs_share_full": float(metrics_cpu["int8_macs_share_full"][idx]),
+                    "R_MAC": float(metrics_cpu["R_MAC"][idx]),
                     "bops_fp16_baseline": fp16_bops_value,
                     "bops_fp32_baseline": fp32_bops_value,
                     "constraint_penalty": 0.0,

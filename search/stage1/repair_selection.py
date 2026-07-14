@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, Optional, Union
+from typing import Any, Callable, Iterable, Optional, Sequence, Union
 
 from ..candidate import CandidateGenotype, CandidatePhenotype
 from ..canonicalization import SearchSpaceSpec, canonicalize_candidate
@@ -24,6 +24,7 @@ def select_repaired_stage2_topk(
     batch_rescore_fn: Optional[BatchRescoreFn] = None,
     topk: int,
     repair_pool_size: int | None = None,
+    hard_gate_fields: Sequence[str] | None = None,
 ) -> tuple[list[ProxyCandidateRecord], dict[str, Any]]:
     """Select Stage-2 candidates from repaired, rescored, unique phenotypes."""
 
@@ -56,12 +57,29 @@ def select_repaired_stage2_topk(
         rescored_rows = [dict(rescore_fn(item[2])) for item in pending]
     records: list[ProxyCandidateRecord] = []
     post_repair_bops_ineligible_count = 0
+    hard_gate_ineligible_count = 0
+    hard_gate_failure_reasons: dict[str, int] = {}
+    required_hard_gates = tuple(str(value) for value in (hard_gate_fields or ()))
     for (key, repaired_genotype, phenotype, raw_metrics, repair_report), repaired_metrics in zip(pending, rescored_rows):
         repaired_metrics.setdefault("raw_F1", float(raw_metrics.get("F1", 0.0)))
         repaired_metrics["repaired_phenotype_hash"] = key
         repaired_metrics["repair_report"] = dict(repair_report)
         if repaired_metrics.get("bops_feasible") is False:
             post_repair_bops_ineligible_count += 1
+            continue
+        failed_hard_gates = [
+            field
+            for field in required_hard_gates
+            if repaired_metrics.get(field) is not True
+        ]
+        if failed_hard_gates:
+            hard_gate_ineligible_count += 1
+            reasons = list(repaired_metrics.get("hard_constraint_failure_reasons", []) or [])
+            if not reasons:
+                reasons = [f"{field}_required" for field in failed_hard_gates]
+            for reason in reasons:
+                text = str(reason)
+                hard_gate_failure_reasons[text] = hard_gate_failure_reasons.get(text, 0) + 1
             continue
         records.append(
             ProxyCandidateRecord(
@@ -81,6 +99,8 @@ def select_repaired_stage2_topk(
         "legal_repaired_phenotype_count": len(pending),
         "post_repair_bops_eligible_count": len(records),
         "post_repair_bops_ineligible_count": post_repair_bops_ineligible_count,
+        "hard_gate_ineligible_count": hard_gate_ineligible_count,
+        "hard_gate_failure_reasons": hard_gate_failure_reasons,
         "selected_count": len(selected),
         "failure_reasons": failure_reasons,
         "topk_stage2": int(topk),

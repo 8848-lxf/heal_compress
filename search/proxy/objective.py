@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from ..candidate import CandidatePhenotype
+from ..candidate import CandidatePhenotype, PrecisionDecision
 from .bops_proxy import BOPSProxy
 from .fisher_proxy import FisherTaylorProxy
 from .normalization import NormalizationStats
@@ -25,6 +25,9 @@ class ProxyObjectiveConfig:
     bops_constraint_mode: str = "weighted_penalty"
     bops_penalty_formula: str = "absolute_excess_squared"
     lambda_bops: float = 1.0
+    constrained_loss: bool = False
+    interaction_weight: float = 1.0
+    mac_weighted_sensitivity_weight: float = 0.0
     illegal_score: float = float("inf")
 
 
@@ -93,6 +96,18 @@ class ProxyObjective:
             return {"F1": self.config.illegal_score, "legal": False}
         fisher = self.fisher.evaluate(phenotype)
         sqnr = self.sqnr.evaluate(phenotype)
+        fp16_phenotype = CandidatePhenotype(
+            pruned_unit_ids=list(phenotype.pruned_unit_ids),
+            precision_profile={
+                module_path: PrecisionDecision("FP16", "FP16", "")
+                for module_path in phenotype.precision_profile
+            },
+            pruning_policy_version=phenotype.pruning_policy_version,
+            precision_policy_version=phenotype.precision_policy_version,
+            metadata=dict(phenotype.metadata),
+        )
+        sqnr_fp16 = self.sqnr.evaluate(fp16_phenotype)
+        quant_incremental = max(0.0, float(sqnr) - float(sqnr_fp16))
         if hasattr(self.size, "evaluate_breakdown"):
             size_metrics = self.size.evaluate_breakdown(phenotype)
             size = float(size_metrics.get("R_size_vs_fp32", size_metrics.get("R_size_vs_fp16_deploy", 0.0)))
@@ -105,6 +120,13 @@ class ProxyObjective:
             legacy_bops = float(self.bops.evaluate(phenotype))
             bops_metrics = {"R_bops_vs_fp16_deploy": legacy_bops, "R_bops_vs_fp32": legacy_bops, "R_bops": legacy_bops}
         bops = float(bops_metrics.get("R_bops_vs_fp32", bops_metrics.get("R_bops", 0.0)))
+        int8_share_full = float(bops_metrics.get("int8_macs_share_full", 0.0))
+        interaction_prior = float(fisher) * int8_share_full
+        mac_weighted = (
+            quant_incremental / max(int8_share_full, 1.0e-12)
+            if int8_share_full > 0.0
+            else 0.0
+        )
         penalty = 0.0
         if self.config.size_threshold is not None:
             penalty += max(0.0, size - float(self.config.size_threshold)) ** 2
@@ -115,13 +137,24 @@ class ProxyObjective:
         )
         if self.config.bops_threshold is not None:
             penalty += float(self.config.lambda_bops) * bops_penalty
-        raw_score = (
-            self.config.alpha_fisher * self.normalization.normalize("L_fisher", fisher)
-            + self.config.beta_sqnr * self.normalization.normalize("L_sqnr", sqnr)
-            + self.config.gamma_size * size
-            + self.config.delta_bops * bops_penalty
-            + (penalty - float(self.config.lambda_bops) * bops_penalty)
-        )
+        if self.config.constrained_loss:
+            raw_score = (
+                self.config.alpha_fisher * self.normalization.normalize("L_fisher", fisher)
+                + self.config.beta_sqnr * quant_incremental
+                + self.config.interaction_weight * interaction_prior
+                + self.config.mac_weighted_sensitivity_weight * mac_weighted
+                + self.config.gamma_size * size
+                + self.config.delta_bops * bops_penalty
+                + (penalty - float(self.config.lambda_bops) * bops_penalty)
+            )
+        else:
+            raw_score = (
+                self.config.alpha_fisher * self.normalization.normalize("L_fisher", fisher)
+                + self.config.beta_sqnr * self.normalization.normalize("L_sqnr", sqnr)
+                + self.config.gamma_size * size
+                + self.config.delta_bops * bops_penalty
+                + (penalty - float(self.config.lambda_bops) * bops_penalty)
+            )
         if self.config.bops_constraint_mode == "feasibility_first" and bops_violation > 0.0:
             score = 1.0e6 + bops_violation * 1.0e3 + raw_score
         else:
@@ -131,6 +164,9 @@ class ProxyObjective:
         return {
             "L_fisher": float(fisher),
             "L_sqnr": float(sqnr),
+            "L_quant_incremental": float(quant_incremental),
+            "L_prune_x_quant_prior": float(interaction_prior),
+            "L_MAC_weighted": float(mac_weighted),
             "R_size": float(size),
             "R_size_vs_fp16_deploy": float(size_metrics.get("R_size_vs_fp16_deploy", size)),
             "R_size_vs_fp32": float(size_metrics.get("R_size_vs_fp32", size)),
@@ -142,6 +178,8 @@ class ProxyObjective:
             "BOPS_target": float(self.config.bops_threshold) if self.config.bops_threshold is not None else None,
             "P_bops": float(bops_penalty),
             "int8_macs_ratio": float(bops_metrics.get("int8_macs_ratio", 0.0)),
+            "int8_macs_share_full": int8_share_full,
+            "R_MAC": float(bops_metrics.get("R_MAC", 1.0)),
             "bops_fp16_baseline": float(bops_metrics.get("bops_fp16_baseline", 0.0)),
             "bops_fp32_baseline": float(bops_metrics.get("bops_fp32_baseline", 0.0)),
             "constraint_penalty": float(penalty),
