@@ -161,3 +161,45 @@ available in code but is not enabled for this experiment.
 - isolation mode: strict.
 
 --- Isolated GPU 5 selected: 2026-07-14 17:36 CST ---
+
+## First full readiness attempt and merge-inspector fix
+
+Run directory:
+`outputs/4090_ga_explicit_qdq_readiness_20260714_024246/`.
+
+The first complete attempt remained fail-closed because strict FP16 reported
+`concat_merge_not_compatible:/Concat_9:not_yet_verified`. The engine itself
+passed build, serialization/deserialization, structure and precision checks.
+TensorRT 10.9's compiler backend had lowered the concat into three
+`__myl_Move` layers whose layer names and metadata did not contain `/Concat_9`;
+their output tensors were all named `/Concat_9_output_0` and were all Half.
+The merge audit searched only engine layer names, so this was a reproducible
+inspector matching defect rather than an FP32 realization.
+
+The E67 diagnostic completed before the run returned:
+
+- evaluated/skipped: 200/0;
+- AP@0.30: 0.758102;
+- AP@0.50: 0.706666;
+- AP@0.70: 0.484700;
+- mAP: 0.649823;
+- canonical precision: 67 INT8 / 3 FP16 / 0 FP32 / 0 unresolved;
+- raw fused engine weighted precision: 65 INT8 / 3 FP16;
+- Q/DQ topology hash:
+  `2cb4cabc8d939a730e474f48c2bbacf001f0093ee81c21a6249fe3c4f9cf1c3c`;
+- E67 merge audit: passed;
+- fresh EntropyCalibration2 cache: generated on GPU 5.
+
+The fix adds an exact match against TensorRT engine output tensor names when a
+merge layer name is unavailable. It accepts the compiler-backend representation
+only because all matched input/output formats are Half; FP32/mixed output still
+fails. A focused test reproduces the three real `__myl_Move` layers. Applying
+the fix to the preserved strict-FP16 layer-info changes only the inspector
+verdict to FP16 and clears all merge issues.
+
+Because formal audit code changed, no engine/evaluation from this attempt is
+promoted. A fresh run from a new directory and new commit is required.
+
+`READY_FOR_GA = false`
+
+--- First full attempt analyzed: 2026-07-14 17:56:09 CST ---

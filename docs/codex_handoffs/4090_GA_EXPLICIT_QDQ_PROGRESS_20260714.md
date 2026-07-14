@@ -198,3 +198,58 @@ then run the fresh readiness config on GPU 1. Do not start generation 0 unless
 the full E67 and strict-FP16 audits pass.
 
 --- Round 4 completed: 2026-07-14 17:34:28 CST ---
+
+## Round 5 - first 4090 E67 run and compiler-backend merge audit fix
+
+Starting point: commit `064a05d`, isolated physical GPU 5. Stage A was not
+started.
+
+First readiness run:
+
+- output: `outputs/4090_ga_explicit_qdq_readiness_20260714_024246/`;
+- strict FP16 engine build, deserialize, structure and precision passed;
+- strict FP16 was stopped before evaluation by
+  `concat_merge_not_compatible:/Concat_9:not_yet_verified`;
+- E67 completed 200/200 with zero skips and mAP 0.649823;
+- E67 AP03/AP05/AP07 were 0.758102/0.706666/0.484700;
+- E67 canonical profile was 67 INT8 / 3 FP16 / 0 unresolved;
+- the local all-keep topology hash exactly matched the H800 accepted hash;
+- the run was not promoted because strict FP16 had failed closed.
+
+Root cause:
+
+- the 4090 TensorRT 10.9 compiler backend represented `/Concat_9` as three
+  `__myl_Move` layers;
+- their Layer Name and Metadata omitted the ONNX concat name;
+- each output tensor was exactly `/Concat_9_output_0` with datatype Half;
+- `_engine_merge_precision_realization` matched only Layer Name and therefore
+  incorrectly emitted `not_yet_verified`.
+
+Minimal test-first fix:
+
+- `tests/test_search_merge_realization.py` reproduces the real compiler-backend
+  layer-info shape and failed before implementation;
+- `search/stage2/lidar_pyramid_real_evaluator.py` now falls back to exact merge
+  output-tensor matching and retains the existing datatype checks;
+- the preserved strict-FP16 artifact re-audits as FP16 with no merge issues;
+- full formal/search CPU regression: 276 passed, 7 known warnings;
+- no QDQ topology, precision policy, calibration, scoring or BOPS rule changed.
+
+Cache/result policy:
+
+- the first readiness engines and results remain diagnostic only;
+- the fix must be committed before rerun so code/deployment signatures change;
+- readiness restarts fresh in a new timestamp directory;
+- `READY_FOR_GA = false` until the rerun completes both baselines.
+
+Multi-GPU follow-up design requested by the user:
+
+- keep readiness single-GPU on isolated GPU 5;
+- before Stage A, add process-isolated Stage-2 workers on GPUs 4/6/7;
+- keep Stage-1 on GPU 5;
+- normalize each candidate latency against a strict-FP16 reference measured on
+  that same physical GPU UUID;
+- preserve deterministic ranking, uniqueness, backfill and per-candidate cache
+  signatures at the coordinator.
+
+--- Round 5 completed: 2026-07-14 17:56:09 CST ---

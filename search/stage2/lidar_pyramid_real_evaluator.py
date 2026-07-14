@@ -151,6 +151,19 @@ def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result:
         name = str(merge.get("merge_op_name", ""))
         matched = [layer for layer in layers if name and name in str(layer.get("Name", ""))]
         optimization = "direct_or_fused_layer_name_match"
+        if not matched:
+            output_tensors = {
+                str(value) for value in merge.get("output_tensors", []) if str(value)
+            }
+            matched = [
+                layer
+                for layer in layers
+                if output_tensors.intersection(
+                    str(tensor.get("Name", "")) for tensor in layer.get("Outputs", [])
+                )
+            ]
+            if matched:
+                optimization = "compiler_backend_merge_tensor_match"
         if not matched and str(merge.get("merge_op_type")) == "Concat":
             downstream_q = [
                 str(row.get("consumer", ""))
