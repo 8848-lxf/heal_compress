@@ -44,6 +44,7 @@ from .physical_validation import validate_repaired_physical_plan
 from .realized_bops import compute_realized_bops, engine_realized_precision_profile
 from .mixed_precision_export import summarize_qdq_realization
 from .trt_modelopt import build_engine_modelopt
+from quantization.precision.typed_graph import apply_strongly_typed_precision_contract
 
 
 def _plain(value: Any) -> Any:
@@ -1031,6 +1032,7 @@ class LidarPyramidRealEvaluator:
                     {
                         "groups": qdq.get("quantization_group_contracts", {}),
                         "merge_precision_realization": qdq.get("merge_precision_realization", {}),
+                        "typed_graph": qdq.get("typed_graph", {}),
                     }
                 ),
             )
@@ -1058,6 +1060,7 @@ class LidarPyramidRealEvaluator:
                         {
                             "groups": qdq.get("quantization_group_contracts", {}),
                             "merge_precision_realization": qdq.get("merge_precision_realization", {}),
+                            "typed_graph": qdq.get("typed_graph", {}),
                         }
                     ),
                 },
@@ -1650,6 +1653,18 @@ class LidarPyramidRealEvaluator:
             shutil.copyfile(output_dir / "qdq.onnx", output_dir / "pruned_qdq.onnx")
         compatibility = make_pointpillar_domain_compatible(output_dir / "qdq.onnx", output_dir / "qdq_trt_compatible.onnx")
         _write_json(output_dir / "onnx_domain_compatibility_report.json", compatibility)
+        typed_graph = apply_strongly_typed_precision_contract(
+            output_dir / "qdq_trt_compatible.onnx",
+            output_dir / "typed_qdq.onnx",
+            mapping,
+            plugin_boundary=self.context.plugin_boundary_dtype,
+        )
+        _write_json(output_dir / "typed_graph_report.json", typed_graph)
+        if typed_graph.get("unresolved_tensor_dtype_count"):
+            raise RuntimeError(
+                "strongly_typed_graph_has_unresolved_tensor_dtypes:"
+                f"{typed_graph['unresolved_tensor_dtype_count']}"
+            )
         _write_json(output_dir / "qdq_report.json", qdq.to_dict())
         group_macs = {group.group_id: float(group.baseline_macs) for group in self.context.search_space.quantization_groups}
         total_group_macs = sum(group_macs.values()) or 1.0
@@ -1685,7 +1700,8 @@ class LidarPyramidRealEvaluator:
             "quantization_group_contracts": group_contracts,
             "qdq": qdq,
             "qdq_onnx": str(output_dir / "qdq.onnx"),
-            "trt_build_onnx": str(output_dir / "qdq_trt_compatible.onnx"),
+            "trt_build_onnx": str(output_dir / "typed_qdq.onnx"),
+            "typed_graph": typed_graph,
             "base_onnx_path": str(export.onnx_path),
             "legalized_precision_profile": legalized_group_profile,
             "calibration_recipe": calibration_identity,
@@ -1701,6 +1717,7 @@ class LidarPyramidRealEvaluator:
                 baseline_precision,
                 trtexec_path=self.context.tensorrt.trtexec_path,
                 plugin_path=self.context.tensorrt.plugin_path,
+                plugin_boundary_dtype=self.context.plugin_boundary_dtype,
                 shape_profiles=_shape_profiles(),
             )
         else:
@@ -1708,12 +1725,15 @@ class LidarPyramidRealEvaluator:
                 trtexec_path=self.context.tensorrt.trtexec_path,
                 plugin_path=self.context.tensorrt.plugin_path,
                 shape_profiles=_shape_profiles(),
-                enable_fp16=True,
-                enable_int8=any(row.realized_request_precision == "int8" for row in qdq["precision_mapping"].entries),
+                enable_fp16=False,
+                enable_int8=False,
                 no_tf32=True,
-                precision_constraints="obey",
+                precision_constraints="none",
                 skip_inference=True,
                 export_layer_info=True,
+                strongly_typed=True,
+                production_mode=True,
+                plugin_boundary_dtype=self.context.plugin_boundary_dtype,
             )
         engine_path = output_dir / "engine.plan"
         result = build_engine_modelopt(

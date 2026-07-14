@@ -11,14 +11,14 @@ runtime:
   tensorrt_env: modelopt
   tensorrt_root: /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118
   plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
-  plugin_boundary_dtype: fp16
+  plugin_boundary_dtype: fp32
 
 output:
-  experiment_name: 4090_strongly_typed_e67_fp16_readiness
+  experiment_name: 4090_strongly_typed_e67_fp32_readiness
 
 baselines:
   build_before_search: true
-  precisions: [strict_fp16, matched_legacy_int8]
+  precisions: [matched_legacy_int8]
 
 pruning:
   gene_type: coupled_channel_keep_mask

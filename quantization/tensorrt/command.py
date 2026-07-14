@@ -34,6 +34,24 @@ def build_trt_command(
     """Generate a canonical layer-constrained trtexec command without running it."""
 
     policy = config or TensorRTBuildConfig()
+    if policy.production_mode and not policy.strongly_typed:
+        raise TensorRTConfigurationError("production_requires_strongly_typed")
+    if policy.strongly_typed:
+        if policy.enable_fp16 or policy.enable_int8:
+            raise TensorRTConfigurationError(
+                "strongly_typed_forbids_implicit_precision_flags"
+            )
+        if str(policy.precision_constraints).lower() not in {"", "none"}:
+            raise TensorRTConfigurationError(
+                "strongly_typed_forbids_precision_constraints"
+            )
+        if policy.production_mode and str(policy.plugin_boundary_dtype).lower() not in {
+            "fp16",
+            "fp32",
+        }:
+            raise TensorRTConfigurationError(
+                "strongly_typed_plugin_boundary_must_be_fp16_or_fp32"
+            )
     if not precision_mapping.entries:
         raise TensorRTConfigurationError("canonical precision mapping is empty")
     canonical_names = [row.canonical_node_name for row in precision_mapping.entries]
@@ -70,10 +88,13 @@ def build_trt_command(
         command.append("--skipInference")
     if policy.no_tf32:
         command.append("--noTF32")
-    if policy.enable_fp16:
-        command.append("--fp16")
-    if policy.enable_int8 and any(row.realized_request_precision == "int8" for row in precision_mapping.entries):
-        command.append("--int8")
+    if policy.strongly_typed:
+        command.append("--stronglyTyped")
+    else:
+        if policy.enable_fp16:
+            command.append("--fp16")
+        if policy.enable_int8 and any(row.realized_request_precision == "int8" for row in precision_mapping.entries):
+            command.append("--int8")
     if policy.plugin_path is not None:
         command.append(f"--staticPlugins={policy.plugin_path}")
     command.extend(_shape_flags(policy.shape_profiles))
@@ -119,13 +140,14 @@ def build_trt_command(
             ),
         ]
     )
-    command.extend(
-        [
-            f"--precisionConstraints={policy.precision_constraints}",
-            f"--layerPrecisions={compute_specs}",
-            f"--layerOutputTypes={output_specs}",
-        ]
-    )
+    if not policy.strongly_typed:
+        command.extend(
+            [
+                f"--precisionConstraints={policy.precision_constraints}",
+                f"--layerPrecisions={compute_specs}",
+                f"--layerOutputTypes={output_specs}",
+            ]
+        )
     return TensorRTCommandResult(
         command=command,
         onnx_path=str(source),

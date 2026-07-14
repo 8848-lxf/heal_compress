@@ -13,13 +13,17 @@ def test_strict_fp32_build_config_disables_tf32_fp16_and_int8() -> None:
         "strict_fp32",
         trtexec_path=Path("/opt/trtexec"),
         plugin_path=Path("/tmp/plugin.so"),
+        plugin_boundary_dtype="fp32",
         shape_profiles={"x": {"min": (1,), "opt": (1,), "max": (1,)}},
     )
 
     assert config.no_tf32 is True
     assert config.enable_fp16 is False
     assert config.enable_int8 is False
-    assert config.precision_constraints == "obey"
+    assert config.precision_constraints == "none"
+    assert config.strongly_typed is True
+    assert config.production_mode is True
+    assert config.plugin_boundary_dtype == "fp32"
 
 
 def test_strict_fp16_build_config_enables_fp16_without_int8() -> None:
@@ -29,12 +33,14 @@ def test_strict_fp16_build_config_enables_fp16_without_int8() -> None:
         "strict_fp16",
         trtexec_path=None,
         plugin_path=None,
+        plugin_boundary_dtype="fp16",
         shape_profiles={},
     )
 
     assert config.no_tf32 is True
-    assert config.enable_fp16 is True
+    assert config.enable_fp16 is False
     assert config.enable_int8 is False
+    assert config.strongly_typed is True
 
 
 def test_maximal_legal_int8_build_config_uses_explicit_qdq_and_int8_builder() -> None:
@@ -44,12 +50,14 @@ def test_maximal_legal_int8_build_config_uses_explicit_qdq_and_int8_builder() ->
         "maximal_legal_int8",
         trtexec_path=None,
         plugin_path=None,
+        plugin_boundary_dtype="fp16",
         shape_profiles={},
     )
 
-    assert config.enable_fp16 is True
-    assert config.enable_int8 is True
-    assert "explicit-qdq" in config.policy_version
+    assert config.enable_fp16 is False
+    assert config.enable_int8 is False
+    assert config.strongly_typed is True
+    assert "strongly-typed-explicit-qdq" in config.policy_version
 
 
 def test_baseline_precision_assignments_use_coupled_groups_not_synthetic() -> None:

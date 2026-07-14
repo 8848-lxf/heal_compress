@@ -63,7 +63,8 @@ def test_4090_readiness_config_uses_fresh_matched_e67_entropy_gate() -> None:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
 
     assert data["runtime"]["tensorrt_root"] == "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118"
-    assert data["runtime"]["gpu_id"] == "5"
+    assert data["runtime"]["gpu_id"] == "4"
+    assert data["runtime"]["plugin_boundary_dtype"] == "fp16"
     assert data["runtime"]["allow_foreign_gpu_processes"] is False
     assert data["runtime"]["max_gpu_utilization_pct"] == 20
     assert data["baselines"]["precisions"] == ["strict_fp16", "matched_legacy_int8"]
@@ -72,6 +73,16 @@ def test_4090_readiness_config_uses_fresh_matched_e67_entropy_gate() -> None:
     assert data["proxy"]["quant_calibration_force_rebuild"] is True
     assert data["stage2"]["num_frames"] == 200
     assert data["stage2"]["reset_after_warmup"] is True
+
+    fp32_path = Path(
+        "search/configs/lidar_pyramid_4090_strongly_typed_e67_fp32_readiness.yaml"
+    )
+    fp32 = yaml.safe_load(fp32_path.read_text(encoding="utf-8"))
+    assert fp32["runtime"]["gpu_id"] == "4"
+    assert fp32["runtime"]["plugin_boundary_dtype"] == "fp32"
+    assert fp32["baselines"]["precisions"] == ["matched_legacy_int8"]
+    assert fp32["proxy"]["quant_calibration_npz_manifest"] == data["proxy"]["quant_calibration_npz_manifest"]
+    assert fp32["stage2"] == data["stage2"]
 
 
 def test_4090_stage_a_config_is_per_generation_top5_at_fixed_budget() -> None:
@@ -90,6 +101,7 @@ def test_4090_stage_a_config_is_per_generation_top5_at_fixed_budget() -> None:
     assert data["runtime"]["gpu_id"] == "5"
     assert data["runtime"]["allow_foreign_gpu_processes"] is False
     assert data["runtime"]["max_gpu_utilization_pct"] == 20
+    assert data["runtime"]["plugin_boundary_dtype"] == "readiness_selection_required"
     assert data["stage2_parallel"]["enabled"] is True
     assert data["stage2_parallel"]["gpu_ids"] == [4, 5, 6, 7]
     assert data["stage2_parallel"]["allow_controller_process_on_stage1_gpu"] is True

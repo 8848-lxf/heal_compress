@@ -12,6 +12,42 @@ from pathlib import Path
 from typing import Any, Callable
 
 
+def _builder_contract_audit(build_config: Any, command: list[str]) -> dict[str, Any]:
+    """Fail closed when a production command contains weak precision controls."""
+
+    forbidden_prefixes = (
+        "--fp16",
+        "--int8",
+        "--precisionConstraints",
+        "--layerPrecisions",
+        "--layerOutputTypes",
+    )
+    forbidden = [
+        str(value)
+        for value in command
+        if str(value).startswith(forbidden_prefixes)
+    ]
+    strongly_typed = bool(getattr(build_config, "strongly_typed", False))
+    production_mode = bool(getattr(build_config, "production_mode", False))
+    issues = []
+    if production_mode and not strongly_typed:
+        issues.append("production_requires_strongly_typed")
+    if strongly_typed and "--stronglyTyped" not in command:
+        issues.append("strongly_typed_command_flag_missing")
+    if strongly_typed and forbidden:
+        issues.append("strongly_typed_command_contains_forbidden_precision_options")
+    return {
+        "passed": not issues,
+        "strongly_typed": strongly_typed,
+        "production_mode": production_mode,
+        "plugin_boundary_dtype": str(
+            getattr(build_config, "plugin_boundary_dtype", "")
+        ).upper(),
+        "forbidden_options": forbidden,
+        "issues": issues,
+    }
+
+
 def _runtime_provenance(trt: Any, torch: Any) -> dict[str, str]:
     capability = torch.cuda.get_device_capability(0)
     return {
@@ -119,12 +155,24 @@ def main(argv: list[str] | None = None) -> int:
             log_path=request["log_path"],
             raise_on_failure=False,
         )
+        builder_contract = _builder_contract_audit(
+            build_config,
+            list(build.command.command),
+        )
         result: dict[str, Any] = {
-            "status": "ok" if build.success else "engine_build_failed",
+            "status": (
+                "ok"
+                if build.success and builder_contract["passed"]
+                else "builder_contract_validation_failed"
+                if build.success
+                else "engine_build_failed"
+            ),
             "build": build.to_dict(),
+            "builder_contract_audit": builder_contract,
+            "strongly_typed": bool(builder_contract["strongly_typed"]),
             "runtime_provenance": runtime_provenance,
         }
-        if build.success:
+        if build.success and builder_contract["passed"]:
             try:
                 result["engine_deserialization_audit"] = _engine_deserialization_audit(
                     trt,

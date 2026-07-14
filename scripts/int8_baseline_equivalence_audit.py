@@ -350,6 +350,7 @@ def build_context(output: Path, gpu: int):
         heal_root=HEAL_ROOT,
         tensorrt_root=TRT_ROOT,
         plugin_path=CURRENT_PLUGIN,
+        plugin_boundary_dtype="fp16",
         output_dir=output,
         gpu_id=str(gpu),
         tensorrt_env="modelopt",

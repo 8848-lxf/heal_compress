@@ -66,6 +66,7 @@ def _context_kwargs(request: dict[str, Any]) -> dict[str, Any]:
             "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
         ),
         "plugin_path": runtime.get("plugin_path"),
+        "plugin_boundary_dtype": str(runtime.get("plugin_boundary_dtype", "")),
         "gpu_id": str(gpu_id),
         "exclude_gpu_ids": [],
         "tensorrt_env": str(runtime.get("tensorrt_env", "modelopt")),

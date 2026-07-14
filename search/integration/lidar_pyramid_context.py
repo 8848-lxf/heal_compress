@@ -53,6 +53,7 @@ class LidarPyramidSearchContext:
     trt_config: Any
     builder_flags: dict[str, Any]
     plugin_paths: list[Path]
+    plugin_boundary_dtype: str
     physical_gpu_id: int
     runtime_device: str
     allow_foreign_gpu_processes: bool
@@ -310,6 +311,7 @@ def build_lidar_pyramid_context(
     heal_root: str | Path = DEFAULT_HEAL_ROOT,
     tensorrt_root: str | Path = DEFAULT_TRT_ROOT,
     plugin_path: str | Path | None = None,
+    plugin_boundary_dtype: str,
     gpu_id: str = "auto",
     exclude_gpu_ids: list[int] | None = None,
     tensorrt_env: str = "modelopt",
@@ -332,6 +334,9 @@ def build_lidar_pyramid_context(
     allowed_gpu_pids: set[int] | None = None,
     max_gpu_utilization_pct: int = 20,
 ) -> LidarPyramidSearchContext:
+    normalized_plugin_boundary = str(plugin_boundary_dtype).strip().lower()
+    if normalized_plugin_boundary not in {"fp16", "fp32"}:
+        raise RuntimeError("strongly_typed_plugin_boundary_must_be_fp16_or_fp32")
     gpu = select_gpu(gpu_id, exclude_gpu_ids)
     device = torch.device(gpu.runtime_device)
     torch.cuda.set_device(device)
@@ -384,9 +389,9 @@ def build_lidar_pyramid_context(
         reset_after_warmup=reset_after_warmup,
     )
     builder_flags = {
-        "precision_constraints": "obey",
-        "fp16": True,
-        "int8": True,
+        "strongly_typed": True,
+        "production_mode": True,
+        "plugin_boundary_dtype": normalized_plugin_boundary,
         "no_tf32": True,
         "shape_profiles": _shape_profiles(),
     }
@@ -476,6 +481,7 @@ def build_lidar_pyramid_context(
         trt_config=None,
         builder_flags=builder_flags,
         plugin_paths=[plugin],
+        plugin_boundary_dtype=normalized_plugin_boundary,
         physical_gpu_id=gpu.physical_gpu_id,
         runtime_device=gpu.runtime_device,
         allow_foreign_gpu_processes=bool(allow_foreign_gpu_processes),
@@ -505,6 +511,7 @@ def _write_context_report(path: Path, context: LidarPyramidSearchContext) -> Non
         "precision_layer_count": len(context.search_space.precision_layer_ids),
         "precision_group_count": len(context.search_space.precision_gene_ids),
         "allowed_gpu_pids": sorted(context.allowed_gpu_pids),
+        "plugin_boundary_dtype": context.plugin_boundary_dtype,
         "maximal_legal_int8_gene_count": sum(
             "INT8" in group.allowed_precisions and not group.protected
             for group in context.search_space.quantization_groups

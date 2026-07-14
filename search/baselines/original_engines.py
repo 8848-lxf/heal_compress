@@ -69,6 +69,7 @@ def make_baseline_trt_build_config(
     *,
     trtexec_path: str | Path | None,
     plugin_path: str | Path | None,
+    plugin_boundary_dtype: str,
     shape_profiles: Mapping[str, Mapping[str, Sequence[int]]],
     workspace_mib: int = 512,
     timeout_seconds: int = 1800,
@@ -76,8 +77,6 @@ def make_baseline_trt_build_config(
     """Return strict builder flags for one original-model baseline."""
 
     kind = _normalize_baseline(baseline)
-    enable_fp16 = kind in {"strict_fp16", "maximal_legal_int8", "matched_legacy_int8", "pure_strict_int8", "trusted_explicit_qdq_int8"}
-    enable_int8 = kind in {"maximal_legal_int8", "matched_legacy_int8", "pure_strict_int8", "trusted_explicit_qdq_int8"}
     return TensorRTBuildConfig(
         trtexec_path=Path(trtexec_path) if trtexec_path is not None else None,
         plugin_path=Path(plugin_path) if plugin_path is not None else None,
@@ -87,13 +86,16 @@ def make_baseline_trt_build_config(
             for name, profile in shape_profiles.items()
         },
         timeout_seconds=int(timeout_seconds),
-        precision_constraints="obey",
-        enable_fp16=enable_fp16,
-        enable_int8=enable_int8,
+        precision_constraints="none",
+        enable_fp16=False,
+        enable_int8=False,
         no_tf32=True,
         skip_inference=True,
         export_layer_info=True,
-        policy_version=f"strict-original-{kind}-explicit-qdq-v1",
+        strongly_typed=True,
+        production_mode=True,
+        plugin_boundary_dtype=str(plugin_boundary_dtype).lower(),
+        policy_version=f"strict-original-{kind}-strongly-typed-explicit-qdq-v1",
     )
 
 

@@ -313,3 +313,68 @@ Current gates:
 - Stage B allowed: no.
 
 --- Round 6 completed: 2026-07-14 19:20:45 CST ---
+
+## Round 7 - strongly typed plugin and full-E67 structural closure
+
+Starting point: commit `2a23ebe`, branch
+`feature/heal-compress-h800-sync-4090`. The required H800 fix remained an
+ancestor and no command targeted the H800 branch.
+
+Implemented production changes:
+
+- added a deterministic typed-graph pass for explicit canonical FP16/FP32
+  Casts, QDQ dtype closure, output precision contracts, residual/concat,
+  functional MatMul, GridSample and floating elementwise paths;
+- added a production strongly typed builder mode that rejects all weak
+  precision flags and constraints;
+- routed formal Stage-2 through `typed_qdq.onnx` only;
+- included typed mode and fixed plugin boundary in context and cache identity;
+- added separate FP16/FP32 readiness configs on physical GPU4;
+- made Stage A fail before GPU/model initialization while the selected plugin
+  boundary remains unset.
+
+Fresh plugin minimum-graph evidence on GPU4:
+
+- FP16 parser/build/serialize/deserialize passed, inspector Half/Half, parity
+  max absolute error 0;
+- FP32 parser/build/serialize/deserialize passed, inspector Float/Float, parity
+  max absolute error 0;
+- INT8 plugin boundary is rejected;
+- plugin SHA256 is
+  `5a5224f15831cb0712f945f623b4e252d0b617a28451de57afc98ab118d9855b`;
+- the existing V2 dynamic plugin is compatible with TensorRT 10.9 strongly
+  typed networks, so its C++ implementation did not require modification.
+
+Full E67 structural diagnostic:
+
+- both FP16-boundary and FP32-boundary typed graphs have 269 explicit Casts,
+  zero unresolved tensor dtypes and unchanged 67/3 canonical coverage;
+- both engines built and deserialized fresh with `--stronglyTyped`;
+- both canonical precision audits report 67 INT8 / 3 FP16 / 0 unresolved;
+- all 20 merge contracts pass in both engines, including `/Concat_9`;
+- FP16 and FP32 plugin inspector boundaries match their ONNX contracts.
+
+Verification:
+
+- 333 formal/search/strongly-typed tests passed with 7 known environment
+  warnings;
+- all modified Python files compile;
+- `git diff --check` passes;
+- generated binaries and model artifacts remain ignored.
+
+Current gate:
+
+- `STRONGLY_TYPED_PLUGIN_FP16_PASS = true`;
+- `STRONGLY_TYPED_PLUGIN_FP32_PASS = true`;
+- `SELECTED_PLUGIN_BOUNDARY = NONE`;
+- `STRONGLY_TYPED_E67_PASS = false`;
+- `READY_FOR_GA = false`;
+- Stage A started: no.
+
+The structural E67 builds are diagnostic because they used an already-created
+local 4090 QDQ graph. The next round must commit this code, then fresh-run the
+strict FP16 reference and both E67 boundaries with new calibration/build
+artifacts, 10-frame smoke and fixed 200-frame evaluation before selecting the
+production boundary.
+
+--- Round 7 completed: 2026-07-15 01:09:38 CST ---

@@ -204,7 +204,18 @@ class TensorRTBuildConfig(ConfigMixin):
     no_tf32: bool = True
     skip_inference: bool = True
     export_layer_info: bool = True
+    strongly_typed: bool = False
+    production_mode: bool = False
+    plugin_boundary_dtype: str = ""
     policy_version: str = "trt-fp16-int8-explicit-qdq-v1"
+
+    def __post_init__(self) -> None:
+        if self.strongly_typed and self.policy_version == "trt-fp16-int8-explicit-qdq-v1":
+            object.__setattr__(
+                self,
+                "policy_version",
+                "trt-strongly-typed-explicit-qdq-cast-v1",
+            )
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "TensorRTBuildConfig":

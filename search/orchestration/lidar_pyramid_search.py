@@ -153,6 +153,7 @@ class LidarPyramidTwoStageSearch:
             heal_root=runtime.get("heal_root", "/home/lixingfeng/UniAD_examine/HEAL"),
             tensorrt_root=runtime.get("tensorrt_root", "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118"),
             plugin_path=runtime.get("plugin_path"),
+            plugin_boundary_dtype=str(runtime.get("plugin_boundary_dtype", "")),
             gpu_id=str(runtime.get("gpu_id", "auto")),
             exclude_gpu_ids=[int(v) for v in runtime.get("exclude_gpu_ids", [5, 6, 7])],
             tensorrt_env=str(runtime.get("tensorrt_env", "modelopt")),
