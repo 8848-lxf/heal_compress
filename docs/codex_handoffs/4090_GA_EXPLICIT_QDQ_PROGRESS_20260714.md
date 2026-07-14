@@ -568,3 +568,61 @@ diagnostic only. The four-GPU smoke must restart from generation 0 in a new
 timestamp directory after the fix is committed.
 
 --- Round 11 completed: 2026-07-15 02:07:00 CST ---
+
+## Round 12 - four-GPU deployment proven; near-zero AP admission closed
+
+Live generation-0 evidence:
+
+`outputs/4090_ga_qdq_stage2_multigpu_smoke_20260714_110751/`
+
+The run used commit `f1c8d17` and completed the production-sized Stage-1
+population plus real Stage-2 deployment on persistent workers bound to physical
+GPUs 4/5/6/7. It produced 24 unique legal Stage-1 candidates and dispatched
+candidate builds in concurrent four-GPU waves. Every dispatched candidate used
+an independent physical-prune replay, typed ONNX, explicit QDQ, train200
+calibration, strongly typed engine build/deserialization and 10-frame smoke
+evaluation. Each worker also built and validated its same-GPU strict FP32 and
+strict FP16 references; all worker processes exited cleanly.
+
+The run attempted eight ranked candidates before recording five nominal Top-5
+rows:
+
+- two candidates failed closed because realized BOPS was below 0.205;
+- one admitted candidate produced mAP 0.334393;
+- four admitted candidates produced mAP 0.000000, 0.000000, 0.031073 and
+  0.033898;
+- the same-GPU strict FP32 reference produced mAP 0.802498 on the fixed
+  10-frame manifest.
+
+This proves that four GPUs are being used concurrently for physical deployment,
+calibration, engine construction and evaluation, but the resulting Top-5 is not
+an acceptable smoke result. The smoke configuration had `max_map_drop: null`,
+so the existing objective could not classify near-zero AP collapse as an
+admission failure. This result is diagnostic only and must not be reused by
+Stage A.
+
+Minimal fail-closed configuration fix:
+
+- `search/configs/lidar_pyramid_4090_ga_stage2_multigpu_smoke.yaml` now sets
+  `max_map_drop: 0.75` for this pre-Stage-A diagnostic gate;
+- relative to the observed strict FP32 reference, this requires candidate mAP
+  of at least approximately 0.0525 and therefore rejects all four near-zero
+  rows while preserving the 0.334393 diagnostic candidate;
+- the existing Stage-2 objective emits `accuracy_hard_gate_failed`, assigns the
+  failure score and continues ranked backfill;
+- `search/configs/lidar_pyramid_4090_ga_stage_a.yaml` remains unchanged: this
+  smoke-only threshold is not being silently promoted to the formal Stage-A/B
+  acceptance policy.
+
+Tests:
+
+- config/process-pool/generation/round selection regression: 14 passed;
+- objective/final-contract/worker/backfill regression: 19 passed;
+- `tests/test_search_large_population.py` now pins the smoke accuracy gate;
+- `git diff --check` passes.
+
+The next live run must restart generation 0 in a new timestamp directory. It
+must obtain five unique candidates that pass both realized BOPS and the
+temporary AP gate before serial consistency replay can begin.
+
+--- Round 12 completed: 2026-07-15 02:34:14 CST ---

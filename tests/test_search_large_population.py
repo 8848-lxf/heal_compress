@@ -134,6 +134,7 @@ def test_4090_multigpu_stage2_smoke_uses_full_stage1_and_real_top5() -> None:
     assert data["stage2"]["num_frames"] == 10
     assert data["stage2"]["warmup_frames"] == 10
     assert data["stage2"]["reset_after_warmup"] is True
+    assert data["stage2"]["max_map_drop"] == 0.75
     assert data["stage2_parallel"]["enabled"] is True
     assert data["stage2_parallel"]["gpu_ids"] == [4, 5, 6, 7]
     assert data["budget_final"] == {}

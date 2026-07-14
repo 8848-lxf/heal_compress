@@ -101,7 +101,7 @@ stage2:
   tau_ap: 0.02
   eta_ap: 0.80
   eta_latency: 0.20
-  max_map_drop: null
+  max_map_drop: 0.75
 
 stage2_parallel:
   enabled: true
