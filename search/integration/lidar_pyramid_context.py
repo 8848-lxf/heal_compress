@@ -42,6 +42,7 @@ class LidarPyramidSearchContext:
     quant_calibration_batches: int
     quant_calibration_npz_manifest: Path | None
     quant_activation_calibration_backend: str
+    quant_activation_calibration_cache_path: Path | None
     quant_calibration_force_rebuild: bool
     eval_manifest_path: Path
     eval_frame_ids: list[str]
@@ -184,7 +185,7 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
     base_groups = build_precision_coupling_groups(model, graph, sample_batch=None, allow_head_int8=True)
     weighted = set(_precision_layer_ids(model))
     protected = {
-        "encoder_m1.pillar_vfe.pfn_layers.0.linear": "plugin_boundary_or_unmapped_functional_matmul",
+        "encoder_m1.pillar_vfe.pfn_layers.0.linear": "mapped_pillar_vfe_linear_legacy_realized_fp16",
         "pyramid_backbone.single_head_2": "coordinate_grid_generation_requires_fp16_output",
     }
     memberships: dict[str, list[tuple[int, Any, list[str]]]] = {name: [] for name in weighted}
@@ -295,6 +296,7 @@ def build_lidar_pyramid_context(
     quant_calibration_batches: int = 16,
     quant_calibration_npz_manifest: str | Path | None = None,
     quant_activation_calibration_backend: str = "modelopt_histogram_entropy",
+    quant_activation_calibration_cache_path: str | Path | None = None,
     quant_calibration_force_rebuild: bool = False,
     num_frames: int = 5,
     warmup_frames: int = 10,
@@ -378,12 +380,23 @@ def build_lidar_pyramid_context(
         )
     calibration_backend = str(quant_activation_calibration_backend).strip().lower()
     if calibration_backend not in {
+        "external_tensorrt_entropy_cache_exact_match",
         "modelopt_histogram_entropy",
         "tensorrt_entropy_calibration2",
     }:
         raise RuntimeError(f"unsupported_quant_activation_calibration_backend:{calibration_backend}")
+    activation_calibration_cache = (
+        Path(quant_activation_calibration_cache_path).expanduser().resolve()
+        if quant_activation_calibration_cache_path
+        else None
+    )
     if calibration_backend == "tensorrt_entropy_calibration2" and calibration_npz_manifest is None:
         raise RuntimeError("tensorrt_entropy_calibration2_requires_exact_npz_manifest")
+    if calibration_backend == "external_tensorrt_entropy_cache_exact_match":
+        if activation_calibration_cache is None or not activation_calibration_cache.is_file():
+            raise RuntimeError(
+                f"external_tensorrt_entropy_cache_missing:{activation_calibration_cache}"
+            )
     search_space = SearchSpaceSpec(
         pruning_unit_ids=search_pruning_ids,
         precision_layer_ids=precision_layers,
@@ -398,6 +411,11 @@ def build_lidar_pyramid_context(
                 "quant_batches": int(quant_calibration_batches),
                 "quant_calibration_npz_manifest_hash": calibration_npz_manifest_hash,
                 "quant_activation_calibration_backend": calibration_backend,
+                "quant_activation_calibration_cache_hash": (
+                    canonical_json_hash(activation_calibration_cache.read_bytes().hex())
+                    if activation_calibration_cache is not None
+                    else ""
+                ),
                 "config": str(config_path),
             }
         ),
@@ -422,6 +440,7 @@ def build_lidar_pyramid_context(
         quant_calibration_batches=int(quant_calibration_batches),
         quant_calibration_npz_manifest=calibration_npz_manifest,
         quant_activation_calibration_backend=calibration_backend,
+        quant_activation_calibration_cache_path=activation_calibration_cache,
         quant_calibration_force_rebuild=bool(quant_calibration_force_rebuild),
         eval_manifest_path=manifest.path,
         eval_frame_ids=manifest.frame_ids,
@@ -474,6 +493,11 @@ def _write_context_report(path: Path, context: LidarPyramidSearchContext) -> Non
             else ""
         ),
         "quant_activation_calibration_backend": context.quant_activation_calibration_backend,
+        "quant_activation_calibration_cache_path": (
+            str(context.quant_activation_calibration_cache_path)
+            if context.quant_activation_calibration_cache_path is not None
+            else ""
+        ),
         "quant_calibration_force_rebuild": context.quant_calibration_force_rebuild,
         "unresolved_mapping_count": "deferred_to_canonical_onnx_qdq_export",
         "quantization_groups": [

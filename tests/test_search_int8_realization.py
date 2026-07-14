@@ -258,10 +258,10 @@ def test_tensorrt_entropy_cache_requires_exact_boundaries_and_keeps_per_channel_
         name="canonical_conv",
     )
     graph = helper.make_graph(
-        [node],
+        [node, helper.make_node("Relu", ["output_tensor"], ["relu_tensor"], name="canonical_relu")],
         "cache_test",
         [helper.make_tensor_value_info("input_tensor", TensorProto.FLOAT, [1, 3, 2, 2])],
-        [helper.make_tensor_value_info("output_tensor", TensorProto.FLOAT, [1, 2, 2, 2])],
+        [helper.make_tensor_value_info("relu_tensor", TensorProto.FLOAT, [1, 2, 2, 2])],
         [numpy_helper.from_array(weight, name="weight")],
     )
     onnx_path = tmp_path / "model.onnx"
@@ -273,6 +273,7 @@ def test_tensorrt_entropy_cache_requires_exact_boundaries_and_keeps_per_channel_
                 "TRT-100900-EntropyCalibration2",
                 f"input_tensor: {struct.pack('!f', 0.125).hex()}",
                 f"output_tensor: {struct.pack('!f', 0.25).hex()}",
+                f"relu_tensor: {struct.pack('!f', 0.375).hex()}",
             ]
         )
         + "\n",
@@ -297,7 +298,9 @@ def test_tensorrt_entropy_cache_requires_exact_boundaries_and_keeps_per_channel_
     )
 
     assert scales["conv"]["activation_input_scale"] == pytest.approx(0.125)
-    assert scales["conv"]["activation_output_scale"] == pytest.approx(0.25)
+    assert scales["conv"]["activation_output_scale"] == pytest.approx(0.375)
+    assert scales["conv"]["activation_output_tensor"] == "relu_tensor"
+    assert scales["conv"]["activation_output_boundary_resolution"] == "post_relu_semantic_boundary"
     assert scales["conv"]["weight_axis"] == 0
     assert scales["conv"]["weight_scale"] == pytest.approx([2.0 / 127.0, 4.0 / 127.0])
     assert scales["conv"]["activation_scale_source"].endswith("exact_tensor_match")

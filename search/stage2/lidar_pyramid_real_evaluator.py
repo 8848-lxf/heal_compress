@@ -112,7 +112,31 @@ def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result:
         input_formats = formats(matched, "Inputs")
         output_formats = formats(matched, "Outputs")
         all_formats = input_formats + output_formats
-        if optimization == "concat_fused_with_common_downstream_quantize" and "Int8" in output_formats:
+        graph_fp16_casts = bool(merge.get("input_branches")) and all(
+            bool(branch.get("cast_to_fp16", False))
+            for branch in merge.get("input_branches", [])
+        )
+        fused_weighted_compute = any(
+            any(token in str(layer.get("LayerType", "")).lower() for token in ("conv", "gemm", "matmul"))
+            for layer in matched
+        )
+        if (
+            str(merge.get("merge_op_type")) == "Add"
+            and graph_fp16_casts
+            and fused_weighted_compute
+            and output_formats
+            and set(output_formats) <= {"Half"}
+        ):
+            precision = "FP16"
+            optimization = "int8_weighted_compute_fused_with_graph_constrained_fp16_add"
+        elif (
+            optimization == "concat_fused_with_common_downstream_quantize"
+            and graph_fp16_casts
+            and "Int8" in output_formats
+        ):
+            precision = "FP16"
+            optimization = "graph_constrained_fp16_concat_fused_with_downstream_int8_requantization"
+        elif optimization == "concat_fused_with_common_downstream_quantize" and "Int8" in output_formats:
             precision = "INT8_common_scale_fused_concat"
         elif all_formats and set(all_formats) <= {"Half"}:
             precision = "FP16"
@@ -151,12 +175,16 @@ def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result:
 
 def _load_origin_map_result(path: str | Path) -> Any:
     try:
-        from quantization.types import CanonicalMappingEntry, OnnxOriginMapResult
+        from quantization.types import CanonicalFunctionalComputeGroup, CanonicalMappingEntry, OnnxOriginMapResult
     except ImportError:
-        from heal_compress.quantization.types import CanonicalMappingEntry, OnnxOriginMapResult
+        from heal_compress.quantization.types import CanonicalFunctionalComputeGroup, CanonicalMappingEntry, OnnxOriginMapResult
 
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     payload["entries"] = [CanonicalMappingEntry(**dict(row)) for row in payload.get("entries", [])]
+    payload["functional_compute_groups"] = [
+        CanonicalFunctionalComputeGroup(**dict(row))
+        for row in payload.get("functional_compute_groups", [])
+    ]
     return OnnxOriginMapResult(**payload)
 
 
@@ -250,7 +278,7 @@ def _apply_group_output_precision_contract(mapping: Any, contracts: dict[str, An
                     "fp16"
                     if row.realized_request_precision == "int8"
                     and str(contracts.get(row.precision_group, {}).get("output_precision_policy", "")) == "FP16"
-                    else ""
+                    else row.realized_output_precision
                 ),
             )
             for row in mapping.entries
@@ -259,6 +287,8 @@ def _apply_group_output_precision_contract(mapping: Any, contracts: dict[str, An
         profile_hash=mapping.profile_hash,
         origin_map_hash=mapping.origin_map_hash,
         policy_version=mapping.policy_version,
+        auxiliary_layer_precisions=dict(mapping.auxiliary_layer_precisions),
+        auxiliary_layer_output_types=dict(mapping.auxiliary_layer_output_types),
     )
 
 
@@ -993,11 +1023,11 @@ class LidarPyramidRealEvaluator:
 
     def _export_qdq(self, phenotype: CandidatePhenotype, physical: dict[str, Any], output_dir: Path) -> dict[str, Any]:
         try:
-            from quantization.api import build_canonical_precision_mapping, export_pruned_signal_maxk_onnx, insert_explicit_qdq, prepare_signal_maxk_inputs
+            from quantization.api import apply_fp16_merge_output_contract, build_canonical_precision_mapping, export_pruned_signal_maxk_onnx, insert_explicit_qdq, prepare_signal_maxk_inputs
             from quantization.config import CalibrationConfig, CanonicalNamingConfig, OnnxExportConfig, QDQConfig
             from quantization.types import CanonicalPrecisionMappingResult, PrecisionAssignment, PrecisionProfileResult
         except ImportError:
-            from heal_compress.quantization.api import build_canonical_precision_mapping, export_pruned_signal_maxk_onnx, insert_explicit_qdq, prepare_signal_maxk_inputs
+            from heal_compress.quantization.api import apply_fp16_merge_output_contract, build_canonical_precision_mapping, export_pruned_signal_maxk_onnx, insert_explicit_qdq, prepare_signal_maxk_inputs
             from heal_compress.quantization.config import CalibrationConfig, CanonicalNamingConfig, OnnxExportConfig, QDQConfig
             from heal_compress.quantization.types import CanonicalPrecisionMappingResult, PrecisionAssignment, PrecisionProfileResult
 
@@ -1102,6 +1132,23 @@ class LidarPyramidRealEvaluator:
             }
         mapping = build_canonical_precision_mapping(origin_map, profile, config=qdq_config)
         mapping = _apply_group_output_precision_contract(mapping, raw_group_contracts)
+        mapping, canonical_merge_output_contract = apply_fp16_merge_output_contract(
+            export.onnx_path,
+            mapping,
+        )
+        for row in mapping.entries:
+            if row.realized_output_precision != "fp16":
+                continue
+            contract = raw_group_contracts.get(row.precision_group)
+            if contract is None:
+                continue
+            contract["output_precision_policy"] = "FP16"
+            contract["insert_activation_output_qdq"] = False
+            contract["merge_boundary_resolution"] = "resolved_from_canonical_onnx_nearest_weighted_producer"
+        _write_json(
+            output_dir / "canonical_merge_output_contract.json",
+            canonical_merge_output_contract,
+        )
         realized_profile = {row.module_path: str(row.realized_request_precision).upper() for row in mapping.entries}
         realized_output_profile = {
             row.module_path: str(row.realized_output_precision or row.realized_request_precision).upper()
@@ -1185,15 +1232,28 @@ class LidarPyramidRealEvaluator:
         ).lower()
         calibration_semantics = (
             TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION
-            if calibration_backend == "tensorrt_entropy_calibration2"
+            if calibration_backend in {
+                "external_tensorrt_entropy_cache_exact_match",
+                "tensorrt_entropy_calibration2",
+            }
             else QDQ_CALIBRATION_SEMANTICS_VERSION
         )
         activation_calibration_method = (
             "tensorrt_entropy_calibration2"
-            if calibration_backend == "tensorrt_entropy_calibration2"
+            if calibration_backend in {
+                "external_tensorrt_entropy_cache_exact_match",
+                "tensorrt_entropy_calibration2",
+            }
             else "entropy"
         )
-        histogram_bins: int | None = None if calibration_backend == "tensorrt_entropy_calibration2" else 2048
+        histogram_bins: int | None = (
+            None
+            if calibration_backend in {
+                "external_tensorrt_entropy_cache_exact_match",
+                "tensorrt_entropy_calibration2",
+            }
+            else 2048
+        )
         calibration_identity = {
             "modules": int8_modules,
             "semantics": calibration_semantics,
@@ -1219,7 +1279,47 @@ class LidarPyramidRealEvaluator:
         calibration_backend_result: dict[str, Any] = {}
         calibration_compatibility: dict[str, Any] = {}
         if int8_modules:
-            if calibration_backend == "tensorrt_entropy_calibration2":
+            if calibration_backend == "external_tensorrt_entropy_cache_exact_match":
+                external_cache = getattr(
+                    self.context,
+                    "quant_activation_calibration_cache_path",
+                    None,
+                )
+                if external_cache is None or not Path(external_cache).is_file():
+                    raise RuntimeError(
+                        f"external_tensorrt_entropy_cache_missing:{external_cache}"
+                    )
+                calibration_backend_result = {
+                    "status": "ok",
+                    "external_reference_cache": True,
+                    "calibration_cache_path": str(Path(external_cache).resolve()),
+                    "calibration_cache_sha256": _file_hash(Path(external_cache)),
+                    "calibration_cache_reused_as_reference": True,
+                    "tensor_matching": "exact_name_only",
+                }
+                scales, scale_details = qdq_scales_from_tensorrt_entropy_cache(
+                    onnx_path=export.onnx_path,
+                    origin_map=origin_map,
+                    module_paths=int8_modules,
+                    cache_path=external_cache,
+                    weight_granularity=qdq_config.weight_granularity,
+                    activation_scale_source=(
+                        "legacy_single_engine_maxK_fixedK29696_train200_"
+                        "TensorRT_EntropyCalibration2_exact_tensor_match"
+                    ),
+                )
+                save_calibration_scales(
+                    calibration_cache_path,
+                    scales,
+                    {
+                        **scale_details,
+                        "frame_count": self.context.quant_calibration_batches,
+                        "fixed_k": 29696,
+                        "external_reference_cache": True,
+                        "calibration_input_provenance": calibration_input_identity,
+                    },
+                )
+            elif calibration_backend == "tensorrt_entropy_calibration2":
                 calibration_onnx = output_dir / "calibration_trt_compatible.onnx"
                 calibration_compatibility = make_pointpillar_domain_compatible(
                     export.onnx_path,
@@ -1494,7 +1594,11 @@ class LidarPyramidRealEvaluator:
         if "precision_realization_validation" in result:
             _write_json(output_dir / "precision_realization_validation.json", result["precision_realization_validation"])
         if baseline_precision and (output_dir / "engine_layer_info.json").is_file():
-            baseline_report = validate_baseline_layer_precisions(baseline_precision, output_dir / "engine_layer_info.json")
+            baseline_report = validate_baseline_layer_precisions(
+                baseline_precision,
+                output_dir / "engine_layer_info.json",
+                canonical_precision_realization=result.get("precision_realization_validation"),
+            )
             result["baseline_precision_validation"] = baseline_report
             _write_json(output_dir / "baseline_precision_validation.json", baseline_report)
             if not baseline_report.get("passed", False):

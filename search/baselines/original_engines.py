@@ -51,6 +51,7 @@ BASELINE_PRECISIONS = {
     "strict_fp32",
     "strict_fp16",
     "maximal_legal_int8",
+    "matched_legacy_int8",
     "pure_strict_int8",
     "trusted_explicit_qdq_int8",
 }
@@ -75,8 +76,8 @@ def make_baseline_trt_build_config(
     """Return strict builder flags for one original-model baseline."""
 
     kind = _normalize_baseline(baseline)
-    enable_fp16 = kind in {"strict_fp16", "maximal_legal_int8", "pure_strict_int8", "trusted_explicit_qdq_int8"}
-    enable_int8 = kind in {"maximal_legal_int8", "pure_strict_int8", "trusted_explicit_qdq_int8"}
+    enable_fp16 = kind in {"strict_fp16", "maximal_legal_int8", "matched_legacy_int8", "pure_strict_int8", "trusted_explicit_qdq_int8"}
+    enable_int8 = kind in {"maximal_legal_int8", "matched_legacy_int8", "pure_strict_int8", "trusted_explicit_qdq_int8"}
     return TensorRTBuildConfig(
         trtexec_path=Path(trtexec_path) if trtexec_path is not None else None,
         plugin_path=Path(plugin_path) if plugin_path is not None else None,
@@ -146,7 +147,7 @@ def build_baseline_precision_profile(
                 precision_group=group.group_id,
                 requested_precision=requested,
                 ordering=ordering,
-                protected_precision="fp16" if requested == "fp16" and kind in {"maximal_legal_int8", "pure_strict_int8"} else "",
+                protected_precision="fp16" if requested == "fp16" and kind in {"maximal_legal_int8", "matched_legacy_int8", "pure_strict_int8"} else "",
                 fallback_reason=(
                     group.protection_reason
                     if requested == "fp16" and group.protected
@@ -210,11 +211,28 @@ def summarize_layer_precisions(layer_info: str | Path | Sequence[Mapping[str, An
 def validate_baseline_layer_precisions(
     baseline: str,
     layer_info: str | Path | Sequence[Mapping[str, Any]] | Mapping[str, Any],
+    *,
+    canonical_precision_realization: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Fail-closed precision realization check for strict baseline reports."""
 
     kind = _normalize_baseline(baseline)
     summary = summarize_layer_precisions(layer_info)
+    raw_engine_summary = dict(summary)
+    coverage_counting_basis = "raw_engine_weighted_layers"
+    if kind in {"matched_legacy_int8", "trusted_explicit_qdq_int8"} and canonical_precision_realization is not None:
+        canonical = dict(canonical_precision_realization)
+        summary.update(
+            {
+                "weighted_layer_count": int(canonical.get("realized_int8_count", 0))
+                + int(canonical.get("realized_fp16_count", 0)),
+                "weighted_fp32_count": 0,
+                "weighted_fp16_count": int(canonical.get("realized_fp16_count", 0)),
+                "weighted_int8_count": int(canonical.get("realized_int8_count", 0)),
+                "weighted_unknown_count": int(canonical.get("unresolved_layer_count", 0)),
+            }
+        )
+        coverage_counting_basis = "canonical_precision_realization"
     issues: list[str] = []
     status = kind
     if kind == "strict_fp32":
@@ -236,6 +254,11 @@ def validate_baseline_layer_precisions(
             issues.append("not_all_weighted_layers_realized_int8")
             status = "pure_strict_int8_failed"
     elif kind == "trusted_explicit_qdq_int8":
+        if canonical_precision_realization is not None and not bool(
+            canonical_precision_realization.get("passed", False)
+        ):
+            issues.append("trusted_explicit_qdq_canonical_precision_realization_failed")
+            status = "trusted_explicit_qdq_int8_failed"
         if summary["weighted_int8_count"] != len(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES):
             issues.append(
                 f"trusted_explicit_qdq_int8_count_mismatch:{summary['weighted_int8_count']}!={len(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES)}"
@@ -244,12 +267,29 @@ def validate_baseline_layer_precisions(
         if summary["weighted_fp32_count"]:
             issues.append("trusted_explicit_qdq_unexpected_fp32_fallback")
             status = "trusted_explicit_qdq_int8_failed"
+    elif kind == "matched_legacy_int8":
+        if canonical_precision_realization is not None and not bool(
+            canonical_precision_realization.get("passed", False)
+        ):
+            issues.append("matched_legacy_canonical_precision_realization_failed")
+            status = "matched_legacy_int8_failed"
+        if summary["weighted_int8_count"] != 67 or summary["weighted_fp16_count"] != 3:
+            issues.append(
+                "matched_legacy_coverage_mismatch:"
+                f"int8={summary['weighted_int8_count']} fp16={summary['weighted_fp16_count']}"
+            )
+            status = "matched_legacy_int8_failed"
+        if summary["weighted_fp32_count"] or summary["weighted_unknown_count"]:
+            issues.append("matched_legacy_unexpected_fp32_or_unknown")
+            status = "matched_legacy_int8_failed"
     else:
         if not summary["weighted_int8_count"]:
             issues.append("no_weighted_layer_realized_int8")
             status = "maximal_legal_int8_failed"
     return {
         **summary,
+        "coverage_counting_basis": coverage_counting_basis,
+        "raw_engine_weighted_summary": raw_engine_summary,
         "baseline": kind,
         "status": status,
         "passed": not issues,

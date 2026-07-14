@@ -13,6 +13,8 @@ from ..config import QDQConfig
 from ..exceptions import QDQInsertionError
 from ..types import CanonicalPrecisionMappingResult, QDQInsertionRecord, QDQInsertionResult, stable_json_hash
 from ..export.origin_trace import build_weight_trace_index, trace_compute_node_weight
+from .activation_boundary import resolve_activation_output_boundary
+from .merge_contract import fp16_merge_cast_name
 
 
 def _positive_scale(value: Any, module_path: str, kind: str) -> float | list[float]:
@@ -51,6 +53,22 @@ def _scales_for(
         float(_positive_scale(activation_output, module_path, "activation output")),
         metadata,
     )
+
+
+def _insert_output_qdq_for(entry: Any, metadata: Mapping[str, Any], policy: QDQConfig) -> bool:
+    """Resolve output-Q ownership, with FP16 merge contracts taking priority."""
+
+    fp16_output_contract = str(entry.realized_output_precision or "").lower() == "fp16"
+    explicitly_requested = metadata.get("insert_activation_output_qdq")
+    if fp16_output_contract:
+        if explicitly_requested is True:
+            raise QDQInsertionError(
+                f"activation output Q/DQ conflicts with FP16 output contract for {entry.module_path}"
+            )
+        return False
+    if explicitly_requested is not None:
+        return bool(explicitly_requested)
+    return bool(policy.insert_activation_output_qdq)
 
 
 def _qdq_pair(
@@ -202,7 +220,17 @@ def _audit_fp16_merge_boundaries(
                     "tensor": str(input_name),
                     "producer": str(producer.name) if producer is not None else "",
                     "producer_op_type": producer_type,
-                    "boundary": "explicit_dequantize_to_float" if producer_type == "DequantizeLinear" else "existing_float_path",
+                    "boundary": (
+                        "explicit_cast_to_fp16"
+                        if producer_type == "Cast"
+                        else "explicit_dequantize_to_float"
+                        if producer_type == "DequantizeLinear"
+                        else "existing_float_path"
+                    ),
+                    "cast_to_fp16": bool(
+                        producer_type == "Cast"
+                        and any(str(attribute.name) == "to" and int(attribute.i) == 10 for attribute in producer.attribute)
+                    ) if producer is not None else False,
                     "activation_scale": dq_scale_payload(producer),
                     "qdq_tensor_before_merge": str(input_name) if producer_type == "DequantizeLinear" else "",
                     "nearest_weighted_producers": nearest_upstream(str(input_name)),
@@ -248,6 +276,50 @@ def _audit_fp16_merge_boundaries(
         if row["quantization_relevant_merge"]:
             rows.append(row)
     return rows
+
+
+def _insert_explicit_fp16_merge_casts(model: Any, mapping: CanonicalPrecisionMappingResult) -> list[dict[str, Any]]:
+    from onnx import TensorProto, helper
+
+    target_merges = {
+        str(name)
+        for name, precision in mapping.auxiliary_layer_precisions.items()
+        if str(precision) == "fp16"
+    }
+    records: list[dict[str, Any]] = []
+    rewritten: list[Any] = []
+    for node in model.graph.node:
+        if str(node.name) not in target_merges or str(node.op_type) not in {"Add", "Concat"}:
+            rewritten.append(node)
+            continue
+        for input_index, input_name in enumerate(list(node.input)):
+            cast_name = fp16_merge_cast_name(str(node.name), input_index)
+            cast_output = f"{cast_name}__output"
+            rewritten.append(
+                helper.make_node(
+                    "Cast",
+                    [str(input_name)],
+                    [cast_output],
+                    name=cast_name,
+                    to=TensorProto.FLOAT16,
+                )
+            )
+            node.input[input_index] = cast_output
+            records.append(
+                {
+                    "merge_op_name": str(node.name),
+                    "merge_op_type": str(node.op_type),
+                    "input_index": int(input_index),
+                    "source_tensor": str(input_name),
+                    "cast_node": cast_name,
+                    "cast_output_tensor": cast_output,
+                    "cast_dtype": "FP16",
+                }
+            )
+        rewritten.append(node)
+    del model.graph.node[:]
+    model.graph.node.extend(rewritten)
+    return records
 
 
 def _snapshot_weighted_following_ops(
@@ -312,9 +384,11 @@ def _audit_weighted_qdq_boundaries(
         snapshot = dict(snapshots.get(str(record.canonical_node_name), {}))
         output_q_nodes = [nodes_by_name.get(str(name)) for name in record.output_quantize_nodes]
         q_inputs = [str(node.input[0]) for node in output_q_nodes if node is not None and node.input]
+        normalized_q_inputs = {value.replace("__before_output_qdq", "") for value in q_inputs}
+        weighted_outputs = set(str(value) for value in snapshot.get("weighted_output_tensors", []))
         scale_payload = scales.get(record.module_path, scales.get(record.canonical_node_name, {}))
         scale_metadata = dict(scale_payload) if isinstance(scale_payload, Mapping) else {}
-        if q_inputs and all(value.endswith("__before_output_qdq") for value in q_inputs):
+        if q_inputs and normalized_q_inputs == weighted_outputs:
             placement = "weighted_output_before_following_ops"
         elif not q_inputs and entry.realized_output_precision == "fp16":
             placement = "fp16_weighted_output_no_output_qdq"
@@ -394,7 +468,7 @@ def insert_explicit_qdq(
     if len(targets) != sum(row.realized_request_precision == "int8" for row in mapping.entries):
         raise QDQInsertionError("canonical INT8 target names are not unique")
     initializers = {str(row.name): numpy_helper.to_array(row) for row in model.graph.initializer}
-    prepared: dict[str, tuple[Any, float, float | list[float], float, dict[str, Any], int | None]] = {}
+    prepared: dict[str, tuple[Any, float, float | list[float], float, dict[str, Any], int | None, dict[str, Any]]] = {}
     for name, entry in targets.items():
         node = nodes_by_name.get(name)
         if node is None or str(node.op_type) not in {"Conv", "ConvTranspose", "Gemm", "MatMul"}:
@@ -424,16 +498,33 @@ def insert_explicit_qdq(
             weight_axis = normalized_axis
         elif weight_axis is not None:
             raise QDQInsertionError(f"scalar weight scale must not declare an axis for {entry.module_path}")
-        prepared[name] = (entry, activation_input_scale, weight_scale, activation_output_scale, metadata, weight_axis)
+        output_boundary = resolve_activation_output_boundary(model, name)
+        insert_output_qdq = _insert_output_qdq_for(entry, metadata, policy)
+        scale_owner = str(metadata.get("activation_output_tensor", ""))
+        if insert_output_qdq and scale_owner and scale_owner != str(output_boundary["boundary_output_tensor"]):
+            raise QDQInsertionError(
+                f"activation output scale owner does not match resolved Q boundary for {entry.module_path}: "
+                f"scale={scale_owner} boundary={output_boundary['boundary_output_tensor']}"
+            )
+        prepared[name] = (
+            entry,
+            activation_input_scale,
+            weight_scale,
+            activation_output_scale,
+            metadata,
+            weight_axis,
+            output_boundary,
+        )
 
     new_nodes: list[Any] = []
     records: list[QDQInsertionRecord] = []
+    pending_output_qdq: dict[str, list[dict[str, Any]]] = {}
     for node in model.graph.node:
         target = prepared.get(str(node.name))
         if target is None:
             new_nodes.append(node)
             continue
-        entry, activation_input_scale, weight_scale, activation_output_scale, _metadata, weight_axis = target
+        entry, activation_input_scale, weight_scale, activation_output_scale, _metadata, weight_axis, output_boundary = target
         safe = str(node.name).replace("/", "_").replace(".", "_")
         record = QDQInsertionRecord(
             module_path=entry.module_path,
@@ -473,28 +564,69 @@ def insert_explicit_qdq(
             node.input[1] = dequantized
             record.weight_quantize_node = q_name
             record.weight_dequantize_node = dq_name
-        output_specs: list[tuple[str, str]] = []
-        insert_output_qdq = bool(_metadata.get("insert_activation_output_qdq", policy.insert_activation_output_qdq))
+        insert_output_qdq = _insert_output_qdq_for(entry, _metadata, policy)
         if insert_output_qdq:
-            for output_index, output_name in enumerate(list(node.output)):
-                raw_name = f"{output_name}__before_output_qdq"
-                node.output[output_index] = raw_name
-                output_specs.append((raw_name, str(output_name)))
-        new_nodes.append(node)
-        for output_index, (raw_name, public_name) in enumerate(output_specs):
-            pair, dequantized, q_name, dq_name = _qdq_pair(
-                helper, numpy_helper, np, model.graph, raw_name, f"{safe}__activation_output_{output_index}", activation_output_scale, policy.zero_point
+            boundary_node_name = str(output_boundary["boundary_node_name"])
+            boundary_tensor = str(output_boundary["boundary_output_tensor"])
+            pending_output_qdq.setdefault(boundary_node_name, []).append(
+                {
+                    "record": record,
+                    "public_name": boundary_tensor,
+                    "prefix": f"{safe}__activation_output_0",
+                    "scale": activation_output_scale,
+                    "resolution": str(output_boundary["resolution"]),
+                }
             )
-            pair[-1].output[0] = public_name
-            new_nodes.extend(pair)
-            record.output_quantize_nodes.append(q_name)
-            record.output_dequantize_nodes.append(dq_name)
-            record.activation_output_q_inputs.append(raw_name)
+        new_nodes.append(node)
         records.append(record)
     if len(records) != len(targets):
         raise QDQInsertionError("not every canonical INT8 target received Q/DQ")
+
+    output_nodes: list[Any] = []
+    applied_output_qdq = 0
+    claimed_boundary_tensors: set[str] = set()
+    for node in new_nodes:
+        specs = pending_output_qdq.get(str(node.name), [])
+        for spec in specs:
+            public_name = str(spec["public_name"])
+            if public_name in claimed_boundary_tensors:
+                raise QDQInsertionError(f"activation output Q/DQ boundary claimed more than once: {public_name}")
+            output_indices = [index for index, value in enumerate(node.output) if str(value) == public_name]
+            if len(output_indices) != 1:
+                raise QDQInsertionError(
+                    f"resolved activation output boundary missing or ambiguous: {node.name}:{public_name}"
+                )
+            raw_name = f"{public_name}__before_output_qdq"
+            node.output[output_indices[0]] = raw_name
+            claimed_boundary_tensors.add(public_name)
+            spec["raw_name"] = raw_name
+        output_nodes.append(node)
+        for spec in specs:
+            pair, _dequantized, q_name, dq_name = _qdq_pair(
+                helper,
+                numpy_helper,
+                np,
+                model.graph,
+                str(spec["raw_name"]),
+                str(spec["prefix"]),
+                float(spec["scale"]),
+                policy.zero_point,
+            )
+            pair[-1].output[0] = str(spec["public_name"])
+            output_nodes.extend(pair)
+            record = spec["record"]
+            record.output_quantize_nodes.append(q_name)
+            record.output_dequantize_nodes.append(dq_name)
+            record.activation_output_q_inputs.append(str(spec["raw_name"]))
+            applied_output_qdq += 1
+    expected_output_qdq = sum(len(value) for value in pending_output_qdq.values())
+    if applied_output_qdq != expected_output_qdq:
+        raise QDQInsertionError(
+            f"not every resolved activation output boundary received Q/DQ: {applied_output_qdq}!={expected_output_qdq}"
+        )
     del model.graph.node[:]
-    model.graph.node.extend(new_nodes)
+    model.graph.node.extend(output_nodes)
+    merge_cast_records = _insert_explicit_fp16_merge_casts(model, mapping)
     merge_audit = _audit_fp16_merge_boundaries(model, policy.merge_policy, mapping)
     boundary_audit, topology_hash = _audit_weighted_qdq_boundaries(
         model,
@@ -534,6 +666,9 @@ def insert_explicit_qdq(
     metadata = dict(calibration_metadata or {})
     metadata.setdefault("scale_modules", sorted(str(key) for key in scales))
     metadata["merge_policy"] = policy.merge_policy
+    metadata["fp16_merge_cast_records"] = merge_cast_records
+    metadata["auxiliary_layer_precisions"] = dict(mapping.auxiliary_layer_precisions)
+    metadata["auxiliary_layer_output_types"] = dict(mapping.auxiliary_layer_output_types)
     metadata["merge_quantization_audit"] = merge_audit
     metadata["weighted_qdq_boundary_audit"] = boundary_audit
     metadata["qdq_topology_hash"] = topology_hash

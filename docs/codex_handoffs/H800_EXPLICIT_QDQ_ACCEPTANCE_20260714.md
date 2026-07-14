@@ -136,3 +136,96 @@ The delivery commit containing this handoff should be identified as the current 
 Completed: 2026-07-14 06:09:00 CST
 
 ---
+
+## Round 5 — canonical 70-layer matched-coverage correction
+
+This round supersedes two conclusions in Rounds 3–4. The old 27 INT8 / 43 FP16 route is an accuracy-safe mixed-precision control, not a Legacy-equivalent INT8 baseline. Engine fusion is also not sufficient evidence that a graph-level pre-ReLU Q/DQ boundary is semantically correct: production Q/DQ must own and consume the actual post-ReLU/post-merge tensor.
+
+Canonical coverage was rebuilt from Legacy EngineInspector, the base ONNX graph, origin mapping, topology and calibration cache:
+
+- canonical compute entries: 70;
+- parameterized weighted ONNX entries: 69;
+- protected parameter-free functional compute entry: one affine-grid `torch.bmm` MatMul group before `GridSample`;
+- unmapped weighted entries: 0;
+- Legacy exact layer set: 67 INT8 / 3 FP16;
+- Legacy FP16 exceptions: pillar-VFE linear, `pyramid_backbone.single_head_2`, and `pyramid_backbone.functional_affine_grid_matmul`.
+
+`encoder_m1.pillar_vfe.pfn_layers.0.linear` is separately mapped to its ONNX MatMul initializer. The three initializer-free `/MatMul*` affine-grid nodes are represented by one stable synthetic canonical entry and marked `mapped_but_protected_fp16`. Evidence is in:
+
+`outputs/H800_explicit_qdq_acceptance_20260714_023005/matched_coverage_audit_20260714_094952/`
+
+including `canonical_70_layer_precision_profile.json`, `legacy_vs_explicit_layer_set_diff.csv`, and `functional_matmul_mapping_audit.json`.
+
+The production boundary implementation now resolves direct `Conv -> Relu`, `Conv -> Add -> Relu`, and merge paths to their semantic activation output. The inserter applies input/weight Q first, inserts output Q/DQ after the resolved semantic node, and fails closed when the calibration scale owner differs from the Q input. FP16 Add/Concat contracts insert explicit input casts and constrain the merge plus its unique post-merge ReLU. The two shrink boundaries are now:
+
+- `shrink_conv.layers.0.double_conv.0` -> `/shrink_conv/layers.0/double_conv/double_conv.1/Relu_output_0`;
+- `shrink_conv.layers.0.double_conv.2` -> `/shrink_conv/layers.0/double_conv/double_conv.3/Relu_output_0`.
+
+No pre-ReLU output Q/DQ remains in the accepted E67 graph; only terminal cls/reg/dir heads quantize raw weighted outputs. The corrected static topology hash is `2cb4cabc8d939a730e474f48c2bbacf001f0093ee81c21a6249fe3c4f9cf1c3c`.
+
+The first semantic-boundary E67 build exposed a second real issue: TensorRT fused the final Add+ReLU internally in FP32 despite Half merge inputs. Constraining the post-merge ReLU fixed the fallback; final precision, merge and boundary audits all pass. Failed intermediate directories were preserved and were not treated as accepted evidence.
+
+Completed: 2026-07-14 12:45:30 CST
+
+---
+
+## Round 6 — E67-LS/E67-ENT matched-coverage acceptance and source delivery
+
+Fresh production matched-coverage artifacts on fixed physical GPU 6:
+
+- E67-LS: `outputs/H800_explicit_qdq_acceptance_20260714_023005/E67_LS_semantic_merge_v3_20260714_115500/`;
+- E67-ENT: `outputs/H800_explicit_qdq_acceptance_20260714_023005/E67_ENT_semantic_merge_v2_20260714_115810/`;
+- E27-LS control: `outputs/H800_explicit_qdq_acceptance_20260714_023005/E27_LS_semantic_merge_control_20260713_213135/`;
+- E27-ENT control: `outputs/H800_explicit_qdq_acceptance_20260714_023005/E27_ENT_semantic_merge_control_20260713_213454/`;
+- final report: `outputs/H800_explicit_qdq_acceptance_20260714_023005/matched_coverage_final_report_20260714_124504/`.
+
+All four production builds are all-keep with exact checkpoint identity: 5,464,791 parameters on both sides, ordered state-dict keys identical, every tensor shape/dtype/value/hash exact, and `pruned_unit_count=0`.
+
+E67-LS and E67-ENT match the exact canonical Legacy 67/3 layer set with zero unresolved entries. They have identical base ONNX, Q/DQ topology, per-channel weight specification, all activation scales, zero points and Q/DQ ONNX bytes. E67-ENT was nevertheless calibrated fresh with TensorRT EntropyCalibration2 over the fixed train200 manifest; the Legacy cache was not reused. Engine hashes differ because TensorRT tactics are rebuilt.
+
+Corrected 200-frame gates:
+
+| route | coverage | AP@0.3 | AP@0.5 | AP@0.7 | mAP | p50 ms | frames/skips |
+|---|---|---:|---:|---:|---:|---:|---:|
+| E67-LS | 67/3 | 0.754070 | 0.704562 | 0.488691 | 0.649108 | 2.786131 | 200/0 |
+| E67-ENT | 67/3 | 0.755606 | 0.703319 | 0.484407 | 0.647778 | 2.814116 | 200/0 |
+| E27-LS control | 27/43 | 0.796380 | 0.753992 | 0.550357 | 0.700243 | 3.044917 | 200/0 |
+| E27-ENT control | 27/43 | 0.796927 | 0.753994 | 0.541525 | 0.697482 | 3.045852 | 200/0 |
+
+Corrected full validation used the same manifest hash `e5cbece0ceaf2ac1b2c47305a3fa3bdc5f616baa1ce86b0754ba565a013ac463`, warmup-reset protocol, 1789 evaluated frames and zero skips:
+
+| route | coverage | AP@0.3 | AP@0.5 | AP@0.7 | mAP | p50 ms | frames/skips |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Legacy implicit L67 | 67/3 | 0.704774 | 0.663810 | 0.470345 | 0.612976 | 2.363873 | 1789/0 |
+| E67-LS explicit | 67/3 | 0.731194 | 0.687489 | 0.483209 | 0.633964 | 2.776000 | 1789/0 |
+| E67-ENT explicit | 67/3 | 0.731035 | 0.687310 | 0.481256 | 0.633200 | 2.772061 | 1789/0 |
+
+E67-ENT minus Legacy is `+0.020224` mAP, `+0.010911` AP@0.70 and an observed `+0.408188 ms` / `1.1727x` p50. Therefore the independent verdicts are:
+
+- `coverage_equivalent=true`;
+- `scale_equivalent=true`;
+- `accuracy_equivalent=false` because absolute mAP delta exceeds 0.005, even though explicit is more accurate;
+- `latency_equivalent=false`;
+- `quantization_recipe_equivalent=false`;
+- `localization_accuracy_not_equivalent=true`.
+
+GPU6 had concurrent background work during full explicit latency measurement, so the p50 values are observations rather than a strict isolated latency equivalence experiment. This does not affect AP/mAP or the false latency-equivalence verdict.
+
+Corrected ten-frame tensor parity is bit-identical between E67-LS and E67-ENT diagnostic graphs. The first notable error is early backbone, not shrink. Shrink/head-input cosine is `0.971041`, SQNR `12.4343`, zero ratio `0.742456`, saturation ratio 0; no feature collapse remains. Moving from the superseded raw-boundary E67-LS (`mAP=0.570854` at 200 frames) to the semantic-boundary E67-LS (`0.649108`) adds `+0.078254`. Accuracy recovery therefore came from both calibration repair and boundary/merge repair; it was not calibration alone.
+
+Production source changes include stable functional MatMul canonical mapping, semantic activation-boundary resolution, FP16 merge contracts, per-channel Q/DQ insertion, canonical realized-precision validation after fusion, deployment/signature metadata, and reusable matched-coverage audit/build/parity/report scripts. E27 raw inspector rows can be 25/43 after fusion, but its required canonical realization is strictly 27/43/0; raw counts remain recorded for diagnostics.
+
+Focused final regression command passed `126` tests across production quantization groups, axis/calibration/boundary/merge/deployment contracts, baseline precision validation, formal lidar-pyramid orchestration and warmup-reset manifests. `py_compile` and `git diff --check` also pass. No outputs, checkpoints, ONNX files, calibration caches, `.plan` engines or tensor dumps are included in Git.
+
+Final operational decision:
+
+- `trusted_explicit_qdq_baseline=true` for the corrected E67 production path;
+- E27 remains an accuracy-safe mixed-precision control only;
+- `mixed_precision_GA_may_resume=false` in this delivery, pending explicit user acceptance of a trusted but Legacy recipe/accuracy-non-equivalent E67 baseline;
+- no GA or Pareto search ran in this round.
+
+The delivery commit containing this round is the branch HEAD after commit; retrieve it with `git log -1 --oneline` after synchronization.
+
+Completed: 2026-07-14 12:46:00 CST
+
+---

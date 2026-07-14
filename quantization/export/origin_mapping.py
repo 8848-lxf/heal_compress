@@ -9,13 +9,89 @@ from typing import Any, Mapping, Sequence
 from ..artifacts.io import atomic_write_json, file_sha256
 from ..config import CanonicalNamingConfig
 from ..exceptions import AmbiguousCanonicalMappingError, CanonicalMappingError
-from ..types import CanonicalMappingEntry, OnnxOriginMapResult
+from ..types import CanonicalFunctionalComputeGroup, CanonicalMappingEntry, OnnxOriginMapResult
 from .canonical_naming import canonical_node_name
 from .origin_trace import build_weight_trace_index, onnx_attribute, trace_compute_node_weight
 
 
 _WEIGHTED_REQUIRED_OPS = frozenset({"Conv", "ConvTranspose", "Gemm"})
 _WEIGHTED_OPS = frozenset({"Conv", "ConvTranspose", "Gemm", "MatMul"})
+
+
+def _downstream_contains_op(
+    node: Any,
+    consumers: Mapping[str, Sequence[Any]],
+    op_type: str,
+    *,
+    max_depth: int = 4,
+) -> bool:
+    queue = [(str(output), 0) for output in node.output]
+    seen: set[str] = set()
+    while queue:
+        tensor, depth = queue.pop(0)
+        if tensor in seen or depth > max_depth:
+            continue
+        seen.add(tensor)
+        for consumer in consumers.get(tensor, ()):
+            if str(consumer.op_type) == op_type:
+                return True
+            queue.extend((str(output), depth + 1) for output in consumer.output)
+    return False
+
+
+def _functional_compute_groups(index: Mapping[str, Any], rows: Sequence[tuple[int, Any]]) -> list[CanonicalFunctionalComputeGroup]:
+    """Canonicalize parameter-free functional MatMul families.
+
+    The HEAL signal-maxK wrapper emits one affine-grid BMM per pyramid level.
+    TensorRT fuses the three nodes into one GEMM row, so they intentionally
+    share one protected compute identity instead of becoming three fake
+    weighted precision genes.
+    """
+
+    consumers: dict[str, list[Any]] = defaultdict(list)
+    for node in index["nodes"]:
+        for input_name in node.input:
+            consumers[str(input_name)].append(node)
+    affine_grid = [
+        (graph_index, node)
+        for graph_index, node in rows
+        if _downstream_contains_op(node, consumers, "GridSample")
+    ]
+    remaining = [(graph_index, node) for graph_index, node in rows if (graph_index, node) not in affine_grid]
+    result: list[CanonicalFunctionalComputeGroup] = []
+    if affine_grid:
+        result.append(
+            CanonicalFunctionalComputeGroup(
+                module_path="pyramid_backbone.functional_affine_grid_matmul",
+                module_type="functional_bmm",
+                canonical_node_name=canonical_node_name(
+                    "pyramid_backbone.functional_affine_grid_matmul",
+                    "MatMulGroup",
+                    0,
+                ),
+                original_node_names=tuple(str(node.name) for _, node in affine_grid),
+                graph_indices=tuple(int(graph_index) for graph_index, _ in affine_grid),
+                input_tensors=tuple(tuple(str(value) for value in node.input) for _, node in affine_grid),
+                output_tensors=tuple(tuple(str(value) for value in node.output) for _, node in affine_grid),
+                source_call="quantization.export.heal_lidar_pyramid._warp:torch.bmm",
+                protection_reason="parameter_free_affine_grid_matmul_legacy_realized_fp16",
+            )
+        )
+    for ordinal, (graph_index, node) in enumerate(remaining, start=len(result)):
+        result.append(
+            CanonicalFunctionalComputeGroup(
+                module_path=f"functional_matmul.graph_{graph_index}",
+                module_type="functional_matmul",
+                canonical_node_name=canonical_node_name(f"functional_matmul.graph_{graph_index}", "MatMul", ordinal),
+                original_node_names=(str(node.name),),
+                graph_indices=(int(graph_index),),
+                input_tensors=(tuple(str(value) for value in node.input),),
+                output_tensors=(tuple(str(value) for value in node.output),),
+                source_call="unresolved_parameter_free_functional_matmul",
+                protection_reason="parameter_free_functional_matmul_requires_explicit_source_audit",
+            )
+        )
+    return result
 
 
 def _expected_ops(call: Mapping[str, Any]) -> set[str]:
@@ -114,6 +190,7 @@ def build_onnx_origin_map(
 
     node_rows: list[dict[str, Any]] = []
     functional_matmuls: list[str] = []
+    functional_matmul_rows: list[tuple[int, Any]] = []
     unresolved: list[dict[str, Any]] = []
     for graph_index, node in enumerate(index["nodes"]):
         if str(node.op_type) not in _WEIGHTED_OPS:
@@ -122,6 +199,7 @@ def build_onnx_origin_map(
         if not row["root_trace"].get("success"):
             if str(node.op_type) == "MatMul":
                 functional_matmuls.append(str(node.name))
+                functional_matmul_rows.append((graph_index, node))
                 continue
             unresolved.append(
                 {"node_name": str(node.name), "op_type": str(node.op_type), "failure_reason": "root_initializer_unresolved"}
@@ -195,6 +273,7 @@ def build_onnx_origin_map(
         source_onnx=str(Path(onnx_path)),
         unresolved_weighted_nodes=unresolved,
         functional_matmul_nodes=functional_matmuls,
+        functional_compute_groups=_functional_compute_groups(index, functional_matmul_rows),
         naming_policy_version=policy.policy_version,
     )
     if report_path is not None:
@@ -224,11 +303,29 @@ def apply_canonical_node_names(
     by_index = {entry.graph_index: entry for entry in origin_map.entries}
     if len(by_index) != len(origin_map.entries):
         raise CanonicalMappingError("origin map contains duplicate graph indices")
+    functional_by_index: dict[int, tuple[Any, int]] = {}
+    for group in origin_map.functional_compute_groups:
+        for member_index, graph_index in enumerate(group.graph_indices):
+            if graph_index in by_index or graph_index in functional_by_index:
+                raise CanonicalMappingError(f"duplicate functional graph index: {graph_index}")
+            functional_by_index[int(graph_index)] = (group, member_index)
     renamed: list[dict[str, str]] = []
     seen_names: set[str] = set()
     for graph_index, node in enumerate(model.graph.node):
         entry = by_index.get(graph_index)
-        if entry is None:
+        functional = functional_by_index.get(graph_index)
+        if entry is None and functional is None:
+            continue
+        if functional is not None:
+            group, member_index = functional
+            expected = group.original_node_names[member_index]
+            if str(node.op_type) != group.onnx_op_type or str(node.name) != expected:
+                raise CanonicalMappingError(
+                    f"functional origin map no longer matches ONNX graph at index {graph_index}: {node.name}/{node.op_type}"
+                )
+            original = str(node.name)
+            node.name = f"{group.canonical_node_name}__member{member_index:02d}"
+            renamed.append({"original_node_name": original, "canonical_node_name": str(node.name)})
             continue
         if str(node.op_type) != entry.onnx_op_type or str(node.name) != entry.original_node_name:
             raise CanonicalMappingError(
@@ -240,7 +337,8 @@ def apply_canonical_node_names(
         original = str(node.name)
         node.name = entry.canonical_node_name
         renamed.append({"original_node_name": original, "canonical_node_name": entry.canonical_node_name})
-    if len(renamed) != len(origin_map.entries):
+    expected_renamed = len(origin_map.entries) + sum(len(group.graph_indices) for group in origin_map.functional_compute_groups)
+    if len(renamed) != expected_renamed:
         raise CanonicalMappingError("not every origin-map entry was renamed")
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix=f".{destination.name}.", suffix=".onnx", dir=destination.parent)

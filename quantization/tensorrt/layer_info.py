@@ -45,7 +45,10 @@ def has_canonical_identity(row: Mapping[str, Any], canonical_name: str) -> bool:
     if f"[ONNX Layer: {canonical}]" in metadata:
         return True
     name = layer_name(row)
-    return any(token.strip() == canonical for token in name.split(" + "))
+    return any(
+        token.strip() == canonical or token.strip().startswith(f"{canonical}__member")
+        for token in name.split(" + ")
+    )
 
 
 def is_weighted_compute_layer(row: Mapping[str, Any]) -> bool:

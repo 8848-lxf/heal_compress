@@ -13,10 +13,12 @@ from .export import (
     validate_onnx_against_physical_snapshot,
 )
 from .precision import (
+    apply_fp16_merge_output_contract,
     build_canonical_precision_mapping,
     collect_calibration_scales,
     generate_precision_profile,
     insert_explicit_qdq,
+    resolve_activation_output_boundary,
     trace_qdq_root_initializer,
     validate_qdq_against_physical_snapshot,
 )
@@ -32,6 +34,7 @@ from .tensorrt import (
 
 __all__ = [
     "apply_canonical_node_names",
+    "apply_fp16_merge_output_contract",
     "build_canonical_precision_mapping",
     "collect_calibration_scales",
     "build_heal_signal_maxk_export_module",
@@ -44,6 +47,7 @@ __all__ = [
     "export_signal_maxk_onnx",
     "generate_precision_profile",
     "insert_explicit_qdq",
+    "resolve_activation_output_boundary",
     "prepare_signal_maxk_inputs",
     "load_trt_engine",
     "run_engine_smoke",

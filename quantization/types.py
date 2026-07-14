@@ -58,18 +58,55 @@ class CanonicalMappingEntry(ResultMixin):
 
 
 @dataclass
+class CanonicalFunctionalComputeGroup(ResultMixin):
+    """Stable identity for one protected functional compute group.
+
+    TensorRT may fuse several parameter-free ONNX MatMul nodes into one GEMM
+    engine row.  These groups are not quantization genes and do not pretend to
+    own a weight initializer, but they still need a canonical identity so the
+    engine compute-layer inventory is complete.
+    """
+
+    module_path: str
+    module_type: str
+    canonical_node_name: str
+    original_node_names: tuple[str, ...]
+    graph_indices: tuple[int, ...]
+    input_tensors: tuple[tuple[str, ...], ...] = ()
+    output_tensors: tuple[tuple[str, ...], ...] = ()
+    onnx_op_type: str = "MatMul"
+    requested_precision: str = "fp16"
+    protected_precision: str = "fp16"
+    protection_reason: str = "parameter_free_functional_matmul_legacy_realized_fp16"
+    mapping_status: str = "mapped_but_protected_fp16"
+    source_call: str = ""
+    weight_initializer: str = ""
+    schema_version: str = "canonical-functional-compute-group-v1"
+
+
+@dataclass
 class OnnxOriginMapResult(ResultMixin):
     entries: list[CanonicalMappingEntry]
     source_onnx: str = ""
     unresolved_weighted_nodes: list[dict[str, Any]] = field(default_factory=list)
     functional_matmul_nodes: list[str] = field(default_factory=list)
+    functional_compute_groups: list[CanonicalFunctionalComputeGroup] = field(default_factory=list)
     naming_policy_version: str = "canonical-v2-trt-safe-max68-sha256"
-    schema_version: str = "onnx-origin-map-v1"
+    schema_version: str = "onnx-origin-map-v2"
     origin_map_hash: str = ""
 
     def __post_init__(self) -> None:
         if not self.origin_map_hash:
-            payload = [entry.to_dict() for entry in sorted(self.entries, key=lambda row: (row.call_index, row.graph_index))]
+            payload = {
+                "weighted_entries": [
+                    entry.to_dict()
+                    for entry in sorted(self.entries, key=lambda row: (row.call_index, row.graph_index))
+                ],
+                "functional_compute_groups": [
+                    group.to_dict()
+                    for group in sorted(self.functional_compute_groups, key=lambda row: row.canonical_node_name)
+                ],
+            }
             self.origin_map_hash = stable_json_hash(payload)
 
 
@@ -169,6 +206,7 @@ class CanonicalPrecisionEntry(ResultMixin):
     fallback_reason: str = ""
     protected_precision: str = ""
     realized_output_precision: str = ""
+    constraint_node_names: tuple[str, ...] = ()
 
 
 @dataclass
@@ -178,12 +216,23 @@ class CanonicalPrecisionMappingResult(ResultMixin):
     profile_hash: str = ""
     origin_map_hash: str = ""
     policy_version: str = "canonical-precision-mapping-v1"
+    auxiliary_layer_precisions: dict[str, str] = field(default_factory=dict)
+    auxiliary_layer_output_types: dict[str, str] = field(default_factory=dict)
     mapping_hash: str = ""
     schema_version: str = "canonical-precision-mapping-v1"
 
     def __post_init__(self) -> None:
         if not self.mapping_hash:
-            self.mapping_hash = stable_json_hash([row.to_dict() for row in sorted(self.entries, key=lambda item: item.canonical_node_name)])
+            self.mapping_hash = stable_json_hash(
+                {
+                    "entries": [
+                        row.to_dict()
+                        for row in sorted(self.entries, key=lambda item: item.canonical_node_name)
+                    ],
+                    "auxiliary_layer_precisions": self.auxiliary_layer_precisions,
+                    "auxiliary_layer_output_types": self.auxiliary_layer_output_types,
+                }
+            )
 
 
 @dataclass

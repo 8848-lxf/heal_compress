@@ -144,6 +144,9 @@ class LidarPyramidTwoStageSearch:
             quant_activation_calibration_backend=str(
                 proxy_cfg.get("quant_activation_calibration_backend", "modelopt_histogram_entropy")
             ),
+            quant_activation_calibration_cache_path=proxy_cfg.get(
+                "quant_activation_calibration_cache_path"
+            ),
             quant_calibration_force_rebuild=bool(proxy_cfg.get("quant_calibration_force_rebuild", False)),
             num_frames=int(stage2_cfg.get("num_frames", 5)),
             warmup_frames=int(stage2_cfg.get("warmup_frames", 10)),

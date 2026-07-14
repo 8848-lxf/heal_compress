@@ -77,7 +77,7 @@ def validate_engine_structure(
         )
     if physical_snapshot is not None:
         for entry in precision_mapping.entries:
-            if entry.module_path not in physical_rows:
+            if entry.weight_initializer and entry.module_path not in physical_rows:
                 issues.append(ValidationIssue("physical_module_missing", "canonical module is absent from physical snapshot", entry.module_path))
     shape_checks: list[dict[str, Any]] = []
     for entry in precision_mapping.entries:

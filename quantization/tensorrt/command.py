@@ -77,13 +77,47 @@ def build_trt_command(
     if policy.plugin_path is not None:
         command.append(f"--staticPlugins={policy.plugin_path}")
     command.extend(_shape_flags(policy.shape_profiles))
-    compute_specs = ",".join(
-        f"{row.canonical_node_name}:{row.realized_request_precision}"
+    constraint_rows = [
+        (node_name, row)
         for row in sorted(precision_mapping.entries, key=lambda item: item.canonical_node_name)
+        for node_name in (row.constraint_node_names or (row.canonical_node_name,))
+    ]
+    constraint_names = [name for name, _ in constraint_rows]
+    if len(constraint_names) != len(set(constraint_names)):
+        raise TensorRTConfigurationError("expanded layer precision constraint names are not unique")
+    auxiliary_precisions = dict(precision_mapping.auxiliary_layer_precisions)
+    auxiliary_outputs = dict(precision_mapping.auxiliary_layer_output_types)
+    if set(constraint_names) & set(auxiliary_precisions):
+        raise TensorRTConfigurationError("auxiliary precision constraints overlap canonical constraints")
+    invalid_auxiliary = sorted(
+        {str(value) for value in [*auxiliary_precisions.values(), *auxiliary_outputs.values()]}
+        - {"fp32", "fp16", "int8"}
+    )
+    if invalid_auxiliary:
+        raise TensorRTConfigurationError(f"unsupported auxiliary precisions: {invalid_auxiliary}")
+    compute_specs = ",".join(
+        [
+            *(
+                f"{node_name}:{row.realized_request_precision}"
+                for node_name, row in constraint_rows
+            ),
+            *(
+                f"{name}:{precision}"
+                for name, precision in sorted(auxiliary_precisions.items())
+            ),
+        ]
     )
     output_specs = ",".join(
-        f"{row.canonical_node_name}:{row.realized_output_precision or row.realized_request_precision}"
-        for row in sorted(precision_mapping.entries, key=lambda item: item.canonical_node_name)
+        [
+            *(
+                f"{node_name}:{row.realized_output_precision or row.realized_request_precision}"
+                for node_name, row in constraint_rows
+            ),
+            *(
+                f"{name}:{precision}"
+                for name, precision in sorted(auxiliary_outputs.items())
+            ),
+        ]
     )
     command.extend(
         [

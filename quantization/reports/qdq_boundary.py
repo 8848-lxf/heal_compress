@@ -57,7 +57,7 @@ def enrich_weighted_qdq_boundary_audit(
         scale_owner = str(row.get("activation_scale_owner", ""))
         normalized_q_inputs = {_normalized_boundary_tensor(value) for value in q_inputs}
         scale_owner_matches_q = not q_inputs or (
-            scale_owner in weighted_outputs and normalized_q_inputs == set(weighted_outputs)
+            bool(scale_owner) and normalized_q_inputs == {scale_owner}
         )
         issues: list[str] = []
         warnings: list[str] = []
@@ -73,14 +73,12 @@ def enrich_weighted_qdq_boundary_audit(
         first_type = str(first_semantic.get("op_type", "")) if first_semantic else ""
         if placement == "weighted_output_before_following_ops" and first_type == "Relu":
             relu_fused = bool(fused_following and str(fused_following[0].get("op_type", "")) == "Relu")
-            if not relu_fused and str(row.get("canonical_layer", "")) in {
-                "shrink_conv.layers.0.double_conv.0",
-                "shrink_conv.layers.0.double_conv.2",
-            }:
-                issues.append("raw_weighted_output_q_not_fused_through_following_relu")
-            elif not relu_fused:
-                warnings.append("explicit_pre_relu_quantization_boundary")
-            effective = "fused_weighted_output_plus_relu" if relu_fused else "raw_weighted_output_before_relu"
+            issues.append("explicit_qdq_precedes_relu_semantic_boundary")
+            effective = (
+                "invalid_pre_relu_qdq_even_when_engine_fused"
+                if relu_fused
+                else "raw_weighted_output_before_relu"
+            )
         elif placement == "weighted_output_before_following_ops" and first_type in {"Add", "Concat"}:
             effective = f"quantized_branch_output_then_{row.get('merge_policy', '')}_{first_type}"
         elif placement == "fp16_weighted_output_no_output_qdq":
@@ -208,7 +206,7 @@ def write_production_qdq_boundary_reports(
         f"- graph-level raw weighted-output Q/DQ: {report['raw_weighted_output_qdq_count']}",
         f"- explicit FP16 output before merge: {report['fp16_output_no_output_qdq_count']}",
         "",
-        "Graph placement and the TensorRT effective fused boundary are reported separately. A raw Conv-output Q node is accepted before a ReLU only when EngineInspector proves that the Conv, Q/DQ, and ReLU are realized in the same fused layer.",
+        "Graph placement and the TensorRT effective fused boundary are reported separately. TensorRT fusion does not legalize a Q/DQ node that semantically precedes ReLU; production output Q/DQ must consume the post-ReLU tensor.",
         "",
         "## Shrink layers",
         "",

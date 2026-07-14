@@ -714,6 +714,215 @@ def test_origin_mapping_canonical_names_and_repeated_calls(tmp_path: Path) -> No
     assert len({entry.canonical_node_name for entry in mapping.entries}) == 2
 
 
+def test_functional_affine_grid_matmuls_form_one_protected_canonical_compute_group(tmp_path: Path) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.api import (
+        apply_fp16_merge_output_contract,
+        apply_canonical_node_names,
+        build_canonical_precision_mapping,
+        build_onnx_origin_map,
+        validate_engine_structure,
+        validate_precision_realization,
+    )
+    from quantization.config import TensorRTValidationConfig
+    from quantization.types import PrecisionProfileResult
+
+    source = tmp_path / "functional.onnx"
+    named = tmp_path / "functional_named.onnx"
+    nodes = []
+    outputs = []
+    initializers = []
+    graph_inputs = []
+    for index in range(3):
+        suffix = "" if index == 0 else f"_{index}"
+        left = f"left{suffix}"
+        right = f"right{suffix}"
+        product = f"product{suffix}"
+        grid = f"grid{suffix}"
+        feature = f"feature{suffix}"
+        output = f"warped{suffix}"
+        shape = f"shape{suffix}"
+        graph_inputs.extend(
+            [
+                helper.make_tensor_value_info(left, TensorProto.FLOAT, [1, 4, 3]),
+                helper.make_tensor_value_info(right, TensorProto.FLOAT, [1, 3, 2]),
+                helper.make_tensor_value_info(feature, TensorProto.FLOAT, [1, 1, 2, 2]),
+            ]
+        )
+        initializers.append(numpy_helper.from_array(np.asarray([1, 2, 2, 2], dtype=np.int64), shape))
+        nodes.extend(
+            [
+                helper.make_node("MatMul", [left, right], [product], name=f"/MatMul{suffix}"),
+                helper.make_node("Reshape", [product, shape], [grid], name=f"/Reshape{suffix}"),
+                helper.make_node("GridSample", [feature, grid], [output], name=f"/GridSample{suffix}"),
+            ]
+        )
+        outputs.append(helper.make_tensor_value_info(output, TensorProto.FLOAT, [1, 1, 2, 2]))
+    graph = helper.make_graph(nodes, "functional-affine-grid", graph_inputs, outputs, initializers)
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)]), str(source))
+
+    origin = build_onnx_origin_map(source, [])
+    assert len(origin.entries) == 0
+    assert len(origin.functional_compute_groups) == 1
+    group = origin.functional_compute_groups[0]
+    assert group.module_path == "pyramid_backbone.functional_affine_grid_matmul"
+    assert group.mapping_status == "mapped_but_protected_fp16"
+    assert group.weight_initializer == ""
+    assert len(group.original_node_names) == 3
+
+    rename = apply_canonical_node_names(source, origin, output_path=named)
+    assert rename.renamed_node_count == 3
+    member_names = [node.name for node in onnx.load(str(named)).graph.node if node.op_type == "MatMul"]
+    assert member_names == [f"{group.canonical_node_name}__member{index:02d}" for index in range(3)]
+
+    profile = PrecisionProfileResult(
+        profile_id="protected_functional",
+        assignments=[],
+        requested_int8_count=0,
+        requested_int8_ratio=0.0,
+        policy_version="test-protected-functional-v1",
+    )
+    mapping = build_canonical_precision_mapping(origin, profile)
+    assert len(mapping.entries) == 1
+    assert mapping.entries[0].requested_precision == "fp16"
+    assert mapping.entries[0].protected_precision == "fp16"
+    assert mapping.entries[0].constraint_node_names == tuple(member_names)
+    inspector = [
+        {
+            "Name": " + ".join(member_names),
+            "LayerType": "gemm",
+            "Precision": "FP16",
+            "Inputs": [],
+            "Outputs": [],
+        }
+    ]
+    assert validate_engine_structure(
+        inspector,
+        mapping,
+        config=TensorRTValidationConfig(require_physical_snapshot_v2=False),
+    ).passed is True
+    realized = validate_precision_realization(inspector, mapping)
+    assert realized.passed is True
+    assert realized.realized_fp16_count == 1
+    assert realized.unresolved_layer_count == 0
+
+
+def test_fp16_merge_output_contract_marks_only_nearest_weighted_producers(tmp_path: Path) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.api import (
+        apply_fp16_merge_output_contract,
+        build_trt_command,
+        insert_explicit_qdq,
+    )
+    from quantization.config import QDQConfig, TensorRTBuildConfig
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    names = ["__canonical__left__Conv__call00000", "__canonical__right__Conv__call00001"]
+    weights = [
+        numpy_helper.from_array(np.ones((4, 3, 1, 1), dtype=np.float32), "left.weight"),
+        numpy_helper.from_array(np.ones((4, 3, 1, 1), dtype=np.float32), "right.weight"),
+    ]
+    nodes = [
+        helper.make_node("Conv", ["left", "left.weight"], ["left_y"], name=names[0]),
+        helper.make_node("Relu", ["left_y"], ["left_relu"], name="left_relu"),
+        helper.make_node("Conv", ["right", "right.weight"], ["right_y"], name=names[1]),
+        helper.make_node("Add", ["left_relu", "right_y"], ["sum"], name="residual_add"),
+        helper.make_node("Relu", ["sum"], ["sum_relu"], name="residual_relu"),
+    ]
+    graph = helper.make_graph(
+        nodes,
+        "merge",
+        [
+            helper.make_tensor_value_info("left", TensorProto.FLOAT, [1, 3, 4, 4]),
+            helper.make_tensor_value_info("right", TensorProto.FLOAT, [1, 3, 4, 4]),
+        ],
+        [helper.make_tensor_value_info("sum_relu", TensorProto.FLOAT16, [1, 4, 4, 4])],
+        weights,
+    )
+    base_onnx = tmp_path / "merge.onnx"
+    qdq_onnx = tmp_path / "merge_qdq.onnx"
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 13)]), str(base_onnx))
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                "left",
+                names[0],
+                "left_group",
+                "int8",
+                "int8",
+                weight_initializer="left.weight",
+                onnx_op_type="Conv",
+            ),
+            CanonicalPrecisionEntry(
+                "right",
+                names[1],
+                "right_group",
+                "int8",
+                "int8",
+                weight_initializer="right.weight",
+                onnx_op_type="Conv",
+            ),
+        ]
+    )
+    resolved, report = apply_fp16_merge_output_contract(base_onnx, mapping)
+    assert {row.module_path: row.realized_output_precision for row in resolved.entries} == {
+        "left": "fp16",
+        "right": "fp16",
+    }
+    assert report["resolved_merge_count"] == 1
+    assert report["fp16_output_canonical_count"] == 2
+    assert report["merges"][0]["merge_op_name"] == "residual_add"
+    assert resolved.auxiliary_layer_precisions["residual_add"] == "fp16"
+    assert resolved.auxiliary_layer_precisions["residual_relu"] == "fp16"
+    assert report["merges"][0]["post_merge_activation_nodes"] == ["residual_relu"]
+    assert len(report["merges"][0]["input_cast_nodes"]) == 2
+
+    scales = {
+        module: {
+            "activation_input_scale": 0.1,
+            "weight_scale": [0.01] * 4,
+            "weight_axis": 0,
+            "activation_output_scale": 0.2,
+            "insert_activation_output_qdq": False,
+        }
+        for module in ("left", "right")
+    }
+    qdq = insert_explicit_qdq(
+        base_onnx,
+        qdq_onnx,
+        resolved,
+        scales=scales,
+        config=QDQConfig(),
+    )
+    qdq_model = onnx.load(str(qdq_onnx))
+    nodes = {node.name: node for node in qdq_model.graph.node}
+    add = nodes["residual_add"]
+    cast_names = report["merges"][0]["input_cast_nodes"]
+    assert [nodes[name].op_type for name in cast_names] == ["Cast", "Cast"]
+    assert [int(nodes[name].attribute[0].i) for name in cast_names] == [TensorProto.FLOAT16] * 2
+    assert list(add.input) == [nodes[name].output[0] for name in cast_names]
+    assert all(row["policy"] == "A_fp16_merge" for row in qdq.calibration_metadata["merge_quantization_audit"])
+    assert all(
+        branch["boundary"] == "explicit_cast_to_fp16" and branch["cast_to_fp16"] is True
+        for branch in qdq.calibration_metadata["merge_quantization_audit"][0]["input_branches"]
+    )
+
+    command = build_trt_command(
+        qdq_onnx,
+        tmp_path / "merge.plan",
+        resolved,
+        config=TensorRTBuildConfig(trtexec_path=Path("/opt/tensorrt/bin/trtexec")),
+    )
+    joined = " ".join(command.command)
+    assert "residual_add:fp16" in joined
+    assert "residual_relu:fp16" in joined
+    assert all(f"{name}:fp16" in joined for name in cast_names)
+
+
 def test_origin_mapping_ambiguity_and_functional_matmul_fail_closed(tmp_path: Path) -> None:
     from quantization.api import build_onnx_origin_map
     from quantization.exceptions import CanonicalMappingError
@@ -901,8 +1110,69 @@ def test_qdq_boundary_report_distinguishes_graph_input_from_engine_fusion(tmp_pa
         ],
     )
 
-    assert report["passed"] is True
-    assert report["layers"][0]["engine_effective_boundary"] == "fused_weighted_output_plus_relu"
+    assert report["passed"] is False
+    assert report["layers"][0]["engine_effective_boundary"] == "invalid_pre_relu_qdq_even_when_engine_fused"
+    assert report["layers"][0]["boundary_issues"] == ["explicit_qdq_precedes_relu_semantic_boundary"]
+
+
+def test_qdq_output_is_inserted_after_relu_semantic_boundary(tmp_path: Path) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.api import insert_explicit_qdq
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    canonical = "__canonical__stem__Conv__call00000"
+    weight = numpy_helper.from_array(np.ones((4, 3, 1, 1), dtype=np.float32), "stem.weight")
+    graph = helper.make_graph(
+        [
+            helper.make_node("Conv", ["input", "stem.weight"], ["conv_out"], name=canonical),
+            helper.make_node("Relu", ["conv_out"], ["relu_out"], name="stem_relu"),
+        ],
+        "post-relu-qdq",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 4, 4])],
+        [helper.make_tensor_value_info("relu_out", TensorProto.FLOAT, [1, 4, 4, 4])],
+        [weight],
+    )
+    source = tmp_path / "source.onnx"
+    destination = tmp_path / "qdq.onnx"
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 13)]), source)
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                module_path="stem",
+                canonical_node_name=canonical,
+                precision_group="pg::stem",
+                requested_precision="int8",
+                realized_request_precision="int8",
+                weight_initializer="stem.weight",
+                onnx_op_type="Conv",
+            )
+        ]
+    )
+    insertion = insert_explicit_qdq(
+        source,
+        destination,
+        mapping,
+        scales={
+            "stem": {
+                "activation_input_scale": 0.1,
+                "weight_scale": [0.01] * 4,
+                "weight_axis": 0,
+                "activation_output_scale": 0.2,
+                "activation_output_tensor": "relu_out",
+            }
+        },
+    )
+    model = onnx.load(str(destination))
+    nodes = {node.name: node for node in model.graph.node}
+    record = insertion.records[0]
+    assert nodes["stem_relu"].output[0] == "relu_out__before_output_qdq"
+    assert nodes[record.output_quantize_nodes[0]].input[0] == "relu_out__before_output_qdq"
+    assert nodes[record.output_dequantize_nodes[0]].output[0] == "relu_out"
+    boundary = insertion.calibration_metadata["weighted_qdq_boundary_audit"][0]
+    assert boundary["qdq_placement"] == "post_weighted_semantic_boundary"
+    assert boundary["activation_scale_owner"] == "relu_out"
 
 
 def test_qdq_can_leave_concat_branch_output_fp16_without_output_qdq(tmp_path: Path) -> None:
@@ -958,6 +1228,7 @@ def test_qdq_fp16_merge_policy_audits_single_quantized_branch(tmp_path: Path) ->
     from onnx import TensorProto, helper, numpy_helper
 
     from quantization.api import (
+        apply_fp16_merge_output_contract,
         apply_canonical_node_names,
         build_canonical_precision_mapping,
         build_onnx_origin_map,
@@ -1003,15 +1274,28 @@ def test_qdq_fp16_merge_policy_audits_single_quantized_branch(tmp_path: Path) ->
         policy_version="test",
     )
     mapping = build_canonical_precision_mapping(origin, profile)
-    result = insert_explicit_qdq(named, qdq, mapping, scales={"left": 0.1})
+    mapping, contract = apply_fp16_merge_output_contract(named, mapping)
+    result = insert_explicit_qdq(
+        named,
+        qdq,
+        mapping,
+        scales={
+            "left": {
+                "activation_input_scale": 0.1,
+                "weight_scale": 0.1,
+                "activation_output_scale": 0.1,
+                "insert_activation_output_qdq": False,
+            }
+        },
+    )
     merge = result.calibration_metadata["merge_quantization_audit"][0]
     assert merge["merge_op_name"] == "/residual/Add"
     assert merge["policy"] == "A_fp16_merge"
-    assert merge["partial_explicit_qdq_input_count"] == 1
-    assert {row["boundary"] for row in merge["input_branches"]} == {
-        "explicit_dequantize_to_float",
-        "existing_float_path",
-    }
+    assert contract["resolved_merge_count"] == 1
+    assert merge["partial_explicit_qdq_input_count"] == 0
+    assert {row["boundary"] for row in merge["input_branches"]} == {"explicit_cast_to_fp16"}
+    assert all(row["cast_to_fp16"] is True for row in merge["input_branches"])
+    assert result.records[0].output_quantize_nodes == []
 
 
 def test_qdq_supports_conv_per_channel_weight_scales_with_axis_zero(tmp_path: Path) -> None:

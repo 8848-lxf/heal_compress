@@ -54,6 +54,27 @@ def build_canonical_precision_mapping(
                 protected_precision=assignment.protected_precision,
             )
         )
+    for group in sorted(origin_map.functional_compute_groups, key=lambda row: row.canonical_node_name):
+        entries.append(
+            CanonicalPrecisionEntry(
+                module_path=group.module_path,
+                canonical_node_name=group.canonical_node_name,
+                original_node_name=" + ".join(group.original_node_names),
+                weight_initializer="",
+                onnx_op_type=group.onnx_op_type,
+                call_index=len(entries),
+                precision_group="protected_functional_affine_grid",
+                requested_precision=group.requested_precision,
+                realized_request_precision=group.protected_precision,
+                realized_output_precision=group.protected_precision,
+                protected_precision=group.protected_precision,
+                fallback_reason=group.protection_reason,
+                constraint_node_names=tuple(
+                    f"{group.canonical_node_name}__member{index:02d}"
+                    for index, _ in enumerate(group.graph_indices)
+                ),
+            )
+        )
     return CanonicalPrecisionMappingResult(
         entries=entries,
         profile_id=profile.profile_id,
