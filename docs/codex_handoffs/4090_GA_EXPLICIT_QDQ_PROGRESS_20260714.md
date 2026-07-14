@@ -766,3 +766,53 @@ remain diagnostic only; the four-GPU smoke must restart from generation 0 with
 fresh artifacts after this fix is committed. Stage A remains stopped.
 
 --- Round 14 completed: 2026-07-15 03:52:34 CST ---
+
+## Round 15 - repaired-BOPS fresh smoke completed and Stage A blocked
+
+Fresh run after commit `1f2c6a1`:
+
+`outputs/4090_ga_qdq_stage2_multigpu_smoke_20260714_125402/`
+
+The command intentionally omitted `--gpu-id`; the corrected CLI preserved YAML
+GPU5 for Stage-1. Four persistent Stage-2 workers on GPUs 4/5/6/7 all passed
+isolation. Their strict FP32 references produced identical mAP 0.802498 on
+manifest hash
+`c827031ab82bb1925f48ada20dd64d0fa395dbf8d919d04137e95a5d3f35aee4`.
+
+The new repair admission counters were exercised live:
+
+- Stage-1 proxy BOPS eligible: 24;
+- legal repaired phenotypes: 24;
+- post-repair BOPS eligible: 17;
+- post-repair BOPS ineligible: 7;
+- genuine compressed deployment candidates: 17.
+
+Only the 17 repair-feasible records were deployed. This confirms the Round 14
+fix removed seven known-infeasible engine builds before Stage-2. Final results:
+
+- four failed engine-realized BOPS `[0.205, 0.215]`;
+- eleven failed the temporary accuracy hard gate;
+- two unique candidates passed all gates;
+- accepted mAP/BOPS pairs: 0.334322/0.211216 and 0.101695/0.208798;
+- terminal status: `insufficient_unique_deployable_candidates:2<5`.
+
+All workers wrote ready and stop markers, no search/calibration/build/evaluation
+process remained, and GPUs 4/5/6/7 returned idle. No serial consistency replay
+was run because there were not five accepted candidates. Stage A did not start.
+
+A standalone formal summary is recorded in
+`docs/codex_handoffs/4090-ga-multigpu-stage2-smoke-report.md`.
+
+Current gates:
+
+- `STRONGLY_TYPED_E67_READY_FOR_GA = true`;
+- `MULTIGPU_TOP5_SMOKE_PASS = false`;
+- `STAGE_A_ALLOWED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+The failure is closed. It is not permissible to relax the AP gate, widen the
+BOPS interval, copy candidates, reuse invalid artifacts or start Stage A from
+this state.
+
+--- Round 15 completed: 2026-07-15 04:42:23 CST ---
