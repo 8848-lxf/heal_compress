@@ -378,3 +378,50 @@ artifacts, 10-frame smoke and fixed 200-frame evaluation before selecting the
 production boundary.
 
 --- Round 7 completed: 2026-07-15 01:09:38 CST ---
+
+## Round 8 - first post-commit readiness failure and ConvTranspose dtype closure
+
+Starting point: commit `fa9b542`, branch
+`feature/heal-compress-h800-sync-4090`. Local HEAD matched the remote branch,
+the worktree was clean, and the required H800 fix remained an ancestor.
+
+Fresh 4090 evidence:
+
+- rebuilt the formal PointPillarScatterTRT binary for SM89 with TensorRT 10.9
+  and CUDA 11.8; the binary used by this run has SHA256
+  `91aec743dca383151b995a60d004cd254ce115ed16152873c1f46754bb15022d`;
+- ran on physical GPU4, UUID
+  `GPU-166702d7-bf30-18e0-83ff-83b316d37c0e`;
+- diagnostic output is isolated at
+  `outputs/4090_strongly_typed_e67_fp16_readiness_20260714_101615/`.
+
+Fail-closed result:
+
+- strict FP16 typed parsing failed because canonical ConvTranspose activation
+  was Half while its Float weight initializer was not Cast;
+- the exact TensorRT error named
+  `__canonical__pyramid_backbone_deblocks_0_0__ConvTranspose__call00061`;
+- the E67 branch independently completed a fresh train200 entropy calibration,
+  strongly typed build/deserialization and 200/200 evaluation with zero skips;
+- its canonical realization was 67 INT8 / 3 FP16 / 0 unknown, all merge audits
+  passed, and mAP was 0.652240, but it is diagnostic only because the strict
+  FP16 reference failed in the same run;
+- `READY_FOR_GA = false`; neither multi-GPU Top-5 nor Stage A started.
+
+Minimal TDD fix:
+
+- added a regression graph with a Float ConvTranspose initializer and an FP16
+  canonical contract; it failed before the implementation change;
+- `quantization/precision/typed_graph.py` now includes ConvTranspose activation,
+  weight and optional bias in the explicit floating compute-input dtype closure;
+- `tests/test_strongly_typed_qdq_graph.py` verifies both activation and weight
+  inputs are produced by FP16 Cast nodes;
+- strongly typed focused regression: 21 passed;
+- an attempted full historical-suite collection in `modelopt` was invalidated
+  by 16 pre-existing imports of unavailable `opencood.tools.compression`; no
+  collected test result from that invocation is counted as passing evidence.
+
+All artifacts from the failed run remain diagnostic. The next readiness run
+must start in a new timestamp directory from the committed fix.
+
+--- Round 8 completed: 2026-07-15 01:28:00 CST ---

@@ -185,6 +185,89 @@ def test_typed_graph_rejects_int8_plugin_boundary(tmp_path: Path) -> None:
         )
 
 
+def test_typed_graph_casts_convtranspose_weight_to_declared_precision(
+    tmp_path: Path,
+) -> None:
+    from quantization.precision.typed_graph import apply_strongly_typed_precision_contract
+
+    source = tmp_path / "convtranspose.onnx"
+    destination = tmp_path / "convtranspose_typed.onnx"
+    weight = numpy_helper.from_array(
+        np.ones((4, 4, 1, 1), dtype=np.float32), name="deblock_weight"
+    )
+    nodes = [
+        helper.make_node(
+            "PointPillarScatterTRT",
+            ["pillar_features", "voxel_coords", "valid_voxel_mask", "pairwise_t_matrix"],
+            ["scatter_output"],
+            name="PointPillarScatterTRT",
+            num_agents=0,
+            height=3,
+            width=5,
+            plugin_version="1",
+            plugin_namespace="",
+        ),
+        helper.make_node(
+            "ConvTranspose",
+            ["scatter_output", "deblock_weight"],
+            ["output"],
+            name="__canonical__deblock",
+            kernel_shape=[1, 1],
+            strides=[1, 1],
+        ),
+    ]
+    model = helper.make_model(
+        helper.make_graph(
+            nodes,
+            "typed_convtranspose",
+            [
+                helper.make_tensor_value_info("pillar_features", TensorProto.FLOAT, [8, 4]),
+                helper.make_tensor_value_info("voxel_coords", TensorProto.INT32, [8, 4]),
+                helper.make_tensor_value_info("valid_voxel_mask", TensorProto.FLOAT, [8]),
+                helper.make_tensor_value_info("pairwise_t_matrix", TensorProto.FLOAT, [1, 2, 2, 4, 4]),
+            ],
+            [helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 4, 3, 5])],
+            [weight],
+            value_info=[
+                helper.make_tensor_value_info("scatter_output", TensorProto.FLOAT, [2, 4, 3, 5])
+            ],
+        ),
+        opset_imports=[helper.make_opsetid("", 17)],
+    )
+    onnx.save(model, str(source))
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                module_path="deblock",
+                canonical_node_name="__canonical__deblock",
+                precision_group="pg_deblock",
+                requested_precision="fp16",
+                realized_request_precision="fp16",
+                weight_initializer="deblock_weight",
+                onnx_op_type="ConvTranspose",
+            )
+        ]
+    )
+
+    apply_strongly_typed_precision_contract(
+        source,
+        destination,
+        mapping,
+        plugin_boundary="fp16",
+    )
+
+    typed = onnx.load(str(destination))
+    nodes_by_name = {str(node.name): node for node in typed.graph.node}
+    producers = _producer_by_tensor(typed)
+    deblock = nodes_by_name["__canonical__deblock"]
+    assert all(producers[str(value)].op_type == "Cast" for value in deblock.input[:2])
+    assert all(
+        next(attribute.i for attribute in producers[str(value)].attribute if attribute.name == "to")
+        == TensorProto.FLOAT16
+        for value in deblock.input[:2]
+    )
+
+
 def test_typed_graph_expands_functional_mapping_and_aligns_grid_sample_inputs(
     tmp_path: Path,
 ) -> None:

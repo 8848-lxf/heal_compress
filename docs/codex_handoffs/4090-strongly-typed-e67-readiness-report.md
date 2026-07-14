@@ -103,3 +103,49 @@ same-commit FP16 reference plus FP16-boundary E67 plus FP32-boundary E67
 10/200-frame comparison is not complete. Stage A remains unstarted.
 
 --- Round 1 completed: 2026-07-15 01:09:38 CST ---
+
+## Round 2 - post-commit FP16-boundary readiness attempt
+
+Evidence root:
+
+`outputs/4090_strongly_typed_e67_fp16_readiness_20260714_101615/`
+
+The formal plugin was rebuilt for SM89 before the run. The run used GPU4
+(`GPU-166702d7-bf30-18e0-83ff-83b316d37c0e`) and plugin SHA256
+`91aec743dca383151b995a60d004cd254ce115ed16152873c1f46754bb15022d`.
+
+The strict FP16 baseline failed closed during strongly typed ONNX parsing:
+TensorRT reported a Half activation and Float kernel mismatch at canonical
+ConvTranspose node
+`__canonical__pyramid_backbone_deblocks_0_0__ConvTranspose__call00061`.
+No weakly typed fallback was attempted.
+
+The E67 branch supplied useful independent diagnostics before the overall run
+was rejected:
+
+- fresh train200 EntropyCalibration2 cache and activation scales;
+- typed graph canonical profile 67 INT8 / 3 FP16 / 0 FP32;
+- strongly typed parse, build and deserialize passed;
+- canonical engine validation 67 INT8 / 3 FP16 / 0 unknown;
+- semantic QDQ and all merge realization checks passed;
+- FP16 plugin boundary recorded in the typed graph;
+- 200 evaluated, 0 skipped;
+- AP03 0.755833, AP05 0.706998, AP07 0.493888, mAP 0.652240;
+- forward p50/p90/p95 3.9796/4.3700/5.0445 ms.
+
+This E67 result is not an acceptance result because its paired strict FP16
+reference failed. A regression test reproduced the root cause, and the typed
+graph pass now closes ConvTranspose activation, weight and optional bias dtypes
+explicitly. The fix must be committed before a fresh rerun.
+
+`STRONGLY_TYPED_PLUGIN_FP16_PASS = true`
+
+`STRONGLY_TYPED_PLUGIN_FP32_PASS = true`
+
+`SELECTED_PLUGIN_BOUNDARY = NONE`
+
+`STRONGLY_TYPED_E67_PASS = false`
+
+`READY_FOR_GA = false`
+
+--- Round 2 completed: 2026-07-15 01:28:00 CST ---

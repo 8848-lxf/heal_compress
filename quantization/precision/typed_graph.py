@@ -12,6 +12,7 @@ from ..types import CanonicalPrecisionMappingResult
 
 _FLOATING_COMPUTE_INPUTS = {
     "Conv": (0, 1, 2),
+    "ConvTranspose": (0, 1, 2),
     "Gemm": (0, 1, 2),
     "MatMul": (0, 1),
 }
