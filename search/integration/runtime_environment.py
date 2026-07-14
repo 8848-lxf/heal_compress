@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import pwd
+import shlex
 import sys
 import subprocess
 from dataclasses import dataclass, field
@@ -52,7 +54,7 @@ def query_gpus() -> list[dict[str, Any]]:
     completed = subprocess.run(
         [
             "nvidia-smi",
-            "--query-gpu=index,memory.total,memory.used,memory.free,utilization.gpu",
+            "--query-gpu=index,uuid,name,driver_version,memory.total,memory.used,memory.free,utilization.gpu,temperature.gpu,power.draw",
             "--format=csv,noheader,nounits",
         ],
         text=True,
@@ -66,18 +68,130 @@ def query_gpus() -> list[dict[str, Any]]:
     rows = []
     for line in completed.stdout.splitlines():
         parts = [part.strip() for part in line.split(",")]
-        if len(parts) != 5:
+        if len(parts) != 10:
             continue
         rows.append(
             {
                 "index": int(parts[0]),
-                "memory_total_mib": int(parts[1]),
-                "memory_used_mib": int(parts[2]),
-                "memory_free_mib": int(parts[3]),
-                "utilization_gpu_pct": int(parts[4]),
+                "uuid": parts[1],
+                "name": parts[2],
+                "driver_version": parts[3],
+                "memory_total_mib": int(parts[4]),
+                "memory_used_mib": int(parts[5]),
+                "memory_free_mib": int(parts[6]),
+                "utilization_gpu_pct": int(parts[7]),
+                "temperature_c": int(parts[8]),
+                "power_draw_w": float(parts[9]) if parts[9] not in {"N/A", "[N/A]"} else None,
+                "processes": [],
             }
         )
+    by_uuid = {str(row["uuid"]): row for row in rows}
+    processes = subprocess.run(
+        [
+            "nvidia-smi",
+            "--query-compute-apps=gpu_uuid,pid,process_name,used_gpu_memory",
+            "--format=csv,noheader,nounits",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=15,
+    )
+    if processes.returncode == 0:
+        for line in processes.stdout.splitlines():
+            parts = [part.strip() for part in line.split(",", 3)]
+            if len(parts) != 4 or parts[0] not in by_uuid:
+                continue
+            pid = int(parts[1])
+            process = {
+                "pid": pid,
+                "process_name": parts[2],
+                "used_memory_mib": int(parts[3]),
+            }
+            proc_path = Path("/proc") / str(pid)
+            try:
+                process["user"] = pwd.getpwuid(proc_path.stat().st_uid).pw_name
+                command = (proc_path / "cmdline").read_bytes().replace(b"\0", b" ").decode(
+                    "utf-8", errors="replace"
+                ).strip()
+                process["command"] = command
+            except (FileNotFoundError, PermissionError, KeyError):
+                process["user"] = ""
+                process["command"] = ""
+            elapsed = subprocess.run(
+                ["ps", "-o", "etimes=", "-p", str(pid)],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=5,
+            )
+            process["elapsed_seconds"] = int(elapsed.stdout.strip() or 0)
+            by_uuid[parts[0]]["processes"].append(process)
     return rows
+
+
+def audit_gpu_isolation(
+    gpu_report: list[dict[str, Any]],
+    *,
+    gpu_index: int,
+    allowed_pids: set[int] | None = None,
+    unexplained_utilization_limit_pct: int = 20,
+) -> dict[str, Any]:
+    selected = next(
+        (dict(row) for row in gpu_report if int(row.get("index", -1)) == int(gpu_index)),
+        None,
+    )
+    if selected is None:
+        raise RuntimeError(f"gpu_telemetry_missing_for_index:{gpu_index}")
+    allowed = {int(value) for value in (allowed_pids or set())}
+    processes = [dict(row) for row in selected.get("processes", [])]
+    foreign = [row for row in processes if int(row.get("pid", -1)) not in allowed]
+    issues: list[str] = []
+    if foreign:
+        issues.append("foreign_compute_processes_present")
+    if (
+        not processes
+        and int(selected.get("utilization_gpu_pct", 0))
+        > int(unexplained_utilization_limit_pct)
+    ):
+        issues.append("unexplained_gpu_utilization")
+    return {
+        "passed": not issues,
+        "gpu_index": int(gpu_index),
+        "gpu_uuid": str(selected.get("uuid", "")),
+        "allowed_pids": sorted(allowed),
+        "foreign_compute_processes": foreign,
+        "issues": issues,
+        "telemetry": selected,
+    }
+
+
+def require_gpu_isolation(
+    gpu_index: int,
+    *,
+    report_path: str | Path | None = None,
+    allowed_pids: set[int] | None = None,
+) -> dict[str, Any]:
+    allowed = {os.getpid(), *(allowed_pids or set())}
+    report = audit_gpu_isolation(
+        query_gpus(),
+        gpu_index=int(gpu_index),
+        allowed_pids=allowed,
+    )
+    if report_path is not None:
+        destination = Path(report_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            json.dumps(report, indent=2, sort_keys=True, default=str),
+            encoding="utf-8",
+        )
+    if not report["passed"]:
+        raise RuntimeError(
+            f"gpu_competition_detected:gpu={gpu_index}:issues={report['issues']}"
+        )
+    return report
 
 
 def select_gpu(gpu_id: str = "auto", exclude_gpu_ids: list[int] | None = None) -> GPUSelection:
@@ -176,10 +290,14 @@ def modelopt_python_command(conda_env: str = "modelopt") -> list[str]:
     compiler/CUDA entry to that environment before executing Python.
     """
 
+    prefix = resolve_conda_env_prefix(conda_env)
+    conda_sh = prefix.parents[1] / "etc" / "profile.d" / "conda.sh"
+    if not conda_sh.is_file():
+        raise RuntimeError(f"conda_activation_script_missing:{conda_sh}")
     script = (
         "requested_path=\"${PATH:-}\"; "
         "requested_ld_library_path=\"${LD_LIBRARY_PATH:-}\"; "
-        "source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh; "
+        f"source {shlex.quote(str(conda_sh))}; "
         "conda activate \"$1\"; "
         "clean_path=\"$CONDA_PREFIX/bin\"; "
         "IFS=':' read -r -a requested_path_entries <<< \"$requested_path\"; "

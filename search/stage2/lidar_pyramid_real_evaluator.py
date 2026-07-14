@@ -722,6 +722,7 @@ class LidarPyramidRealEvaluator:
                 "eval_hash": raw.get("eval_hash", ""),
                 "physical_hash": raw.get("physical_hash", ""),
                 "engine_hash": raw.get("engine_hash", ""),
+                "engine_path": raw.get("engine_path", ""),
                 "status": str(scored.get("status", "ok")),
                 "artifact_dir": str(destination),
             }
@@ -1779,6 +1780,12 @@ class LidarPyramidRealEvaluator:
         return result
 
     def _evaluate_engine(self, engine_path: str | Path, output_dir: Path) -> dict[str, Any]:
+        from ..integration.runtime_environment import require_gpu_isolation
+
+        require_gpu_isolation(
+            self.context.physical_gpu_id,
+            report_path=output_dir / "gpu_preflight.json",
+        )
         result = evaluate_engine_modelopt(
             engine_path=engine_path,
             checkpoint=self.context.checkpoint_path,
@@ -1794,6 +1801,10 @@ class LidarPyramidRealEvaluator:
             latency_rounds=self.latency_rounds,
             conda_env=self.context.tensorrt.conda_env,
             eval_manifest_path=self.context.eval_manifest_path,
+        )
+        require_gpu_isolation(
+            self.context.physical_gpu_id,
+            report_path=output_dir / "gpu_postflight.json",
         )
         _write_json(output_dir / "evaluation.json", result)
         self._copy_latency(result, output_dir / "latency.csv")

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 import sys
 import traceback
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 def _runtime_provenance(trt: Any, torch: Any) -> dict[str, str]:
@@ -19,6 +20,44 @@ def _runtime_provenance(trt: Any, torch: Any) -> dict[str, str]:
         "torch_version": str(torch.__version__),
         "gpu_architecture": ".".join(str(value) for value in capability),
         "gpu_name": str(torch.cuda.get_device_name(0)),
+    }
+
+
+def _engine_deserialization_audit(
+    trt: Any,
+    engine_path: str | Path,
+    *,
+    plugin_path: str | Path | None = None,
+    plugin_loader: Callable[[str | Path], Any] | None = None,
+) -> dict[str, Any]:
+    """Load the production plugin before deserializing the written engine."""
+
+    path = Path(engine_path)
+    if not path.is_file():
+        raise RuntimeError(f"engine_file_missing_after_build:{path}")
+    resolved_plugin = Path(plugin_path) if plugin_path else None
+    plugin_loaded = False
+    if resolved_plugin is not None:
+        if not resolved_plugin.is_file():
+            raise RuntimeError(f"engine_plugin_missing:{resolved_plugin}")
+        loader = plugin_loader or (
+            lambda item: ctypes.CDLL(str(item), mode=ctypes.RTLD_GLOBAL)
+        )
+        loader(resolved_plugin)
+        plugin_loaded = True
+    payload = path.read_bytes()
+    logger = trt.Logger(trt.Logger.ERROR)
+    runtime = trt.Runtime(logger)
+    engine = runtime.deserialize_cuda_engine(payload)
+    if engine is None:
+        raise RuntimeError("engine_deserialize_returned_none")
+    return {
+        "passed": True,
+        "engine_path": str(path),
+        "engine_bytes": len(payload),
+        "num_io_tensors": int(engine.num_io_tensors),
+        "plugin_path": str(resolved_plugin) if resolved_plugin is not None else "",
+        "plugin_loaded_before_deserialize": plugin_loaded,
     }
 
 
@@ -86,19 +125,29 @@ def main(argv: list[str] | None = None) -> int:
             "runtime_provenance": runtime_provenance,
         }
         if build.success:
-            structure = validate_engine_structure(
-                layer_info_path,
-                mapping,
-                physical_snapshot=physical_snapshot,
-                config=TensorRTValidationConfig(),
-            )
-            precision = validate_precision_realization(layer_info_path, mapping)
-            result["engine_structure_validation"] = structure.to_dict()
-            result["precision_realization_validation"] = precision.to_dict()
-            if not structure.passed:
-                result["status"] = "engine_structure_validation_failed"
-            elif not precision.passed:
-                result["status"] = "precision_realization_validation_failed"
+            try:
+                result["engine_deserialization_audit"] = _engine_deserialization_audit(
+                    trt,
+                    request["engine_path"],
+                    plugin_path=build_config.plugin_path,
+                )
+            except Exception as exc:  # noqa: BLE001
+                result["status"] = "engine_deserialize_failure"
+                result["failure_reason"] = f"{type(exc).__name__}: {exc}"
+            if result["status"] == "ok":
+                structure = validate_engine_structure(
+                    layer_info_path,
+                    mapping,
+                    physical_snapshot=physical_snapshot,
+                    config=TensorRTValidationConfig(),
+                )
+                precision = validate_precision_realization(layer_info_path, mapping)
+                result["engine_structure_validation"] = structure.to_dict()
+                result["precision_realization_validation"] = precision.to_dict()
+                if not structure.passed:
+                    result["status"] = "engine_structure_validation_failed"
+                elif not precision.passed:
+                    result["status"] = "precision_realization_validation_failed"
     except Exception as exc:  # noqa: BLE001
         result = {
             "status": "engine_build_failed",

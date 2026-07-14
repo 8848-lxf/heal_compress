@@ -1,0 +1,124 @@
+# 4090 explicit-QDQ GA readiness report
+
+## Decision
+
+`READY_FOR_GA = false`
+
+Stage A has not started. Stage B is not allowed. This is a fail-closed interim
+readiness result: the fresh 4090 plugin lifecycle gate passes, but every local
+4090 currently has a foreign long-running compute process. The strict FP16 and
+matched E67-ENT 10-frame/200-frame evaluations therefore have not been run and
+no latency or AP result has been accepted.
+
+## Branch and source gate
+
+- branch: `feature/heal-compress-h800-sync-4090`;
+- required source commit: `b862b3d8ad061bd12580776226c75f564918298d`;
+- required commit is an ancestor of this branch: yes, exit code 0;
+- H800 binary, ONNX, engine, calibration cache, timing cache and latency result reused: no;
+- H800 branch modified or pushed: no.
+
+## Fresh 4090 plugin and engine lifecycle
+
+The production plugin was rebuilt with a clean CMake build using the local
+`modelopt` CUDA 11.8 toolchain, TensorRT 10.9, and `CMAKE_CUDA_ARCHITECTURES=89`.
+
+- plugin: `quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so`;
+- plugin SHA256: `f5fd5b17cfe5f560452f1cf6f37b695c825fd02b263061ed04140895d24f24c1`;
+- plugin size: 89,168 bytes;
+- TensorRT registry creator: `PointPillarScatterTRT`, version `1`, namespace empty;
+- TensorRT: `10.9.0.34`;
+- CUDA runtime used by modelopt: `11.8`;
+- GPU architecture: NVIDIA GeForce RTX 4090, SM 8.9.
+
+A fresh minimal PointPillarScatter ONNX was built on physical GPU 1 only to
+test serialization and deserialization. It was not benchmarked and supplies no
+latency evidence.
+
+- ignored artifact directory: `outputs/4090_ga_qdq_readiness_20260714_014405/plugin_gate/`;
+- serialized engine size: 3,588 bytes;
+- engine SHA256: `2851187fa2096c8d33d2f7f042e96fd2d5d1a5bb7ed09c3e0295cf2eb9aa35d6`;
+- explicit plugin-before-deserialize: passed;
+- deserialized I/O tensors: 3 inputs and 1 output;
+- `trtexec --skipInference` build/serialize/deserialize: passed.
+
+The production Stage-2 build worker now repeats this check for every formal
+engine. A missing engine, missing plugin, or a `deserialize_cuda_engine` null
+result closes the candidate with `engine_deserialize_failure` before precision,
+BOPS, or AP scoring.
+
+## GPU isolation gate
+
+Fresh telemetry at the readiness attempt found one foreign compute process on
+each physical GPU 0-7. The processes belong to user `guohongze`, had been alive
+for approximately 13,400-13,600 seconds, and occupied approximately 3,896-7,376
+MiB each. GPU 3 was observed at 29 percent utilization and GPU 6 at 89 percent;
+instantaneous zero utilization on the other GPUs does not make their persistent
+foreign contexts acceptable for latency collection.
+
+The formal runner now records, before and after each 300/500-frame evaluation:
+
+- physical index, UUID and device name;
+- driver version, utilization, temperature, power and memory;
+- compute PID, user, command, used memory and elapsed time;
+- the allowed current search PID and all foreign PIDs.
+
+Any foreign compute PID or unexplained utilization closes the run with
+`gpu_competition_detected`. No external process was killed or modified.
+
+## Production recipe evidence available before the runtime gate
+
+Source and CPU regression tests still enforce the H800 production contract:
+
+- 70 canonical compute entries, consisting of 69 parameterized weighted entries
+  plus the protected functional affine-grid MatMul;
+- matched E67 coverage of 67 INT8 and 3 FP16 canonical entries;
+- the FP16 exceptions are pillar-VFE linear,
+  `pyramid_backbone.single_head_2`, and
+  `pyramid_backbone.functional_affine_grid_matmul`;
+- the functional MatMul remains `mapped_but_protected_fp16`;
+- semantic post-ReLU/post-merge QDQ boundaries, FP16 merge output constraints,
+  per-output-channel symmetric weight quantization, scalar symmetric activation
+  scales, and EntropyCalibration2 train200 lineage are covered by formal tests.
+
+These are source/test facts, not substitutes for the pending fresh 4090 E67
+engine and 200-frame realization audits. The all-keep topology hash has not yet
+been measured locally and therefore has not been compared with
+`2cb4cabc8d939a730e474f48c2bbacf001f0093ee81c21a6249fe3c4f9cf1c3c`.
+
+## Tests
+
+- Correct formal CPU environment (`univ2x-opt`): `272 passed`, 7 known
+  ModelOpt/PyTorch compatibility/deprecation warnings.
+- TensorRT-focused environment (`modelopt`): plugin registry load, minimal
+  engine build and explicit deserialize passed; 32 focused orchestration/runtime
+  tests passed.
+- A diagnostic broad run inside `modelopt` produced `271 passed, 1 failed`
+  because that environment intentionally has TensorRT but no Python
+  `modelopt.torch.quantization` package. The identical suite was rerun in
+  `univ2x-opt`, where the missing package is installed, and passed 272/272.
+- Modified Python files: `python -m py_compile` passed.
+- `git diff --check`: passed before documentation update and must be repeated at
+  the commit gate.
+
+## Pending readiness gates
+
+The following required items remain incomplete and prevent GA admission:
+
+1. wait for at least one isolated RTX 4090 and record a passing isolation report;
+2. build strict FP16 all-keep and matched E67-ENT all-keep engines fresh;
+3. run engine deserialize and fixed 10-frame smoke on both engines;
+4. run both engines on the same deterministic 200-frame manifest with 200/200
+   evaluated and zero skips;
+5. emit the actual pruning/quantization namespace/crosswalk counters from the
+   fresh formal export;
+6. emit the actual 70-entry mapping, E67 67/3 realization, semantic boundary,
+   per-channel scale, EntropyCalibration2, merge and fallback audits;
+7. verify the local all-keep QDQ topology hash and explain any difference from
+   the accepted H800 static topology hash;
+8. rule out near-zero AP and shrink collapse on the fresh 4090 results.
+
+Until all eight items pass, `READY_FOR_GA` remains false and no generation-0
+population may be started.
+
+--- Readiness attempt recorded: 2026-07-14 16:49:04 CST ---

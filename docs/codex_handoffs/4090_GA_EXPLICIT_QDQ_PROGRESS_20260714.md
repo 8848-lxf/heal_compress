@@ -73,3 +73,73 @@ Current gates and remaining work:
 - The 500-frame generation-winner re-evaluation executor and runtime GPU telemetry/competition gate remain pending; Stage A cannot be declared complete until they are implemented and tested.
 
 --- Round 2 completed: 2026-07-14 16:16:10 CST ---
+
+## Round 3 - fresh plugin gate, final-winner executor, and GPU isolation
+
+Starting point: branch `feature/heal-compress-h800-sync-4090`, commit `4591231`.
+No Stage-A population was generated and no 300/500-frame result was collected.
+
+Implemented production changes:
+
+- `search/integration/runtime_environment.py` no longer assumes a
+  `/home/lixingfeng/miniconda3` activation script. It resolves the actual conda
+  prefix and activates `/home/lixingfeng/anaconda3/envs/modelopt` on this host.
+- The same module now captures GPU UUID/name/driver, memory, utilization,
+  temperature, power and compute process PID/user/command/duration. Its
+  fail-closed isolation audit distinguishes the current search PID from foreign
+  compute processes and raises `gpu_competition_detected` before latency work.
+- `search/stage2/trt_build_worker.py` now loads the production plugin and
+  explicitly deserializes the just-written engine. It records engine bytes,
+  I/O tensor count and plugin ordering, and returns
+  `engine_deserialize_failure` on any lifecycle error.
+- `search/orchestration/budget_final.py` evaluates strict-FP32/strict-FP16
+  references and every generation winner on one deterministic final manifest,
+  requires exact N/N with zero skips, reuses only identical physical+deployment
+  identities, computes the same F2 policy, and writes the budget winner and CSV.
+- `search/orchestration/lidar_pyramid_search.py` invokes the final executor
+  automatically after all per-generation winners for a budget have completed.
+- `search/stage2/lidar_pyramid_real_evaluator.py` passes the concrete engine path
+  into final reevaluation and records isolation telemetry immediately before
+  and after every real evaluation.
+
+Fresh local evidence:
+
+- clean SM89 plugin build passed with TensorRT 10.9/CUDA 11.8;
+- plugin SHA256 is
+  `f5fd5b17cfe5f560452f1cf6f37b695c825fd02b263061ed04140895d24f24c1`;
+- TensorRT registry load found `PointPillarScatterTRT` v1;
+- fresh minimal engine serialization/deserialization passed on physical GPU 1;
+- engine SHA256 is
+  `2851187fa2096c8d33d2f7f042e96fd2d5d1a5bb7ed09c3e0295cf2eb9aa35d6`;
+- this minimal gate was not benchmarked and contributes no latency claim.
+
+Verification:
+
+- focused integration/runtime suite: 32 passed;
+- full formal/search CPU suite in `univ2x-opt`: 272 passed, 7 known warnings;
+- all modified Python files passed `python -m py_compile`;
+- the first broad invocation named two nonexistent test files and ran no tests;
+  it was corrected to the repository's actual
+  `test_formal_tooling_smoke.py` and
+  `test_formal_pruner_no_test_dependency.py` paths;
+- a diagnostic broad run in `modelopt` had 271 pass and one environment-only
+  import failure because that TRT environment lacks the Python `modelopt`
+  package; the complete suite passed in the intended CPU environment.
+
+Readiness result and blocker:
+
+- all eight RTX 4090 GPUs have a foreign long-running compute process owned by
+  `guohongze`, so none passes the new isolation gate;
+- strict FP16/E67 10-frame smoke and common 200-frame gate were not started;
+- `docs/codex_handoffs/4090-ga-explicit-qdq-readiness-report.md` records the
+  full fail-closed decision and the exact remaining gates;
+- `READY_FOR_GA = false`;
+- Stage A started: no;
+- `STAGE_B_ALLOWED = false`.
+
+Next round: poll for an isolated 4090. Once one is free, rerun the formal
+readiness config from scratch, require actual 70-entry/67+3/boundary/scale/
+entropy/merge/precision/topology audits and 200/200 zero-skip results, and only
+then change `READY_FOR_GA` or start generation 0.
+
+--- Round 3 completed: 2026-07-14 16:49:04 CST ---

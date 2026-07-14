@@ -18,6 +18,7 @@ from ..ga.engine import GAConfig, GeneticSearchEngine
 from ..hashing import candidate_hash, canonical_json_hash, search_hash
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
 from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
+from ..integration.runtime_environment import require_gpu_isolation
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.fisher_proxy import FisherTaylorProxy
 from ..proxy.normalization import NormalizationStats, build_normalization_stats
@@ -35,6 +36,7 @@ from ..stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
 from ..stage2.objective import Stage2ObjectiveConfig
 from ..stage2.repaired_topk_manifest import write_repaired_topk_manifest
 from ..stage2.round_results import write_round_stage2_results
+from .budget_final import run_budget_final_evaluation
 from .generation_stage2 import deploy_generation_with_backfill, fixed_bops_admission
 
 
@@ -173,6 +175,11 @@ class LidarPyramidTwoStageSearch:
             pruning_gene_type=str(pruning_cfg.get("gene_type", pruning_cfg.get("search_variable", "legal_pruning_action"))),
         )
         _write_json(run_dir / "environment.json", {"gpu": context.gpu_selection.to_dict(), "tensorrt": context.tensorrt.to_dict()})
+        if not stage1_only:
+            require_gpu_isolation(
+                context.physical_gpu_id,
+                report_path=run_dir / "gpu_preflight.json",
+            )
         if baseline_only:
             real_evaluator = LidarPyramidRealEvaluator(
                 context=context,
@@ -853,10 +860,26 @@ class LidarPyramidTwoStageSearch:
             if per_generation_stage2:
                 previous_elite = [record.genotype for record in records[: max(1, min(5, len(records)))]]
                 previous_best = previous_elite[0] if previous_elite else None
+                generation_winners = [report["winner"] for report in generation_reports]
                 _write_json(
                     round_dir / "generation_winners.json",
-                    [report["winner"] for report in generation_reports],
+                    generation_winners,
                 )
+                budget_final_report = None
+                budget_final_cfg = dict(self.config.get("budget_final", {}) or {})
+                if budget_final_cfg and not stage1_only:
+                    stage2_policy = dict(
+                        self.config.get("stage2")
+                        or self.config.get("stage2_smoke")
+                        or self.config.get("evaluation", {})
+                    )
+                    budget_final_report = run_budget_final_evaluation(
+                        context=context,
+                        run_dir=run_dir,
+                        generation_winners=generation_winners,
+                        config={**stage2_policy, **budget_final_cfg},
+                        budget=float(round_bops_target),
+                    )
                 _write_json(
                     round_dir / "round_summary.json",
                     {
@@ -864,6 +887,16 @@ class LidarPyramidTwoStageSearch:
                         "generation_count": len(generation_reports),
                         "generation_winner_count": len(generation_reports),
                         "evaluated": len(evaluated_rows),
+                        "budget_final_status": (
+                            budget_final_report.get("status")
+                            if budget_final_report is not None
+                            else "not_requested"
+                        ),
+                        "budget_winner": (
+                            budget_final_report.get("winner")
+                            if budget_final_report is not None
+                            else None
+                        ),
                     },
                 )
                 continue
