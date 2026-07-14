@@ -816,3 +816,93 @@ BOPS interval, copy candidates, reuse invalid artifacts or start Stage A from
 this state.
 
 --- Round 15 completed: 2026-07-15 04:42:23 CST ---
+
+## Round 16 - deterministic BOPS 0.21 anchor framework and feasibility planning
+
+The branch gate was rechecked before work:
+
+- branch: `feature/heal-compress-h800-sync-4090`;
+- local and remote HEAD on entry: `36bf7a03e393db2750c75c9be52dd38e11c0832b`;
+- worktree clean on entry;
+- H800 fix `b862b3d8ad061bd12580776226c75f564918298d` remains an ancestor.
+
+The production path remains typed ONNX with explicit Q/DQ and FP16/FP32 Cast,
+`STRONGLY_TYPED`, and no weak precision fallback flags. PointPillarScatterTRT
+is absent from all 69 quantization genes and canonical weighted BOPS rows. Per
+the follow-up instruction, the study fixes the already accepted 4090
+production scatter boundary to FP32 and does not repeat the FP16/FP32 boundary
+comparison.
+
+New deterministic anchor implementation:
+
+- `search/anchors/bops_021.py` defines the A/B/C genotype contracts, exact
+  weight-bit x activation-bit theory, requested/repair/realized profile hash
+  audit, closed BOPS interval, BOPS transition decomposition, MAC-weighted
+  quantization sensitivity and common-manifest audit;
+- `search/anchors/runner.py` prepares one real model/Fisher/runtime-shape
+  context, invokes no GA operator, performs deterministic legal-width scans,
+  uses the existing physical pruner and strongly typed production evaluator,
+  and runs the same engine for smoke10 then measured200;
+- `search/configs/lidar_pyramid_4090_bops_021_anchors.yaml` fixes GPU4,
+  train200 EntropyCalibration2, validation200, warmup20/reset, FP32 scatter,
+  BOPS target 0.21 +/- 0.005 and no AP hard gate;
+- `tests/test_bops_021_anchors.py` adds 15 focused anchor contract tests.
+
+Two planning-only runs were made. They generated ignored artifacts and did
+not export ONNX, calibrate, build engines, evaluate AP, or start GA.
+
+The first run used the current formal GA pruning inventory. Its only dense
+root is the 96-unit `pyramid_backbone.resnet.layer1.0.conv3` domain; even the
+minimum legal width produced physical BOPS 0.240143. This proves that the
+existing exposed domain cannot construct anchor B and explains why random
+mixed candidates previously needed substantial INT8 freedom.
+
+The second run used a study-only view of the same formal trace. It selected
+only late local roots listed in the anchor config, while preserving early
+backbone, detection-head roots and all grouped-conv rules. The trace contained
+two matching dense domains, 256 units each:
+
+- `shrink_conv.layers.0.double_conv.0`;
+- `shrink_conv.layers.0.double_conv.2`.
+
+This does not modify the tracer or formal Stage A search space. Deterministic
+Fisher ordering found anchor B by pruning 72/256 channels in the first shrink
+root (retained width 184):
+
+- proxy BOPS retention: 0.2110143453;
+- physical BOPS retention: 0.2110143492;
+- implied global MAC retention: approximately 0.844057;
+- precision genes: all FP16 before and after channel repair;
+- the cached shrink gradients and empirical Fisher diagonals are nonzero, so
+  no L1 fallback was used.
+
+The no-prune mixed planning found anchor C with one quantization group:
+
+- selected group: `pg_0141` (`pyramid_backbone.deblocks.2.0` in the canonical
+  mapping);
+- INT8 MAC share: 0.1971422583;
+- theoretical/profile BOPS retention: 0.2130358274;
+- CUDA proxy BOPS retention: 0.2130358219;
+- all pruning genes remain keep.
+
+Focused verification at this checkpoint:
+
+- anchor contracts plus BOPS/realized-BOPS/generation regressions: 27 passed;
+- anchor contracts plus BOPS/realized-BOPS regression after late-domain
+  planning change: 19 passed;
+- modified Python files compile;
+- `git diff --check` passes.
+
+The planning result identifies structural and precision profiles that are
+budget-feasible, but no AP conclusion exists yet. The next step is a fresh run
+from the committed HEAD: strict FP32 reference, then A/B/C smoke10 and common
+200-frame measurement. Stage A remains stopped.
+
+Current gates:
+
+- `MULTIGPU_TOP5_SMOKE_PASS = false`;
+- `STAGE_A_ALLOWED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 16 completed: 2026-07-15 05:22:02 CST ---
