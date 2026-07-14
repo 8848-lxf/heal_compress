@@ -425,3 +425,52 @@ All artifacts from the failed run remain diagnostic. The next readiness run
 must start in a new timestamp directory from the committed fix.
 
 --- Round 8 completed: 2026-07-15 01:28:00 CST ---
+
+## Round 9 - strongly typed E67 readiness accepted, FP32 scatter selected
+
+Accepted code commit: `34ebd4d`, branch
+`feature/heal-compress-h800-sync-4090`. The H800 fix remains an ancestor and
+no H800 branch command was issued.
+
+Fresh same-GPU acceptance on physical GPU4:
+
+- strict FP16 with FP16 scatter: 200/200, zero skips, mAP 0.725406;
+- E67 with FP16 scatter: canonical 67/3/0, 200/200, zero skips, mAP 0.651251,
+  forward p50/p90/p95 4.0027/4.2952/4.8178 ms;
+- E67 with FP32 scatter: canonical 67/3/0, 200/200, zero skips, mAP 0.650970,
+  forward p50/p90/p95 3.9881/4.1067/4.4139 ms;
+- both E67 variants used the same train200 tensor-manifest hash and fixed
+  200-frame validation-manifest hash;
+- both passed typed ONNX/Inspector agreement, semantic QDQ, per-channel weight,
+  EntropyCalibration2 lineage, precision realization and all merge contracts;
+- PointPillarScatterTRT remained floating, with Half/Half versus Float/Float
+  Inspector I/O and no adjacent QDQ.
+
+Production decision:
+
+- selected scatter boundary: FP32;
+- mAP delta versus FP16 scatter: -0.000281;
+- p50/p90/p95 all improved, so the predefined latency tie-break selects FP32;
+- `search/configs/lidar_pyramid_4090_ga_stage_a.yaml` now fixes `fp32` and the
+  config regression test enforces it;
+- the plugin boundary is not a GA gene and does not change canonical 67/3.
+
+Verification:
+
+- focused selected-config/strongly-typed suite: 23 passed;
+- broad formal environment: 823 passed, 4 known unrelated historical failures;
+- exact known-failure deselection: 823 passed, 4 deselected;
+- no generated model, plugin, calibration or engine artifact is tracked.
+
+Current gates:
+
+- `STRONGLY_TYPED_PLUGIN_FP16_PASS = true`;
+- `STRONGLY_TYPED_PLUGIN_FP32_PASS = true`;
+- `SELECTED_PLUGIN_BOUNDARY = FP32`;
+- `STRONGLY_TYPED_E67_PASS = true`;
+- `READY_FOR_GA = true`;
+- four-GPU Top-5 smoke: not started at this anchor;
+- Stage A: not started at this anchor;
+- Stage B: not allowed in this task.
+
+--- Round 9 completed: 2026-07-15 01:54:00 CST ---

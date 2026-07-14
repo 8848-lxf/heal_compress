@@ -11,7 +11,7 @@ runtime:
   tensorrt_env: modelopt
   tensorrt_root: /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118
   plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
-  plugin_boundary_dtype: readiness_selection_required
+  plugin_boundary_dtype: fp32
 
 output:
   experiment_name: 4090_ga_qdq_stage_a

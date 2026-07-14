@@ -101,7 +101,7 @@ def test_4090_stage_a_config_is_per_generation_top5_at_fixed_budget() -> None:
     assert data["runtime"]["gpu_id"] == "5"
     assert data["runtime"]["allow_foreign_gpu_processes"] is False
     assert data["runtime"]["max_gpu_utilization_pct"] == 20
-    assert data["runtime"]["plugin_boundary_dtype"] == "readiness_selection_required"
+    assert data["runtime"]["plugin_boundary_dtype"] == "fp32"
     assert data["stage2_parallel"]["enabled"] is True
     assert data["stage2_parallel"]["gpu_ids"] == [4, 5, 6, 7]
     assert data["stage2_parallel"]["allow_controller_process_on_stage1_gpu"] is True

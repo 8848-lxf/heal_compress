@@ -149,3 +149,91 @@ explicitly. The fix must be committed before a fresh rerun.
 `READY_FOR_GA = false`
 
 --- Round 2 completed: 2026-07-15 01:28:00 CST ---
+
+## Round 3 - fresh dual-boundary acceptance and production selection
+
+Accepted code commit: `34ebd4d2b536fc4d0a780818e730210c33022b87`.
+
+Evidence roots:
+
+- FP16 plugin boundary plus strict FP16 reference:
+  `outputs/4090_strongly_typed_e67_fp16_readiness_20260714_102836/`;
+- FP32 plugin boundary:
+  `outputs/4090_strongly_typed_e67_fp32_readiness_20260714_103946/`.
+
+Both runs used physical GPU4,
+`GPU-166702d7-bf30-18e0-83ff-83b316d37c0e`, driver `580.105.08`,
+TensorRT 10.9.0.34, CUDA 11.8 and the freshly rebuilt SM89 plugin with
+SHA256 `91aec743dca383151b995a60d004cd254ce115ed16152873c1f46754bb15022d`.
+GPU preflight passed immediately before both E67 evaluations. The train200
+tensor-manifest hash was identical in both runs:
+`eb56308111e20ad7c789b18a8860289fe7357474722dadc43c810868554e0ec5`.
+The fixed validation-manifest hash was also identical:
+`6f601374e573a5ed7da61eeac07259c0eea34fb5ed72d9bf52265d40a02c9f16`.
+
+Each evaluation performed 20 warmup frames, so the required first ten smoke
+frames were executed before measured evaluation. No warmup frame was skipped;
+the latency collector was reset after warmup, then exactly 200 measured frames
+were evaluated with zero skips.
+
+| engine | AP03 | AP05 | AP07 | mAP | p50 ms | p90 ms | p95 ms | size bytes |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| strict FP16, scatter FP16 | 0.810839 | 0.769922 | 0.595456 | 0.725406 | 5.6439 | 5.8622 | 6.1784 | 39489228 |
+| E67, scatter FP16 | 0.755352 | 0.705780 | 0.492622 | 0.651251 | 4.0027 | 4.2952 | 4.8178 | 26422260 |
+| E67, scatter FP32 | 0.755723 | 0.706405 | 0.490781 | 0.650970 | 3.9881 | 4.1067 | 4.4139 | 26282852 |
+
+E67 engine SHA256 values:
+
+- scatter FP16:
+  `653e8ee2251fa5ec1894f6ebdc20a22853a62a4619310560c40dcbaf3145394a`;
+- scatter FP32:
+  `579dddaa7324b25b245ec1cc9b7a3be607433213a538422e8aa2701de6d61c84`.
+
+Both E67 variants passed all acceptance audits:
+
+- typed graph canonical profile 67 INT8 / 3 FP16 / 0 FP32;
+- engine canonical validation 67 INT8 / 3 FP16 / 0 unknown;
+- plugin-adjacent QDQ count zero and unresolved tensor dtype count zero;
+- semantic QDQ boundary, per-output-channel weights and EntropyCalibration2
+  scale lineage passed;
+- all merge contracts passed, including `/Concat_9`;
+- no undeclared FP32 canonical fallback;
+- Inspector plugin I/O was Half/Half for the FP16 graph and Float/Float for the
+  FP32 graph, matching the typed ONNX boundary;
+- 200 evaluated and 0 skipped for all three engines;
+- no near-zero AP or shrink collapse.
+
+The FP32 plugin boundary was selected. Its mAP differs from FP16 by only
+-0.000281, while forward p50/p90/p95 are lower by approximately
+0.4%/4.4%/8.4%. Both variants pass correctness and stability, so this follows
+the predefined latency tie-break rule. PointPillarScatterTRT remains pure
+floating point and is not added to `layer_bitwidth` or canonical 67/3 counts.
+`search/configs/lidar_pyramid_4090_ga_stage_a.yaml` now fixes the production
+boundary to `fp32`, with a regression assertion in
+`tests/test_search_large_population.py`.
+
+Test evidence:
+
+- selected-config and strongly typed focused suite: 23 passed;
+- full historical tree in `univ2x-opt`: 823 passed, 4 known unrelated legacy
+  failures;
+- exact deselection of only those four recorded cases: 823 passed, 4
+  deselected;
+- the ModelOpt entropy unit passed in the environment that provides the
+  `nvidia-modelopt` Python package;
+- weakly typed engines were not used as production results.
+
+`STRONGLY_TYPED_PLUGIN_FP16_PASS = true`
+
+`STRONGLY_TYPED_PLUGIN_FP32_PASS = true`
+
+`SELECTED_PLUGIN_BOUNDARY = FP32`
+
+`STRONGLY_TYPED_E67_PASS = true`
+
+`READY_FOR_GA = true`
+
+Stage A has not started at this report boundary. The required four-GPU Top-5
+smoke is the next gate.
+
+--- Round 3 completed: 2026-07-15 01:54:00 CST ---
