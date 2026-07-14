@@ -62,3 +62,6 @@ tests_back/
 heal_tests/
 .gitignore.bak.*
 quantization/plugins/pointpillar_scatter_trt/build_contaminated_*/
+
+# TensorRT plugin build artifacts
+quantization/plugins/pointpillar_scatter_trt/build*/
