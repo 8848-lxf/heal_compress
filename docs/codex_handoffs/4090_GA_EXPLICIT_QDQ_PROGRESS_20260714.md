@@ -514,3 +514,57 @@ Verification:
   same five phenotypes.
 
 --- Round 10 completed: 2026-07-15 02:01:00 CST ---
+
+## Round 11 - four-GPU smoke fail-closed and strict-FP32 protected exception fix
+
+Live failed-run evidence:
+
+`outputs/4090_ga_qdq_stage2_multigpu_smoke_20260714_105857/`
+
+The run used commit `fb8d285`, initialized four persistent workers on physical
+GPUs 4/5/6/7, completed a production-sized 1024-candidate Stage-1 generation,
+and found 24 unique, legal, genuinely-compressed candidates in the target BOPS
+interval. The first four candidates were dispatched concurrently.
+
+All four workers successfully built strongly typed strict FP32 and strict FP16
+reference engines. Candidate deployment was then stopped before physical
+pruning because the strict FP32 accuracy-reference validator rejected every
+worker with `ordinary_weighted_layer_realized_fp16`. Backfill correctly tried
+all 24 ranked candidates, selected zero, wrote the failure report, and closed
+all workers with return code zero. No failed candidate entered winner scoring.
+
+Four-card Inspector and canonical evidence identified one deterministic layer:
+
+- each strict FP32 engine realized 69 FP32 and 1 FP16 canonical compute entry;
+- the only FP16 row was
+  `pyramid_backbone.functional_affine_grid_matmul`, represented by the stable
+  canonical `pyramid_backbone_fun_*__MatMulGroup__` marker;
+- canonical realization passed with INT8=0, FP16=1 and unresolved=0;
+- this parameter-free functional layer is the existing production-protected
+  FP16 exception, not an ordinary weighted fallback.
+
+Minimal fail-closed fix:
+
+- `search/baselines/original_engines.py` classifies the stable functional
+  MatMulGroup marker separately from ordinary FP16 rows;
+- strict FP32 allows it only when canonical realization simultaneously reports
+  passed, zero INT8, zero unresolved and an exact matching FP16 count;
+- any other FP16 row, more protected rows than declared, or a failed/missing
+  canonical contract still fails;
+- the report now exposes `protected_functional_fp16_count`,
+  `allowed_protected_fp16_count` and `ordinary_weighted_fp16_count`.
+
+Tests and direct replay:
+
+- added passing and adversarial tests for verified/unverified functional FP16;
+- all baseline validation tests: 8 passed;
+- related strongly typed/baseline/process-pool/config suite: 52 passed;
+- all four failed-run engine Inspectors re-audited as
+  `69 FP32 / 1 protected FP16 / 0 ordinary FP16`, with empty issues;
+- modified Python files compile and `git diff --check` passes.
+
+This fix changes Stage-2 admission semantics, so the failed smoke directory is
+diagnostic only. The four-GPU smoke must restart from generation 0 in a new
+timestamp directory after the fix is committed.
+
+--- Round 11 completed: 2026-07-15 02:07:00 CST ---

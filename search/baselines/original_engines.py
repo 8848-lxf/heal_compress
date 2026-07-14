@@ -56,6 +56,11 @@ BASELINE_PRECISIONS = {
     "trusted_explicit_qdq_int8",
 }
 
+_PROTECTED_FUNCTIONAL_AFFINE_MARKERS = (
+    "__canonical__pyramid_backbone_fun_",
+    "__matmulgroup__",
+)
+
 
 def _normalize_baseline(kind: str) -> str:
     value = str(kind).lower()
@@ -186,6 +191,7 @@ def summarize_layer_precisions(layer_info: str | Path | Sequence[Mapping[str, An
         "weighted_fp16_count": 0,
         "weighted_int8_count": 0,
         "weighted_unknown_count": 0,
+        "protected_functional_fp16_count": 0,
         "int32_control_count": 0,
         "plugin_layer_count": 0,
     }
@@ -203,6 +209,8 @@ def summarize_layer_precisions(layer_info: str | Path | Sequence[Mapping[str, An
             summary["weighted_fp32_count"] += 1
         elif precision == "fp16":
             summary["weighted_fp16_count"] += 1
+            if all(marker in metadata for marker in _PROTECTED_FUNCTIONAL_AFFINE_MARKERS):
+                summary["protected_functional_fp16_count"] += 1
         elif precision == "int8":
             summary["weighted_int8_count"] += 1
         else:
@@ -238,7 +246,22 @@ def validate_baseline_layer_precisions(
     issues: list[str] = []
     status = kind
     if kind == "strict_fp32":
-        if summary["weighted_fp16_count"]:
+        protected_count = int(summary["protected_functional_fp16_count"])
+        canonical = dict(canonical_precision_realization or {})
+        protected_contract_matches = bool(
+            canonical
+            and canonical.get("passed", False)
+            and int(canonical.get("realized_int8_count", 0)) == 0
+            and int(canonical.get("unresolved_layer_count", 0)) == 0
+            and int(canonical.get("realized_fp16_count", 0)) == protected_count
+        )
+        allowed_protected = protected_count if protected_contract_matches else 0
+        ordinary_fp16 = int(summary["weighted_fp16_count"]) - allowed_protected
+        summary["allowed_protected_fp16_count"] = allowed_protected
+        summary["ordinary_weighted_fp16_count"] = ordinary_fp16
+        if protected_count and not protected_contract_matches:
+            issues.append("strict_fp32_protected_fp16_contract_mismatch")
+        if ordinary_fp16:
             issues.append("ordinary_weighted_layer_realized_fp16")
         if summary["weighted_int8_count"]:
             issues.append("ordinary_weighted_layer_realized_int8")
