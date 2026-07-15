@@ -323,10 +323,17 @@ class LidarPyramidTwoStageSearch:
             device=__import__("torch").device(context.runtime_device),
             cache_path=run_dir / "archives" / "fisher_statistics.pt",
             num_batches=context.fisher_calibration_batches,
+            checkpoint_hash=context.checkpoint_hash,
+            code_commit=context.code_commit,
         )
         _write_json(
             run_dir / "archives" / "fisher_statistics_manifest.json",
-            {"manifest_hash": fisher_stats.manifest_hash, "statistics_version": fisher_stats.statistics_version, "path": str(run_dir / "archives" / "fisher_statistics.pt")},
+            {
+                **dict(fisher_stats.manifest),
+                "manifest_hash": fisher_stats.manifest_hash,
+                "statistics_version": fisher_stats.statistics_version,
+                "path": str(run_dir / "archives" / "fisher_statistics.pt"),
+            },
         )
         if bool(constrained_cfg.get("enabled", False)):
             sensitivity = measure_precision_sensitivity(

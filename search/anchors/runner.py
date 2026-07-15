@@ -842,6 +842,8 @@ class Bops021AnchorStudy:
             device=torch.device(context.runtime_device),
             cache_path=run_dir / "archives" / "fisher_statistics.pt",
             num_batches=int(proxy.get("fisher_calibration_batches", 8)),
+            checkpoint_hash=context.checkpoint_hash,
+            code_commit=context.code_commit,
         )
         scorer = TorchBatchedProxyScorer.from_components(
             model=context.model,

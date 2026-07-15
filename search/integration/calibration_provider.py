@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -12,7 +13,16 @@ import torch
 
 from ..hashing import canonical_json_hash
 from ..proxy.fisher_proxy import FisherStatistics
-from .data_provider import build_dataset_and_loader, iter_limited, move_batch_to_device
+from ..proxy.fisher_statistics import (
+    accumulate_gradient_samples,
+    build_fisher_statistics_manifest,
+)
+from .data_provider import (
+    build_dataset_and_loader,
+    iter_limited,
+    load_split_frame_ids,
+    move_batch_to_device,
+)
 
 
 QDQ_CALIBRATION_SEMANTICS_VERSION = "onnx-bn-fold-fixedk-entropy-v6-exact-tensor-manifest"
@@ -407,6 +417,9 @@ def collect_or_load_fisher_statistics(
     device: torch.device,
     cache_path: str | Path,
     num_batches: int,
+    checkpoint_hash: str = "",
+    calibration_manifest_hash: str = "",
+    code_commit: str = "",
 ) -> FisherStatistics:
     path = Path(cache_path)
     if path.is_file():
@@ -416,6 +429,7 @@ def collect_or_load_fisher_statistics(
             fisher_diag={key: value for key, value in payload["fisher_diag"].items()},
             manifest_hash=str(payload.get("manifest_hash", "")),
             statistics_version=str(payload.get("statistics_version", "fisher-diagonal-v1")),
+            manifest=dict(payload.get("manifest") or {}),
         )
     if int(num_batches) <= 0:
         raise RuntimeError("fisher_statistics_missing:num_batches")
@@ -423,8 +437,7 @@ def collect_or_load_fisher_statistics(
     batches = iter_limited(loader, int(num_batches))
     if not batches:
         raise RuntimeError("fisher_statistics_missing:no_calibration_batches")
-    gradients: dict[str, torch.Tensor] = {}
-    fisher: dict[str, torch.Tensor] = {}
+    gradient_samples: list[dict[str, torch.Tensor]] = []
     model.train(False)
     for batch in batches:
         batch = move_batch_to_device(batch, device)
@@ -432,30 +445,47 @@ def collect_or_load_fisher_statistics(
         output = adapter.forward_for_task(model, batch)
         loss = adapter.compute_task_loss(output, batch)
         loss.backward()
-        for name, param in model.named_parameters():
-            if param.grad is None:
-                continue
-            grad = param.grad.detach()
-            gradients.setdefault(name, torch.zeros_like(param.detach(), device=grad.device))
-            fisher.setdefault(name, torch.zeros_like(param.detach(), device=grad.device))
-            gradients[name] += grad
-            fisher[name] += grad.pow(2)
-    count = float(len(batches))
-    for name in list(gradients):
-        gradients[name] = gradients[name] / count
-        fisher[name] = fisher[name] / count
-    manifest_hash = canonical_json_hash({"split": "train", "num_batches": int(num_batches), "model_config": str(model_config_path)})
+        gradient_samples.append(
+            {
+                name: param.grad.detach().cpu()
+                for name, param in model.named_parameters()
+                if param.grad is not None
+            }
+        )
+    statistics, accumulation_audit = accumulate_gradient_samples(gradient_samples)
+    config_path = Path(model_config_path).expanduser().resolve()
+    model_config_hash = _sha256_file(config_path)
+    train_frame_ids = load_split_frame_ids(adapter, config_path, split="train")[: len(batches)]
+    resolved_calibration_hash = str(calibration_manifest_hash) or canonical_json_hash(
+        {"split": "train", "frame_ids": train_frame_ids, "shuffle": False}
+    )
+    manifest = build_fisher_statistics_manifest(
+        checkpoint_hash=checkpoint_hash,
+        model_config_hash=model_config_hash,
+        calibration_manifest_hash=resolved_calibration_hash,
+        sample_count=len(batches),
+        micro_batch_size=int(getattr(loader, "batch_size", 1) or 1),
+        parameter_count=int(accumulation_audit["parameter_count"]),
+        finite_gradient_count=int(accumulation_audit["finite_gradient_count"]),
+        nonfinite_count=int(accumulation_audit["nonfinite_count"]),
+        code_commit=code_commit,
+        creation_timestamp=datetime.now(timezone.utc).astimezone().isoformat(),
+    )
+    manifest_hash = canonical_json_hash(manifest)
+    statistics.manifest_hash = manifest_hash
+    statistics.manifest = manifest
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
-            "gradients": _tensor_dict_to_cpu(gradients),
-            "fisher_diag": _tensor_dict_to_cpu(fisher),
+            "gradients": statistics.gradients,
+            "fisher_diag": statistics.fisher_diag,
             "manifest_hash": manifest_hash,
-            "statistics_version": "fisher-diagonal-v1",
+            "statistics_version": statistics.statistics_version,
+            "manifest": manifest,
         },
         path,
     )
-    return FisherStatistics(_tensor_dict_to_cpu(gradients), _tensor_dict_to_cpu(fisher), manifest_hash=manifest_hash)
+    return statistics
 
 
 def weight_only_calibration_scales(module_paths: list[str], model: torch.nn.Module) -> dict[str, dict[str, float]]:

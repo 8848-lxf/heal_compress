@@ -17,6 +17,7 @@ class FisherStatistics:
     fisher_diag: dict[str, torch.Tensor] = field(default_factory=dict)
     manifest_hash: str = ""
     statistics_version: str = "fisher-diagonal-v1"
+    manifest: dict[str, Any] = field(default_factory=dict)
 
 
 class FisherTaylorProxy:
