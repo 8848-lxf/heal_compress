@@ -40,10 +40,16 @@ def apply_global_anchor_pruning_context(
     rejection_counts: dict[str, int] = {}
     for unit in list(getattr(context.trace_result, "atomic_prune_units", []) or []):
         module_path = str(getattr(unit, "root_module_path", ""))
+        module_path_lower = module_path.lower()
         module = modules.get(module_path)
         reason = ""
         if bool(getattr(unit, "protected", False)):
             reason = "trace_protected"
+        elif any(
+            token in module_path_lower
+            for token in ("single_head", "cls_head", "reg_head", "dir_head")
+        ):
+            reason = "model_specific_protected_head"
         elif module is None or getattr(module, "weight", None) is None:
             reason = "root_not_weighted"
         elif str(getattr(unit, "root_axis", "")) not in {"out", "channel"}:

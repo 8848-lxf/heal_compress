@@ -27,14 +27,26 @@ def test_global_anchor_context_exposes_all_legal_trace_units_without_plugin_gene
     model = nn.Sequential()
     model.add_module("conv_a", nn.Conv2d(4, 32, 1))
     model.add_module("conv_b", nn.Conv2d(32, 32, 1))
+    model.add_module("pyramid_backbone", nn.Module())
+    model.pyramid_backbone.add_module("single_head_0", nn.Conv2d(32, 1, 1))
     legal_a = AtomicPruneUnit("scope_a", "conv_a", "out", [0], ["c0"], 0.0)
     legal_b = AtomicPruneUnit("scope_b", "conv_b", "out", [0], ["c1"], 0.0)
     protected = AtomicPruneUnit(
         "scope_head", "conv_b", "out", [1], ["c2"], 0.0, protected=True
     )
+    implicit_protected_head = AtomicPruneUnit(
+        "scope_single_head",
+        "pyramid_backbone.single_head_0",
+        "out",
+        [0],
+        ["c3"],
+        0.0,
+    )
     context = DummyContext(
         model=model,
-        trace_result=SimpleNamespace(atomic_prune_units=[legal_a, legal_b, protected]),
+        trace_result=SimpleNamespace(
+            atomic_prune_units=[legal_a, legal_b, protected, implicit_protected_head]
+        ),
         atomic_prune_units=[legal_a],
         search_space=SearchSpaceSpec(
             pruning_unit_ids=[legal_a.stable_id],
@@ -54,9 +66,11 @@ def test_global_anchor_context_exposes_all_legal_trace_units_without_plugin_gene
         legal_b.stable_id,
     }
     assert protected.stable_id not in expanded.search_space.pruning_unit_ids
+    assert implicit_protected_head.stable_id not in expanded.search_space.pruning_unit_ids
     assert all("scatter" not in value.lower() for value in expanded.search_space.pruning_unit_ids)
     assert audit["source"] == "existing_formal_trace_atomic_prune_units"
     assert audit["tracer_modified"] is False
+    assert audit["rejection_counts"]["model_specific_protected_head"] == 1
 
 
 def test_anchor_precision_variants_keep_same_pruned_units() -> None:
