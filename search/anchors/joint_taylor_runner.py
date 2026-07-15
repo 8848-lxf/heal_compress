@@ -5,7 +5,11 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
+import os
 import shlex
+import statistics
+import subprocess
 import time
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -20,10 +24,20 @@ from ..pruning_space.action_catalog import build_pruning_action_catalog
 from ..quantization_space.legalizer import legalize_group_precision_genes
 from ..hashing import candidate_hash, canonical_json_hash
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
+from ..integration.runtime_environment import query_gpus
+from ..orchestration.stage2_process_pool import PersistentStage2ProcessPool
 from ..proxy.joint_taylor import JointTaylorProxy
 from ..proxy.parameter_slice_resolver import build_unit_parameter_slices
+from ..proxy.tau_calibration import calibrate_tau, write_proxy_scale
 from ..proxy.virtual_shape_resolver import resolve_virtual_shapes
+from ..stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
+from ..stage2.objective import Stage2ObjectiveConfig
 from .joint_taylor_sweep import AnchorPruningUnit, plan_anchor_structures
+from .joint_taylor_sweep import (
+    ANCHOR_PRECISION_VARIANTS,
+    assert_formal_latency_isolation,
+    propose_boundary_bisections,
+)
 
 
 def apply_global_anchor_pruning_context(
@@ -552,7 +566,463 @@ class JointTaylorAnchorStudy:
             "joint": joint,
             "plan": plan,
             "importance_audit": audit,
+            "anchor_units": anchor_units,
+            "original_params": original_params,
+            "parameter_count_fn": count_fn,
+            "dense_alignment_by_domain": {
+                domain_id: int(dense.get("alignment", 4))
+                for domain_id in domain_widths
+            },
+            "minimum_width_by_domain": {
+                domain_id: max(
+                    int(dense.get("alignment", 4)),
+                    int(
+                        domain_widths[domain_id]
+                        * float(pruning_cfg.get("minimum_retained_ratio", 0.10))
+                    ),
+                )
+                for domain_id in domain_widths
+            },
+            "grouped_specs": grouped_specs,
         }
+
+    def _tasks_for_structures(
+        self,
+        planning: Mapping[str, Any],
+        structures: Sequence[Any],
+        *,
+        task_root: Path,
+    ) -> list[dict[str, Any]]:
+        context = planning["context"]
+        joint = JointTaylorProxy(
+            context.model,
+            statistics=planning["fisher"],
+            unit_to_parameter_slices=planning["unit_slices"],
+            mode="joint_taylor_second_order_fisher_diag",
+        )
+        unique: dict[str, Any] = {}
+        aliases: dict[str, list[float]] = {}
+        for structure in structures:
+            aliases.setdefault(structure.mask_hash, []).append(
+                float(structure.requested_prune_rate)
+            )
+            unique.setdefault(structure.mask_hash, structure)
+        tasks: list[dict[str, Any]] = []
+        for mask_hash, structure in sorted(
+            unique.items(), key=lambda row: row[1].realized_prune_rate
+        ):
+            pruned = [
+                unit_id
+                for unit_id, keep in structure.group_mask.items()
+                if int(keep) == 0
+            ]
+            for precision_variant in ANCHOR_PRECISION_VARIANTS:
+                phenotype = build_anchor_precision_phenotype(
+                    context.search_space,
+                    pruned,
+                    precision_variant,
+                    pruning_metadata=structure.repair_metadata,
+                )
+                candidate_id = candidate_hash(phenotype, context.search_space)
+                proxy_result = joint.evaluate(phenotype)
+                if not proxy_result.finite:
+                    raise RuntimeError(
+                        f"anchor_candidate_joint_proxy_nonfinite:{candidate_id}"
+                    )
+                tasks.append(
+                    {
+                        "anchor_id": structure.anchor_id,
+                        "requested_prune_rate": float(
+                            structure.requested_prune_rate
+                        ),
+                        "requested_prune_rate_aliases": sorted(aliases[mask_hash]),
+                        "realized_prune_rate": float(structure.realized_prune_rate),
+                        "mask_hash": mask_hash,
+                        "precision_variant": precision_variant,
+                        "candidate_hash": candidate_id,
+                        "phenotype": phenotype.to_dict(),
+                        "proxy_result": asdict(proxy_result),
+                        "stage1_metrics": asdict(proxy_result),
+                        "seed_family": "global_joint_taylor_anchor",
+                        "output_dir": str(
+                            task_root
+                            / structure.anchor_id
+                            / precision_variant
+                            / candidate_id
+                        ),
+                        "smoke_frames": 10,
+                        "smoke_warmup_frames": 10,
+                    }
+                )
+        return tasks
+
+    def _stage2_pool(self, run_dir: Path, context: Any) -> PersistentStage2ProcessPool:
+        parallel = dict(self.config.get("stage2_parallel", {}) or {})
+        return PersistentStage2ProcessPool(
+            run_dir=run_dir,
+            gpu_ids=[int(value) for value in parallel.get("gpu_ids", [4, 5, 6, 7])],
+            worker_payload={
+                "config": self.config,
+                "checkpoint": str(context.checkpoint_path),
+                "code_commit": context.code_commit,
+                "controller_pid": os.getpid(),
+            },
+            startup_timeout_seconds=float(
+                parallel.get("startup_timeout_seconds", 1200)
+            ),
+            task_timeout_seconds=float(
+                parallel.get("task_timeout_seconds", 28800)
+            ),
+            poll_interval_seconds=float(parallel.get("poll_interval_seconds", 0.25)),
+        )
+
+    @staticmethod
+    def _enrich_results(
+        tasks: Sequence[Mapping[str, Any]],
+        results: Sequence[Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        if len(tasks) != len(results):
+            raise RuntimeError("anchor_task_result_count_mismatch")
+        return [
+            {
+                **dict(result),
+                "anchor_id": str(task["anchor_id"]),
+                "requested_prune_rate": float(task["requested_prune_rate"]),
+                "requested_prune_rate_aliases": list(
+                    task["requested_prune_rate_aliases"]
+                ),
+                "realized_prune_rate": float(task["realized_prune_rate"]),
+                "mask_hash": str(task["mask_hash"]),
+                "precision_variant": str(task["precision_variant"]),
+                "proxy_result": dict(task["proxy_result"]),
+                "candidate_hash": str(task["candidate_hash"]),
+            }
+            for task, result in zip(tasks, results)
+        ]
+
+    @staticmethod
+    def _verify_physical_identity(rows: Sequence[Mapping[str, Any]]) -> None:
+        by_mask: dict[str, list[Mapping[str, Any]]] = {}
+        for row in rows:
+            if str(row.get("status", "")) == "ok":
+                by_mask.setdefault(str(row["mask_hash"]), []).append(row)
+        for mask_hash, group in by_mask.items():
+            if len(group) != len(ANCHOR_PRECISION_VARIANTS):
+                continue
+            hashes = {str(row.get("physical_hash", "")) for row in group}
+            if len(hashes) != 1 or "" in hashes:
+                raise RuntimeError(
+                    f"anchor_precision_matrix_physical_hash_mismatch:{mask_hash}"
+                )
+
+    def _tau_rows(
+        self, rows: Sequence[Mapping[str, Any]], *, required_frames: int
+    ) -> list[dict[str, Any]]:
+        output = []
+        for row in rows:
+            task = {
+                "anchor_id": row["anchor_id"],
+                "precision_variant": row["precision_variant"],
+                "candidate_hash": row["candidate_hash"],
+                "requested_prune_rate": row["requested_prune_rate"],
+                "realized_prune_rate": row["realized_prune_rate"],
+            }
+            output.append(
+                stage2_result_to_tau_row(
+                    task,
+                    row,
+                    row["proxy_result"],
+                    required_frames=required_frames,
+                )
+            )
+        return output
+
+    def _plan_one_rate(self, planning: Mapping[str, Any], rate: float) -> Any:
+        anchor_cfg = dict(self.config.get("joint_taylor_anchor_sweep", {}) or {})
+        return plan_anchor_structures(
+            planning["anchor_units"],
+            requested_prune_rates=[float(rate)],
+            original_params=int(planning["original_params"]),
+            parameter_count_fn=planning["parameter_count_fn"],
+            dense_alignment_by_domain=planning["dense_alignment_by_domain"],
+            minimum_width_by_domain=planning["minimum_width_by_domain"],
+            per_domain_max_prune_rate=float(
+                anchor_cfg.get("per_domain_max_prune_rate", 0.8)
+            ),
+            grouped_domain_specs=planning["grouped_specs"],
+        ).structures[0]
+
+    def _run_matrix(
+        self, run_dir: Path, planning: Mapping[str, Any]
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[Any]]:
+        stage2 = dict(self.config.get("stage2", {}) or {})
+        required_frames = int(stage2.get("required_evaluated_frames", 1789))
+        all_structures = list(planning["plan"].structures)
+        initial_tasks = self._tasks_for_structures(
+            planning, all_structures, task_root=run_dir / "anchors"
+        )
+        all_tasks = list(initial_tasks)
+        all_results: list[dict[str, Any]] = []
+        seen_masks = {str(row.mask_hash) for row in all_structures}
+        max_rounds = int(
+            dict(self.config.get("joint_taylor_anchor_sweep", {}) or {}).get(
+                "max_boundary_bisection_rounds", 3
+            )
+        )
+        with self._stage2_pool(run_dir, planning["context"]) as pool:
+            all_results.extend(
+                self._enrich_results(initial_tasks, pool.map_tasks(initial_tasks))
+            )
+            for round_index in range(max_rounds):
+                tau_rows = self._tau_rows(
+                    all_results, required_frames=required_frames
+                )
+                reference_candidates = [
+                    row
+                    for row in tau_rows
+                    if row["precision_variant"] == "strict_fp16"
+                    and abs(float(row["R_prune"])) <= 1.0e-12
+                    and row["valid_for_tau"]
+                ]
+                if len(reference_candidates) != 1:
+                    break
+                reference = float(reference_candidates[0]["mAP"])
+                for row in tau_rows:
+                    row["delta_mAP"] = reference - float(row["mAP"])
+                rates = propose_boundary_bisections(
+                    tau_rows,
+                    max_absolute_map_drop=float(
+                        dict(
+                            self.config.get("joint_taylor_anchor_sweep", {}) or {}
+                        ).get("max_allowed_absolute_mAP_drop", 0.1)
+                    ),
+                    max_rounds=max_rounds - round_index,
+                )
+                if not rates:
+                    break
+                structure = self._plan_one_rate(planning, rates[0])
+                if structure.mask_hash in seen_masks:
+                    break
+                seen_masks.add(structure.mask_hash)
+                all_structures.append(structure)
+                tasks = self._tasks_for_structures(
+                    planning,
+                    [structure],
+                    task_root=run_dir / "boundary_anchors" / f"round_{round_index + 1}",
+                )
+                all_tasks.extend(tasks)
+                all_results.extend(
+                    self._enrich_results(tasks, pool.map_tasks(tasks))
+                )
+        self._verify_physical_identity(all_results)
+        return all_results, all_tasks, all_structures
+
+    @staticmethod
+    def _active_deployment_process_commands() -> list[str]:
+        completed = subprocess.run(
+            [
+                "pgrep",
+                "-af",
+                "candidate_worker|evaluation_worker|calibration_worker|trtexec|stage2_process_pool",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=10,
+        )
+        return [line for line in completed.stdout.splitlines() if line.strip()]
+
+    def _formal_latency_replay(
+        self, run_dir: Path, screening_rows: Sequence[Mapping[str, Any]]
+    ) -> list[dict[str, Any]]:
+        anchor_cfg = dict(self.config.get("joint_taylor_anchor_sweep", {}) or {})
+        gpu_id = int(anchor_cfg.get("formal_latency_gpu_id", 4))
+        gpu_rows = query_gpus()
+        selected = next(row for row in gpu_rows if int(row["index"]) == gpu_id)
+        assert_formal_latency_isolation(
+            active_process_commands=self._active_deployment_process_commands(),
+            selected_gpu_uuid=str(selected["uuid"]),
+            gpu_processes=[
+                {**process, "gpu_uuid": row["uuid"]}
+                for row in gpu_rows
+                for process in row.get("processes", [])
+            ],
+        )
+        formal_config = json.loads(json.dumps(self.config))
+        formal_config["runtime"]["gpu_id"] = str(gpu_id)
+        helper = JointTaylorAnchorStudy(
+            config=formal_config, output_root=self.output_root
+        )
+        formal_root = run_dir / "formal_latency_context"
+        formal_root.mkdir(parents=True, exist_ok=True)
+        context = helper._build_context(formal_root)
+        stage2 = dict(self.config.get("stage2", {}) or {})
+        evaluator = LidarPyramidRealEvaluator(
+            context=context,
+            run_dir=formal_root,
+            num_frames=int(stage2.get("num_frames", 1789)),
+            warmup_frames=int(stage2.get("warmup_frames", 20)),
+            latency_rounds=int(stage2.get("latency_rounds", 1)),
+            target_bops_retention=None,
+            bops_tolerance=float(stage2.get("bops_tolerance", 0.005)),
+            stage2_config=Stage2ObjectiveConfig(
+                eta_map=0.8,
+                eta_latency=0.2,
+                latency_metric=str(stage2.get("latency_metric", "forward_p50_ms")),
+                tau_ap=None,
+                max_map_drop=None,
+            ),
+        )
+        replay = []
+        for index, row in enumerate(screening_rows):
+            if str(row.get("status", "")) != "ok":
+                continue
+            destination = run_dir / "formal_latency" / f"{index:03d}_{row['candidate_hash']}"
+            pre = query_gpus()[gpu_id]
+            result = evaluator._evaluate_engine(str(row["engine_path"]), destination)
+            post = query_gpus()[gpu_id]
+            replay.append(
+                {
+                    "candidate_hash": row["candidate_hash"],
+                    "anchor_id": row["anchor_id"],
+                    "precision_variant": row["precision_variant"],
+                    "realized_prune_rate": row["realized_prune_rate"],
+                    "engine_hash": row.get("engine_hash", ""),
+                    "status": result.get("status", ""),
+                    "formal_forward_p50_ms": result.get("forward_p50_ms"),
+                    "formal_forward_p90_ms": result.get("forward_p90_ms"),
+                    "formal_forward_p95_ms": result.get("forward_p95_ms"),
+                    "formal_FPS": (
+                        1000.0 / max(float(result.get("forward_p50_ms", 0.0)), 1.0e-12)
+                        if result.get("status") == "ok"
+                        else None
+                    ),
+                    "evaluated": result.get("num_evaluated_frames", 0),
+                    "skipped": result.get("num_skipped_frames", 0),
+                    "gpu_uuid": str(selected["uuid"]),
+                    "pre_gpu": pre,
+                    "post_gpu": post,
+                    "artifact_dir": str(destination),
+                }
+            )
+        return replay
+
+    @staticmethod
+    def _pearson(xs: Sequence[float], ys: Sequence[float]) -> float | None:
+        if len(xs) < 2 or len(xs) != len(ys):
+            return None
+        mx, my = statistics.mean(xs), statistics.mean(ys)
+        numerator = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+        denominator = math.sqrt(
+            sum((x - mx) ** 2 for x in xs) * sum((y - my) ** 2 for y in ys)
+        )
+        return numerator / denominator if denominator > 0.0 else None
+
+    @staticmethod
+    def _ranks(values: Sequence[float]) -> list[float]:
+        ordered = sorted(enumerate(values), key=lambda row: (row[1], row[0]))
+        ranks = [0.0] * len(values)
+        index = 0
+        while index < len(ordered):
+            end = index + 1
+            while end < len(ordered) and ordered[end][1] == ordered[index][1]:
+                end += 1
+            rank = (index + end - 1) / 2.0 + 1.0
+            for original_index, _value in ordered[index:end]:
+                ranks[original_index] = rank
+            index = end
+        return ranks
+
+    def _correlations(
+        self,
+        rows: Sequence[Mapping[str, Any]],
+        formal: Sequence[Mapping[str, Any]],
+        tau_rows: Sequence[Mapping[str, Any]],
+        reference_map: float,
+    ) -> dict[str, Any]:
+        fp16_formal = [
+            row
+            for row in formal
+            if row["precision_variant"] == "strict_fp16"
+            and row.get("formal_forward_p50_ms") is not None
+        ]
+        prune = [float(row["realized_prune_rate"]) for row in fp16_formal]
+        latency = [float(row["formal_forward_p50_ms"]) for row in fp16_formal]
+        valid_tau = [row for row in tau_rows if row["valid_for_tau"]]
+        losses = [float(row["L_joint"]) for row in valid_tau]
+        drops = [reference_map - float(row["mAP"]) for row in valid_tau]
+        return {
+            "parameter_prune_vs_formal_latency_pearson": self._pearson(prune, latency),
+            "parameter_prune_vs_formal_latency_spearman": self._pearson(
+                self._ranks(prune), self._ranks(latency)
+            ),
+            "L_joint_vs_delta_mAP_spearman": self._pearson(
+                self._ranks(losses), self._ranks(drops)
+            ),
+            "formal_latency_sample_count": len(fp16_formal),
+            "joint_proxy_sample_count": len(valid_tau),
+        }
+
+    def _write_result_artifacts(
+        self,
+        run_dir: Path,
+        rows: Sequence[Mapping[str, Any]],
+        formal: Sequence[Mapping[str, Any]],
+        tau_rows: Sequence[Mapping[str, Any]],
+        correlations: Mapping[str, Any],
+    ) -> None:
+        _write_json(run_dir / "anchor_results.json", list(rows))
+        _write_csv(run_dir / "anchor_results.csv", list(rows))
+        _write_json(run_dir / "formal_latency_replay.json", list(formal))
+        _write_csv(
+            run_dir / "anchor_ap_vs_prune.csv",
+            [
+                {
+                    "anchor_id": row["anchor_id"],
+                    "precision_variant": row["precision_variant"],
+                    "requested_prune_rate": row["requested_prune_rate"],
+                    "realized_prune_rate": row["realized_prune_rate"],
+                    "AP03": row.get("AP@0.3"),
+                    "AP05": row.get("AP@0.5"),
+                    "AP07": row.get("AP@0.7"),
+                    "mAP": row.get("mAP"),
+                }
+                for row in rows
+            ],
+        )
+        _write_csv(
+            run_dir / "anchor_latency_vs_prune.csv",
+            list(formal),
+        )
+        _write_csv(
+            run_dir / "anchor_bops_vs_prune.csv",
+            [
+                {
+                    "anchor_id": row["anchor_id"],
+                    "precision_variant": row["precision_variant"],
+                    "realized_prune_rate": row["realized_prune_rate"],
+                    "R_MAC": row.get("R_MAC"),
+                    "R_BOPS": row.get("BOPS_retention"),
+                }
+                for row in rows
+            ],
+        )
+        _write_csv(run_dir / "tau_calibration_candidates.csv", list(tau_rows))
+        _write_csv(
+            run_dir / "failure_matrix.csv",
+            [
+                {
+                    "anchor_id": row["anchor_id"],
+                    "precision_variant": row["precision_variant"],
+                    "candidate_hash": row["candidate_hash"],
+                    "status": row.get("status", ""),
+                    "failure_reason": row.get("failure_reason", ""),
+                }
+                for row in rows
+            ],
+        )
+        _write_json(run_dir / "correlations.json", dict(correlations))
 
     def run(self, *, planning_only: bool = False) -> dict[str, Any]:
         run_dir = self._new_run_dir()
@@ -571,22 +1041,84 @@ class JointTaylorAnchorStudy:
             },
         )
         planning = self.plan(run_dir)
-        if not planning_only:
-            raise RuntimeError("joint_taylor_anchor_deployment_not_yet_enabled")
-        _write_json(
-            run_dir / "run_state.json",
-            {
+        if planning_only:
+            _write_json(
+                run_dir / "run_state.json",
+                {
+                    "status": "planning_complete",
+                    "ANCHOR_SWEEP_COMPLETE": False,
+                    "TAU_CALIBRATION_PASS": False,
+                    "STAGE_A_STARTED": False,
+                    "STAGE_B_ALLOWED": False,
+                },
+            )
+            return {
+                "run_dir": str(run_dir),
                 "status": "planning_complete",
-                "ANCHOR_SWEEP_COMPLETE": False,
-                "TAU_CALIBRATION_PASS": False,
-                "STAGE_A_STARTED": False,
-                "STAGE_B_ALLOWED": False,
+                "structure_count": len(planning["plan"].structures),
+            }
+        screening_rows, _tasks, structures = self._run_matrix(run_dir, planning)
+        stage2 = dict(self.config.get("stage2", {}) or {})
+        required_frames = int(stage2.get("required_evaluated_frames", 1789))
+        tau_rows = self._tau_rows(screening_rows, required_frames=required_frames)
+        reference_rows = [
+            row
+            for row in tau_rows
+            if row["precision_variant"] == "strict_fp16"
+            and abs(float(row["R_prune"])) <= 1.0e-12
+            and row["valid_for_tau"]
+        ]
+        if len(reference_rows) != 1:
+            raise RuntimeError(
+                f"strict_fp16_full_validation_reference_invalid:{len(reference_rows)}"
+            )
+        reference_map = float(reference_rows[0]["mAP"])
+        scale = calibrate_tau(
+            tau_rows,
+            mAP_reference=reference_map,
+            max_allowed_absolute_mAP_drop=float(
+                dict(self.config.get("joint_taylor_anchor_sweep", {}) or {}).get(
+                    "max_allowed_absolute_mAP_drop", 0.1
+                )
+            ),
+            code_commit=planning["context"].code_commit,
+        )
+        scale_hash = write_proxy_scale(run_dir / "proxy_scale.json", scale)
+        formal = self._formal_latency_replay(run_dir, screening_rows)
+        correlations = self._correlations(
+            screening_rows, formal, tau_rows, reference_map
+        )
+        self._write_result_artifacts(
+            run_dir, screening_rows, formal, tau_rows, correlations
+        )
+        completed = all(str(row.get("status", "")) == "ok" for row in screening_rows)
+        _write_json(
+            run_dir / "anchor_structure_manifest.json",
+            {
+                **planning["plan"].to_dict(),
+                "evaluated_structures": [row.to_dict() for row in structures],
             },
         )
+        state = {
+            "status": "complete" if completed else "failed",
+            "ANCHOR_SWEEP_COMPLETE": bool(completed),
+            "TAU_CALIBRATION_PASS": True,
+            "TAU_BOUNDARY_UNDERRESOLVED": bool(scale.tau_boundary_underresolved),
+            "EXPONENTIAL_TASK_SCORE_APPLIED": False,
+            "NEW_J1_MULTIGPU_TOP5_SMOKE_PASS": False,
+            "STAGE_A_ALLOWED": False,
+            "STAGE_A_STARTED": False,
+            "STAGE_B_ALLOWED": False,
+            "proxy_scale_hash": scale_hash,
+        }
+        _write_json(run_dir / "run_state.json", state)
         return {
             "run_dir": str(run_dir),
-            "status": "planning_complete",
-            "structure_count": len(planning["plan"].structures),
+            **state,
+            "engine_count": len(screening_rows),
+            "formal_latency_count": len(formal),
+            "mAP_reference": reference_map,
+            "tau": scale.tau,
         }
 
 
