@@ -1006,3 +1006,82 @@ Current gates:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 17 completed: 2026-07-15 05:51:19 CST ---
+
+## Round 18 - constrained generation-0 multi-GPU Top-5 smoke
+
+The user-approved C-centered Stage A search region is now implemented in the
+new config `search/configs/lidar_pyramid_4090_ga_stage2_constrained_smoke.yaml`
+and the new `search/constrained/` package. The hard region is `R_MAC>=0.95`,
+full-canonical INT8 MAC share `[0.14,0.22]`, and BOPS `[0.205,0.215]`, with
+FP16/INT8 genes only. Pruning is restricted to at most 20 low-Fisher channels
+from the late `shrink_conv.layers.0.double_conv.0` local domain. Existing
+pruning closure propagates the physical input change downstream; neither the
+tracer nor the core dependency graph was modified.
+
+The initial population is deterministic and constrained rather than fully
+random: 358 C-neighborhood, 358 hybrid, 205 restored Anchor-B Fisher, and 103
+constrained-fresh candidates. Exact Anchor C appears once. Seed construction
+generated 5,117 unique proposals, of which 4,118 passed R_MAC, 1,979 passed
+INT8-share, and 1,365 passed legalized BOPS before the required 1,024 unique
+genotypes were accepted. Generation 0 processed all 1,024 candidates on GPU5;
+all passed post-repair hard gates and represented 35 unique physical pruning
+plans. Precision repair identity failures were zero.
+
+The first live run exposed a smoke-manifest context bug and failed closed
+before formal admission. Commit `8a938c4` gives smoke10 its own deterministic
+manifest while restoring the fixed full200 context for formal evaluation. The
+fresh accepted run is:
+
+`outputs/4090_ga_qdq_stage2_constrained_smoke_20260714_164648/`
+
+Persistent workers on physical GPUs 4/5/6/7 evaluated two four-wide batches.
+All eight independently materialized, calibrated, built, and evaluated
+candidates passed smoke10 and 200/200 with zero skips. Five ranked candidates
+were admitted; the remaining three are explicitly recorded as passing
+speculative batch deployments. All four workers returned 0, the pool stopped,
+and no residual GPU process remained.
+
+Accepted Top-5 summary:
+
+| rank | family | width | R_MAC | INT8 groups | share | BOPS | AP07 | mAP | p50 ms |
+|---:|---|---:|---:|---|---:|---:|---:|---:|---:|
+| 1 | hybrid | 244/256 | 0.974010 | pg_0141 | 0.197142 | 0.206538 | 0.595563 | 0.725342 | 4.184 |
+| 2 | hybrid | 248/256 | 0.982673 | pg_0141 | 0.197142 | 0.208704 | 0.595289 | 0.725149 | 4.412 |
+| 3 | hybrid | 252/256 | 0.991337 | pg_0141 | 0.197142 | 0.210870 | 0.595010 | 0.725275 | 5.247 |
+| 4 | C-neighborhood | 256/256 | 1.000000 | pg_0141 | 0.197142 | 0.213036 | 0.594496 | 0.725394 | 4.670 |
+| 5 | constrained fresh | 248/256 | 0.982673 | pg_0077,pg_0086,pg_0141 | 0.206383 | 0.206971 | 0.597449 | 0.726520 | 5.240 |
+
+All five have unique genotype, physical, deployment, and engine hashes. Raw,
+repaired, requested, and realized precision hashes are identical within every
+candidate; channel repair and TensorRT made no precision substitution.
+Physical, strongly typed, Q/DQ, scale, merge, `/Concat_9`, and realized-BOPS
+audits all pass. The common train200 frame-manifest hash is
+`eb56308111e20ad7c789b18a8860289fe7357474722dadc43c810868554e0ec5` and
+validation200 hash is
+`6f601374e573a5ed7da61eeac07259c0eea34fb5ed72d9bf52265d40a02c9f16`.
+
+The real hybrid observations show measured loss below the deliberately
+conservative additive proxy prediction. They are saved for between-generation
+calibration; no proxy term was changed online. The full source, population,
+failure, GPU, metric, hash, delta, and reproduction evidence is recorded in
+`docs/codex_handoffs/4090-constrained-top5-smoke-report.md`.
+
+Final verification for the implementation and manifest fix is 184 related
+search/constrained tests passed, all changed Python files compiled, and
+`git diff --check` passed.
+
+Current gates:
+
+- `STRONGLY_TYPED_E67_READY_FOR_GA = true`;
+- `ANCHOR_LOW_DAMAGE_PATH_IDENTIFIED = true`;
+- `CONSTRAINED_SEARCH_SPACE_APPLIED = true`;
+- `MULTIGPU_TOP5_SMOKE_PASS = true`;
+- `STAGE_A_ALLOWED = true`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+Stage A was deliberately not launched. The next step requires explicit user
+confirmation, then a fresh generation-0 start of the formal five-generation
+Stage A run using this constrained space.
+
+--- Round 18 completed: 2026-07-15 08:41:40 CST ---
