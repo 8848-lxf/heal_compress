@@ -190,6 +190,17 @@ def build_anchor_precision_phenotype(
     )
 
 
+def anchor_precision_lineage_hash(phenotype: CandidatePhenotype) -> str:
+    """Hash the expanded requested module profile used by deployment audits."""
+
+    return canonical_json_hash(
+        {
+            str(module_path): str(decision.requested_precision).upper()
+            for module_path, decision in sorted(phenotype.precision_profile.items())
+        }
+    )
+
+
 def stage2_result_to_tau_row(
     task: Mapping[str, Any],
     result: Mapping[str, Any],
@@ -629,6 +640,7 @@ class JointTaylorAnchorStudy:
                     raise RuntimeError(
                         f"anchor_candidate_joint_proxy_nonfinite:{candidate_id}"
                     )
+                precision_lineage_hash = anchor_precision_lineage_hash(phenotype)
                 tasks.append(
                     {
                         "anchor_id": structure.anchor_id,
@@ -643,6 +655,8 @@ class JointTaylorAnchorStudy:
                         "phenotype": phenotype.to_dict(),
                         "proxy_result": asdict(proxy_result),
                         "stage1_metrics": asdict(proxy_result),
+                        "raw_precision_gene_hash": precision_lineage_hash,
+                        "repaired_precision_gene_hash": precision_lineage_hash,
                         "seed_family": "global_joint_taylor_anchor",
                         "output_dir": str(
                             task_root

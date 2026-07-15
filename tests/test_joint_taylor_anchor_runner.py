@@ -102,6 +102,23 @@ def test_anchor_precision_variants_keep_same_pruned_units() -> None:
     assert int8.realized_precision_profile == {"conv0": "INT8", "head": "FP16"}
 
 
+def test_anchor_task_precision_lineage_hash_uses_expanded_requested_profile() -> None:
+    from search.anchors.joint_taylor_runner import anchor_precision_lineage_hash
+    from search.candidate import CandidatePhenotype, PrecisionDecision
+    from search.hashing import canonical_json_hash
+
+    phenotype = CandidatePhenotype(
+        pruned_unit_ids=[],
+        precision_profile={
+            "conv0": PrecisionDecision("INT8", "INT8"),
+            "head": PrecisionDecision("FP16", "FP16"),
+        },
+    )
+
+    expected = canonical_json_hash({"conv0": "INT8", "head": "FP16"})
+    assert anchor_precision_lineage_hash(phenotype) == expected
+
+
 def test_tau_row_requires_full_manifest_and_all_deployment_audits() -> None:
     from search.anchors.joint_taylor_runner import stage2_result_to_tau_row
 
