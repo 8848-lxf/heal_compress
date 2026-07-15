@@ -70,8 +70,27 @@ def resolve_virtual_shapes(
             c_in_before = int(module.in_channels)
             c_out_before = int(module.out_channels)
             groups_before = int(module.groups)
-            c_in_after = c_in_before - len(pruned.get((name, "in"), set()))
             c_out_after = c_out_before - len(pruned.get((name, "out"), set()))
+            pruned_input_positions = len(pruned.get((name, "in"), set()))
+            if (
+                isinstance(module, nn.Conv2d)
+                and groups_before > 1
+                and c_in_before == c_out_before
+                and pruned_input_positions
+                and len(pruned.get((name, "out"), set()))
+            ):
+                # Current grouped pruning contracts preserve group count and
+                # enforce one common retained width per physical group. Local
+                # positions may differ by group, so their union is not a
+                # logical input-channel count. Coupled in/out widths are equal.
+                c_in_after = c_out_after
+            elif isinstance(module, nn.Conv2d) and groups_before > 1:
+                # Conv2d grouped weights store C_in/groups on axis 1. The
+                # parameter-slice resolver therefore records local positions;
+                # each removed local position removes one input in every group.
+                c_in_after = c_in_before - pruned_input_positions * groups_before
+            else:
+                c_in_after = c_in_before - pruned_input_positions
             groups_after = c_out_after if groups_before == c_in_before == c_out_before else groups_before
             kernel_size = tuple(int(v) for v in module.kernel_size)
         elif isinstance(module, nn.Linear):

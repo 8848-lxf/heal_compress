@@ -93,7 +93,7 @@ def conditional_grouped_floor_repair(
     prune_map: dict[int, list[int]] = {}
     raw_total = 0
     legal_total = 0
-    targets: set[int] = set()
+    raw_target_keep_by_group: dict[int, int] = {}
     for physical_group, raw_units in sorted(physical_groups.items()):
         units = tuple(str(unit_id) for unit_id in raw_units)
         raw_prune = sum(1 for unit_id in units if normalized.get(unit_id, 1) == 0)
@@ -107,8 +107,16 @@ def conditional_grouped_floor_repair(
                 legal_total,
                 failure_reason=f"conditional_grouped_no_legal_keep_width:{physical_group}:{raw_keep}",
             )
-        target_keep = min(legal_keeps)
-        targets.add(target_keep)
+        raw_target_keep_by_group[int(physical_group)] = min(legal_keeps)
+        raw_total += raw_prune
+
+    # All physical groups must end at one width. Choose the largest of the
+    # independently floored widths so projection never prunes more than any
+    # group's raw request.
+    target_keep = max(raw_target_keep_by_group.values())
+    legal_total = 0
+    for physical_group, raw_units in sorted(physical_groups.items()):
+        units = tuple(str(unit_id) for unit_id in raw_units)
         legal_prune = len(units) - target_keep
         ordered = _ordered_by_cost(units, conditional_costs)
         selected = set(ordered[:legal_prune])
@@ -124,18 +132,7 @@ def conditional_grouped_floor_repair(
             for unit_id in units
             if unit_id in selected
         )
-        raw_total += raw_prune
         legal_total += legal_prune
-    if len(targets) != 1:
-        return ConditionalRepairResult(
-            "failed",
-            normalized,
-            raw_total,
-            legal_total,
-            failure_reason="conditional_grouped_unequal_legal_width",
-            group_keep_map=keep_map,
-            group_prune_map=prune_map,
-        )
     return ConditionalRepairResult(
         "ok",
         repaired,
@@ -146,7 +143,8 @@ def conditional_grouped_floor_repair(
         shared_position_strategy=False,
         metadata={
             "repair_mode": "conditional_joint_taylor_independent_physical_group_floor",
-            "target_channels_per_group": next(iter(targets)),
+            "target_channels_per_group": target_keep,
+            "raw_target_keep_by_group": raw_target_keep_by_group,
             "prune_count_not_increased": legal_total <= raw_total,
         },
     )
@@ -209,4 +207,3 @@ def repair_candidate_domains(
     if report["precision_profile_modified"]:
         raise RuntimeError("conditional_repair_modified_precision_profile")
     return repaired, report
-

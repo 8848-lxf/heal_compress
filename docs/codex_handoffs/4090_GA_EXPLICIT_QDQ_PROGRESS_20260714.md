@@ -1085,3 +1085,55 @@ confirmation, then a fresh generation-0 start of the formal five-generation
 Stage A run using this constrained space.
 
 --- Round 18 completed: 2026-07-15 08:41:40 CST ---
+
+## Round 19 - pruning-rate reachability contradiction audit
+
+This round did not continue Taylor proxy development and did not launch GA,
+Stage A, Stage B, QDQ, or TensorRT. It isolated the discrepancy between the
+joint-Taylor anchor planner's observed `0.217360920` ceiling and the historical
+first-order Taylor pruning sweep.
+
+Historical 0.50/0.60/0.70 physical plans were replayed directly without
+current repair. Their parameter counts exactly match the saved model objects:
+2,723,599, 2,181,995, and 1,632,503 out of 5,464,791. Thus 0.60 is physically
+proven at `0.600717575`. The 0.70 model is physically proven at `0.701268905`,
+completed 500-frame evaluation, and collapsed to mAP `0.067819`; its failure is
+accuracy, not structure.
+
+Current parameter coverage contains 6,912 selected atoms in 24 scopes. The
+per-unit dependency raw sum is 9,366,208 because closures overlap; the global
+parameter-element union is 5,463,232. There are no missing selected parameter
+slices. An independent legal-width solver and physical replay prove the same
+current inventory and constraints can reach 586,919 parameters, or
+`0.892599918` full-model pruning, while respecting `domain_cap=0.8` (observed
+maximum domain rate `0.796875`). Synthetic forward and fixed real-data 10/10
+smoke pass, although accuracy at this extreme collapses as expected.
+
+Two implementation defects were closed with regression-first fixes. Grouped
+raw requests now project to one conservative common legal width, and the anchor
+planner explicitly records the maximum legal state so importance-order skew
+cannot define reachability. Grouped virtual parameter counting now treats
+axis-1 indices as physical-group-local and matches the materialized model.
+Post-fix planner, independent solver, slice union, and physical count all agree
+at `0.892599918` with zero parameter-count error.
+
+Historical masks are not automatically current-rule legal: eight layer-2
+grouped domains retain 12 channels per group, while the current allowlist omits
+12. This is a real constraint-set difference, but it is not the cause of the
+old `0.217361` ceiling. The complete evidence and limitations are in
+`docs/codex_handoffs/4090-prune-rate-reachability-audit.md` and
+`outputs/20260715_150636_prune_rate_reachability_audit/`.
+
+Verification at this checkpoint: 11 new assertions and 68 related tests pass;
+historical one-shot replay, current physical replay, and 10-frame GPU4 smoke
+all pass. Full 1,789-frame validation was intentionally not run for the
+extreme reachability masks.
+
+Current execution gates remain unchanged:
+
+- `GA_STARTED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_STARTED = false`;
+- `TENSORRT_STARTED = false`.
+
+--- Round 19 completed: 2026-07-16 06:00:51 CST ---

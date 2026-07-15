@@ -158,11 +158,13 @@ def plan_anchor_structures(
         rates = _domain_rates(repaired, domains)
         if any(value > float(per_domain_max_prune_rate) + 1.0e-12 for value in rates.values()):
             return
+        key = canonical_json_hash(dict(sorted(repaired.items())))
+        if key in candidates:
+            return
         candidate_params = int(parameter_count_fn(repaired))
         if not 0 <= candidate_params <= int(original_params):
             raise RuntimeError("anchor_parameter_count_callback_invalid")
         realized = 1.0 - float(candidate_params) / float(original_params)
-        key = canonical_json_hash(dict(sorted(repaired.items())))
         candidates.setdefault(
             key,
             {
@@ -190,6 +192,59 @@ def plan_anchor_structures(
         raw_mask[unit_id] = 0
         raw_selected_by_domain[domain_id] += 1
         record_candidate()
+
+    # The unit-wise global walk can consume a domain cap before every physical
+    # group has crossed the same legal-width boundary. Explicitly enumerate the
+    # maximum legal state so the planner's reported reachability is not an
+    # artifact of importance-order skew.
+    for unit_id in raw_mask:
+        raw_mask[unit_id] = 1
+    for domain_id, unit_ids in sorted(domains.items()):
+        if domain_id in grouped_specs:
+            spec = grouped_specs[domain_id]
+            physical_groups = {
+                int(group): [str(unit_id) for unit_id in rows]
+                for group, rows in spec["physical_groups"].items()
+            }
+            group_widths = {len(rows) for rows in physical_groups.values()}
+            if len(group_widths) != 1:
+                raise RuntimeError(
+                    f"anchor_grouped_physical_width_mismatch:{domain_id}"
+                )
+            group_width = group_widths.pop()
+            legal_keeps = [
+                int(width)
+                for width in spec["allowed_channels_per_group"]
+                if 0 < int(width) <= group_width
+                and (group_width - int(width)) / group_width
+                <= float(per_domain_max_prune_rate) + 1.0e-12
+            ]
+            target_keep = min(legal_keeps) if legal_keeps else group_width
+            for rows in physical_groups.values():
+                ordered = sorted(
+                    rows,
+                    key=lambda unit_id: (conditional_costs[unit_id], unit_id),
+                )
+                for unit_id in ordered[: group_width - target_keep]:
+                    raw_mask[unit_id] = 0
+        else:
+            width = len(unit_ids)
+            cap_count = int(
+                math.floor(width * float(per_domain_max_prune_rate))
+            )
+            maximum = min(
+                cap_count,
+                width - int(minimum_width_by_domain.get(domain_id, 1)),
+            )
+            alignment = max(1, int(dense_alignment_by_domain.get(domain_id, 4)))
+            legal_count = alignment * (maximum // alignment)
+            ordered = sorted(
+                unit_ids,
+                key=lambda unit_id: (conditional_costs[unit_id], unit_id),
+            )
+            for unit_id in ordered[:legal_count]:
+                raw_mask[unit_id] = 0
+    record_candidate()
     if not candidates:
         raise RuntimeError("anchor_no_legal_structures")
     choices = list(candidates.values())
