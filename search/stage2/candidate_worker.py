@@ -147,6 +147,26 @@ def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
 
     context = build_lidar_pyramid_context(**_context_kwargs(request))
     config = dict(request.get("config", {}))
+    joint_anchor = dict(config.get("joint_taylor_anchor_sweep", {}) or {})
+    if bool(joint_anchor.get("enabled", False)):
+        from ..anchors.joint_taylor_runner import apply_global_anchor_pruning_context
+
+        pruning = dict(config.get("pruning", {}) or {})
+        grouped = dict(pruning.get("grouped_conv", {}) or {})
+        context, _anchor_inventory = apply_global_anchor_pruning_context(
+            context,
+            grouped_conv_mode=str(
+                grouped.get("position_mode", "independent_group_topk")
+            ),
+            grouped_conv_align=int(grouped.get("default_channels_per_group", 4)),
+            grouped_allowed_channels_per_group=[
+                int(value)
+                for value in grouped.get(
+                    "allowed_channels_per_group",
+                    [4, 8, 16, 32, 64, 128, 256, 512],
+                )
+            ],
+        )
     constrained = dict(config.get("constrained_search", {}) or {})
     if bool(constrained.get("enabled", False)):
         pruning = dict(config.get("pruning", {}) or {})

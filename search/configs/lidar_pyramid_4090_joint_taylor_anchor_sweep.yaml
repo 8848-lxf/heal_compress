@@ -1,0 +1,87 @@
+model:
+  checkpoint: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth
+  config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml
+
+runtime:
+  gpu_id: "5"
+  exclude_gpu_ids: []
+  allow_foreign_gpu_processes: false
+  max_gpu_utilization_pct: 20
+  model_env: univ2x-opt
+  tensorrt_env: modelopt
+  tensorrt_root: /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118
+  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
+  plugin_boundary_dtype: fp32
+
+output:
+  experiment_name: 4090_global_joint_taylor_anchor_sweep
+
+pruning:
+  gene_type: coupled_channel_keep_mask
+  stage1_importance: joint_taylor_second_order_fisher_diag
+  repair_importance: conditional_joint_taylor_second_order_fisher_diag
+  minimum_retained_ratio: 0.10
+  dense:
+    alignment: 4
+  grouped_conv:
+    preserve_group_count: true
+    allow_remove_groups: false
+    position_mode: independent_group_topk
+    default_channels_per_group: 4
+    allowed_channels_per_group: [4, 8, 16, 32, 64, 128, 256, 512]
+    require_group_keep_map: true
+
+precision:
+  gene_type: coupled_precision_group
+  candidates: [FP16, INT8]
+  default: FP16
+  preserve_existing_precision_groups: true
+  illegal_int8_policy: strict
+
+proxy:
+  proxy_mode: joint_taylor_second_order_fisher_diag
+  fisher_calibration_batches: 32
+  fisher_micro_batch_size: 1
+  quant_calibration_batches: 200
+  quant_calibration_npz_manifest: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json
+  quant_activation_calibration_backend: tensorrt_entropy_calibration2
+  quant_calibration_force_rebuild: true
+
+search:
+  max_pruning_units: 100000
+
+joint_taylor_anchor_sweep:
+  enabled: true
+  requested_prune_rates: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+  per_domain_max_prune_rate: 0.8
+  max_boundary_bisection_rounds: 3
+  max_allowed_absolute_mAP_drop: 0.1
+  precision_variants: [strict_fp32, strict_fp16, maximal_legal_int8]
+  formal_latency_gpu_id: 4
+  ga_enabled: false
+
+stage2:
+  num_frames: 1789
+  warmup_frames: 20
+  reset_after_warmup: true
+  latency_rounds: 1
+  latency_metric: forward_p50_ms
+  target_bops_retention: null
+  bops_tolerance: 0.005
+  required_evaluated_frames: 1789
+  required_skipped_frames: 0
+  min_map: null
+  min_ap07: null
+
+stage2_parallel:
+  enabled: true
+  gpu_ids: [4, 5, 6, 7]
+  allow_controller_process_on_stage1_gpu: true
+  startup_timeout_seconds: 1200
+  task_timeout_seconds: 28800
+  poll_interval_seconds: 0.25
+
+cache:
+  fresh_run: true
+  reuse_external_cache: false
+  resume: false

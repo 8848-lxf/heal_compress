@@ -7,7 +7,10 @@ from dataclasses import asdict, dataclass
 from typing import Any, Callable, Mapping, Sequence
 
 from ..hashing import canonical_json_hash
-from ..stage1.conditional_repair import conditional_dense_floor_repair
+from ..stage1.conditional_repair import (
+    conditional_dense_floor_repair,
+    conditional_grouped_floor_repair,
+)
 
 
 ANCHOR_PRECISION_VARIANTS = (
@@ -39,6 +42,7 @@ class AnchorStructure:
     mask_hash: str
     domain_prune_rates: dict[str, float]
     infeasible_under_domain_cap: bool
+    repair_metadata: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -102,6 +106,7 @@ def plan_anchor_structures(
     dense_alignment_by_domain: Mapping[str, int],
     minimum_width_by_domain: Mapping[str, int],
     per_domain_max_prune_rate: float = 0.8,
+    grouped_domain_specs: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> AnchorSweepPlan:
     if int(original_params) <= 0:
         raise ValueError("anchor_original_params_must_be_positive")
@@ -118,10 +123,13 @@ def plan_anchor_structures(
     raw_selected_by_domain = {domain_id: 0 for domain_id in domains}
     conditional_costs = {str(unit.unit_id): float(unit.importance) for unit in units}
     candidates: dict[str, dict[str, Any]] = {}
+    grouped_specs = dict(grouped_domain_specs or {})
 
     def record_candidate() -> None:
         repaired = dict(raw_mask)
         for domain_id, unit_ids in sorted(domains.items()):
+            if domain_id in grouped_specs:
+                continue
             result = conditional_dense_floor_repair(
                 {unit_id: raw_mask[unit_id] for unit_id in unit_ids},
                 conditional_costs=conditional_costs,
@@ -131,6 +139,22 @@ def plan_anchor_structures(
             if result.status != "ok":
                 return
             repaired.update(result.repaired_mask)
+        group_keep_maps: dict[str, Any] = {}
+        group_prune_maps: dict[str, Any] = {}
+        for domain_id, spec in sorted(grouped_specs.items()):
+            unit_ids = domains.get(domain_id, [])
+            result = conditional_grouped_floor_repair(
+                {unit_id: raw_mask[unit_id] for unit_id in unit_ids},
+                physical_groups=spec["physical_groups"],
+                local_indices=spec["local_indices"],
+                conditional_costs=conditional_costs,
+                allowed_channels_per_group=spec["allowed_channels_per_group"],
+            )
+            if result.status != "ok":
+                return
+            repaired.update(result.repaired_mask)
+            group_keep_maps[domain_id] = result.group_keep_map
+            group_prune_maps[domain_id] = result.group_prune_map
         rates = _domain_rates(repaired, domains)
         if any(value > float(per_domain_max_prune_rate) + 1.0e-12 for value in rates.values()):
             return
@@ -147,6 +171,11 @@ def plan_anchor_structures(
                 "candidate_params": candidate_params,
                 "realized_prune_rate": realized,
                 "domain_prune_rates": rates,
+                "repair_metadata": {
+                    "repair_mode": "global_anchor_conditional_joint_taylor",
+                    "group_keep_map_by_scope": group_keep_maps,
+                    "group_prune_map_by_scope": group_prune_maps,
+                },
             },
         )
 
@@ -187,6 +216,7 @@ def plan_anchor_structures(
                 mask_hash=str(selected["mask_hash"]),
                 domain_prune_rates=dict(selected["domain_prune_rates"]),
                 infeasible_under_domain_cap=bool(target > maximum + 1.0e-12),
+                repair_metadata=dict(selected["repair_metadata"]),
             )
         )
     return AnchorSweepPlan(
