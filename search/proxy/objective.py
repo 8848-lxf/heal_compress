@@ -9,6 +9,7 @@ from typing import Any
 from ..candidate import CandidatePhenotype
 from .bops_proxy import BOPSProxy
 from .fisher_proxy import FisherTaylorProxy
+from .joint_weight_taylor import JointWeightTaylorProxy
 from .normalization import NormalizationStats
 from .size_proxy import SizeProxy
 from .sqnr_proxy import SQNRProxy
@@ -16,6 +17,7 @@ from .sqnr_proxy import SQNRProxy
 
 @dataclass(frozen=True)
 class ProxyObjectiveConfig:
+    objective_mode: str = "legacy_fisher_sqnr_size_bops"
     alpha_fisher: float = 1.0
     beta_sqnr: float = 1.0
     gamma_size: float = 1.0
@@ -25,6 +27,7 @@ class ProxyObjectiveConfig:
     bops_constraint_mode: str = "weighted_penalty"
     bops_penalty_formula: str = "absolute_excess_squared"
     lambda_bops: float = 1.0
+    parameter_retention_tiebreak_epsilon: float = 0.0
     illegal_score: float = float("inf")
 
 
@@ -77,6 +80,7 @@ class ProxyObjective:
         sqnr: SQNRProxy | None = None,
         size: SizeProxy | None = None,
         bops: BOPSProxy | None = None,
+        joint_weight_taylor: JointWeightTaylorProxy | None = None,
         *,
         normalization: NormalizationStats | None = None,
         config: ProxyObjectiveConfig | None = None,
@@ -85,20 +89,31 @@ class ProxyObjective:
         self.sqnr = sqnr or SQNRProxy()
         self.size = size or SizeProxy(layer_parameter_counts={})
         self.bops = bops or BOPSProxy(layer_ops={})
+        self.joint_weight_taylor = joint_weight_taylor
         self.normalization = normalization or NormalizationStats()
         self.config = config or ProxyObjectiveConfig()
 
     def evaluate(self, phenotype: CandidatePhenotype, *, legal: bool = True) -> dict[str, Any]:
         if not legal:
             return {"F1": self.config.illegal_score, "legal": False}
-        fisher = self.fisher.evaluate(phenotype)
-        sqnr = self.sqnr.evaluate(phenotype)
+        joint_mode = self.config.objective_mode == "joint_weight_taylor_hard_bops"
+        if joint_mode:
+            if self.joint_weight_taylor is None:
+                raise RuntimeError("joint_weight_taylor_proxy_missing")
+            joint_metrics = dict(self.joint_weight_taylor.evaluate_breakdown(phenotype))
+            fisher = float(joint_metrics["L_joint_weight_taylor"])
+            sqnr = 0.0
+        else:
+            joint_metrics = {}
+            fisher = self.fisher.evaluate(phenotype)
+            sqnr = self.sqnr.evaluate(phenotype)
         if hasattr(self.size, "evaluate_breakdown"):
             size_metrics = self.size.evaluate_breakdown(phenotype)
             size = float(size_metrics.get("R_size_vs_fp32", size_metrics.get("R_size_vs_fp16_deploy", 0.0)))
         else:
             size = float(self.size.evaluate(phenotype))
             size_metrics = {"R_size_vs_fp32": size, "R_size_vs_fp16_deploy": size}
+        parameter_retention = float(size_metrics.get("R_parameter_retention", 1.0))
         if hasattr(self.bops, "evaluate_breakdown"):
             bops_metrics = self.bops.evaluate_breakdown(phenotype)
         else:
@@ -115,26 +130,43 @@ class ProxyObjective:
         )
         if self.config.bops_threshold is not None:
             penalty += float(self.config.lambda_bops) * bops_penalty
-        raw_score = (
-            self.config.alpha_fisher * self.normalization.normalize("L_fisher", fisher)
-            + self.config.beta_sqnr * self.normalization.normalize("L_sqnr", sqnr)
-            + self.config.gamma_size * size
-            + self.config.delta_bops * bops_penalty
-            + (penalty - float(self.config.lambda_bops) * bops_penalty)
-        )
-        if self.config.bops_constraint_mode == "feasibility_first" and bops_violation > 0.0:
+        if joint_mode:
+            raw_score = float(joint_metrics["L_joint_weight_taylor"])
+            raw_score += (
+                float(self.config.parameter_retention_tiebreak_epsilon)
+                * parameter_retention
+            )
+        else:
+            raw_score = (
+                self.config.alpha_fisher * self.normalization.normalize("L_fisher", fisher)
+                + self.config.beta_sqnr * self.normalization.normalize("L_sqnr", sqnr)
+                + self.config.gamma_size * size
+                + self.config.delta_bops * bops_penalty
+                + (penalty - float(self.config.lambda_bops) * bops_penalty)
+            )
+        if self.config.bops_constraint_mode in {"feasibility_first", "hard_feasibility"} and bops_violation > 0.0:
             score = 1.0e6 + bops_violation * 1.0e3 + raw_score
         else:
             score = raw_score
         if not math.isfinite(score):
             score = self.config.illegal_score
         return {
+            **joint_metrics,
             "L_fisher": float(fisher),
             "L_sqnr": float(sqnr),
             "R_size": float(size),
             "R_size_vs_fp16_deploy": float(size_metrics.get("R_size_vs_fp16_deploy", size)),
             "R_size_vs_fp32": float(size_metrics.get("R_size_vs_fp32", size)),
             "R_size_reference": "original_fp32",
+            "R_parameter_retention": parameter_retention,
+            "parameter_pruning_rate": float(
+                size_metrics.get("parameter_pruning_rate", 1.0 - parameter_retention)
+            ),
+            "parameter_count_base": float(size_metrics.get("parameter_count_base", 0.0)),
+            "parameter_count_after": float(size_metrics.get("parameter_count_after", 0.0)),
+            "constant_untracked_parameter_count": float(
+                size_metrics.get("constant_untracked_parameter_count", 0.0)
+            ),
             "R_bops": float(bops),
             "R_bops_vs_fp16_deploy": float(bops_metrics.get("R_bops_vs_fp16_deploy", bops)),
             "R_bops_vs_fp32": float(bops_metrics.get("R_bops_vs_fp32", bops)),
@@ -150,4 +182,8 @@ class ProxyObjective:
             "F1": float(score),
             "legal": True,
             "normalization": self.normalization.to_dict(),
+            "objective_mode": self.config.objective_mode,
+            "parameter_retention_role": (
+                "report_only" if self.config.parameter_retention_tiebreak_epsilon == 0.0 else "epsilon_tiebreak"
+            ),
         }

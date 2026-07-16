@@ -107,7 +107,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--config", required=True)
     parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--output-root", default="tests/outputs")
-    parser.add_argument("--gpu-id", default="auto")
+    parser.add_argument("--gpu-id", default=None)
+    parser.add_argument("--search-method", choices=("ga", "greedy"), default=None)
     parser.add_argument("--exclude-gpu-ids", default=None)
     parser.add_argument("--resume", nargs="?", const="auto", default=None)
     parser.add_argument("--outer-rounds", type=int, default=None)
@@ -147,6 +148,8 @@ def main(argv: list[str] | None = None) -> int:
         search_cfg["offspring_size"] = args.offspring_size
     if args.generations is not None:
         search_cfg["generations_per_round"] = args.generations
+    if args.search_method is not None:
+        search_cfg["method"] = args.search_method
     if args.topk_real is not None:
         search_cfg["topk_real"] = args.topk_real
     if args.num_frames is not None:
@@ -211,7 +214,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     gpu_report = _gpu_report()
-    selected_gpu = _select_gpu(str(args.gpu_id), config, gpu_report)
+    selected_gpu = _select_gpu(
+        str(runtime_cfg.get("gpu_id", "auto")),
+        config,
+        gpu_report,
+    )
     pruning_ids, precision_ids, protected_ids = _default_space(config)
     _dump_yaml(output_root / "resolved_config.yaml", config)
     (output_root / "environment.json").write_text(

@@ -37,7 +37,7 @@ class SQNRProxy:
             if weight is None:
                 continue
             w = weight.detach()
-            q = pseudo_quantize_tensor(w, precision)
+            q = pseudo_quantize_tensor(w, precision, module=module)
             mask = retained_mask_for_parameter(w, parameter_pruned.get(f"{layer}.weight", []))
             diff = torch.where(mask, q - w, torch.zeros_like(w))
             signal = torch.where(mask, w, torch.zeros_like(w))

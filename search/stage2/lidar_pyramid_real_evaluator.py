@@ -33,6 +33,7 @@ from ..integration.trt_compatible_export import build_search_trt_compatible_expo
 from ..pruning_space.action_codec import selected_actions_from_genes
 from ..pruning_space.grouped_bundle_adapter import request_from_pruning_actions
 from ..baselines.original_engines import (
+    LEGACY_MATCHED_PARAMETERIZED_FP16_MODULES,
     TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES,
     make_baseline_trt_build_config,
     validate_baseline_layer_precisions,
@@ -97,6 +98,27 @@ def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result:
         name = str(merge.get("merge_op_name", ""))
         matched = [layer for layer in layers if name and name in str(layer.get("Name", ""))]
         optimization = "direct_or_fused_layer_name_match"
+        if not matched:
+            branch_tensors = {
+                str(branch.get("tensor", ""))
+                for branch in merge.get("input_branches", [])
+                if str(branch.get("tensor", ""))
+            }
+            tensor_matches = [
+                layer
+                for layer in layers
+                if branch_tensors
+                and branch_tensors
+                <= {
+                    str(tensor.get("Name", ""))
+                    for tensor in layer.get("Inputs", [])
+                }
+            ]
+            if len(tensor_matches) == 1:
+                matched = tensor_matches
+                optimization = "fused_by_exact_graph_input_tensor_set"
+            elif len(tensor_matches) > 1:
+                optimization = "ambiguous_exact_graph_input_tensor_set"
         if not matched and str(merge.get("merge_op_type")) == "Concat":
             downstream_q = [
                 str(row.get("consumer", ""))
@@ -684,6 +706,117 @@ class LidarPyramidRealEvaluator:
         self.real_cache.put(cache_key, result)
         return result
 
+    def reevaluate_existing_candidate_engine(
+        self,
+        phenotype: CandidatePhenotype,
+        *,
+        source_artifact_dir: str | Path,
+        output_dir: str | Path,
+        candidate_hash: str,
+    ) -> dict[str, Any]:
+        """Run a new evaluation protocol against an already-built engine.
+
+        This is the final-validation path for GA round winners.  It deliberately
+        does not call physical materialization, ONNX export, calibration, Q/DQ
+        insertion, or TensorRT build again.
+        """
+
+        source = Path(source_artifact_dir)
+        engine_path = source / "engine.plan"
+        deployment_path = source / "deployment_manifest.json"
+        if not engine_path.is_file() or engine_path.stat().st_size <= 0:
+            raise RuntimeError(f"existing_candidate_engine_missing:{engine_path}")
+        if not deployment_path.is_file():
+            raise RuntimeError(f"existing_deployment_manifest_missing:{deployment_path}")
+        deployment = json.loads(deployment_path.read_text(encoding="utf-8"))
+        expected_engine_hash = str(deployment.get("engine_hash", ""))
+        actual_engine_hash = _file_hash(engine_path)
+        if expected_engine_hash and expected_engine_hash != actual_engine_hash:
+            raise RuntimeError(
+                f"existing_candidate_engine_hash_mismatch:{expected_engine_hash}:{actual_engine_hash}"
+            )
+        required_acceptance_reports = (
+            "physical_validation.json",
+            "physical_plan_validation.json",
+            "engine_structure_validation.json",
+            "precision_realization_validation.json",
+            "merge_precision_realization.json",
+            "production_qdq_boundary_audit.json",
+        )
+        acceptance_reports: dict[str, dict[str, Any]] = {}
+        for name in required_acceptance_reports:
+            path = source / name
+            if not path.is_file():
+                raise RuntimeError(f"existing_candidate_acceptance_report_missing:{path}")
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if not bool(payload.get("passed", False)):
+                raise RuntimeError(
+                    f"existing_candidate_acceptance_report_failed:{path}:{payload.get('issues', payload.get('status', ''))}"
+                )
+            acceptance_reports[name] = {
+                "sha256": _file_hash(path),
+                "status": payload.get("status", "passed"),
+                "passed": True,
+            }
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        _write_json(destination / "phenotype.json", phenotype.to_dict())
+        _write_json(
+            destination / "evaluation_only_source.json",
+            {
+                "candidate_hash": candidate_hash,
+                "source_artifact_dir": str(source.resolve()),
+                "engine_path": str(engine_path.resolve()),
+                "engine_hash": actual_engine_hash,
+                "deployment_hash": deployment.get("deployment_hash", ""),
+                "physical_hash": deployment.get("physical_hash", ""),
+                "engine_rebuilt": False,
+                "physical_rebuilt": False,
+                "onnx_rebuilt": False,
+                "calibration_rebuilt": False,
+                "qdq_rebuilt": False,
+                "source_acceptance_reports": acceptance_reports,
+            },
+        )
+        evaluation = self._evaluate_engine(engine_path, destination)
+        if str(evaluation.get("status", "")) != "ok":
+            result = {
+                "candidate_hash": candidate_hash,
+                "status": "evaluation_failed",
+                "failure_reason": str(
+                    evaluation.get("failure_reason", evaluation.get("status", ""))
+                ),
+                "F2": float("inf"),
+                "artifact_dir": str(destination),
+                "source_artifact_dir": str(source),
+                "engine_rebuilt": False,
+            }
+        else:
+            baseline = self._stage2_reference_baseline()
+            scored = compute_stage2_score(
+                evaluation,
+                baseline=baseline,
+                config=self.objective_config,
+            )
+            result = {
+                **evaluation,
+                **scored,
+                "candidate_hash": candidate_hash,
+                "status": "ok",
+                "artifact_dir": str(destination),
+                "source_artifact_dir": str(source),
+                "engine_hash": actual_engine_hash,
+                "deployment_hash": deployment.get("deployment_hash", ""),
+                "physical_hash": deployment.get("physical_hash", ""),
+                "engine_rebuilt": False,
+                "physical_rebuilt": False,
+                "onnx_rebuilt": False,
+                "calibration_rebuilt": False,
+                "qdq_rebuilt": False,
+            }
+        _write_json(destination / "stage2_score.json", result)
+        return result
+
     def _stage2_reference_baseline(self) -> dict[str, Any]:
         accuracy = self.evaluate_original_baseline("strict_fp32", full_validation=False)
         latency = self.evaluate_original_baseline("strict_fp16", full_validation=False)
@@ -834,6 +967,12 @@ class LidarPyramidRealEvaluator:
                 if selected and ("INT8" not in group.allowed_precisions or group.protected):
                     raise RuntimeError(f"trusted_explicit_qdq_profile_group_not_legal:{group.group_id}")
                 requested[group.group_id] = "INT8" if selected else "FP16"
+            elif kind == "matched_legacy_int8":
+                matched_fp16 = any(
+                    module_path in set(LEGACY_MATCHED_PARAMETERIZED_FP16_MODULES)
+                    for module_path in group.module_paths
+                )
+                requested[group.group_id] = "FP16" if matched_fp16 else "INT8"
             else:
                 requested[group.group_id] = "INT8" if "INT8" in group.allowed_precisions and not group.protected else "FP16"
         legalization = legalize_group_precision_genes(
@@ -1538,6 +1677,8 @@ class LidarPyramidRealEvaluator:
                 precision_constraints="obey",
                 skip_inference=True,
                 export_layer_info=True,
+                strongly_typed=True,
+                policy_version="search-candidate-explicit-qdq-strongly-typed-v2",
             )
         engine_path = output_dir / "engine.plan"
         result = build_engine_modelopt(
@@ -1554,6 +1695,13 @@ class LidarPyramidRealEvaluator:
         if engine_path.is_file():
             result["engine_path"] = str(engine_path)
             result["engine_hash"] = _file_hash(engine_path)
+        if result.get("status") != "ok":
+            _write_json(output_dir / "engine_manifest.json", result)
+            if "engine_structure_validation" in result:
+                _write_json(output_dir / "engine_structure_validation.json", result["engine_structure_validation"])
+            if "precision_realization_validation" in result:
+                _write_json(output_dir / "precision_realization_validation.json", result["precision_realization_validation"])
+            return result
         merge_realization = _engine_merge_precision_realization(
             output_dir / "engine_layer_info.json",
             qdq["qdq"],

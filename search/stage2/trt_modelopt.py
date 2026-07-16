@@ -48,6 +48,7 @@ def build_engine_modelopt(
         "log_path": str(log_path),
         "output_path": str(output_path),
         "ld_library_path": ld,
+        "tensorrt_root": str(root),
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True, default=str), encoding="utf-8")
     env = modelopt_subprocess_env(

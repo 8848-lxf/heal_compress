@@ -46,6 +46,7 @@ class CandidateGenotype:
     pruning_genes: dict[str, int] = field(default_factory=dict)
     precision_genes: dict[str, str] = field(default_factory=dict)
     meta: dict[str, Any] = field(default_factory=dict)
+    pruning_width_genes: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -59,10 +60,18 @@ class CandidateGenotype:
             {str(key): normalize_precision(value) for key, value in self.precision_genes.items()},
         )
         object.__setattr__(self, "meta", dict(self.meta))
+        object.__setattr__(
+            self,
+            "pruning_width_genes",
+            {str(key): int(value) for key, value in self.pruning_width_genes.items()},
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "pruning_genes": {key: self.pruning_genes[key] for key in sorted(self.pruning_genes)},
+            "pruning_width_genes": {
+                key: self.pruning_width_genes[key] for key in sorted(self.pruning_width_genes)
+            },
             "precision_genes": {key: self.precision_genes[key] for key in sorted(self.precision_genes)},
             "meta": dict(self.meta),
         }
@@ -73,6 +82,9 @@ class CandidateGenotype:
             pruning_genes=dict(payload.get("pruning_genes") or payload.get("prune_vars") or {}),
             precision_genes=dict(payload.get("precision_genes") or payload.get("bitwidth_vars") or {}),
             meta=dict(payload.get("meta") or {}),
+            pruning_width_genes=dict(
+                payload.get("pruning_width_genes") or payload.get("domain_width_genes") or {}
+            ),
         )
 
 

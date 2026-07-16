@@ -47,6 +47,14 @@ TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES = (
     "dir_head",
 )
 
+# These are Legacy recipe choices, not hardware/legalizer restrictions.  They
+# remain FP16 only in the matched-coverage A/B profile; maximal legal search is
+# free to test them as INT8.
+LEGACY_MATCHED_PARAMETERIZED_FP16_MODULES = (
+    "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+    "pyramid_backbone.single_head_2",
+)
+
 BASELINE_PRECISIONS = {
     "strict_fp32",
     "strict_fp16",
@@ -93,7 +101,8 @@ def make_baseline_trt_build_config(
         no_tf32=True,
         skip_inference=True,
         export_layer_info=True,
-        policy_version=f"strict-original-{kind}-explicit-qdq-v1",
+        strongly_typed=True,
+        policy_version=f"strict-original-{kind}-explicit-qdq-strongly-typed-v2",
     )
 
 
@@ -139,6 +148,12 @@ def build_baseline_precision_profile(
             requested = "int8" if str(origin.module_path) in trusted_modules else "fp16"
             if requested == "int8" and ("INT8" not in group.allowed_precisions or group.protected):
                 raise RuntimeError(f"trusted_explicit_qdq_profile_module_not_legal:{origin.module_path}")
+        elif kind == "matched_legacy_int8":
+            requested = (
+                "fp16"
+                if str(origin.module_path) in set(LEGACY_MATCHED_PARAMETERIZED_FP16_MODULES)
+                else "int8"
+            )
         else:
             requested = "int8" if "INT8" in group.allowed_precisions and not group.protected else "fp16"
         assignments.append(
@@ -149,7 +164,9 @@ def build_baseline_precision_profile(
                 ordering=ordering,
                 protected_precision="fp16" if requested == "fp16" and kind in {"maximal_legal_int8", "matched_legacy_int8", "pure_strict_int8"} else "",
                 fallback_reason=(
-                    group.protection_reason
+                    "legacy_matched_profile_fp16_exception"
+                    if requested == "fp16" and kind == "matched_legacy_int8"
+                    else group.protection_reason
                     if requested == "fp16" and group.protected
                     else "trusted_profile_not_selected"
                     if requested == "fp16" and kind == "trusted_explicit_qdq_int8"

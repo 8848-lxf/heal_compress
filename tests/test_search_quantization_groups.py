@@ -129,10 +129,23 @@ def test_group_output_contract_separates_concat_output_from_int8_compute() -> No
 def test_lidar_pyramid_functional_heads_have_fp16_output_contract() -> None:
     from search.integration.lidar_pyramid_context import _functional_fp16_output_boundary
 
-    for module in ("pyramid_backbone.single_head_0", "pyramid_backbone.single_head_1"):
+    for module in (
+        "pyramid_backbone.single_head_0",
+        "pyramid_backbone.single_head_1",
+        "pyramid_backbone.single_head_2",
+    ):
         boundary = _functional_fp16_output_boundary(module)
         assert boundary is not None
         assert boundary["merge_kind"] == "functional_sigmoid_weight_merge"
         assert boundary["following_ops"] == ["Sigmoid", "Add", "GridSample"]
         assert boundary["output_qdq_placement"].startswith("no weighted-output Q/DQ")
-    assert _functional_fp16_output_boundary("pyramid_backbone.single_head_2") is None
+    assert _functional_fp16_output_boundary("pyramid_backbone.single_head_2") is not None
+
+
+def test_pfn_linear_int8_override_is_model_specific_and_audited() -> None:
+    from search.integration.lidar_pyramid_context import _model_specific_int8_override
+
+    evidence = _model_specific_int8_override("encoder_m1.pillar_vfe.pfn_layers.0.linear")
+    assert "canonical_onnx_matmul" in evidence
+    assert "per_channel_qdq" in evidence
+    assert _model_specific_int8_override("encoder_m1.pillar_vfe") == ""

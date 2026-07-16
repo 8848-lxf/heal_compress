@@ -322,6 +322,368 @@ def _insert_explicit_fp16_merge_casts(model: Any, mapping: CanonicalPrecisionMap
     return records
 
 
+def _cast_is_fp16(node: Any | None) -> bool:
+    return bool(
+        node is not None
+        and str(node.op_type) == "Cast"
+        and any(
+            str(attribute.name) == "to" and int(attribute.i) == 10
+            for attribute in node.attribute
+        )
+    )
+
+
+def _insert_explicit_fp16_compute_casts(
+    model: Any,
+    mapping: CanonicalPrecisionMappingResult,
+) -> list[dict[str, Any]]:
+    """Encode FP16 weighted compute in the graph for strongly typed TensorRT.
+
+    Q/DQ pairs encode INT8 compute.  In a strongly typed network, an FP16
+    precision profile cannot be conveyed by builder layer-precision hints, so
+    every floating input of a canonical FP16 Conv/Gemm/MatMul is explicitly
+    cast to FP16.  Weight and bias casts remain local to the consumer and do
+    not mutate or re-hash the original FP32 initializer.
+    """
+
+    from onnx import TensorProto, helper
+
+    targets: dict[str, Any] = {}
+    for entry in mapping.entries:
+        if str(entry.realized_request_precision).lower() != "fp16":
+            continue
+        names = entry.constraint_node_names or (entry.canonical_node_name,)
+        for name in names:
+            if str(name) in targets:
+                raise QDQInsertionError(f"duplicate_fp16_compute_target:{name}")
+            targets[str(name)] = entry
+    if not targets:
+        return []
+
+    producers = {
+        str(output): node
+        for node in model.graph.node
+        for output in node.output
+    }
+    records: list[dict[str, Any]] = []
+    rewritten: list[Any] = []
+    seen: set[str] = set()
+    for node in model.graph.node:
+        entry = targets.get(str(node.name))
+        if entry is None:
+            rewritten.append(node)
+            continue
+        if str(node.op_type) not in {"Conv", "ConvTranspose", "Gemm", "MatMul"}:
+            raise QDQInsertionError(f"unsupported_fp16_compute_node:{node.name}:{node.op_type}")
+        seen.add(str(node.name))
+        for input_index, input_name in enumerate(list(node.input)):
+            if not str(input_name) or _cast_is_fp16(producers.get(str(input_name))):
+                continue
+            safe_node = str(node.name).replace("/", "_").replace(".", "_")
+            cast_name = f"{safe_node}__strong_type_input_{input_index:02d}_fp16"
+            cast_output = f"{cast_name}__output"
+            rewritten.append(
+                helper.make_node(
+                    "Cast",
+                    [str(input_name)],
+                    [cast_output],
+                    name=cast_name,
+                    to=TensorProto.FLOAT16,
+                )
+            )
+            node.input[input_index] = cast_output
+            records.append(
+                {
+                    "canonical_layer": str(entry.module_path),
+                    "compute_node": str(node.name),
+                    "compute_op_type": str(node.op_type),
+                    "input_index": int(input_index),
+                    "input_role": (
+                        "activation"
+                        if input_index == 0
+                        else "weight"
+                        if input_index == 1 and bool(entry.weight_initializer)
+                        else "bias"
+                        if input_index == 2 and bool(entry.weight_initializer)
+                        else "functional_operand"
+                    ),
+                    "source_tensor": str(input_name),
+                    "cast_node": cast_name,
+                    "cast_output_tensor": cast_output,
+                    "cast_dtype": "FP16",
+                    "initializer_preserved": bool(
+                        str(input_name) == str(entry.weight_initializer) or input_index >= 1
+                    ),
+                }
+            )
+        rewritten.append(node)
+    missing = sorted(set(targets) - seen)
+    if missing:
+        raise QDQInsertionError(f"fp16_compute_targets_missing:{missing}")
+    del model.graph.node[:]
+    model.graph.node.extend(rewritten)
+    return records
+
+
+def _insert_explicit_fp16_weighted_output_casts(
+    model: Any,
+    mapping: CanonicalPrecisionMappingResult,
+) -> list[dict[str, Any]]:
+    """Encode an INT8-compute/FP16-output split without builder hints."""
+
+    from onnx import TensorProto, helper
+
+    targets = {
+        str(entry.canonical_node_name): entry
+        for entry in mapping.entries
+        if str(entry.realized_request_precision).lower() == "int8"
+        and str(entry.realized_output_precision).lower() == "fp16"
+        and not entry.constraint_node_names
+    }
+    records: list[dict[str, Any]] = []
+    rewritten: list[Any] = []
+    seen: set[str] = set()
+    for node in model.graph.node:
+        entry = targets.get(str(node.name))
+        if entry is None:
+            rewritten.append(node)
+            continue
+        seen.add(str(node.name))
+        if len(node.output) != 1:
+            raise QDQInsertionError(f"fp16_weighted_output_arity_unsupported:{node.name}")
+        public_output = str(node.output[0])
+        raw_output = f"{public_output}__before_strong_type_fp16"
+        safe_node = str(node.name).replace("/", "_").replace(".", "_")
+        cast_name = f"{safe_node}__strong_type_output_fp16"
+        node.output[0] = raw_output
+        rewritten.append(node)
+        rewritten.append(
+            helper.make_node(
+                "Cast",
+                [raw_output],
+                [public_output],
+                name=cast_name,
+                to=TensorProto.FLOAT16,
+            )
+        )
+        records.append(
+            {
+                "canonical_layer": str(entry.module_path),
+                "compute_node": str(node.name),
+                "source_tensor": raw_output,
+                "cast_node": cast_name,
+                "cast_output_tensor": public_output,
+                "compute_precision": "INT8",
+                "output_precision": "FP16",
+            }
+        )
+    missing = sorted(set(targets) - seen)
+    if missing:
+        raise QDQInsertionError(f"fp16_weighted_output_targets_missing:{missing}")
+    del model.graph.node[:]
+    model.graph.node.extend(rewritten)
+    return records
+
+
+def _insert_strong_type_compatibility_casts(model: Any) -> list[dict[str, Any]]:
+    """Legalize mixed FP16/FP32 functional edges for a strongly typed graph.
+
+    Weakly typed TensorRT silently selected conversion kernels for elementwise
+    and normalization layers.  Strong typing correctly rejects, for example,
+    a Half Sigmoid output added to an FP32 scalar.  This pass follows explicit
+    FP16 tensors through type-preserving ONNX operators and casts only the
+    floating peer operands whose operator contract requires a common dtype.
+    Shape/index/condition operands are never cast.
+    """
+
+    from onnx import TensorProto, helper
+
+    dtype_by_tensor: dict[str, int] = {}
+    for value in [*model.graph.input, *model.graph.value_info, *model.graph.output]:
+        tensor_type = value.type.tensor_type
+        if tensor_type.HasField("elem_type"):
+            dtype_by_tensor[str(value.name)] = int(tensor_type.elem_type)
+    for initializer in model.graph.initializer:
+        dtype_by_tensor[str(initializer.name)] = int(initializer.data_type)
+
+    same_type_inputs: dict[str, Any] = {
+        "Add": "all",
+        "Sub": "all",
+        "Mul": "all",
+        "Div": "all",
+        "Pow": "all",
+        "Max": "all",
+        "Min": "all",
+        "Sum": "all",
+        "Mean": "all",
+        "Concat": "all",
+        "BatchNormalization": "all",
+        "PRelu": "all",
+        "GridSample": (0, 1),
+        "Where": (1, 2),
+        "Equal": "all",
+        "Greater": "all",
+        "GreaterOrEqual": "all",
+        "Less": "all",
+        "LessOrEqual": "all",
+    }
+    first_input_type_ops = {
+        "Abs",
+        "AveragePool",
+        "Ceil",
+        "Clip",
+        "Elu",
+        "Erf",
+        "Exp",
+        "Expand",
+        "Flatten",
+        "Floor",
+        "Gather",
+        "GatherElements",
+        "GlobalAveragePool",
+        "GlobalMaxPool",
+        "HardSigmoid",
+        "Identity",
+        "LeakyRelu",
+        "Log",
+        "LogSoftmax",
+        "MaxPool",
+        "Neg",
+        "Pad",
+        "Reciprocal",
+        "ReduceL1",
+        "ReduceL2",
+        "ReduceMax",
+        "ReduceMean",
+        "ReduceMin",
+        "ReduceProd",
+        "ReduceSum",
+        "Relu",
+        "Reshape",
+        "Resize",
+        "Round",
+        "Sigmoid",
+        "Sign",
+        "Sin",
+        "Slice",
+        "Softmax",
+        "Sqrt",
+        "Squeeze",
+        "Tanh",
+        "Tile",
+        "Transpose",
+        "Unsqueeze",
+    }
+    integer_output_ops = {"ArgMax", "ArgMin", "NonZero", "Shape", "Size"}
+    boolean_output_ops = {"And", "Equal", "Greater", "GreaterOrEqual", "Less", "LessOrEqual", "Not", "Or", "Xor"}
+
+    records: list[dict[str, Any]] = []
+    rewritten: list[Any] = []
+    for node in model.graph.node:
+        op_type = str(node.op_type)
+        if op_type in {"Constant", "ConstantOfShape"}:
+            dtype = None
+            for attribute in node.attribute:
+                if str(attribute.name) == "value" and attribute.HasField("t"):
+                    dtype = int(attribute.t.data_type)
+                    break
+                if str(attribute.name) == "value_float":
+                    dtype = TensorProto.FLOAT
+                    break
+                if str(attribute.name) == "value_int":
+                    dtype = TensorProto.INT64
+                    break
+            if op_type == "ConstantOfShape" and dtype is None:
+                dtype = TensorProto.FLOAT
+            if dtype is not None:
+                for output in node.output:
+                    dtype_by_tensor[str(output)] = dtype
+            rewritten.append(node)
+            continue
+        if op_type == "Cast":
+            target_dtype = next(
+                (
+                    int(attribute.i)
+                    for attribute in node.attribute
+                    if str(attribute.name) == "to"
+                ),
+                None,
+            )
+            if target_dtype is not None:
+                for output in node.output:
+                    dtype_by_tensor[str(output)] = target_dtype
+            rewritten.append(node)
+            continue
+
+        positions = same_type_inputs.get(op_type)
+        if positions == "all":
+            positions = tuple(range(len(node.input)))
+        if positions:
+            position_list = [int(index) for index in positions if int(index) < len(node.input)]
+            peer_types = {
+                dtype_by_tensor.get(str(node.input[index]))
+                for index in position_list
+                if str(node.input[index])
+            }
+            if TensorProto.FLOAT16 in peer_types:
+                for input_index in position_list:
+                    input_name = str(node.input[input_index])
+                    if not input_name or dtype_by_tensor.get(input_name) != TensorProto.FLOAT:
+                        continue
+                    safe_node = str(node.name or f"{op_type}_{len(rewritten)}").replace("/", "_").replace(".", "_")
+                    cast_name = f"{safe_node}__strong_type_peer_{input_index:02d}_fp16"
+                    cast_output = f"{cast_name}__output"
+                    rewritten.append(
+                        helper.make_node(
+                            "Cast",
+                            [input_name],
+                            [cast_output],
+                            name=cast_name,
+                            to=TensorProto.FLOAT16,
+                        )
+                    )
+                    node.input[input_index] = cast_output
+                    dtype_by_tensor[cast_output] = TensorProto.FLOAT16
+                    records.append(
+                        {
+                            "consumer_node": str(node.name),
+                            "consumer_op_type": op_type,
+                            "input_index": int(input_index),
+                            "source_tensor": input_name,
+                            "source_dtype": "FP32",
+                            "cast_node": cast_name,
+                            "cast_output_tensor": cast_output,
+                            "target_dtype": "FP16",
+                            "reason": "strongly_typed_common_input_dtype",
+                        }
+                    )
+        rewritten.append(node)
+
+        output_dtype: int | None = None
+        if op_type in integer_output_ops:
+            output_dtype = TensorProto.INT64
+        elif op_type in boolean_output_ops:
+            output_dtype = TensorProto.BOOL
+        elif op_type == "QuantizeLinear":
+            output_dtype = dtype_by_tensor.get(str(node.input[2]), TensorProto.INT8) if len(node.input) > 2 else TensorProto.INT8
+        elif op_type == "DequantizeLinear":
+            output_dtype = dtype_by_tensor.get(str(node.input[1]), TensorProto.FLOAT) if len(node.input) > 1 else TensorProto.FLOAT
+        elif op_type == "Where" and len(node.input) > 1:
+            output_dtype = dtype_by_tensor.get(str(node.input[1]))
+        elif op_type in first_input_type_ops or op_type in same_type_inputs:
+            if node.input:
+                output_dtype = dtype_by_tensor.get(str(node.input[0]))
+        elif op_type in {"Conv", "ConvTranspose", "Gemm", "MatMul"} and node.input:
+            output_dtype = dtype_by_tensor.get(str(node.input[0]))
+        if output_dtype is not None:
+            for output in node.output:
+                dtype_by_tensor[str(output)] = int(output_dtype)
+
+    del model.graph.node[:]
+    model.graph.node.extend(rewritten)
+    return records
+
+
 def _snapshot_weighted_following_ops(
     model: Any,
     mapping: CanonicalPrecisionMappingResult,
@@ -405,6 +767,9 @@ def _audit_weighted_qdq_boundaries(
                 "q_node_actual_input_tensor": q_inputs,
                 "qdq_placement": placement,
                 "activation_scale_owner": str(scale_metadata.get("activation_output_tensor", "")),
+                "activation_output_boundary_resolution": str(
+                    scale_metadata.get("activation_output_boundary_resolution", "")
+                ),
                 "activation_output_scale": float(record.activation_output_scale),
                 "merge_policy": policy.merge_policy,
                 "requested_precision": entry.requested_precision,
@@ -429,6 +794,7 @@ def _audit_weighted_qdq_boundaries(
                 "q_node_actual_input_tensor",
                 "qdq_placement",
                 "activation_scale_owner",
+                "activation_output_boundary_resolution",
                 "merge_policy",
                 "requested_precision",
                 "legalized_precision",
@@ -627,6 +993,21 @@ def insert_explicit_qdq(
     del model.graph.node[:]
     model.graph.node.extend(output_nodes)
     merge_cast_records = _insert_explicit_fp16_merge_casts(model, mapping)
+    fp16_compute_cast_records = (
+        _insert_explicit_fp16_compute_casts(model, mapping)
+        if policy.explicit_fp16_compute_casts
+        else []
+    )
+    fp16_output_cast_records = (
+        _insert_explicit_fp16_weighted_output_casts(model, mapping)
+        if policy.explicit_fp16_compute_casts
+        else []
+    )
+    strong_type_compatibility_cast_records = (
+        _insert_strong_type_compatibility_casts(model)
+        if policy.explicit_fp16_compute_casts
+        else []
+    )
     merge_audit = _audit_fp16_merge_boundaries(model, policy.merge_policy, mapping)
     boundary_audit, topology_hash = _audit_weighted_qdq_boundaries(
         model,
@@ -667,6 +1048,17 @@ def insert_explicit_qdq(
     metadata.setdefault("scale_modules", sorted(str(key) for key in scales))
     metadata["merge_policy"] = policy.merge_policy
     metadata["fp16_merge_cast_records"] = merge_cast_records
+    metadata["fp16_compute_cast_records"] = fp16_compute_cast_records
+    metadata["fp16_output_cast_records"] = fp16_output_cast_records
+    metadata["strong_type_compatibility_cast_records"] = strong_type_compatibility_cast_records
+    metadata["strong_typing_graph_contract_hash"] = stable_json_hash(
+        {
+            "fp16_compute_cast_records": fp16_compute_cast_records,
+            "fp16_output_cast_records": fp16_output_cast_records,
+            "fp16_merge_cast_records": merge_cast_records,
+            "strong_type_compatibility_cast_records": strong_type_compatibility_cast_records,
+        }
+    )
     metadata["auxiliary_layer_precisions"] = dict(mapping.auxiliary_layer_precisions)
     metadata["auxiliary_layer_output_types"] = dict(mapping.auxiliary_layer_output_types)
     metadata["merge_quantization_audit"] = merge_audit

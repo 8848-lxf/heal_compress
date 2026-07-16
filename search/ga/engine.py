@@ -30,6 +30,7 @@ class GAConfig:
     immigrant_ratio: float = 0.08
     stagnation_generations: int = 8
     stagnation_immigrant_ratio: float = 0.25
+    preserve_evaluated_elites: bool = False
     random_seed: int = 42
 
 
@@ -53,17 +54,27 @@ class GeneticSearchEngine:
     ) -> list[tuple[CandidateGenotype, float, dict[str, Any]]]:
         seen_keys = {str(key) for key in (seen_candidate_keys or [])}
 
-        def fresh_population(candidates: list[CandidateGenotype], target_size: int) -> list[CandidateGenotype]:
+        def fresh_population(
+            candidates: list[CandidateGenotype],
+            target_size: int,
+            *,
+            allowed_seen_keys: set[str] | None = None,
+        ) -> list[CandidateGenotype]:
             if candidate_key_fn is None:
                 return candidates[:target_size]
             fresh: list[CandidateGenotype] = []
+            local_keys: set[str] = set()
+            allowed = set(allowed_seen_keys or ())
 
             def try_add(candidate: CandidateGenotype) -> None:
                 if len(fresh) >= target_size:
                     return
                 key = str(candidate_key_fn(candidate))
-                if key in seen_keys:
+                if key in local_keys:
                     return
+                if key in seen_keys and key not in allowed:
+                    return
+                local_keys.add(key)
                 seen_keys.add(key)
                 fresh.append(candidate)
 
@@ -88,12 +99,23 @@ class GeneticSearchEngine:
             previous_elite=previous_elite,
             previous_best=previous_best,
         )
-        population = fresh_population(list(population), max(self.config.population_size, self.config.initial_population_size))
+        initial_allowed = set()
+        if self.config.preserve_evaluated_elites and candidate_key_fn is not None:
+            initial_allowed.update(
+                str(candidate_key_fn(candidate)) for candidate in (previous_elite or [])
+            )
+            if previous_best is not None:
+                initial_allowed.add(str(candidate_key_fn(previous_best)))
+        population = fresh_population(
+            list(population),
+            max(self.config.population_size, self.config.initial_population_size),
+            allowed_seen_keys=initial_allowed,
+        )
         best = float("inf")
         stagnant = 0
         all_scored: list[tuple[CandidateGenotype, float, dict[str, Any]]] = []
         elite_count = max(1, int(round(self.config.population_size * self.config.elite_ratio)))
-        gene_count = len(self.space.pruning_unit_ids) + len(self.space.precision_gene_ids)
+        gene_count = len(self.space.pruning_gene_ids) + len(self.space.precision_gene_ids)
         for generation in range(self.config.num_generations):
             scored = []
             if batch_evaluator is not None:
@@ -147,6 +169,19 @@ class GeneticSearchEngine:
             population = dedupe_population(next_population)
             while len(population) < self.config.population_size:
                 population.extend(make_immigrants(self.space, 1, self.rng))
-            population = fresh_population(population, self.config.population_size)
+            elite_keys = (
+                {
+                    str(candidate_key_fn(candidate))
+                    for candidate in next_population[:elite_count]
+                }
+                if self.config.preserve_evaluated_elites
+                and candidate_key_fn is not None
+                else set()
+            )
+            population = fresh_population(
+                population,
+                self.config.population_size,
+                allowed_seen_keys=elite_keys,
+            )
         all_scored.sort(key=lambda row: row[1])
         return all_scored

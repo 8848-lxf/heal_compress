@@ -316,3 +316,88 @@ def test_cached_origin_map_reloads_typed_entries(tmp_path: Path) -> None:
     assert len(result.entries) == 1
     assert result.entries[0].module_path == "conv"
     assert result.origin_map_hash
+
+
+def test_full_validation_reuses_existing_candidate_engine_without_rebuild(
+    tmp_path: Path,
+) -> None:
+    import hashlib
+    import json
+
+    from search.candidate import CandidatePhenotype
+    from search.stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
+    from search.stage2.objective import Stage2ObjectiveConfig
+
+    source = tmp_path / "stage2_500" / "candidate"
+    source.mkdir(parents=True)
+    engine = source / "engine.plan"
+    engine.write_bytes(b"immutable-engine")
+    engine_hash = hashlib.sha256(engine.read_bytes()).hexdigest()
+    (source / "deployment_manifest.json").write_text(
+        json.dumps(
+            {
+                "engine_hash": engine_hash,
+                "deployment_hash": "deployment",
+                "physical_hash": "physical",
+            }
+        ),
+        encoding="utf-8",
+    )
+    for name in (
+        "physical_validation.json",
+        "physical_plan_validation.json",
+        "engine_structure_validation.json",
+        "precision_realization_validation.json",
+        "merge_precision_realization.json",
+        "production_qdq_boundary_audit.json",
+    ):
+        (source / name).write_text(
+            json.dumps({"status": "ok", "passed": True}),
+            encoding="utf-8",
+        )
+    evaluator = object.__new__(LidarPyramidRealEvaluator)
+    evaluator.objective_config = Stage2ObjectiveConfig(
+        latency_metric="forward_p50_ms"
+    )
+    calls = {"evaluation": 0, "deployment": 0}
+
+    def evaluate_engine(path, output_dir):
+        calls["evaluation"] += 1
+        assert Path(path) == engine
+        assert Path(output_dir) != source
+        return {
+            "status": "ok",
+            "mAP": 0.61,
+            "forward_p50_ms": 3.0,
+            "evaluated_frames": 1789,
+            "skipped_frames": 0,
+        }
+
+    def fail_deploy(*_args, **_kwargs):
+        calls["deployment"] += 1
+        raise AssertionError("full validation must not rebuild deployment")
+
+    evaluator._evaluate_engine = evaluate_engine  # type: ignore[method-assign]
+    evaluator._deploy_and_evaluate = fail_deploy  # type: ignore[method-assign]
+    evaluator._stage2_reference_baseline = lambda: {  # type: ignore[method-assign]
+        "status": "ok",
+        "mAP": 0.62,
+        "forward_p50_ms": 2.0,
+    }
+
+    result = evaluator.reevaluate_existing_candidate_engine(
+        CandidatePhenotype(),
+        source_artifact_dir=source,
+        output_dir=tmp_path / "full" / "candidate",
+        candidate_hash="candidate",
+    )
+
+    assert result["status"] == "ok"
+    assert result["engine_hash"] == engine_hash
+    assert result["engine_rebuilt"] is False
+    assert result["physical_rebuilt"] is False
+    assert result["onnx_rebuilt"] is False
+    assert result["calibration_rebuilt"] is False
+    assert result["qdq_rebuilt"] is False
+    assert calls == {"evaluation": 1, "deployment": 0}
+    assert engine.read_bytes() == b"immutable-engine"

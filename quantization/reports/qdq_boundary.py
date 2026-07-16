@@ -7,7 +7,14 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from ..tensorrt.layer_info import has_canonical_identity, layer_metadata, layer_name, load_layer_info, precision_name
+from ..tensorrt.layer_info import (
+    has_canonical_identity,
+    is_weighted_compute_layer,
+    layer_metadata,
+    layer_name,
+    load_layer_info,
+    precision_name,
+)
 
 
 def _plain(value: Any) -> Any:
@@ -24,6 +31,34 @@ def _normalized_boundary_tensor(value: str) -> str:
     return str(value).replace("__before_output_qdq", "")
 
 
+def _unique_semantic_path(
+    weighted_outputs: Sequence[str],
+    following: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Recover only the unambiguous pre-next-weighted successor chain."""
+
+    frontier = {str(value) for value in weighted_outputs}
+    path: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    while frontier:
+        candidates = [
+            dict(row)
+            for row in following
+            if not bool(row.get("next_weighted_node", False))
+            and str(row.get("input_tensor", "")) in frontier
+            and str(row.get("name", "")) not in seen
+        ]
+        if len(candidates) != 1:
+            break
+        row = candidates[0]
+        path.append(row)
+        seen.add(str(row.get("name", "")))
+        frontier = {str(value) for value in row.get("output_tensors", [])}
+        if str(row.get("op_type", "")) in {"Relu", "Add", "Concat"}:
+            break
+    return path
+
+
 def enrich_weighted_qdq_boundary_audit(
     rows: Sequence[Mapping[str, Any]],
     layer_info: str | Path | Sequence[Mapping[str, Any]] | Mapping[str, Any],
@@ -36,15 +71,19 @@ def enrich_weighted_qdq_boundary_audit(
         row = dict(raw)
         canonical = str(row.get("weighted_node", ""))
         matched = [layer for layer in layers if has_canonical_identity(layer, canonical)]
-        compute_matched = [
-            layer
-            for layer in matched
-            if "reformatting copynode" not in layer_name(layer).lower()
-            and "reformat" not in str(layer.get("LayerType", "")).lower()
-        ]
+        # TensorRT may attach the canonical ONNX identity to both a kgen
+        # preparation/reformat layer and the realized Conv/GEMM.  The
+        # structure and precision checkers already define the authoritative
+        # weighted-compute predicate; use the same contract here so a fused
+        # kgen is not mistaken for a second execution of the weighted op.
+        compute_matched = [layer for layer in matched if is_weighted_compute_layer(layer)]
         metadata = " | ".join(layer_metadata(layer) for layer in compute_matched)
         following = [dict(value) for value in row.get("following_ops", [])]
         semantic_following = [value for value in following if not bool(value.get("next_weighted_node", False))]
+        unique_semantic_path = _unique_semantic_path(
+            [str(value) for value in row.get("weighted_output_tensor", [])],
+            semantic_following,
+        )
         fused_following = [
             value
             for value in semantic_following
@@ -69,18 +108,25 @@ def enrich_weighted_qdq_boundary_audit(
         if not scale_owner_matches_q:
             issues.append("activation_scale_owner_does_not_match_q_input")
 
-        first_semantic = semantic_following[0] if semantic_following else None
-        first_type = str(first_semantic.get("op_type", "")) if first_semantic else ""
-        if placement == "weighted_output_before_following_ops" and first_type == "Relu":
-            relu_fused = bool(fused_following and str(fused_following[0].get("op_type", "")) == "Relu")
+        semantic_boundary = next(
+            (
+                value
+                for value in unique_semantic_path
+                if str(value.get("op_type", "")) in {"Relu", "Add", "Concat"}
+            ),
+            None,
+        )
+        semantic_type = str(semantic_boundary.get("op_type", "")) if semantic_boundary else ""
+        if placement == "weighted_output_before_following_ops" and semantic_type == "Relu":
+            relu_fused = any(str(value.get("op_type", "")) == "Relu" for value in fused_following)
             issues.append("explicit_qdq_precedes_relu_semantic_boundary")
             effective = (
                 "invalid_pre_relu_qdq_even_when_engine_fused"
                 if relu_fused
                 else "raw_weighted_output_before_relu"
             )
-        elif placement == "weighted_output_before_following_ops" and first_type in {"Add", "Concat"}:
-            effective = f"quantized_branch_output_then_{row.get('merge_policy', '')}_{first_type}"
+        elif placement == "weighted_output_before_following_ops" and semantic_type in {"Add", "Concat"}:
+            effective = f"quantized_branch_output_then_{row.get('merge_policy', '')}_{semantic_type}"
         elif placement == "fp16_weighted_output_no_output_qdq":
             effective = "explicit_fp16_weighted_output_before_functional_or_merge_boundary"
         elif fused_following:
@@ -96,6 +142,7 @@ def enrich_weighted_qdq_boundary_audit(
                     layer_name(layer) for layer in matched if layer not in compute_matched
                 ],
                 "engine_fused_following_ops": fused_following,
+                "unique_semantic_path": unique_semantic_path,
                 "engine_effective_boundary": effective,
                 "activation_scale_owner_matches_q_input": scale_owner_matches_q,
                 "boundary_issues": issues,

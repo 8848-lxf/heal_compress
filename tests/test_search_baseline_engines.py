@@ -20,6 +20,7 @@ def test_strict_fp32_build_config_disables_tf32_fp16_and_int8() -> None:
     assert config.enable_fp16 is False
     assert config.enable_int8 is False
     assert config.precision_constraints == "obey"
+    assert config.strongly_typed is True
 
 
 def test_strict_fp16_build_config_enables_fp16_without_int8() -> None:
@@ -50,6 +51,7 @@ def test_maximal_legal_int8_build_config_uses_explicit_qdq_and_int8_builder() ->
     assert config.enable_fp16 is True
     assert config.enable_int8 is True
     assert "explicit-qdq" in config.policy_version
+    assert config.strongly_typed is True
 
 
 def test_baseline_precision_assignments_use_coupled_groups_not_synthetic() -> None:
@@ -89,3 +91,55 @@ def test_baseline_precision_assignments_use_coupled_groups_not_synthetic() -> No
     assert all(not row.precision_group.startswith("search::") for row in profile.assignments)
     assert all(not row.precision_group.startswith("pg::") for row in profile.assignments)
     assert all(row.requested_precision == "int8" for row in profile.assignments)
+
+
+def test_legacy_fp16_exceptions_are_profile_choices_not_search_protections() -> None:
+    from quantization.types import CanonicalMappingEntry, OnnxOriginMapResult
+    from search.baselines.original_engines import (
+        LEGACY_MATCHED_PARAMETERIZED_FP16_MODULES,
+        build_baseline_precision_profile,
+    )
+    from search.quantization_space.types import QuantizationSearchGroup
+
+    modules = [
+        *LEGACY_MATCHED_PARAMETERIZED_FP16_MODULES,
+        "backbone.conv",
+    ]
+    groups = [
+        QuantizationSearchGroup(
+            f"group_{index}",
+            (module,),
+            (f"node_{index}",),
+            ("FP32", "FP16", "INT8"),
+            False,
+            "",
+            index,
+            1,
+            1.0,
+            {},
+        )
+        for index, module in enumerate(modules)
+    ]
+    origin = OnnxOriginMapResult(
+        entries=[
+            CanonicalMappingEntry(
+                module,
+                "Linear" if "linear" in module else "Conv2d",
+                index,
+                "MatMul" if "linear" in module else "Conv",
+                f"original_{index}",
+                f"__canonical__node_{index}",
+                f"weight_{index}",
+            )
+            for index, module in enumerate(modules)
+        ]
+    )
+
+    matched = build_baseline_precision_profile("matched_legacy_int8", origin_map=origin, groups=groups)
+    maximal = build_baseline_precision_profile("maximal_legal_int8", origin_map=origin, groups=groups)
+
+    matched_by_module = {row.module_path: row.requested_precision for row in matched.assignments}
+    assert {matched_by_module[module] for module in LEGACY_MATCHED_PARAMETERIZED_FP16_MODULES} == {"fp16"}
+    assert matched_by_module["backbone.conv"] == "int8"
+    assert all(row.requested_precision == "int8" for row in maximal.assignments)
+    assert all(group.protected is False for group in groups)

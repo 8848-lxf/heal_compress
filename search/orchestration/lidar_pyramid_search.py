@@ -14,11 +14,13 @@ from ..cache.proxy_cache import ProxyCache
 from ..candidate import CandidateGenotype, CandidatePhenotype
 from ..canonicalization import canonicalize_candidate
 from ..ga.engine import GAConfig, GeneticSearchEngine
+from ..greedy import GreedyBudgetSearch, GreedySearchConfig
 from ..hashing import candidate_hash, canonical_json_hash, search_hash
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
 from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.fisher_proxy import FisherTaylorProxy
+from ..proxy.joint_weight_taylor import JointWeightTaylorProxy
 from ..proxy.normalization import NormalizationStats, build_normalization_stats
 from ..proxy.objective import ProxyObjective, ProxyObjectiveConfig, bops_soft_penalty, bops_target_for_generation, bops_target_for_outer_round
 from ..proxy.gpu_batch_proxy import TorchBatchedProxyScorer
@@ -27,6 +29,8 @@ from ..proxy.runtime_shape_profiler import profile_runtime_layer_shapes
 from ..proxy.size_proxy import SizeProxy
 from ..proxy.sqnr_proxy import SQNRProxy
 from ..pruning_space.mask_repair import GroupedDomainSpec, RepairPolicy, dense_floor_repair, grouped_equal_count_floor_repair
+from ..pruning_space.domain_importance import score_atomic_units_for_fixed_ranking
+from ..pruning_space.local_domains import build_local_pruning_domains
 from ..stage1.proxy_evaluator import Stage1ProxyEvaluator
 from ..stage1.repair_selection import select_repaired_stage2_topk
 from ..stage1.topk_selector import ProxyCandidateRecord, TopKConfig, select_stage1_topk
@@ -73,6 +77,28 @@ def _require_gpu_proxy_if_needed(*, proxy_cfg: dict[str, Any], search_cfg: dict[
     initial = int(search_cfg.get("initial_population_size", search_cfg.get("population_size", 0)) or 0)
     if requested != "cpu" and initial >= 512 and actual_backend != "cuda_batched":
         raise RuntimeError("gpu_proxy_required_but_not_active")
+
+
+def _shared_eval_manifest_protocol(
+    stage2_cfg: dict[str, Any],
+    full_validation_cfg: dict[str, Any],
+) -> tuple[int, int, bool]:
+    """Create one manifest large enough for Stage-2 and final validation."""
+
+    return (
+        max(
+            int(stage2_cfg.get("num_frames", 5)),
+            int(full_validation_cfg.get("num_frames", 0) or 0),
+        ),
+        max(
+            int(stage2_cfg.get("warmup_frames", 10)),
+            int(full_validation_cfg.get("warmup_frames", 0) or 0),
+        ),
+        bool(
+            stage2_cfg.get("reset_after_warmup", False)
+            or full_validation_cfg.get("reset_after_warmup", False)
+        ),
+    )
 
 
 class LidarPyramidTwoStageSearch:
@@ -127,7 +153,16 @@ class LidarPyramidTwoStageSearch:
         pruning_cfg = dict(self.config.get("pruning", {}))
         proxy_cfg = dict(self.config.get("proxy", self.config.get("proxy_objective", {})))
         stage2_cfg = dict(self.config.get("stage2") or self.config.get("stage2_smoke") or self.config.get("evaluation", {}))
+        full_validation_cfg = dict(self.config.get("full_validation", {}) or {})
         model_cfg = dict(self.config.get("model", {}))
+        (
+            manifest_num_frames,
+            manifest_warmup_frames,
+            manifest_reset_after_warmup,
+        ) = _shared_eval_manifest_protocol(
+            stage2_cfg,
+            full_validation_cfg,
+        )
         context = build_lidar_pyramid_context(
             checkpoint_path=self.checkpoint,
             output_dir=run_dir,
@@ -148,9 +183,9 @@ class LidarPyramidTwoStageSearch:
                 "quant_activation_calibration_cache_path"
             ),
             quant_calibration_force_rebuild=bool(proxy_cfg.get("quant_calibration_force_rebuild", False)),
-            num_frames=int(stage2_cfg.get("num_frames", 5)),
-            warmup_frames=int(stage2_cfg.get("warmup_frames", 10)),
-            reset_after_warmup=bool(stage2_cfg.get("reset_after_warmup", False)),
+            num_frames=manifest_num_frames,
+            warmup_frames=manifest_warmup_frames,
+            reset_after_warmup=manifest_reset_after_warmup,
             default_precision=str(self.config.get("precision", {}).get("default", "FP16")),
             max_pruning_units=int(search_cfg.get("max_pruning_units", 96)),
             grouped_conv_mode=str(
@@ -203,8 +238,16 @@ class LidarPyramidTwoStageSearch:
             }
         raw_unit_slices = build_unit_parameter_slices(context.model, context.atomic_prune_units)
         pruning_gene_type = str(pruning_cfg.get("gene_type", pruning_cfg.get("search_variable", "legal_pruning_action")))
-        unit_slices = raw_unit_slices if pruning_gene_type == "coupled_channel_keep_mask" else self._action_slices(context, raw_unit_slices)
-        self._write_local_domains(context, unit_slices, run_dir)
+        domain_width_mode = pruning_gene_type in {
+            "legal_domain_width",
+            "domain_width",
+            "coupled_domain_width",
+        }
+        unit_slices = (
+            raw_unit_slices
+            if domain_width_mode or pruning_gene_type == "coupled_channel_keep_mask"
+            else self._action_slices(context, raw_unit_slices)
+        )
         runtime_shapes = profile_runtime_layer_shapes(
             context.model,
             context.trace_example_inputs,
@@ -223,6 +266,43 @@ class LidarPyramidTwoStageSearch:
             run_dir / "archives" / "fisher_statistics_manifest.json",
             {"manifest_hash": fisher_stats.manifest_hash, "statistics_version": fisher_stats.statistics_version, "path": str(run_dir / "archives" / "fisher_statistics.pt")},
         )
+        if domain_width_mode:
+            fixed_scores, ranking_manifest = score_atomic_units_for_fixed_ranking(
+                context.model,
+                fisher_stats,
+                raw_unit_slices,
+                strict=True,
+            )
+            grouped_cfg = dict(pruning_cfg.get("grouped_conv", {}) or {})
+            dense_cfg = dict(pruning_cfg.get("dense", {}) or {})
+            domains = build_local_pruning_domains(
+                context.atomic_prune_units,
+                importance_scores=fixed_scores,
+                ranking_method="pruning_only_first_plus_second_order_fisher_taylor",
+                minimum_retained_ratio=float(pruning_cfg.get("minimum_retained_ratio", 0.10)),
+                dense_alignment=int(
+                    dense_cfg.get("alignment", pruning_cfg.get("dense_channel_alignment", 4))
+                ),
+                grouped_allowed_channels_per_group=[
+                    int(value)
+                    for value in grouped_cfg.get(
+                        "allowed_channels_per_group",
+                        [4, 8, 16, 32, 64, 128, 256, 512],
+                    )
+                ],
+            )
+            if not any(len(domain.legal_widths) > 1 for domain in domains):
+                raise RuntimeError("domain_width_search_has_no_nontrivial_legal_gene")
+            context.search_space = replace(
+                context.search_space,
+                pruning_domains=tuple(domains),
+                pruning_policy_version="legal-domain-width-fixed-ranking-v1",
+            )
+            _write_json(
+                run_dir / "archives" / "fixed_pruning_taylor_ranking.json",
+                ranking_manifest,
+            )
+        self._write_local_domains(context, raw_unit_slices, run_dir)
         raw_objective = self._objective(context, unit_slices, fisher_stats, None, runtime_shapes.shapes)
         normalization = self._build_normalization(context, raw_objective, run_dir)
         objective = self._objective(context, unit_slices, fisher_stats, normalization, runtime_shapes.shapes)
@@ -304,8 +384,9 @@ class LidarPyramidTwoStageSearch:
                 max_map_drop=stage2_cfg.get("max_map_drop"),
             ),
         )
+        search_method = str(search_cfg.get("method", "ga")).strip().lower()
         baseline_cfg = dict(self.config.get("baselines", {}) or {})
-        if baseline_cfg.get("build_before_search") and not stage2_only:
+        if baseline_cfg.get("build_before_search") and not stage2_only and search_method != "greedy":
             real_evaluator.evaluate_original_baselines(
                 [str(value) for value in baseline_cfg.get("precisions", ["strict_fp32", "strict_fp16", "maximal_legal_int8"])]
             )
@@ -321,7 +402,25 @@ class LidarPyramidTwoStageSearch:
                 result = real_evaluator.evaluate_candidate(phenotype, output_dir=run_dir / "round_000" / "stage2" / key, candidate_hash=key)
                 results.append(result)
             return {"run_dir": str(run_dir), "selected_gpu": context.physical_gpu_id, "stage2_only": True, "results": results, "result": results[0] if results else None}
-        rows = self._run_ga(context, proxy, real_evaluator, run_dir, search_cfg, stage1_only=stage1_only)
+        if search_method == "greedy":
+            rows = self._run_greedy(
+                context,
+                proxy,
+                run_dir,
+                search_cfg,
+                stage1_only=stage1_only,
+            )
+        elif search_method == "ga":
+            rows = self._run_ga(
+                context,
+                proxy,
+                real_evaluator,
+                run_dir,
+                search_cfg,
+                stage1_only=stage1_only,
+            )
+        else:
+            raise ValueError(f"unsupported_search_method:{search_method}")
         if self.resume is not None:
             manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
             _write_json(
@@ -342,15 +441,182 @@ class LidarPyramidTwoStageSearch:
             )
         return {"run_dir": str(run_dir), "selected_gpu": context.physical_gpu_id, "evaluated": len(rows), "best": min(rows, key=lambda row: float(row.get("F2", float("inf")))) if rows else None}
 
+    def _full_validation_evaluator(
+        self,
+        context: Any,
+        run_dir: Path,
+    ) -> LidarPyramidRealEvaluator:
+        full_cfg = dict(self.config.get("full_validation", {}) or {})
+        stage2_cfg = dict(
+            self.config.get("stage2")
+            or self.config.get("stage2_smoke")
+            or self.config.get("evaluation", {})
+        )
+        return LidarPyramidRealEvaluator(
+            context=context,
+            run_dir=run_dir / "full_validation",
+            num_frames=int(full_cfg.get("num_frames", 1789)),
+            warmup_frames=int(full_cfg.get("warmup_frames", 200)),
+            latency_rounds=int(
+                full_cfg.get(
+                    "latency_rounds",
+                    stage2_cfg.get("latency_rounds", stage2_cfg.get("rounds", 1)),
+                )
+            ),
+            stage2_config=Stage2ObjectiveConfig(
+                eta_map=float(stage2_cfg.get("eta_ap", stage2_cfg.get("eta_map", 1.0))),
+                eta_latency=float(stage2_cfg.get("eta_latency", 1.0)),
+                latency_metric=str(stage2_cfg.get("latency_metric", "forward_p50_ms")),
+                tau_ap=stage2_cfg.get("tau_ap"),
+                max_map_drop=stage2_cfg.get("max_map_drop"),
+            ),
+        )
+
+    def _run_greedy(
+        self,
+        context: Any,
+        proxy: Stage1ProxyEvaluator,
+        run_dir: Path,
+        search_cfg: dict[str, Any],
+        *,
+        stage1_only: bool,
+    ) -> list[dict[str, Any]]:
+        proxy_cfg = dict(self.config.get("proxy", self.config.get("proxy_objective", {})))
+        targets = tuple(
+            float(value)
+            for value in (
+                search_cfg.get("bops_targets")
+                or proxy_cfg.get("bops_targets")
+                or [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
+            )
+        )
+        if getattr(proxy, "objective", None) is not None:
+            proxy.objective.config = replace(
+                proxy.objective.config,
+                bops_threshold=None,
+                bops_constraint_mode="hard_feasibility",
+            )
+            if getattr(proxy, "batch_scorer", None) is not None:
+                proxy.batch_scorer.config = proxy.objective.config
+        proxy.cache_key_fn = lambda phenotype, _space: search_hash(
+            phenotype,
+            trace_hash=context.search_space.trace_snapshot_hash,
+            proxy_version="domain-width-joint-weight-taylor-greedy-v1",
+            calibration_statistics_version=str(
+                getattr(getattr(proxy, "objective", None), "statistics_version", "")
+            ),
+        )
+
+        def evaluate_batch(
+            candidates: list[CandidateGenotype],
+            step: int,
+        ) -> list[dict[str, Any]]:
+            result = proxy.evaluate_batch(
+                candidates,
+                generation=int(step),
+                outer_round=-1,
+            )
+            return list(result.metrics)
+
+        greedy = GreedyBudgetSearch(
+            context.search_space,
+            config=GreedySearchConfig(
+                bops_targets=targets,
+                minimum_bops_reduction=float(
+                    search_cfg.get("minimum_bops_reduction", 1.0e-12)
+                ),
+                maximum_steps=int(search_cfg.get("maximum_steps", 10000)),
+                parameter_retention_tiebreak=bool(
+                    search_cfg.get("parameter_retention_tiebreak", True)
+                ),
+            ),
+        )
+        result = greedy.run(evaluate_batch)
+        greedy_dir = run_dir / "greedy"
+        _write_json(greedy_dir / "greedy_path.json", result.to_dict())
+        _write_json(
+            greedy_dir / "budget_summary.json",
+            {
+                "targets": list(sorted(targets)),
+                "reached": list(sorted(result.budget_candidates)),
+                "unreachable": list(result.unreachable_targets),
+                "termination_reason": result.termination_reason,
+                "stage2_policy": "only_unique_final_candidate_per_budget_full_validation",
+            },
+        )
+        budget_rows: list[dict[str, Any]] = []
+        by_candidate_hash: dict[str, dict[str, Any]] = {}
+        for target, genotype in sorted(result.budget_candidates.items()):
+            phenotype = canonicalize_candidate(genotype, context.search_space)
+            identity = candidate_hash(phenotype, context.search_space)
+            by_candidate_hash.setdefault(
+                identity,
+                {"phenotype": phenotype, "budgets": [], "metrics": result.budget_metrics[target]},
+            )["budgets"].append(float(target))
+            _write_json(
+                greedy_dir / "budgets" / f"bops_{target:.4f}" / "candidate.json",
+                {
+                    "target": target,
+                    "candidate_hash": identity,
+                    "genotype": genotype.to_dict(),
+                    "phenotype": phenotype.to_dict(),
+                    "proxy_metrics": result.budget_metrics[target],
+                },
+            )
+        if stage1_only:
+            return [
+                {
+                    "candidate_hash": identity,
+                    "budgets": row["budgets"],
+                    **dict(row["metrics"]),
+                    "status": "stage1_only",
+                }
+                for identity, row in sorted(by_candidate_hash.items())
+            ]
+        full_evaluator = self._full_validation_evaluator(context, run_dir)
+        for identity, row in sorted(by_candidate_hash.items()):
+            candidate_dir = greedy_dir / "stage2_full" / identity
+            evaluated = full_evaluator.evaluate_candidate(
+                row["phenotype"],
+                output_dir=candidate_dir,
+                candidate_hash=identity,
+            )
+            budget_rows.append(
+                {
+                    "candidate_hash": identity,
+                    "budgets": sorted(row["budgets"]),
+                    "proxy_metrics": dict(row["metrics"]),
+                    **evaluated,
+                }
+            )
+        _write_json(
+            greedy_dir / "full_validation_results.json",
+            {"candidates": budget_rows},
+        )
+        return budget_rows
+
     def _objective(self, context: Any, unit_slices: dict[str, Any], fisher_stats: Any, normalization: Any | None, runtime_shapes: Any | None = None) -> ProxyObjective:
         proxy_cfg = dict(self.config.get("proxy", self.config.get("proxy_objective", {})))
+        objective_mode = str(
+            proxy_cfg.get("objective_mode", "legacy_fisher_sqnr_size_bops")
+        )
         return ProxyObjective(
             fisher=FisherTaylorProxy(context.model, statistics=fisher_stats, unit_to_parameter_names=unit_slices),
             sqnr=SQNRProxy(context.model, unit_to_parameter_slices=unit_slices),
             size=SizeProxy(context.model, unit_to_parameter_slices=unit_slices),
             bops=BOPSProxy(context.model, unit_to_parameter_slices=unit_slices, runtime_shapes=runtime_shapes),
+            joint_weight_taylor=(
+                JointWeightTaylorProxy(
+                    context.model,
+                    statistics=fisher_stats,
+                    unit_to_parameter_slices=unit_slices,
+                )
+                if objective_mode == "joint_weight_taylor_hard_bops"
+                else None
+            ),
             normalization=normalization,
             config=ProxyObjectiveConfig(
+                objective_mode=objective_mode,
                 alpha_fisher=float(proxy_cfg.get("alpha_prune", proxy_cfg.get("alpha_fisher", 1.0))),
                 beta_sqnr=float(proxy_cfg.get("beta_sqnr", 1.0)),
                 gamma_size=float(proxy_cfg.get("gamma_size", 1.0)),
@@ -365,6 +631,9 @@ class LidarPyramidTwoStageSearch:
                     )
                 ),
                 lambda_bops=float(proxy_cfg.get("lambda_bops", 1.0)),
+                parameter_retention_tiebreak_epsilon=float(
+                    proxy_cfg.get("parameter_retention_tiebreak_epsilon", 0.0)
+                ),
             ),
         )
 
@@ -383,10 +652,8 @@ class LidarPyramidTwoStageSearch:
         return result
 
     def _write_local_domains(self, context: Any, unit_slices: dict[str, Any], run_dir: Path) -> None:
-        from ..pruning_space.local_domains import build_local_pruning_domains
-
         units = list(getattr(context, "atomic_prune_units", []) or [])
-        domains = build_local_pruning_domains(units)
+        domains = list(context.search_space.pruning_domains) or build_local_pruning_domains(units)
         payload = []
         for domain in domains:
             row = domain.to_dict()
@@ -404,12 +671,9 @@ class LidarPyramidTwoStageSearch:
                 ]
                 for unit_id in domain.ordered_unit_ids
             }
-            row["first_order_taylor_score"] = {
-                str(getattr(unit, "stable_id", "")): float(getattr(unit, "normalized_score", 0.0))
-                for unit in units
-                if str(getattr(unit, "stable_id", "")) in set(domain.ordered_unit_ids)
-            }
-            row["second_order_fisher_score"] = {}
+            row["fixed_pruning_taylor_score"] = dict(domain.unit_scores)
+            row["ranking_is_precision_gene_independent"] = True
+            row["post_search_alignment_repair_required"] = False
             row["protected_units"] = [
                 str(getattr(unit, "stable_id", ""))
                 for unit in units
@@ -420,7 +684,18 @@ class LidarPyramidTwoStageSearch:
 
     def _repair_raw_keep_mask(self, context: Any, genotype: CandidateGenotype) -> tuple[CandidateGenotype | None, dict[str, Any]]:
         pruning_cfg = dict(self.config.get("pruning", {}) or {})
-        if str(pruning_cfg.get("gene_type", pruning_cfg.get("search_variable", ""))) != "coupled_channel_keep_mask":
+        gene_type = str(pruning_cfg.get("gene_type", pruning_cfg.get("search_variable", "")))
+        if gene_type in {"legal_domain_width", "domain_width", "coupled_domain_width"}:
+            # canonicalize_candidate expands an already legal retained-width
+            # choice to the immutable atomic mask. No 1->0 alignment repair or
+            # ranking pass is allowed after search.
+            return genotype, {
+                "status": "ok",
+                "repair_mode": "domain_width_legal_by_construction",
+                "alignment_edits": 0,
+                "reranking_applied": False,
+            }
+        if gene_type != "coupled_channel_keep_mask":
             return genotype, {"status": "ok", "repair_mode": "legal_action_passthrough"}
         mask = {unit_id: int(genotype.pruning_genes.get(unit_id, 1)) for unit_id in context.search_space.pruning_unit_ids}
         units_by_id = {str(getattr(unit, "stable_id", "")): unit for unit in getattr(context, "atomic_prune_units", []) or []}
@@ -568,6 +843,19 @@ class LidarPyramidTwoStageSearch:
         outer_rounds = int(search_cfg.get("outer_rounds", 1))
         proxy_backend = str(getattr(proxy, "proxy_backend", "scalar_cpu"))
         proxy_cfg = dict(self.config.get("proxy", self.config.get("proxy_objective", {})))
+        configured_bops_targets = sorted(
+            {
+                float(value)
+                for value in (
+                    search_cfg.get("bops_targets")
+                    or proxy_cfg.get("bops_targets")
+                    or []
+                )
+            },
+            reverse=True,
+        )
+        if configured_bops_targets:
+            outer_rounds = len(configured_bops_targets)
         soft_schedule = dict(proxy_cfg.get("bops_soft_constraint", {}) or {})
         if not soft_schedule:
             soft_schedule = dict(proxy_cfg.get("bops_target_schedule", {}) or {})
@@ -582,7 +870,13 @@ class LidarPyramidTwoStageSearch:
                 previous_elite = self._round_topk_as_genotypes(round_dir, context)
                 previous_best = previous_elite[0] if previous_elite else previous_best
                 continue
-            round_bops_target = bops_target_for_outer_round(round_index, outer_rounds, soft_schedule) if soft_schedule else None
+            round_bops_target = (
+                configured_bops_targets[round_index]
+                if configured_bops_targets
+                else bops_target_for_outer_round(round_index, outer_rounds, soft_schedule)
+                if soft_schedule
+                else None
+            )
             proxy_objective = getattr(proxy, "objective", None)
             if round_bops_target is not None and proxy_objective is not None:
                 proxy.objective.config = replace(
@@ -594,7 +888,9 @@ class LidarPyramidTwoStageSearch:
                     proxy.batch_scorer.config = proxy.objective.config
             objective_config = getattr(proxy_objective, "config", ProxyObjectiveConfig())
             normalization = getattr(proxy_objective, "normalization", None)
+            joint_mode = objective_config.objective_mode == "joint_weight_taylor_hard_bops"
             objective_manifest = {
+                "objective_mode": objective_config.objective_mode,
                 "alpha": objective_config.alpha_fisher,
                 "beta": objective_config.beta_sqnr,
                 "gamma": objective_config.gamma_size,
@@ -606,15 +902,52 @@ class LidarPyramidTwoStageSearch:
                 },
                 "T_BOPS": round_bops_target,
                 "bops_penalty_formula": objective_config.bops_penalty_formula,
-                "objective": "alpha*R_Fisher + beta*L_SQNR + gamma*R_Size_vs_FP32 + delta*P_BOPS",
+                "objective": (
+                    "min normalized_joint_weight_taylor subject_to R_BOPS_vs_original_FP32<=target"
+                    if joint_mode
+                    else "alpha*R_Fisher + beta*L_SQNR + gamma*R_Size_vs_FP32 + delta*P_BOPS"
+                ),
+                "joint_weight_delta": (
+                    "pruned:-w; retained:Q_precision(w)-w"
+                    if joint_mode
+                    else "not_applicable"
+                ),
+                "activation_taylor_included": False if joint_mode else None,
+                "parameter_retention_role": (
+                    "report_only"
+                    if joint_mode and objective_config.parameter_retention_tiebreak_epsilon == 0.0
+                    else "epsilon_tiebreak"
+                    if joint_mode
+                    else "legacy_weighted_term"
+                ),
             }
             _write_json(round_dir / "stage1_objective_config.json", objective_manifest)
             objective_hash = canonical_json_hash(objective_manifest)
-            proxy.cache_key_fn = lambda phenotype, _space, _objective_hash=objective_hash: search_hash(
+            proxy_semantics_manifest = dict(objective_manifest)
+            if joint_mode:
+                # The hard BOPS target changes feasibility/ranking, not the
+                # expensive per-candidate joint Taylor/BOPS measurements.
+                # Cache those measurements once across all budget rounds and
+                # reapply the target in annotate_metrics below.
+                proxy_semantics_manifest["T_BOPS"] = "applied_after_cached_proxy"
+            proxy_semantics_hash = canonical_json_hash(proxy_semantics_manifest)
+            statistics_source = (
+                getattr(proxy_objective, "joint_weight_taylor", None)
+                if joint_mode
+                else getattr(proxy_objective, "fisher", None)
+            )
+            statistics = getattr(statistics_source, "statistics", None)
+            statistics_identity = ":".join(
+                [
+                    str(getattr(statistics, "statistics_version", "")),
+                    str(getattr(statistics, "manifest_hash", "")),
+                ]
+            )
+            proxy.cache_key_fn = lambda phenotype, _space, _proxy_semantics_hash=proxy_semantics_hash, _statistics_identity=statistics_identity: search_hash(
                 phenotype,
                 trace_hash=context.search_space.trace_snapshot_hash,
-                proxy_version=f"real-fisher-sqnr-size-bops-v2:{_objective_hash}",
-                calibration_statistics_version=f"{getattr(getattr(proxy, 'objective', None), 'fisher_version', '')}:{objective_hash}",
+                proxy_version=f"domain-width-joint-weight-taylor-v1:{_proxy_semantics_hash}",
+                calibration_statistics_version=_statistics_identity,
             )
             ga = GeneticSearchEngine(
                 context.search_space,
@@ -630,6 +963,12 @@ class LidarPyramidTwoStageSearch:
                     immigrant_ratio=float(search_cfg.get("immigrant_ratio", 0.08)),
                     stagnation_generations=int(search_cfg.get("stagnation_generations", 3)),
                     stagnation_immigrant_ratio=float(search_cfg.get("stagnation_immigrant_ratio", 0.25)),
+                    preserve_evaluated_elites=bool(
+                        search_cfg.get(
+                            "preserve_evaluated_elites",
+                            bool(context.search_space.pruning_domains),
+                        )
+                    ),
                     random_seed=int(search_cfg.get("seed", 42)) + round_index,
                 ),
             )
@@ -663,8 +1002,18 @@ class LidarPyramidTwoStageSearch:
                     metrics["bops_violation"] = float(violation)
                     metrics["P_bops"] = float(p_bops)
                     metrics["bops_feasible"] = violation <= 0.0
-                    if str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")) == "feasibility_first" and violation > 0:
-                        metrics["F1"] = 1.0e6 + violation * 1.0e3 + float(metrics.get("proxy_score_raw", metrics.get("F1", 0.0)))
+                    if str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")) in {
+                        "feasibility_first",
+                        "hard_feasibility",
+                    }:
+                        raw = float(
+                            metrics.get("proxy_score_raw", metrics.get("F1", 0.0))
+                        )
+                        metrics["F1"] = (
+                            1.0e6 + violation * 1.0e3 + raw
+                            if violation > 0
+                            else raw
+                        )
                 return metrics
 
             def evaluate_genotype(genotype: CandidateGenotype, generation: int) -> dict[str, Any]:
@@ -730,8 +1079,16 @@ class LidarPyramidTwoStageSearch:
                     batch = proxy.evaluate_batch(phenotypes, generation=int(search_cfg.get("generations_per_round", 5)), outer_round=round_index)
                     return [annotate_metrics(CandidateGenotype({}, {}), row, int(search_cfg.get("generations_per_round", 5))) for row in batch.metrics]
 
+                stage2_pool = scored
+                if str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")) in {
+                    "hard_feasibility",
+                    "feasibility_first",
+                }:
+                    stage2_pool = [
+                        row for row in scored if bool(row[2].get("bops_feasible", False))
+                    ]
                 repaired_records, repair_report = select_repaired_stage2_topk(
-                    scored,
+                    stage2_pool,
                     space=context.search_space,
                     repair_fn=repair_candidate,
                     rescore_fn=rescore_one,
@@ -809,16 +1166,85 @@ class LidarPyramidTwoStageSearch:
                     _write_json(round_dir / "round_best_candidate.json", winner)
                     _write_json(round_dir / "round_best_F1_F2.json", {"candidate_hash": winner.get("candidate_hash"), "F1": winner.get("F1"), "F2": winner.get("F2")})
         self._write_global(run_dir, evaluated_rows)
+        final_cfg = dict(self.config.get("final_selection", {}) or {})
+        if (
+            not stage1_only
+            and bool(final_cfg.get("reevaluate_round_winners_on_full_validation", True))
+        ):
+            self._full_validate_ga_round_winners(context, run_dir)
         return evaluated_rows
+
+    def _full_validate_ga_round_winners(
+        self,
+        context: Any,
+        run_dir: Path,
+    ) -> list[dict[str, Any]]:
+        winners: dict[str, dict[str, Any]] = {}
+        for path in sorted(run_dir.glob("round_*/round_best_candidate.json")):
+            row = json.loads(path.read_text(encoding="utf-8"))
+            candidate_id = str(row.get("candidate_hash", ""))
+            source = Path(str(row.get("artifact_dir", "")))
+            if not candidate_id or not source.is_dir():
+                raise RuntimeError(
+                    f"round_winner_artifact_missing:{path}:{candidate_id}:{source}"
+                )
+            phenotype_path = source / "phenotype.json"
+            if not phenotype_path.is_file():
+                raise RuntimeError(
+                    f"round_winner_phenotype_missing:{phenotype_path}"
+                )
+            entry = winners.setdefault(
+                candidate_id,
+                {
+                    "candidate_hash": candidate_id,
+                    "source_artifact_dir": str(source),
+                    "phenotype": CandidatePhenotype.from_dict(
+                        json.loads(phenotype_path.read_text(encoding="utf-8"))
+                    ),
+                    "rounds": [],
+                },
+            )
+            entry["rounds"].append(path.parent.name)
+        if not winners:
+            return []
+        evaluator = self._full_validation_evaluator(context, run_dir)
+        rows: list[dict[str, Any]] = []
+        for candidate_id, entry in sorted(winners.items()):
+            result = evaluator.reevaluate_existing_candidate_engine(
+                entry["phenotype"],
+                source_artifact_dir=entry["source_artifact_dir"],
+                output_dir=run_dir / "full_validation" / "candidates" / candidate_id,
+                candidate_hash=candidate_id,
+            )
+            rows.append({"rounds": sorted(entry["rounds"]), **result})
+        successful = [row for row in rows if str(row.get("status", "")) == "ok"]
+        winner = (
+            min(successful, key=lambda row: float(row.get("F2", float("inf"))))
+            if successful
+            else None
+        )
+        _write_json(
+            run_dir / "final_full_validation_results.json",
+            {
+                "candidates": rows,
+                "winner": winner,
+                "candidate_engine_rebuild_count": 0,
+                "deduplicated_round_winner_count": len(winners),
+            },
+        )
+        if winner is not None:
+            _write_json(run_dir / "final_winner.json", winner)
+        return rows
 
     @staticmethod
     def _raw_genotype_hash(genotype: CandidateGenotype, context: Any) -> str:
         return canonical_json_hash(
             {
                 "pruning_genes": genotype.pruning_genes,
+                "pruning_width_genes": genotype.pruning_width_genes,
                 "precision_genes": genotype.precision_genes,
                 "trace_hash": context.search_space.trace_snapshot_hash,
-                "search_space_version": "coupled-mask-fp32-bops-v1",
+                "search_space_version": "legal-domain-width-joint-weight-taylor-v1",
             }
         )
 
@@ -872,10 +1298,21 @@ class LidarPyramidTwoStageSearch:
             requested_groups = dict(metadata.get("requested_group_profile") or metadata.get("stage1_legalized_group_profile") or {})
             genotypes.append(
                 CandidateGenotype(
-                    pruning_genes={unit_id: (0 if unit_id in pruned else 1) for unit_id in context.search_space.pruning_unit_ids},
+                    pruning_genes=(
+                        {unit_id: 1 for unit_id in context.search_space.pruning_unit_ids}
+                        if context.search_space.pruning_domains
+                        else {
+                            unit_id: (0 if unit_id in pruned else 1)
+                            for unit_id in context.search_space.pruning_unit_ids
+                        }
+                    ),
                     precision_genes={
                         group_id: requested_groups.get(group_id, context.search_space.default_precision)
                         for group_id in context.search_space.precision_gene_ids
+                    },
+                    pruning_width_genes={
+                        str(key): int(value)
+                        for key, value in dict(metadata.get("domain_width_profile") or {}).items()
                     },
                 )
             )

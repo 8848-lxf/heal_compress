@@ -22,6 +22,8 @@ def legalize_group_precision_genes(
         requested[group.group_id] = req
         if group.protected:
             legal = normalize_precision(group.metadata.get("default_precision", default_precision), default=default_precision)
+            if legal not in group.allowed_precisions:
+                legal = "FP16" if "FP16" in group.allowed_precisions else group.allowed_precisions[0]
             reason = group.protection_reason or "protected_precision_group"
         elif req in group.allowed_precisions:
             legal = req

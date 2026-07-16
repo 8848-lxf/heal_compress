@@ -139,12 +139,16 @@ class TorchBatchedProxyScorer:
     action_ids: tuple[str, ...]
     precision_gene_ids: tuple[str, ...]
     layer_ids: tuple[str, ...]
+    layer_cin: tuple[int, ...]
+    layer_cout: tuple[int, ...]
+    layer_shape_groups: tuple[tuple[int, int, tuple[int, ...]], ...]
     sqnr_active_mask: torch.Tensor
     action_fisher_cost: torch.Tensor
     fisher_weight_matrix: torch.Tensor
     fisher_out_vector: torch.Tensor
     fisher_weight_total: torch.Tensor
     fisher_total: torch.Tensor
+    quant_taylor_matrix: torch.Tensor
     sqnr_noise_table: torch.Tensor
     sqnr_signal_matrix: torch.Tensor
     sqnr_noise_matrix: torch.Tensor
@@ -160,6 +164,9 @@ class TorchBatchedProxyScorer:
     normalization: NormalizationStats
     config: Any
     runtime_shape_count: int
+    unit_channel_effects: dict[str, tuple[tuple[int, str, tuple[int, ...]], ...]]
+    uses_explicit_candidate_masks: bool = False
+    compute_legacy_sqnr_metrics: bool = True
     gpu_batch_count: int = 0
 
     backend: str = "cuda_batched"
@@ -183,14 +190,23 @@ class TorchBatchedProxyScorer:
             raise RuntimeError("cuda_proxy_requested_but_unavailable")
         modules = dict(model.named_modules())
         params = dict(model.named_parameters())
+        joint_objective_mode = (
+            str(getattr(config, "objective_mode", ""))
+            == "joint_weight_taylor_hard_bops"
+        )
         action_ids = tuple(space.pruning_unit_ids)
         precision_layer_set = {str(name) for name in space.precision_layer_ids}
-        weighted_layer_set = {
-            str(name)
-            for name, module in model.named_modules()
-            if name and getattr(module, "weight", None) is not None
+        prunable_layer_set = {
+            str(row.module_path)
+            for rows in unit_to_parameter_slices.values()
+            for row in rows
         }
-        layer_ids = tuple(sorted(precision_layer_set | weighted_layer_set))
+        prunable_parameter_names = {
+            str(row.parameter_name)
+            for rows in unit_to_parameter_slices.values()
+            for row in rows
+        }
+        layer_ids = tuple(sorted(precision_layer_set | prunable_layer_set))
         layer_index = {name: idx for idx, name in enumerate(layer_ids)}
         sqnr_active_mask = torch.tensor([name in precision_layer_set for name in layer_ids], dtype=torch.float32)
         precision_gene_ids = tuple(space.precision_gene_ids)
@@ -224,17 +240,20 @@ class TorchBatchedProxyScorer:
                 seen.add(key)
                 grad = fisher_statistics.gradients.get(row.parameter_name)
                 fisher = fisher_statistics.fisher_diag.get(row.parameter_name)
-                action_fisher[action_idx] += _slice_taylor_cost(parameter, grad, fisher, row.axis, row.indices)
+                if not (joint_objective_mode and space.pruning_domains):
+                    action_fisher[action_idx] += _slice_taylor_cost(
+                        parameter, grad, fisher, row.axis, row.indices
+                    )
                 layer = layer_index.get(row.module_path)
                 if layer is None:
                     continue
                 action_param_reduction[action_idx, layer] += _slice_element_count(parameter, row.axis, row.indices)
                 module = modules.get(row.module_path)
-                if row.parameter_name.endswith(".weight"):
+                if row.parameter_name.endswith(".weight") and not joint_objective_mode:
                     signal_tensor = parameter.detach().pow(2)
                     action_sqnr_signal_reduction[action_idx, layer] += _slice_cost(signal_tensor, row.axis, row.indices)
                     for precision, pidx in {"FP32": 0, "FP16": 1, "INT8": 2}.items():
-                        q = pseudo_quantize_tensor(parameter.detach(), precision)
+                        q = pseudo_quantize_tensor(parameter.detach(), precision, module=module)
                         action_sqnr_noise_reduction[action_idx, layer, pidx] += _slice_cost((q - parameter.detach()).pow(2), row.axis, row.indices)
                 if row.parameter_name.endswith(".weight") and module is not None:
                     if isinstance(module, nn.ConvTranspose2d):
@@ -295,9 +314,18 @@ class TorchBatchedProxyScorer:
                 bias_out_multiplier.append(0.0)
                 channel_param_multiplier.append(0.0)
         max_channels = max(1, int(max([*base_cin, *base_cout] or [1])))
-        action_out_mask = torch.zeros((len(action_ids), len(layer_ids), max_channels), dtype=torch.float32)
-        action_in_mask = torch.zeros((len(action_ids), len(layer_ids), max_channels), dtype=torch.float32)
+        uses_explicit_candidate_masks = bool(space.pruning_domains)
+        action_out_mask = None if uses_explicit_candidate_masks else torch.zeros(
+            (len(action_ids), len(layer_ids), max_channels), dtype=torch.float32
+        )
+        action_in_mask = None if uses_explicit_candidate_masks else torch.zeros(
+            (len(action_ids), len(layer_ids), max_channels), dtype=torch.float32
+        )
+        unit_channel_effects: dict[
+            str, tuple[tuple[int, str, tuple[int, ...]], ...]
+        ] = {}
         for action_idx, action_id in enumerate(action_ids):
+            effects: list[tuple[int, str, tuple[int, ...]]] = []
             for row in unit_to_parameter_slices.get(action_id, []):
                 layer = layer_index.get(row.module_path)
                 if layer is None:
@@ -317,16 +345,37 @@ class TorchBatchedProxyScorer:
                     is_out_axis = int(row.axis) == 0
                     is_in_axis = int(row.axis) == 1
                 if is_out_axis:
-                    action_out_mask[action_idx, layer, indices] = 1.0
+                    effects.append((layer, "out", tuple(indices)))
+                    if action_out_mask is not None:
+                        action_out_mask[action_idx, layer, indices] = 1.0
                 if is_in_axis:
-                    action_in_mask[action_idx, layer, indices] = 1.0
+                    effects.append((layer, "in", tuple(indices)))
+                    if action_in_mask is not None:
+                        action_in_mask[action_idx, layer, indices] = 1.0
+            unit_channel_effects[action_id] = tuple(effects)
 
         sqnr_signal = torch.zeros(len(layer_ids), dtype=torch.float32)
         sqnr_noise = torch.zeros((len(layer_ids), 3), dtype=torch.float32)
-        fisher_weight_matrix = torch.zeros((len(layer_ids), max_channels, max_channels), dtype=torch.float64)
-        fisher_out_vector = torch.zeros((len(layer_ids), max_channels), dtype=torch.float64)
-        sqnr_signal_matrix = torch.zeros((len(layer_ids), max_channels, max_channels), dtype=torch.float32)
-        sqnr_noise_matrix = torch.zeros((len(layer_ids), max_channels, max_channels, 3), dtype=torch.float32)
+        fisher_weight_matrix = torch.zeros(
+            (len(layer_ids), max_channels, max_channels), dtype=torch.float32
+        )
+        fisher_out_vector = torch.zeros(
+            (len(layer_ids), max_channels), dtype=torch.float32
+        )
+        if joint_objective_mode:
+            sqnr_signal_matrix = torch.empty(0, dtype=torch.float32)
+            sqnr_noise_matrix = torch.empty(0, dtype=torch.float32)
+        else:
+            sqnr_signal_matrix = torch.zeros(
+                (len(layer_ids), max_channels, max_channels), dtype=torch.float32
+            )
+            sqnr_noise_matrix = torch.zeros(
+                (len(layer_ids), max_channels, max_channels, 3), dtype=torch.float32
+            )
+        quant_taylor_matrix = torch.zeros(
+            (len(layer_ids), max_channels, max_channels, 3),
+            dtype=torch.float32,
+        )
         for name, idx in layer_index.items():
             module = modules.get(name)
             weight = getattr(module, "weight", None)
@@ -335,24 +384,31 @@ class TorchBatchedProxyScorer:
             w = weight.detach()
             signal = float(w.pow(2).sum().cpu())
             sqnr_signal[idx] = signal
-            grad = fisher_statistics.gradients.get(f"{name}.weight")
-            fisher = fisher_statistics.fisher_diag.get(f"{name}.weight")
-            if grad is not None and fisher is not None:
-                grad_value = grad.detach().to(device=w.device, dtype=w.dtype)
-                fisher_value = fisher.detach().to(device=w.device, dtype=w.dtype)
-                contribution = (grad_value * w).abs() + 0.5 * fisher_value * w.pow(2)
+            weight_grad = fisher_statistics.gradients.get(f"{name}.weight")
+            weight_fisher = fisher_statistics.fisher_diag.get(f"{name}.weight")
+            weight_grad_value = None
+            weight_fisher_value = None
+            weight_is_searchable = (
+                name in precision_layer_set or f"{name}.weight" in prunable_parameter_names
+            )
+            if weight_is_searchable and weight_grad is not None and weight_fisher is not None:
+                weight_grad_value = weight_grad.detach().to(device=w.device, dtype=w.dtype)
+                weight_fisher_value = weight_fisher.detach().to(device=w.device, dtype=w.dtype)
+                contribution = (weight_grad_value * w).abs() + 0.5 * weight_fisher_value * w.pow(2)
                 if contribution.ndim >= 2:
                     reduced = contribution.reshape(contribution.shape[0], contribution.shape[1], -1).sum(dim=2)
                     if isinstance(module, nn.ConvTranspose2d):
                         reduced = reduced.transpose(0, 1)
                     out_stop = min(max_channels, int(reduced.shape[0]))
                     in_stop = min(max_channels, int(reduced.shape[1]))
-                    fisher_weight_matrix[idx, :out_stop, :in_stop] = reduced[:out_stop, :in_stop].detach().double().cpu()
+                    fisher_weight_matrix[idx, :out_stop, :in_stop] = reduced[
+                        :out_stop, :in_stop
+                    ].detach().float().cpu()
                 elif contribution.ndim == 1:
                     stop = min(max_channels, int(contribution.shape[0]))
-                    fisher_out_vector[idx, :stop] += contribution[:stop].detach().double().cpu()
+                    fisher_out_vector[idx, :stop] += contribution[:stop].detach().float().cpu()
             bias = getattr(module, "bias", None)
-            if bias is not None:
+            if bias is not None and f"{name}.bias" in prunable_parameter_names:
                 grad = fisher_statistics.gradients.get(f"{name}.bias")
                 fisher = fisher_statistics.fisher_diag.get(f"{name}.bias")
                 if grad is not None and fisher is not None:
@@ -361,21 +417,56 @@ class TorchBatchedProxyScorer:
                     fisher_value = fisher.detach().to(device=b.device, dtype=b.dtype)
                     contribution = (grad_value * b).abs() + 0.5 * fisher_value * b.pow(2)
                     stop = min(max_channels, int(contribution.shape[0]))
-                    fisher_out_vector[idx, :stop] += contribution[:stop].detach().double().cpu()
+                    fisher_out_vector[idx, :stop] += contribution[:stop].detach().float().cpu()
             for precision, pidx in {"FP32": 0, "FP16": 1, "INT8": 2}.items():
-                q = pseudo_quantize_tensor(w, precision)
-                sqnr_noise[idx, pidx] = float((q - w).pow(2).sum().cpu())
+                q = pseudo_quantize_tensor(w, precision, module=module)
+                if not joint_objective_mode:
+                    sqnr_noise[idx, pidx] = float((q - w).pow(2).sum().cpu())
                 if w.ndim >= 2:
-                    signal_reduced = w.pow(2).reshape(w.shape[0], w.shape[1], -1).sum(dim=2)
-                    noise_reduced = (q - w).pow(2).reshape(w.shape[0], w.shape[1], -1).sum(dim=2)
-                    if isinstance(module, nn.ConvTranspose2d):
-                        signal_reduced = signal_reduced.transpose(0, 1)
-                        noise_reduced = noise_reduced.transpose(0, 1)
-                    out_stop = min(max_channels, int(signal_reduced.shape[0]))
-                    in_stop = min(max_channels, int(signal_reduced.shape[1]))
-                    if pidx == 0:
-                        sqnr_signal_matrix[idx, :out_stop, :in_stop] = signal_reduced[:out_stop, :in_stop].detach().cpu()
-                    sqnr_noise_matrix[idx, :out_stop, :in_stop, pidx] = noise_reduced[:out_stop, :in_stop].detach().cpu()
+                    if not joint_objective_mode:
+                        signal_reduced = w.pow(2).reshape(
+                            w.shape[0], w.shape[1], -1
+                        ).sum(dim=2)
+                        noise_reduced = (q - w).pow(2).reshape(
+                            w.shape[0], w.shape[1], -1
+                        ).sum(dim=2)
+                        if isinstance(module, nn.ConvTranspose2d):
+                            signal_reduced = signal_reduced.transpose(0, 1)
+                            noise_reduced = noise_reduced.transpose(0, 1)
+                        out_stop = min(max_channels, int(signal_reduced.shape[0]))
+                        in_stop = min(max_channels, int(signal_reduced.shape[1]))
+                        if pidx == 0:
+                            sqnr_signal_matrix[
+                                idx, :out_stop, :in_stop
+                            ] = signal_reduced[:out_stop, :in_stop].detach().cpu()
+                        sqnr_noise_matrix[
+                            idx, :out_stop, :in_stop, pidx
+                        ] = noise_reduced[:out_stop, :in_stop].detach().cpu()
+                    if (
+                        name in precision_layer_set
+                        and weight_grad_value is not None
+                        and weight_fisher_value is not None
+                    ):
+                        delta = q - w
+                        quant_contribution = (
+                            (weight_grad_value * delta).abs()
+                            + 0.5 * weight_fisher_value * delta.square()
+                        )
+                        quant_reduced = quant_contribution.reshape(
+                            quant_contribution.shape[0],
+                            quant_contribution.shape[1],
+                            -1,
+                        ).sum(dim=2)
+                        if isinstance(module, nn.ConvTranspose2d):
+                            quant_reduced = quant_reduced.transpose(0, 1)
+                        out_stop = min(max_channels, int(quant_reduced.shape[0]))
+                        in_stop = min(max_channels, int(quant_reduced.shape[1]))
+                        quant_taylor_matrix[
+                            idx,
+                            :out_stop,
+                            :in_stop,
+                            pidx,
+                        ] = quant_reduced[:out_stop, :in_stop].detach().float().cpu()
         fisher_weight_total = fisher_weight_matrix.sum(dim=(1, 2))
         fisher_total = fisher_weight_total.sum() + fisher_out_vector.sum()
 
@@ -395,7 +486,16 @@ class TorchBatchedProxyScorer:
             channel_param_multiplier=torch.tensor(channel_param_multiplier, dtype=torch.float32),
             action_out_mask=action_out_mask,
             action_in_mask=action_in_mask,
+            max_channels=max_channels,
+            constant_base_params=max(
+                0.0,
+                float(sum(parameter.numel() for parameter in model.parameters()))
+                - float(sum(base_params)),
+            ),
         )
+        grouped_layer_indices: dict[tuple[int, int], list[int]] = {}
+        for layer, (cout, cin) in enumerate(zip(base_cout, base_cin)):
+            grouped_layer_indices.setdefault((int(cout), int(cin)), []).append(layer)
         return cls(
             space=space,
             device=target,
@@ -403,12 +503,19 @@ class TorchBatchedProxyScorer:
             action_ids=action_ids,
             precision_gene_ids=precision_gene_ids,
             layer_ids=layer_ids,
+            layer_cin=tuple(int(value) for value in base_cin),
+            layer_cout=tuple(int(value) for value in base_cout),
+            layer_shape_groups=tuple(
+                (cout, cin, tuple(indices))
+                for (cout, cin), indices in sorted(grouped_layer_indices.items())
+            ),
             sqnr_active_mask=sqnr_active_mask.to(target),
             action_fisher_cost=action_fisher.to(target),
             fisher_weight_matrix=fisher_weight_matrix.to(target),
             fisher_out_vector=fisher_out_vector.to(target),
             fisher_weight_total=fisher_weight_total.to(target),
             fisher_total=fisher_total.to(target).clamp_min(1.0e-12),
+            quant_taylor_matrix=quant_taylor_matrix.to(target),
             sqnr_noise_table=sqnr_noise.to(target),
             sqnr_signal_matrix=sqnr_signal_matrix.to(target),
             sqnr_noise_matrix=sqnr_noise_matrix.to(target),
@@ -424,18 +531,74 @@ class TorchBatchedProxyScorer:
             normalization=normalization,
             config=config,
             runtime_shape_count=len(runtime_shapes),
+            unit_channel_effects=unit_channel_effects,
+            uses_explicit_candidate_masks=uses_explicit_candidate_masks,
+            compute_legacy_sqnr_metrics=not joint_objective_mode,
         )
 
-    def _encode(self, phenotypes: list[CandidatePhenotype]) -> tuple[torch.Tensor, torch.Tensor]:
+    def _bilinear_cost_by_layer(
+        self,
+        retained_out: torch.Tensor,
+        matrix: torch.Tensor,
+        retained_in: torch.Tensor,
+    ) -> torch.Tensor:
+        """Evaluate exact per-layer retained cost without max-channel padding work."""
+
+        result = torch.zeros(
+            (retained_out.shape[0], len(self.layer_ids)),
+            dtype=matrix.dtype,
+            device=matrix.device,
+        )
+        for cout, cin, layer_indices in self.layer_shape_groups:
+            indices = torch.as_tensor(
+                layer_indices,
+                dtype=torch.long,
+                device=matrix.device,
+            )
+            left = retained_out[:, indices, :cout]
+            right = retained_in[:, indices, :cin]
+            grouped_matrix = matrix[indices, :cout, :cin]
+            # One GEMM batch per layer-shape group.  The equivalent three-input
+            # einsum may materialize a BxGxOxI intermediate and scales very
+            # poorly for 128/512-candidate populations.
+            weighted = torch.bmm(
+                left.permute(1, 0, 2).contiguous(),
+                grouped_matrix,
+            )
+            values = (
+                weighted * right.permute(1, 0, 2)
+            ).sum(dim=2).transpose(0, 1)
+            result[:, indices] = values
+        return result
+
+    def _encode(
+        self,
+        phenotypes: list[CandidatePhenotype],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         action_index = {value: idx for idx, value in enumerate(self.action_ids)}
         group_index = {value: idx for idx, value in enumerate(self.precision_gene_ids)}
         pruning = torch.zeros((len(phenotypes), len(self.action_ids)), dtype=torch.int16)
         precision = torch.full((len(phenotypes), len(self.precision_gene_ids)), 1, dtype=torch.int16)
+        out_masks = (
+            torch.zeros(
+                (len(phenotypes), len(self.layer_ids), self.channel_resolver.max_channels),
+                dtype=torch.bool,
+            )
+            if self.uses_explicit_candidate_masks
+            else None
+        )
+        in_masks = torch.zeros_like(out_masks) if out_masks is not None else None
         for row_idx, phenotype in enumerate(phenotypes):
             for action_id in phenotype.pruned_unit_ids:
                 idx = action_index.get(str(action_id))
                 if idx is not None:
                     pruning[row_idx, idx] = 1.0
+                if out_masks is not None and in_masks is not None:
+                    for layer, direction, indices in self.unit_channel_effects.get(
+                        str(action_id), ()
+                    ):
+                        target = out_masks if direction == "out" else in_masks
+                        target[row_idx, layer, list(indices)] = True
             if self.space.quantization_groups:
                 for group in self.space.quantization_groups:
                     first_module = group.module_paths[0]
@@ -448,7 +611,12 @@ class TorchBatchedProxyScorer:
                     decision = phenotype.precision_profile.get(group_id)
                     if decision is not None:
                         precision[row_idx, idx] = _precision_index(decision.realized_precision)
-        return pruning.to(self.device, non_blocking=True), precision.to(self.device, non_blocking=True)
+        return (
+            pruning.to(self.device, non_blocking=True),
+            precision.to(self.device, non_blocking=True),
+            out_masks.to(self.device, non_blocking=True) if out_masks is not None else None,
+            in_masks.to(self.device, non_blocking=True) if in_masks is not None else None,
+        )
 
     def evaluate_batch(self, phenotypes: list[CandidatePhenotype], *, generation: int, outer_round: int) -> BatchProxyResult:
         if not phenotypes:
@@ -460,12 +628,16 @@ class TorchBatchedProxyScorer:
             start.record()
         else:
             start = end = None
-        pruning_all, precision_all = self._encode(phenotypes)
+        pruning_all, precision_all, out_masks_all, in_masks_all = self._encode(phenotypes)
         metric_chunks: dict[str, list[torch.Tensor]] = {
+            "L_joint_weight_taylor": [],
+            "L_pruning_only_taylor": [],
+            "L_retained_weight_quant_taylor": [],
             "L_fisher": [],
             "L_sqnr": [],
             "R_size": [],
             "R_size_vs_fp16": [],
+            "R_parameter_retention": [],
             "R_bops": [],
             "R_bops_vs_fp16": [],
             "R_bops_vs_fp32": [],
@@ -480,7 +652,14 @@ class TorchBatchedProxyScorer:
             pruning = pruning_all[start_idx:stop_idx].to(dtype=torch.float32)
             precision = precision_all[start_idx:stop_idx].to(dtype=torch.long)
             batch_count += 1
-            channel = self.channel_resolver.resolve(pruning)
+            if out_masks_all is not None and in_masks_all is not None:
+                channel = self.channel_resolver.resolve_explicit_masks(
+                    out_masks_all[start_idx:stop_idx],
+                    in_masks_all[start_idx:stop_idx],
+                    pruning_choice_tensor=pruning,
+                )
+            else:
+                channel = self.channel_resolver.resolve(pruning)
             layer_precision = torch.where(
                 self.layer_has_group.unsqueeze(0),
                 precision[:, self.layer_to_group],
@@ -497,34 +676,100 @@ class TorchBatchedProxyScorer:
                 retained_in = (~in_pruned).float() * self.channel_resolver.valid_in_mask.unsqueeze(0).float()
                 retained_out_fisher = retained_out.to(dtype=self.fisher_weight_matrix.dtype)
                 retained_in_fisher = retained_in.to(dtype=self.fisher_weight_matrix.dtype)
-                retained_fisher_weight = torch.einsum("blo,loi,bli->bl", retained_out_fisher, self.fisher_weight_matrix, retained_in_fisher)
+                retained_fisher_weight = self._bilinear_cost_by_layer(
+                    retained_out_fisher,
+                    self.fisher_weight_matrix,
+                    retained_in_fisher,
+                )
                 fisher_weight = (self.fisher_weight_total.unsqueeze(0) - retained_fisher_weight).clamp_min(0.0)
                 fisher_vector = (out_pruned.to(dtype=self.fisher_out_vector.dtype) * self.fisher_out_vector.unsqueeze(0)).sum(dim=2)
-                fisher = (fisher_weight + fisher_vector).sum(dim=1) / self.fisher_total.clamp_min(1.0e-12)
-                signal_after = torch.einsum("blo,loi,bli->bl", retained_out, self.sqnr_signal_matrix, retained_in).clamp_min(0.0)
-                noise_after = torch.zeros_like(signal_after)
+                pruning_taylor_raw = (fisher_weight + fisher_vector).sum(dim=1)
+                pruning_taylor_raw = torch.where(
+                    pruning.sum(dim=1) == 0.0,
+                    torch.zeros_like(pruning_taylor_raw),
+                    pruning_taylor_raw,
+                )
+                fisher = pruning_taylor_raw / self.fisher_total.clamp_min(1.0e-12)
+                retained_quant_taylor_raw = torch.zeros_like(pruning_taylor_raw)
                 for precision_idx in range(3):
-                    candidate_noise = torch.einsum(
+                    if precision_idx == 0:
+                        continue
+                    candidate_has_precision = (layer_precision == precision_idx).to(
+                        dtype=retained_quant_taylor_raw.dtype
+                    )
+                    candidate_quant_by_layer = self._bilinear_cost_by_layer(
+                        retained_out_fisher,
+                        self.quant_taylor_matrix[:, :, :, precision_idx],
+                        retained_in_fisher,
+                    )
+                    retained_quant_taylor_raw += (
+                        candidate_quant_by_layer * candidate_has_precision
+                    ).sum(dim=1)
+                joint_taylor = (
+                    pruning_taylor_raw + retained_quant_taylor_raw
+                ) / self.fisher_total.clamp_min(1.0e-12)
+                retained_quant_taylor = (
+                    retained_quant_taylor_raw / self.fisher_total.clamp_min(1.0e-12)
+                )
+                if self.compute_legacy_sqnr_metrics:
+                    signal_after = torch.einsum(
                         "blo,loi,bli->bl",
                         retained_out,
-                        self.sqnr_noise_matrix[:, :, :, precision_idx],
+                        self.sqnr_signal_matrix,
                         retained_in,
                     ).clamp_min(0.0)
-                    noise_after = torch.where(layer_precision == precision_idx, candidate_noise, noise_after)
-                sqnr = ((noise_after / (signal_after + 1.0e-12)) * self.sqnr_active_mask.unsqueeze(0)).sum(dim=1)
+                    noise_after = torch.zeros_like(signal_after)
+                    for precision_idx in range(3):
+                        candidate_noise = torch.einsum(
+                            "blo,loi,bli->bl",
+                            retained_out,
+                            self.sqnr_noise_matrix[:, :, :, precision_idx],
+                            retained_in,
+                        ).clamp_min(0.0)
+                        noise_after = torch.where(
+                            layer_precision == precision_idx,
+                            candidate_noise,
+                            noise_after,
+                        )
+                    sqnr = (
+                        (noise_after / (signal_after + 1.0e-12))
+                        * self.sqnr_active_mask.unsqueeze(0)
+                    ).sum(dim=1)
+                else:
+                    sqnr = torch.zeros_like(joint_taylor)
             else:
                 fisher = pruning.matmul(self.action_fisher_cost) / self.action_fisher_cost.sum().clamp_min(1.0e-12)
-                sqnr_noise_total = torch.gather(
-                    self.sqnr_noise_table.unsqueeze(0).expand(layer_precision.shape[0], -1, -1),
-                    2,
-                    layer_precision.unsqueeze(-1),
-                ).squeeze(-1)
-                signal_reduction = torch.einsum("bd,dl->bl", pruning, self.action_sqnr_signal_reduction)
-                noise_reduction_all = torch.einsum("bd,dlp->blp", pruning, self.action_sqnr_noise_reduction)
-                noise_reduction = torch.gather(noise_reduction_all, 2, layer_precision.unsqueeze(-1)).squeeze(-1)
-                signal_after = (self.sqnr_signal_by_layer.unsqueeze(0) - signal_reduction).clamp_min(0.0)
-                noise_after = (sqnr_noise_total - noise_reduction).clamp_min(0.0)
-                sqnr = ((noise_after / (signal_after + 1.0e-12)) * self.sqnr_active_mask.unsqueeze(0)).sum(dim=1)
+                joint_taylor = fisher
+                retained_quant_taylor = torch.zeros_like(fisher)
+                if self.compute_legacy_sqnr_metrics:
+                    sqnr_noise_total = torch.gather(
+                        self.sqnr_noise_table.unsqueeze(0).expand(
+                            layer_precision.shape[0], -1, -1
+                        ),
+                        2,
+                        layer_precision.unsqueeze(-1),
+                    ).squeeze(-1)
+                    signal_reduction = torch.einsum(
+                        "bd,dl->bl", pruning, self.action_sqnr_signal_reduction
+                    )
+                    noise_reduction_all = torch.einsum(
+                        "bd,dlp->blp", pruning, self.action_sqnr_noise_reduction
+                    )
+                    noise_reduction = torch.gather(
+                        noise_reduction_all,
+                        2,
+                        layer_precision.unsqueeze(-1),
+                    ).squeeze(-1)
+                    signal_after = (
+                        self.sqnr_signal_by_layer.unsqueeze(0) - signal_reduction
+                    ).clamp_min(0.0)
+                    noise_after = (sqnr_noise_total - noise_reduction).clamp_min(0.0)
+                    sqnr = (
+                        (noise_after / (signal_after + 1.0e-12))
+                        * self.sqnr_active_mask.unsqueeze(0)
+                    ).sum(dim=1)
+                else:
+                    sqnr = torch.zeros_like(joint_taylor)
             macs_after = self.channel_resolver.macs_after(channel)
             shape_bits = layer_bits[:, self.channel_resolver.shape_layer_indices]
             bops = (macs_after * shape_bits * shape_bits).sum(dim=1)
@@ -534,6 +779,15 @@ class TorchBatchedProxyScorer:
             int8_macs = torch.where(shape_precision == 2, macs_after, torch.zeros_like(macs_after)).sum(dim=1)
             total_macs = macs_after.sum(dim=1).clamp_min(1.0)
             fp32_size = self.fp32_size_baseline.clamp_min(1.0)
+            parameter_count_base = (
+                self.channel_resolver.base_params.sum()
+                + self.channel_resolver.constant_base_params
+            ).clamp_min(1.0)
+            parameter_count_after = (
+                params_after.sum(dim=1)
+                + self.channel_resolver.constant_base_params
+            )
+            parameter_retention = parameter_count_after / parameter_count_base
             r_size_fp16 = size_bits / fp16_size
             r_size = size_bits / fp32_size
             r_bops_fp16 = bops / fp16_bops.clamp_min(1.0)
@@ -549,16 +803,38 @@ class TorchBatchedProxyScorer:
             p_bops = bops_violation.square()
             norm_fisher = fisher / max(abs(float(self.normalization.medians.get("L_fisher", 1.0) or 1.0)), 1.0e-12)
             norm_sqnr = sqnr / max(abs(float(self.normalization.medians.get("L_sqnr", 1.0) or 1.0)), 1.0e-12)
-            score = (
-                float(getattr(self.config, "alpha_fisher", 1.0)) * norm_fisher
-                + float(getattr(self.config, "beta_sqnr", 1.0)) * norm_sqnr
-                + float(getattr(self.config, "gamma_size", 1.0)) * r_size
-                + float(getattr(self.config, "delta_bops", 1.0)) * p_bops
-            )
+            if str(getattr(self.config, "objective_mode", "")) == "joint_weight_taylor_hard_bops":
+                raw_score = joint_taylor + float(
+                    getattr(self.config, "parameter_retention_tiebreak_epsilon", 0.0)
+                ) * parameter_retention
+                hard = str(getattr(self.config, "bops_constraint_mode", "")) in {
+                    "hard_feasibility",
+                    "feasibility_first",
+                }
+                if hard:
+                    score = torch.where(
+                        bops_violation > 0.0,
+                        1.0e6 + bops_violation * 1.0e3 + raw_score,
+                        raw_score,
+                    )
+                else:
+                    score = raw_score
+            else:
+                raw_score = (
+                    float(getattr(self.config, "alpha_fisher", 1.0)) * norm_fisher
+                    + float(getattr(self.config, "beta_sqnr", 1.0)) * norm_sqnr
+                    + float(getattr(self.config, "gamma_size", 1.0)) * r_size
+                    + float(getattr(self.config, "delta_bops", 1.0)) * p_bops
+                )
+                score = raw_score
+            metric_chunks["L_joint_weight_taylor"].append(joint_taylor.detach())
+            metric_chunks["L_pruning_only_taylor"].append(fisher.detach())
+            metric_chunks["L_retained_weight_quant_taylor"].append(retained_quant_taylor.detach())
             metric_chunks["L_fisher"].append(fisher.detach())
             metric_chunks["L_sqnr"].append(sqnr.detach())
             metric_chunks["R_size"].append(r_size.detach())
             metric_chunks["R_size_vs_fp16"].append(r_size_fp16.detach())
+            metric_chunks["R_parameter_retention"].append(parameter_retention.detach())
             metric_chunks["R_bops"].append(r_bops.detach())
             metric_chunks["R_bops_vs_fp16"].append(r_bops_fp16.detach())
             metric_chunks["R_bops_vs_fp32"].append(r_bops_fp32.detach())
@@ -587,10 +863,36 @@ class TorchBatchedProxyScorer:
                 {
                     "L_fisher": float(metrics_cpu["L_fisher"][idx]),
                     "L_sqnr": float(metrics_cpu["L_sqnr"][idx]),
+                    "L_joint_weight_taylor": float(metrics_cpu["L_joint_weight_taylor"][idx]),
+                    "L_pruning_only_taylor": float(metrics_cpu["L_pruning_only_taylor"][idx]),
+                    "L_retained_weight_quant_taylor": float(
+                        metrics_cpu["L_retained_weight_quant_taylor"][idx]
+                    ),
                     "R_size": r_size,
                     "R_size_vs_fp16_deploy": float(metrics_cpu["R_size_vs_fp16"][idx]),
                     "R_size_vs_fp32": r_size,
                     "R_size_reference": "original_fp32",
+                    "R_parameter_retention": float(
+                        metrics_cpu["R_parameter_retention"][idx]
+                    ),
+                    "parameter_pruning_rate": 1.0
+                    - float(metrics_cpu["R_parameter_retention"][idx]),
+                    "parameter_count_base": float(
+                        (
+                            self.channel_resolver.base_params.sum()
+                            + self.channel_resolver.constant_base_params
+                        ).detach().cpu()
+                    ),
+                    "parameter_count_after": float(
+                        metrics_cpu["R_parameter_retention"][idx]
+                        * (
+                            self.channel_resolver.base_params.sum()
+                            + self.channel_resolver.constant_base_params
+                        ).detach().cpu()
+                    ),
+                    "constant_untracked_parameter_count": float(
+                        self.channel_resolver.constant_base_params.detach().cpu()
+                    ),
                     "R_bops": r_bops,
                     "R_bops_vs_fp16_deploy": float(metrics_cpu["R_bops_vs_fp16"][idx]),
                     "R_bops_vs_fp32": float(metrics_cpu["R_bops_vs_fp32"][idx]),
@@ -602,10 +904,19 @@ class TorchBatchedProxyScorer:
                     "bops_fp32_baseline": fp32_bops_value,
                     "constraint_penalty": 0.0,
                     "bops_violation": float(metrics_cpu["bops_violation"][idx]),
-                    "proxy_score_raw": score,
+                    "proxy_score_raw": float(
+                        metrics_cpu["L_joint_weight_taylor"][idx]
+                        if str(getattr(self.config, "objective_mode", ""))
+                        == "joint_weight_taylor_hard_bops"
+                        else score
+                    ),
                     "F1": score,
                     "legal": True,
                     "normalization": normalization_payload,
+                    "objective_mode": str(
+                        getattr(self.config, "objective_mode", "legacy_fisher_sqnr_size_bops")
+                    ),
+                    "activation_taylor_included": False,
                     "generation": generation,
                     "outer_round": outer_round,
                 }

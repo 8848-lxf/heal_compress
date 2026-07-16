@@ -30,14 +30,34 @@ def block_crossover(
     rng: random.Random,
 ) -> CandidateGenotype:
     pruning = dict(left.pruning_genes)
-    for _stage, unit_ids in _stage_groups(tuple(space.pruning_unit_ids)):
-        if rng.random() < 0.5:
-            for unit_id in unit_ids:
-                pruning[unit_id] = right.pruning_genes.get(unit_id, 1)
-    pruning = _repairable_grouped_seed_mask(space, pruning, rng)
+    width_genes = dict(left.pruning_width_genes)
+    if space.pruning_domains:
+        pruning = {unit_id: 1 for unit_id in space.pruning_unit_ids}
+        for _stage, domain_ids in _stage_groups(tuple(space.pruning_gene_ids)):
+            if rng.random() < 0.5:
+                for domain_id in domain_ids:
+                    domain = next(row for row in space.pruning_domains if row.domain_id == domain_id)
+                    width_genes[domain_id] = right.pruning_width_genes.get(
+                        domain_id,
+                        domain.original_width,
+                    )
+    else:
+        for _stage, unit_ids in _stage_groups(tuple(space.pruning_unit_ids)):
+            if rng.random() < 0.5:
+                for unit_id in unit_ids:
+                    pruning[unit_id] = right.pruning_genes.get(unit_id, 1)
+        pruning = _repairable_grouped_seed_mask(space, pruning, rng)
     precision = dict(left.precision_genes)
     for _stage, layer_ids in _stage_groups(tuple(space.precision_gene_ids)):
         if rng.random() < 0.5:
             for layer_id in layer_ids:
                 precision[layer_id] = right.precision_genes.get(layer_id, space.default_precision)
-    return repair_genotype(CandidateGenotype(pruning, precision, {"created_by": "block_crossover"}), space)
+    return repair_genotype(
+        CandidateGenotype(
+            pruning,
+            precision,
+            {"created_by": "block_crossover"},
+            pruning_width_genes=width_genes,
+        ),
+        space,
+    )

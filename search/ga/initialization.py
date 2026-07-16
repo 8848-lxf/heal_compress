@@ -15,10 +15,28 @@ def baseline_candidate(space: SearchSpaceSpec) -> CandidateGenotype:
         pruning_genes={unit_id: 1 for unit_id in space.pruning_unit_ids},
         precision_genes={gene_id: "FP32" for gene_id in space.precision_gene_ids},
         meta={"created_by": "baseline_full_fp32"},
+        pruning_width_genes={domain.domain_id: domain.original_width for domain in space.pruning_domains},
     )
 
 
 def compressed_seed(space: SearchSpaceSpec, keep_probability: float, precision: str) -> CandidateGenotype:
+    if space.pruning_domains:
+        width_genes = {}
+        for domain in space.pruning_domains:
+            target = float(domain.original_width) * float(keep_probability)
+            width_genes[domain.domain_id] = min(
+                domain.legal_widths,
+                key=lambda width: (abs(float(width) - target), -int(width)),
+            )
+        return repair_genotype(
+            CandidateGenotype(
+                pruning_genes={unit_id: 1 for unit_id in space.pruning_unit_ids},
+                precision_genes={gene_id: precision for gene_id in space.precision_gene_ids},
+                meta={"created_by": f"domain_width_seed_{keep_probability:.2f}_{precision}"},
+                pruning_width_genes=width_genes,
+            ),
+            space,
+        )
     keep_count = max(1, int(round(len(space.pruning_unit_ids) * keep_probability)))
     keep = set(space.pruning_unit_ids[:keep_count]) | set(space.protected_pruning_unit_ids)
     return repair_genotype(
@@ -46,6 +64,9 @@ def initialize_population(
                 pruning_genes={unit_id: 1 for unit_id in space.pruning_unit_ids},
                 precision_genes={gene_id: "FP16" for gene_id in space.precision_gene_ids},
                 meta={"created_by": "baseline_fp16_deploy"},
+                pruning_width_genes={
+                    domain.domain_id: domain.original_width for domain in space.pruning_domains
+                },
             ),
             space,
         )

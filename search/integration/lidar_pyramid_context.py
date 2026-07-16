@@ -13,6 +13,7 @@ import torch.nn as nn
 from ..canonicalization import SearchSpaceSpec
 from ..hashing import canonical_json_hash
 from ..pruning_space.action_catalog import PruningActionCatalog, build_pruning_action_catalog
+from ..pruning_space.local_domains import build_local_pruning_domains
 from ..quantization_space.group_builder import build_quantization_search_groups
 from .data_provider import EvaluationManifest, load_split_frame_ids, write_eval_manifest
 from .model_provider import LidarPyramidModelBundle, load_lidar_pyramid_model
@@ -132,6 +133,30 @@ def _select_search_atomic_units(model: nn.Module, atomic_units: list[Any], *, ma
     return list(by_id.values())
 
 
+def _select_all_legal_domain_units(model: nn.Module, atomic_units: list[Any]) -> list[Any]:
+    """Keep every safe formal atomic unit; width genes remove the 96-bit cap."""
+
+    modules = dict(model.named_modules())
+    selected: dict[str, Any] = {}
+    for unit in atomic_units:
+        if not _safe_pruning_unit(unit):
+            continue
+        module = modules.get(str(getattr(unit, "root_module_path", "")))
+        if module is None or not _module_is_weighted(module):
+            continue
+        if str(getattr(unit, "root_axis", "")) not in {"out", "channel"}:
+            continue
+        if not list(getattr(unit, "root_indices", []) or []):
+            continue
+        unit_id = str(getattr(unit, "stable_id", ""))
+        if not unit_id or unit_id.startswith("unit"):
+            raise RuntimeError(f"invalid_formal_atomic_unit_id:{unit_id}")
+        selected[unit_id] = unit
+    if not selected:
+        raise RuntimeError("real_trace_domain_width_search_space_empty")
+    return [selected[key] for key in sorted(selected)]
+
+
 def _precision_layer_ids(model: nn.Module) -> list[str]:
     rows = [name for name, module in model.named_modules() if name and _module_is_weighted(module)]
     if any(name.startswith("dryrun_model") for name in rows):
@@ -148,7 +173,23 @@ _FUNCTIONAL_FP16_OUTPUT_BOUNDARIES: dict[str, dict[str, Any]] = {
         "merge_kind": "functional_sigmoid_weight_merge",
         "following_ops": ["Sigmoid", "Add", "GridSample"],
     },
+    "pyramid_backbone.single_head_2": {
+        "merge_kind": "functional_sigmoid_weight_merge",
+        "following_ops": ["Sigmoid", "Add", "GridSample"],
+    },
 }
+
+_MODEL_SPECIFIC_INT8_OVERRIDES: dict[str, str] = {
+    "encoder_m1.pillar_vfe.pfn_layers.0.linear": (
+        "canonical_onnx_matmul_with_weight_initializer_and_explicit_per_channel_qdq"
+    ),
+}
+
+
+def _model_specific_int8_override(module_path: str) -> str:
+    """Return audited lidar_pyramid evidence overriding blanket name filters."""
+
+    return _MODEL_SPECIFIC_INT8_OVERRIDES.get(str(module_path), "")
 
 
 def _functional_fp16_output_boundary(module_path: str) -> dict[str, Any] | None:
@@ -184,10 +225,11 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
     # compute precision when policy A dequantizes them before an FP16 merge.
     base_groups = build_precision_coupling_groups(model, graph, sample_batch=None, allow_head_int8=True)
     weighted = set(_precision_layer_ids(model))
-    protected = {
-        "encoder_m1.pillar_vfe.pfn_layers.0.linear": "mapped_pillar_vfe_linear_legacy_realized_fp16",
-        "pyramid_backbone.single_head_2": "coordinate_grid_generation_requires_fp16_output",
-    }
+    # Legacy kept PFN Linear and single_head_2 in FP16, but that historical
+    # profile is not evidence of a TensorRT limitation.  Exact E67 matching is
+    # expressed by its baseline profile; the legal search space keeps both as
+    # independently selectable INT8 genes.
+    protected: dict[str, str] = {}
     memberships: dict[str, list[tuple[int, Any, list[str]]]] = {name: [] for name in weighted}
     for group_index, group in enumerate(base_groups):
         members = [str(module) for module in group.member_modules if str(module) in weighted]
@@ -235,6 +277,10 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
         )
         allowed = list(source.allowed_precisions)
         reason = str(source.reason)
+        int8_override_evidence = _model_specific_int8_override(module)
+        if int8_override_evidence:
+            allowed = ["fp32", "fp16", "int8"]
+            reason = "model_specific_audited_int8_override"
         if module in protected:
             allowed = ["fp32", "fp16"]
             reason = protected[module]
@@ -265,6 +311,7 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
                 "insert_activation_output_qdq": not fp16_output_boundary,
                 "weight_granularity": "per_channel",
                 "weight_axis_policy": {"Conv": 0, "ConvTranspose": 1, "MatMul": 1, "Gemm": "0 if transB else 1"},
+                "int8_override_evidence": int8_override_evidence,
             },
         )
         filtered.append(contract)
@@ -325,16 +372,38 @@ def build_lidar_pyramid_context(
     trace_hash = str(getattr(bundle.trace_result, "trace_hash", ""))
     atomic_units = list(getattr(bundle.trace_result, "atomic_prune_units", []) or [])
     coupled_units = list(getattr(bundle.trace_result, "coupled_channel_units", []) or [])
-    selected_units = _select_search_atomic_units(bundle.model, atomic_units, max_dense_units=max_pruning_units)
-    action_catalog = build_pruning_action_catalog(
+    domain_width_mode = str(pruning_gene_type) in {
+        "legal_domain_width",
+        "domain_width",
+        "coupled_domain_width",
+    }
+    selected_units = (
+        _select_all_legal_domain_units(bundle.model, atomic_units)
+        if domain_width_mode
+        else _select_search_atomic_units(bundle.model, atomic_units, max_dense_units=max_pruning_units)
+    )
+    action_catalog = None if domain_width_mode else build_pruning_action_catalog(
         selected_units,
         grouped_conv_mode=grouped_conv_mode,
         grouped_conv_align=grouped_conv_align,
         grouped_allowed_channels_per_group=grouped_allowed_channels_per_group or [4, 8, 16, 32, 64, 128, 256, 512],
     )
-    if str(pruning_gene_type) == "coupled_channel_keep_mask":
+    preliminary_domains = (
+        build_local_pruning_domains(
+            selected_units,
+            ranking_method="trace_score_placeholder_replaced_after_fisher_calibration",
+            grouped_allowed_channels_per_group=grouped_allowed_channels_per_group
+            or [4, 8, 16, 32, 64, 128, 256, 512],
+        )
+        if domain_width_mode
+        else []
+    )
+    if domain_width_mode:
+        search_pruning_ids = sorted(str(getattr(unit, "stable_id")) for unit in selected_units)
+    elif str(pruning_gene_type) == "coupled_channel_keep_mask":
         search_pruning_ids = sorted(str(getattr(unit, "stable_id")) for unit in selected_units)
     else:
+        assert action_catalog is not None
         search_pruning_ids = action_catalog.action_ids
     pruning_unit_metadata = {
         str(getattr(unit, "stable_id")): {
@@ -360,9 +429,7 @@ def build_lidar_pyramid_context(
         reset_after_warmup=reset_after_warmup,
     )
     builder_flags = {
-        "precision_constraints": "obey",
-        "fp16": True,
-        "int8": True,
+        "strongly_typed": True,
         "no_tf32": True,
         "shape_profiles": _shape_profiles(),
     }
@@ -401,6 +468,7 @@ def build_lidar_pyramid_context(
         pruning_unit_ids=search_pruning_ids,
         precision_layer_ids=precision_layers,
         quantization_groups=tuple(search_quant_groups),
+        pruning_domains=tuple(preliminary_domains),
         pruning_unit_metadata=pruning_unit_metadata,
         protected_pruning_unit_ids=set(),
         default_precision=default_precision,
@@ -424,6 +492,11 @@ def build_lidar_pyramid_context(
         gpu_compute_capability=f"{capability_major}.{capability_minor}",
         builder_flags=builder_flags,
         plugin_hashes=plugin_hashes([plugin]),
+        pruning_policy_version=(
+            "legal-domain-width-fixed-ranking-v1"
+            if domain_width_mode
+            else "formal-plan-first-v1"
+        ),
     )
     context = LidarPyramidSearchContext(
         checkpoint_path=Path(checkpoint_path).expanduser().resolve(),
@@ -471,6 +544,8 @@ def _write_context_report(path: Path, context: LidarPyramidSearchContext) -> Non
         "atomic_unit_count_total": len(getattr(context.trace_result, "atomic_prune_units", []) or []),
         "coupled_unit_count_total": len(getattr(context.trace_result, "coupled_channel_units", []) or []),
         "search_pruning_unit_count": len(context.search_space.pruning_unit_ids),
+        "search_pruning_gene_count": len(context.search_space.pruning_gene_ids),
+        "pruning_domain_count": len(context.search_space.pruning_domains),
         "precision_layer_count": len(context.search_space.precision_layer_ids),
         "precision_group_count": len(context.search_space.precision_gene_ids),
         "maximal_legal_int8_gene_count": sum(

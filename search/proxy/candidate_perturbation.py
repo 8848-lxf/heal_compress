@@ -11,17 +11,33 @@ from ..candidate import CandidatePhenotype
 from .parameter_slice_resolver import ParameterSlice
 
 
-def pseudo_quantize_tensor(weight: torch.Tensor, precision: str) -> torch.Tensor:
+def pseudo_quantize_tensor(
+    weight: torch.Tensor,
+    precision: str,
+    *,
+    module: Any | None = None,
+) -> torch.Tensor:
+    """Mirror production weight granularity on the PyTorch parameter layout."""
+
     precision = str(precision).upper()
     if precision == "FP32":
         return weight
     if precision == "FP16":
         return weight.to(torch.float16).to(weight.dtype)
     if precision == "INT8":
-        amax = weight.detach().abs().amax()
-        if float(amax) <= 0.0:
-            return weight.clone()
-        scale = amax / 127.0
+        if weight.ndim == 0:
+            amax = weight.detach().abs()
+            scale = amax / 127.0
+        else:
+            # ONNX Conv/ConvTranspose/MatMul use output-channel axes 0/1/1.
+            # On the source PyTorch layout Linear is [out,in], hence axis 0.
+            axis = 1 if isinstance(module, torch.nn.ConvTranspose2d) else 0
+            if axis >= weight.ndim:
+                axis = 0
+            reduce_axes = tuple(index for index in range(weight.ndim) if index != axis)
+            amax = weight.detach().abs().amax(dim=reduce_axes, keepdim=True) if reduce_axes else weight.detach().abs()
+            scale = amax / 127.0
+        scale = torch.where(scale > 0.0, scale, torch.ones_like(scale))
         return torch.clamp(torch.round(weight / scale), -127, 127).to(weight.dtype) * scale
     raise ValueError(f"unsupported precision: {precision}")
 
@@ -66,10 +82,11 @@ def effective_delta(
     parameter_slices: list[ParameterSlice],
     *,
     layer_name: str | None = None,
+    module: Any | None = None,
 ) -> torch.Tensor:
     module_path = layer_name or parameter_name.rsplit(".", 1)[0]
     precision = phenotype.realized_precision_profile.get(module_path, "FP32")
-    quantized = pseudo_quantize_tensor(parameter.detach(), precision)
+    quantized = pseudo_quantize_tensor(parameter.detach(), precision, module=module)
     mask = retained_mask_for_parameter(parameter.detach(), parameter_slices)
     effective = torch.where(mask, quantized, torch.zeros_like(parameter.detach()))
     return effective - parameter.detach()

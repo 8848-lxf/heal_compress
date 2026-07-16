@@ -6,10 +6,20 @@ from ..candidate import CandidateGenotype
 
 
 def dedupe_population(population: list[CandidateGenotype]) -> list[CandidateGenotype]:
-    seen: set[tuple[tuple[tuple[str, int], ...], tuple[tuple[str, str], ...]]] = set()
+    seen: set[
+        tuple[
+            tuple[tuple[str, int], ...],
+            tuple[tuple[str, int], ...],
+            tuple[tuple[str, str], ...],
+        ]
+    ] = set()
     result = []
     for candidate in population:
-        key = (tuple(sorted(candidate.pruning_genes.items())), tuple(sorted(candidate.precision_genes.items())))
+        key = (
+            tuple(sorted(candidate.pruning_genes.items())),
+            tuple(sorted(candidate.pruning_width_genes.items())),
+            tuple(sorted(candidate.precision_genes.items())),
+        )
         if key in seen:
             continue
         seen.add(key)

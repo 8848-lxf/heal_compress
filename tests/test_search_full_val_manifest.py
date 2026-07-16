@@ -83,3 +83,18 @@ def test_stage2_eval_manifest_can_reset_before_full_validation(tmp_path: Path) -
     assert payload["evaluation_frame_ids"] == frame_ids
     assert payload["frame_ids"] == frame_ids
     assert manifest.frame_ids == frame_ids
+
+
+def test_search_uses_one_manifest_large_enough_for_500_and_1789_frames() -> None:
+    from search.orchestration.lidar_pyramid_search import (
+        _shared_eval_manifest_protocol,
+    )
+
+    frames, warmup, reset = _shared_eval_manifest_protocol(
+        {"num_frames": 500, "warmup_frames": 50, "reset_after_warmup": False},
+        {"num_frames": 1789, "warmup_frames": 200, "reset_after_warmup": True},
+    )
+
+    assert frames == 1789
+    assert warmup == 200
+    assert reset is True

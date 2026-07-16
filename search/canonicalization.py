@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from .candidate import CandidateGenotype, CandidatePhenotype, PrecisionDecision, normalize_precision
+from .pruning_space.local_domains import expand_domain_width_genes, legalize_domain_width_genes
 from .quantization_space.legalizer import legalize_group_precision_genes
 from .quantization_space.types import QuantizationSearchGroup
 
@@ -17,6 +18,7 @@ class SearchSpaceSpec:
     pruning_unit_ids: list[str]
     precision_layer_ids: list[str]
     quantization_groups: tuple[QuantizationSearchGroup, ...] = ()
+    pruning_domains: tuple[Any, ...] = ()
     pruning_unit_metadata: dict[str, dict[str, Any]] = field(default_factory=dict)
     protected_pruning_unit_ids: set[str] = field(default_factory=set)
     default_precision: str = "FP16"
@@ -34,6 +36,11 @@ class SearchSpaceSpec:
         object.__setattr__(self, "pruning_unit_ids", sorted({str(value) for value in self.pruning_unit_ids}))
         object.__setattr__(self, "precision_layer_ids", sorted({str(value) for value in self.precision_layer_ids}))
         object.__setattr__(self, "quantization_groups", tuple(sorted(self.quantization_groups, key=lambda row: row.ordering)))
+        object.__setattr__(
+            self,
+            "pruning_domains",
+            tuple(sorted(self.pruning_domains, key=lambda row: str(getattr(row, "domain_id", "")))),
+        )
         object.__setattr__(self, "pruning_unit_metadata", {str(key): dict(value) for key, value in self.pruning_unit_metadata.items()})
         object.__setattr__(self, "protected_pruning_unit_ids", {str(value) for value in self.protected_pruning_unit_ids})
         object.__setattr__(self, "default_precision", normalize_precision(self.default_precision))
@@ -46,6 +53,16 @@ class SearchSpaceSpec:
             return [group.group_id for group in self.quantization_groups]
         return list(self.precision_layer_ids)
 
+    @property
+    def pruning_gene_ids(self) -> list[str]:
+        if self.pruning_domains:
+            return [
+                str(domain.domain_id)
+                for domain in self.pruning_domains
+                if len(getattr(domain, "legal_widths", ())) > 1
+            ]
+        return list(self.pruning_unit_ids)
+
 
 def repair_genotype(genotype: CandidateGenotype, space: SearchSpaceSpec) -> CandidateGenotype:
     """Repair raw genes without collapsing unknowns into persistent identity."""
@@ -54,6 +71,16 @@ def repair_genotype(genotype: CandidateGenotype, space: SearchSpaceSpec) -> Cand
     for unit_id in space.pruning_unit_ids:
         pruning[unit_id] = 1 if unit_id in space.protected_pruning_unit_ids else int(genotype.pruning_genes.get(unit_id, 1))
         pruning[unit_id] = 1 if pruning[unit_id] else 0
+    width_genes = (
+        legalize_domain_width_genes(genotype.pruning_width_genes, space.pruning_domains)
+        if space.pruning_domains
+        else {}
+    )
+    if space.pruning_domains:
+        # Atomic masks are derived only after width expansion. Keeping this raw
+        # field all-one prevents a second, contradictory mask coordinate from
+        # entering the genotype identity.
+        pruning = {unit_id: 1 for unit_id in space.pruning_unit_ids}
     if space.quantization_groups:
         legalization = legalize_group_precision_genes(
             genotype.precision_genes,
@@ -73,7 +100,12 @@ def repair_genotype(genotype: CandidateGenotype, space: SearchSpaceSpec) -> Cand
             for layer_id in space.precision_layer_ids
         }
         meta = dict(genotype.meta)
-    return CandidateGenotype(pruning_genes=pruning, precision_genes=precision, meta=meta)
+    return CandidateGenotype(
+        pruning_genes=pruning,
+        precision_genes=precision,
+        meta=meta,
+        pruning_width_genes=width_genes,
+    )
 
 
 def canonicalize_candidate(
@@ -88,6 +120,17 @@ def canonicalize_candidate(
     realized = dict(realized_precision or {})
     profile: dict[str, PrecisionDecision] = {}
     metadata: dict[str, Any] = {"repair_version": "search-repair-v1", **dict(repaired.meta)}
+    if space.pruning_domains:
+        pruned_unit_ids, width_metadata = expand_domain_width_genes(
+            repaired.pruning_width_genes,
+            space.pruning_domains,
+        )
+        metadata.update(width_metadata)
+        metadata["repair_version"] = "domain-width-legal-by-construction-v1"
+    else:
+        pruned_unit_ids = [
+            unit_id for unit_id, keep in repaired.pruning_genes.items() if int(keep) == 0
+        ]
     if space.quantization_groups:
         legalization = legalize_group_precision_genes(
             repaired.precision_genes,
@@ -123,7 +166,7 @@ def canonicalize_candidate(
                 fallback_reason = "" if normalize_precision(realized_value) == requested else "precision_policy_fallback"
             profile[layer_id] = PrecisionDecision(requested, str(realized_value), fallback_reason)
     return CandidatePhenotype(
-        pruned_unit_ids=[unit_id for unit_id, keep in repaired.pruning_genes.items() if int(keep) == 0],
+        pruned_unit_ids=pruned_unit_ids,
         precision_profile=profile,
         pruning_policy_version=space.pruning_policy_version,
         precision_policy_version=space.precision_policy_version,

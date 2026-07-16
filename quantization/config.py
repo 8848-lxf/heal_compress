@@ -164,14 +164,15 @@ class QDQConfig(ConfigMixin):
     insert_activation_input_qdq: bool = True
     insert_weight_qdq: bool = True
     insert_activation_output_qdq: bool = True
-    activation_output_boundary_policy: str = "semantic_post_relu_or_post_merge_v1"
+    activation_output_boundary_policy: str = "semantic_post_relu_or_post_merge_v2_unique_pre_activation_chain"
     require_calibration_scales: bool = True
     symmetric: bool = True
     zero_point: int = 0
     weight_granularity: str = "per_channel"
     merge_policy: str = "fp16_merge"
+    explicit_fp16_compute_casts: bool = True
     grouped_conv_int8_allowed_channels_per_group: tuple[int, ...] = (4, 8, 16, 32)
-    policy_version: str = "explicit-qdq-canonical-fp16-int8-v5-semantic-activation-boundary"
+    policy_version: str = "explicit-qdq-canonical-fp16-int8-v7-strongly-typed-semantic-boundary"
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "QDQConfig":
@@ -204,7 +205,8 @@ class TensorRTBuildConfig(ConfigMixin):
     no_tf32: bool = True
     skip_inference: bool = True
     export_layer_info: bool = True
-    policy_version: str = "trt-fp16-int8-explicit-qdq-v1"
+    strongly_typed: bool = False
+    policy_version: str = "trt-fp16-int8-explicit-qdq-v2-optional-strong-typing"
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "TensorRTBuildConfig":

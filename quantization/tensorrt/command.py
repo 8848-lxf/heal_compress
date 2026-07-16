@@ -70,10 +70,16 @@ def build_trt_command(
         command.append("--skipInference")
     if policy.no_tf32:
         command.append("--noTF32")
-    if policy.enable_fp16:
-        command.append("--fp16")
-    if policy.enable_int8 and any(row.realized_request_precision == "int8" for row in precision_mapping.entries):
-        command.append("--int8")
+    if policy.strongly_typed:
+        # A strongly typed TensorRT network takes its compute and tensor types
+        # exclusively from the ONNX graph.  Builder precision flags and layer
+        # constraints are weak-typing hints and are forbidden in this mode.
+        command.append("--stronglyTyped")
+    else:
+        if policy.enable_fp16:
+            command.append("--fp16")
+        if policy.enable_int8 and any(row.realized_request_precision == "int8" for row in precision_mapping.entries):
+            command.append("--int8")
     if policy.plugin_path is not None:
         command.append(f"--staticPlugins={policy.plugin_path}")
     command.extend(_shape_flags(policy.shape_profiles))
@@ -119,13 +125,14 @@ def build_trt_command(
             ),
         ]
     )
-    command.extend(
-        [
-            f"--precisionConstraints={policy.precision_constraints}",
-            f"--layerPrecisions={compute_specs}",
-            f"--layerOutputTypes={output_specs}",
-        ]
-    )
+    if not policy.strongly_typed:
+        command.extend(
+            [
+                f"--precisionConstraints={policy.precision_constraints}",
+                f"--layerPrecisions={compute_specs}",
+                f"--layerOutputTypes={output_specs}",
+            ]
+        )
     return TensorRTCommandResult(
         command=command,
         onnx_path=str(source),

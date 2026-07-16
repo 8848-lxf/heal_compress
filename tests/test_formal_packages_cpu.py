@@ -1115,6 +1115,147 @@ def test_qdq_boundary_report_distinguishes_graph_input_from_engine_fusion(tmp_pa
     assert report["layers"][0]["boundary_issues"] == ["explicit_qdq_precedes_relu_semantic_boundary"]
 
 
+def test_qdq_boundary_report_ignores_kgen_with_weighted_canonical_metadata() -> None:
+    from quantization.reports.qdq_boundary import enrich_weighted_qdq_boundary_audit
+
+    canonical = "__canonical__pillar_vfe_linear__MatMul__call00000"
+    report = enrich_weighted_qdq_boundary_audit(
+        [
+            {
+                "canonical_layer": "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+                "weighted_node": canonical,
+                "weighted_output_tensor": ["linear_out"],
+                "following_ops": [],
+                "q_node_actual_input_tensor": ["linear_out__before_output_qdq"],
+                "qdq_placement": "weighted_output_before_following_ops",
+                "activation_scale_owner": "linear_out",
+                "merge_policy": "fp16_merge",
+                "requested_precision": "int8",
+                "legalized_precision": "int8",
+            }
+        ],
+        [
+            {
+                "Name": "__myl_MoveConc",
+                "LayerType": "kgen",
+                "Precision": "Int8",
+                "Metadata": f"[ONNX Layer: {canonical}]",
+            },
+            {
+                "Name": f"{canonical}_myl3",
+                "LayerType": "gemm",
+                "Precision": "Int8",
+                "Metadata": f"[ONNX Layer: {canonical}]",
+            },
+        ],
+    )
+
+    assert report["passed"] is True
+    assert report["layers"][0]["realized_precision"] == "int8"
+    assert report["layers"][0]["engine_fused_layer"] == [f"{canonical}_myl3"]
+
+
+def test_activation_boundary_resolves_pfn_linear_unique_bn_relu_chain() -> None:
+    import onnx
+    from onnx import TensorProto, helper
+
+    from quantization.precision.activation_boundary import resolve_activation_output_boundary
+
+    canonical = "__canonical__pillar_vfe_linear__MatMul__call00000"
+    nodes = [
+        helper.make_node("MatMul", ["input", "weight"], ["linear_out"], name=canonical),
+        helper.make_node("Transpose", ["linear_out"], ["transposed"], name="transpose_0"),
+        helper.make_node(
+            "BatchNormalization",
+            ["transposed", "scale", "bias", "mean", "variance"],
+            ["bn_out"],
+            name="bn",
+        ),
+        helper.make_node("Transpose", ["bn_out"], ["restored"], name="transpose_1"),
+        helper.make_node("Relu", ["restored"], ["relu_out"], name="relu"),
+        helper.make_node("ReduceMax", ["relu_out"], ["pooled"], name="max"),
+    ]
+    graph = helper.make_graph(
+        nodes,
+        "pfn-boundary",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 1])],
+        [helper.make_tensor_value_info("pooled", TensorProto.FLOAT, [1, 1])],
+    )
+    model = helper.make_model(graph)
+
+    boundary = resolve_activation_output_boundary(model, canonical)
+
+    assert boundary["boundary_node_name"] == "relu"
+    assert boundary["boundary_output_tensor"] == "relu_out"
+    assert boundary["resolution"] == "post_relu_semantic_boundary_via_unique_pre_activation_chain"
+    assert [row["op_type"] for row in boundary["following_ops"]] == [
+        "Transpose",
+        "BatchNormalization",
+        "Transpose",
+        "Relu",
+    ]
+
+
+def test_qdq_boundary_report_rejects_raw_output_before_transitive_relu() -> None:
+    from quantization.reports.qdq_boundary import enrich_weighted_qdq_boundary_audit
+
+    canonical = "__canonical__pillar_vfe_linear__MatMul__call00000"
+    following = [
+        {
+            "name": "transpose_0",
+            "op_type": "Transpose",
+            "input_tensor": "linear_out",
+            "output_tensors": ["transposed"],
+            "depth": 0,
+            "next_weighted_node": False,
+        },
+        {
+            "name": "bn",
+            "op_type": "BatchNormalization",
+            "input_tensor": "transposed",
+            "output_tensors": ["bn_out"],
+            "depth": 1,
+            "next_weighted_node": False,
+        },
+        {
+            "name": "relu",
+            "op_type": "Relu",
+            "input_tensor": "bn_out",
+            "output_tensors": ["relu_out"],
+            "depth": 2,
+            "next_weighted_node": False,
+        },
+    ]
+    report = enrich_weighted_qdq_boundary_audit(
+        [
+            {
+                "canonical_layer": "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+                "weighted_node": canonical,
+                "weighted_output_tensor": ["linear_out"],
+                "following_ops": following,
+                "q_node_actual_input_tensor": ["linear_out__before_output_qdq"],
+                "qdq_placement": "weighted_output_before_following_ops",
+                "activation_scale_owner": "linear_out",
+                "merge_policy": "fp16_merge",
+                "requested_precision": "int8",
+                "legalized_precision": "int8",
+            }
+        ],
+        [
+            {
+                "Name": canonical,
+                "LayerType": "gemm",
+                "Precision": "Int8",
+                "Metadata": f"[ONNX Layer: {canonical}]",
+            }
+        ],
+    )
+
+    assert report["passed"] is False
+    assert "explicit_qdq_precedes_relu_semantic_boundary" in report["layers"][0]["boundary_issues"]
+    assert report["layers"][0]["engine_effective_boundary"] == "raw_weighted_output_before_relu"
+
+
 def test_qdq_output_is_inserted_after_relu_semantic_boundary(tmp_path: Path) -> None:
     import onnx
     from onnx import TensorProto, helper, numpy_helper
@@ -1518,6 +1659,121 @@ def test_trt_command_separates_int8_compute_from_fp16_merge_output(tmp_path: Pat
     joined = " ".join(result.command)
     assert f"--layerPrecisions={name}:int8" in joined
     assert f"--layerOutputTypes={name}:fp16" in joined
+
+
+def test_strongly_typed_trt_command_omits_weak_precision_hints(tmp_path: Path) -> None:
+    from quantization.api import build_trt_command
+    from quantization.config import TensorRTBuildConfig
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    name = "__canonical__stem__Conv__call00000"
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                module_path="stem",
+                canonical_node_name=name,
+                precision_group="group_stem",
+                requested_precision="int8",
+                realized_request_precision="int8",
+            )
+        ]
+    )
+    result = build_trt_command(
+        tmp_path / "model.onnx",
+        tmp_path / "model.plan",
+        mapping,
+        config=TensorRTBuildConfig(
+            trtexec_path=Path("/opt/tensorrt/bin/trtexec"),
+            strongly_typed=True,
+        ),
+    )
+    command = result.command
+    assert "--stronglyTyped" in command
+    assert "--fp16" not in command
+    assert "--int8" not in command
+    assert not any(flag.startswith("--precisionConstraints=") for flag in command)
+    assert not any(flag.startswith("--layerPrecisions=") for flag in command)
+    assert not any(flag.startswith("--layerOutputTypes=") for flag in command)
+
+
+def test_qdq_graph_encodes_fp16_parameterized_and_functional_compute(tmp_path: Path) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.api import insert_explicit_qdq
+    from quantization.config import QDQConfig
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    conv_name = "__canonical__stem__Conv__call00000"
+    matmul_name = "__canonical__functional_affine__MatMulGroup__member00"
+    weight = numpy_helper.from_array(np.ones((4, 3, 1, 1), dtype=np.float32), "stem.weight")
+    bias = numpy_helper.from_array(np.ones((4,), dtype=np.float32), "stem.bias")
+    epsilon = numpy_helper.from_array(np.asarray(1.0e-4, dtype=np.float32), "epsilon")
+    graph = helper.make_graph(
+        [
+            helper.make_node("Conv", ["x", "stem.weight", "stem.bias"], ["conv_y"], name=conv_name),
+            helper.make_node("Sigmoid", ["conv_y"], ["sigmoid_y"], name="score_sigmoid"),
+            helper.make_node("Add", ["sigmoid_y", "epsilon"], ["score"], name="score_epsilon_add"),
+            helper.make_node("MatMul", ["left", "right"], ["product"], name=matmul_name),
+        ],
+        "strong-types",
+        [
+            helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 3, 4, 4]),
+            helper.make_tensor_value_info("left", TensorProto.FLOAT, [1, 4, 3]),
+            helper.make_tensor_value_info("right", TensorProto.FLOAT, [1, 3, 2]),
+        ],
+        [
+            helper.make_tensor_value_info("score", TensorProto.FLOAT16, [1, 4, 4, 4]),
+            helper.make_tensor_value_info("product", TensorProto.FLOAT16, [1, 4, 2]),
+        ],
+        [weight, bias, epsilon],
+    )
+    source = tmp_path / "source.onnx"
+    output = tmp_path / "typed.onnx"
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)]), source)
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                module_path="stem",
+                canonical_node_name=conv_name,
+                precision_group="stem_group",
+                requested_precision="fp16",
+                realized_request_precision="fp16",
+                weight_initializer="stem.weight",
+                onnx_op_type="Conv",
+            ),
+            CanonicalPrecisionEntry(
+                module_path="pyramid_backbone.functional_affine_grid_matmul",
+                canonical_node_name="__canonical__functional_affine__MatMulGroup",
+                precision_group="protected_functional_affine_grid",
+                requested_precision="fp16",
+                realized_request_precision="fp16",
+                realized_output_precision="fp16",
+                onnx_op_type="MatMul",
+                constraint_node_names=(matmul_name,),
+            ),
+        ]
+    )
+    result = insert_explicit_qdq(
+        source,
+        output,
+        mapping,
+        scales={},
+        config=QDQConfig(),
+    )
+    typed = onnx.load(output)
+    nodes = {node.name: node for node in typed.graph.node}
+    conv = nodes[conv_name]
+    matmul = nodes[matmul_name]
+    assert all(nodes[str(value).removesuffix("__output")].op_type == "Cast" for value in conv.input)
+    assert all(nodes[str(value).removesuffix("__output")].op_type == "Cast" for value in matmul.input)
+    assert len(result.calibration_metadata["fp16_compute_cast_records"]) == 5
+    peer_casts = result.calibration_metadata["strong_type_compatibility_cast_records"]
+    assert [(row["consumer_node"], row["source_tensor"]) for row in peer_casts] == [
+        ("score_epsilon_add", "epsilon")
+    ]
+    assert result.calibration_metadata["strong_typing_graph_contract_hash"]
+    assert {initializer.name for initializer in typed.graph.initializer} == {"stem.weight", "stem.bias", "epsilon"}
 
 
 def test_precision_realization_and_provenance_validation() -> None:

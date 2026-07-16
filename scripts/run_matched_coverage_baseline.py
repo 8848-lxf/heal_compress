@@ -152,7 +152,14 @@ def build_context(output: Path, gpu: int, variant: str) -> Any:
 
 def validate_profile(context: Any, phenotype: Any, profile_path: Path, variant: str) -> dict[str, Any]:
     profile = json.loads(profile_path.read_text(encoding="utf-8"))
-    if variant.startswith("E67-"):
+    if variant.startswith("ST69-"):
+        expected_int8 = {
+            str(row["canonical_layer"])
+            for row in profile["layers"]
+            if row["canonical_kind"] == "parameterized_weighted"
+        }
+        expected_coverage = {"int8": 69, "fp16": 1}
+    elif variant.startswith("E67-"):
         expected_int8 = set(str(value) for value in profile["int8_module_paths"])
         expected_coverage = {"int8": 67, "fp16": 3}
     else:
@@ -242,7 +249,11 @@ def main(args: argparse.Namespace) -> None:
         latency_rounds=1,
     )
     baseline_precision = (
-        "matched_legacy_int8" if args.variant.startswith("E67-") else "trusted_explicit_qdq_int8"
+        "maximal_legal_int8"
+        if args.variant.startswith("ST69-")
+        else "matched_legacy_int8"
+        if args.variant.startswith("E67-")
+        else "trusted_explicit_qdq_int8"
     )
     phenotype = evaluator._baseline_precision_phenotype(baseline_precision)
     if phenotype.pruned_unit_ids:
@@ -313,7 +324,13 @@ def main(args: argparse.Namespace) -> None:
             "status": "complete",
             "all_keep": True,
             "pruned_unit_count": 0,
-            "coverage": "67 INT8 / 3 FP16" if args.variant.startswith("E67-") else "27 INT8 / 43 FP16",
+            "coverage": (
+                "69 INT8 / 1 FP16"
+                if args.variant.startswith("ST69-")
+                else "67 INT8 / 3 FP16"
+                if args.variant.startswith("E67-")
+                else "27 INT8 / 43 FP16"
+            ),
             "canonical_weighted_count": 70,
             "unmapped_weighted_count": 0,
             "activation_scale_source": (
@@ -334,7 +351,11 @@ def main(args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--variant", choices=("E67-LS", "E67-ENT", "E27-LS", "E27-ENT"), required=True)
+    parser.add_argument(
+        "--variant",
+        choices=("ST69-ENT", "E67-LS", "E67-ENT", "E27-LS", "E27-ENT"),
+        required=True,
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--gpu", type=int, default=6)

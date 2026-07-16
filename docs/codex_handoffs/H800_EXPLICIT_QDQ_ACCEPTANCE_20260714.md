@@ -229,3 +229,343 @@ The delivery commit containing this round is the branch HEAD after commit; retri
 Completed: 2026-07-14 12:46:00 CST
 
 ---
+
+## Round 7 — strongly typed Phase-1 graph and builder contract
+
+This phase starts the requested strongly typed deployment conversion. No GA, Pareto search, pruning materialization, full-validation rerun, or existing H800 artifact overwrite was performed.
+
+The three previously ambiguous FP16 entries were resolved as follows:
+
+- `encoder_m1.pillar_vfe.pfn_layers.0.linear` is a learned PFN `nn.Linear` followed by BN/ReLU/max. It was protected only to reproduce the Legacy 67/3 layer set; no TensorRT operator limitation has been proven.
+- `pyramid_backbone.single_head_2` is the level-2 1x1 occupancy-score Conv used by cooperative pyramid fusion. The prior reason string `coordinate_grid_generation_requires_fp16_output` is inaccurate: this Conv does not generate the affine grid. It was also protected only for Legacy coverage matching.
+- `pyramid_backbone.functional_affine_grid_matmul` is not an unresolved learned layer. It is a stable canonical group for the three initializer-free `torch.bmm` calls in `quantization.export.heal_lidar_pyramid._warp`, one per pyramid level, used to transform the sampling grid before `GridSample`. TensorRT fuses them to one GEMM row. The entry remains explicitly mapped and FP16-protected as parameter-free geometry compute.
+
+The production FP16 merge contract means branch compute precision remains independently selectable. Each residual/concat input is dequantized/cast to FP16, Add/Concat executes in FP16, and a downstream INT8 weighted layer owns a new Q at the calibrated post-merge semantic tensor. It does not force the entire residual block or concat branch to FP16.
+
+Production changes in this phase:
+
+- `quantization/config.py`: added `QDQConfig.explicit_fp16_compute_casts` and `TensorRTBuildConfig.strongly_typed`; bumped policy versions.
+- `quantization/precision/qdq_inserter.py`: added explicit graph-side FP16 casts for parameterized FP16 Conv/ConvTranspose/Gemm/MatMul inputs, protected functional MatMul operands, INT8-compute/FP16-output splits, and the existing FP16 merge boundaries. Original FP32 initializer bytes remain unchanged. The Q/DQ report now records all strong-typing casts and a `strong_typing_graph_contract_hash`.
+- `quantization/tensorrt/command.py`: strongly typed mode emits `--stronglyTyped` and deliberately omits weak-typing flags `--fp16`, `--int8`, `--precisionConstraints`, `--layerPrecisions`, and `--layerOutputTypes`.
+- `search/baselines/original_engines.py` and `search/stage2/lidar_pyramid_real_evaluator.py`: original baselines and production Stage-2 candidate builds now select strongly typed TensorRT mode.
+- `search/stage2/{trt_modelopt,trt_build_worker}.py`: every production engine request now carries the TensorRT root, and the worker records a fail-closed modelopt build-environment manifest with Python/nvcc/GCC/G++ paths and versions, CUDA variables, TensorRT version/root, LD/CMake paths, GPU capability, plugin/QDQ hashes, builder config, command and command hash.
+- `tests/test_formal_packages_cpu.py` and `tests/test_search_baseline_engines.py`: added regression coverage for mutually exclusive strongly/weak builder flags, graph-side FP16 parameterized and functional compute typing, initializer preservation, and production baseline defaults.
+
+Search objective decision for the next phase:
+
+```text
+minimize normalized joint weight Taylor loss
+subject to R_BOPS <= target
+```
+
+Physical parameter retention will be reported and may be used only as a deterministic epsilon/lexicographic tie-break. It is removed from the primary weighted scalar objective. Pruning perturbations (`delta_w=-w`) being larger than quantization perturbations is meaningful under one task-loss Taylor scale: if quantization reaches a BOPS budget with lower predicted AP loss, an AP-first search should prefer it. For budgets where W8A8 alone is sufficient, a no-pruning optimum is therefore valid; the 0.05 target is expected to require physical pruning. If pruning at every budget is later required, it must be stated as an explicit pruning constraint/Pareto axis rather than hidden in an arbitrary objective weight.
+
+Validation completed in `univ2x-opt`:
+
+```bash
+pytest -q tests/test_formal_packages_cpu.py tests/test_search_baseline_engines.py \
+  tests/test_search_quantization_groups.py tests/test_search_baseline_precision_validation.py
+# 88 passed
+python -m py_compile <all changed production modules>
+git diff --check
+```
+
+TensorRT 10.9.0.34 exposes `--stronglyTyped`. A plain interactive `conda activate modelopt` inherited an earlier `/usr/local/cuda/bin` entry and initially resolved `which nvcc` to the system CUDA. The environment does contain `/home/lixingfeng/miniconda3/envs/modelopt/bin/nvcc` (CUDA 11.8.89), plus Conda GCC/G++ 11.2. The production `modelopt_python_command()` rebuilds PATH with `$CONDA_PREFIX/bin` first and the new worker rejects any resolved tool outside the modelopt prefix. No plugin was compiled with the inherited system nvcc. A real strongly typed H800 engine build and 10-frame gate remain pending; this code-only phase is not deployment acceptance.
+
+Completed: 2026-07-17 00:15:04 CST
+
+---
+
+## Round 8 — strongly typed engine acceptance, transitive PFN boundary fix, and full validation
+
+This round completes the real H800 strongly typed build/evaluation phase. No GA, Pareto search, pruning materialization, or existing accepted artifact was rebuilt. PyTorch/HEAL work ran after an explicit `conda activate univ2x-opt`; TensorRT workers ran in `modelopt` with the production environment sanitizer. The accepted build manifest records TensorRT `10.9.0.34`, modelopt CUDA `11.8.89`, Conda GCC/G++ `11.2.0`, H800 compute capability `9.0`, `system_toolchain_used=false`, plugin SHA256 `61d9adf44855ab2a595220718270d361c993f9ff281e986cdf8a62d5ca317ecd`, and `--stronglyTyped`. Weak builder flags `--fp16`, `--int8`, `--precisionConstraints`, `--layerPrecisions`, and `--layerOutputTypes` are absent.
+
+Production source changes completed in this round:
+
+- `quantization/precision/qdq_inserter.py` now makes the explicit graph fully typed: FP16 parameterized/functional compute casts, INT8-compute/FP16-output casts, FP16 merge casts, and dtype-closure casts for type-preserving, arithmetic, comparison, `Where`, and constant-producing paths. The graph contract and every cast class enter Q/DQ metadata/hash.
+- `quantization/precision/activation_boundary.py` now follows a unique pre-activation chain through exported `Transpose/BatchNormalization/Reshape/...` nodes. This fixed PFN Linear from raw `MatMul` output Q/DQ to the true post-BN/post-ReLU semantic tensor.
+- `quantization/reports/qdq_boundary.py` now rejects raw output Q/DQ before a transitive ReLU and uses the same weighted-compute predicate as structure/precision validation. TensorRT may attach a canonical identity to both a preparation `kgen` and the real GEMM; only the latter counts as weighted execution.
+- `search/stage2/lidar_pyramid_real_evaluator.py` resolves fused merge layers by exact branch-input tensor sets when TensorRT omits the Add name, and preserves the original engine-build failure instead of masking it with a missing layer-info error.
+- `search/integration/lidar_pyramid_context.py` and `search/baselines/original_engines.py` now distinguish Legacy-matched FP16 profile choices from true legality. `encoder_m1.pillar_vfe.pfn_layers.0.linear` and `pyramid_backbone.single_head_2` may be INT8 in the maximal parameterized profile; the initializer-free affine-grid functional MatMul stays mapped FP16 geometry compute.
+- `search/stage2/{trt_modelopt,trt_build_worker}.py` write a fail-closed build environment manifest and reject any Python/nvcc/GCC/G++ path outside `modelopt`.
+- `scripts/strongly_typed_parser_diagnostic.py` provides a parser-only diagnostic that does not qualify as acceptance. `scripts/run_matched_coverage_baseline.py` now supports fresh `ST69-ENT` production gates.
+- Regression tests cover strong/weak builder flag exclusion, graph dtype closure, PFN transitive semantic boundary resolution, kgen-vs-GEMM report matching, per-channel axes, protected functional MatMul typing, search-space protection semantics, and fused merge realization.
+
+Parser debugging preserved three non-accepted diagnostic directories. The first exposed Half/FP32 Sigmoid arithmetic, the second Equal Half/Float, and the third Where branch Float/Half. The final diagnostic engine parsed and realized 67/3, after which all fixes were exercised again through the formal production path rather than accepted from the diagnostic script.
+
+The fresh maximal-parameterized production artifact is:
+
+`outputs/H800_strongly_typed_explicit_qdq_20260717_0018/ST69_ENT_semantic_pfn_boundary_retry2/`
+
+It uses fresh fixedK29696 train200 TensorRT EntropyCalibration2, per-channel weights, semantic output boundaries, FP16 merge contracts, and a fresh strongly typed engine. Its engine SHA256 is `96902772ae7fbcb4612816dddf14490577f9cd1cabcff8116987b1f2e24dff7a`; Q/DQ ONNX SHA256 is `ed43038b0e99e401b80230610ba67e594a58e0db58a4faa0cdfd0f5eecf8a298`.
+
+All structural audits pass:
+
+- all-keep, `pruned_unit_count=0`, physical/checkpoint identity retained;
+- canonical structure `70/70`, unmapped `0`;
+- canonical requested/realized precision `69 INT8 / 1 FP16`, mismatch `0`;
+- the sole FP16 canonical entry is parameter-free `pyramid_backbone.functional_affine_grid_matmul` geometry compute;
+- merge realization `20/20` FP16 contracts, zero issues;
+- boundary audit passed, zero issues;
+- PFN Q input and activation-scale owner are both `/pillar_vfe/pfn_layers.0/Relu_output_0`; resolution is `post_relu_semantic_boundary_via_unique_pre_activation_chain`.
+
+Gates and full validation:
+
+| route | coverage | frames/skips | AP@0.3 | AP@0.5 | AP@0.7 | mAP | p50 ms |
+|---|---|---:|---:|---:|---:|---:|---:|
+| ST69-ENT 10-frame | 69/1 | 10/0 | 0.814596 | 0.814596 | 0.649049 | 0.759414 | 2.815299 |
+| ST69-ENT 200-frame | 69/1 | 200/0 | 0.714310 | 0.666118 | 0.451087 | 0.610505 | 3.067919 |
+| ST69-ENT full | 69/1 | 1789/0 | 0.685840 | 0.641624 | 0.448974 | 0.592146 | 3.109113 |
+| ST67-ENT full | 67/3 | 1789/0 | 0.731074 | 0.687417 | 0.482080 | 0.633524 | 2.976560 |
+| Legacy implicit L67 | 67/3 | 1789/0 | 0.704774 | 0.663810 | 0.470345 | 0.612976 | 2.363873 |
+
+The full runs use the same fixed manifest hash `e5cbece0ceaf2ac1b2c47305a3fa3bdc5f616baa1ce86b0754ba565a013ac463`, warmup `200`, reset after warmup, 1789 evaluated/latency frames, and zero skips. ST69 full evidence is in `outputs/H800_strongly_typed_explicit_qdq_20260717_0018/ST69_ENT_semantic_pfn_boundary_retry2_full1789/`; the source engine hash and all prerequisite audit reports were checked before evaluation and no deployment artifact was rebuilt.
+
+Independent verdicts, superseding any earlier single `trusted/equivalent` wording:
+
+- strongly typed chain implementation: `passed`;
+- ST69 structure/precision/merge/boundary realization: `passed`;
+- ST69 coverage equivalent to Legacy 67/3: `false` (`69/1` versus `67/3`);
+- ST69 scale recipe equivalent to Legacy: `false`;
+- ST69 accuracy equivalent to Legacy: `false` (mAP delta `-0.020830`, threshold `0.005`);
+- ST69 latency equivalent to Legacy: `false` (p50 delta `+0.745240 ms`, ratio `1.3153x`);
+- ST69 trusted explicit baseline: `false` because full mAP `0.592146 < 0.60`;
+- ST67 coverage equivalent to Legacy: `true`, but accuracy equivalent remains `false` (mAP delta `+0.020548`) and latency equivalent remains `false` (`1.2592x`).
+
+Quantizing the two Legacy-profile exceptions causes ST69 versus ST67 deltas of `-0.041378` mAP and `+0.132553 ms` p50. This shows they were Legacy coverage choices rather than unmapped or unsupported layers, but including them is not accuracy-safe under the current recipe. The old maximal result around `0.5098` remains a superseded raw-boundary/weak-typing negative control; it must not be compared as the current ST69 implementation.
+
+Validation after the final code changes:
+
+```bash
+pytest -q tests/test_formal_packages_cpu.py tests/test_search_baseline_engines.py \
+  tests/test_search_quantization_groups.py tests/test_search_strongly_typed_merge_realization.py
+# 88 passed
+git diff --check
+```
+
+The next phase is the requested legal domain-width pruning search and joint weight Taylor objective. GA/Pareto has still not been launched. The primary optimization remains normalized joint weight Taylor loss under a hard BOPS budget; physical parameter retention is metadata/tie-break only, not a primary scalar objective.
+
+Completed: 2026-07-17 01:16:22 CST
+
+---
+
+## Round 9 — legal domain-width genes, joint Taylor objective, and greedy framework
+
+This round implements the new Stage-1 search coordinates and the first production integration smoke. No GA, greedy Stage-2 deployment, Pareto experiment, physical pruning, ONNX export, calibration, Q/DQ build, TensorRT engine build, or validation-set evaluation was launched.
+
+The real lidar_pyramid static audit ran on physical H800 GPU 6 after explicit `conda activate univ2x-opt`. Its artifact is:
+
+`outputs/H800_domain_width_search_space_audit_20260717_015344/`
+
+The audit used one Fisher batch as an integration smoke, not as the final eight-batch search ranking. It found:
+
+- tracer atomic coupled units: `7383`;
+- safe formal atomic units admitted to physical pruning search: `6912`;
+- root/axis pruning domains: `24` (`8` dense, `16` regular grouped);
+- nontrivial legal retained-width genes: `21`; three other domains have only the original all-keep width;
+- total enumerated legal width choices: `300`;
+- precision genes: `69`, all parameterized weighted layers, all independently selectable;
+- hard-protected parameterized precision groups: `0`;
+- multi-member force-same-precision groups: `0`;
+- pruning scopes reused as precision groups: `0`;
+- the 70th canonical compute entry is mapped `pyramid_backbone.functional_affine_grid_matmul`, an initializer-free geometry `torch.bmm` group with two runtime operands; it is not a precision gene and remains FP16 in both Legacy and explicit engines.
+
+This corrects an obsolete wording: PFN Linear and `pyramid_backbone.single_head_2` are the two FP16 exceptions in the Legacy-matched 67/3 recipe, but they are not currently hard-protected search layers. ST69 proved both can be explicitly INT8, although jointly enabling them is not accuracy-safe under the current entropy recipe.
+
+Production search changes:
+
+- `search/candidate.py`, `search/canonicalization.py`, and `search/hashing.py` add stable retained-domain-width genes and include their exact expansion identity in genotype/phenotype/deployment hashes.
+- `search/pruning_space/local_domains.py` replaces free atomic-bit choice with one legal retained-width gene per root/axis domain. Dense widths are aligned to 4 before search. Regular grouped Conv keeps the original group count, uses only the safe channels/group set `{4,8,16,32,64,128,256,512}`, prunes equal counts per group, and freezes exact group keep/prune maps. Width expansion is the final physical atomic mask; there is no later alignment repair or reranking.
+- `search/pruning_space/domain_importance.py` computes the fixed, precision-independent pruning ranking with `sum(abs(g*(-w)) + 0.5*E[g^2]*(-w)^2)`. Overlapping parameter slices are unioned so one tensor element is not counted twice.
+- all GA operators now mutate/crossover adjacent legal widths rather than atomic bits. The old priority-root/max-96 cap is bypassed in domain-width mode.
+- `search/proxy/joint_weight_taylor.py` implements the combined perturbation once: pruned elements use `delta_w=-w`; retained elements use production-layout-aware per-channel `Q_p(w)-w`; the score is `sum(abs(g*delta_w)+0.5*E[g^2]*delta_w^2)` normalized by full searchable-weight removal Taylor mass. Activation Taylor is excluded.
+- `search/proxy/{candidate_perturbation,gpu_batch_proxy,batch_channel_resolver}.py` add Conv/Linear axis-0 and ConvTranspose axis-1 per-channel simulation plus a CUDA batched joint-Taylor path. Domain candidates generate exact candidate-level channel masks instead of allocating a prohibitive `6912 atomic x layer x channel` dense action tensor.
+- `search/proxy/objective.py` adds `joint_weight_taylor_hard_bops`: minimize normalized joint Taylor loss subject to `R_BOPS_vs_original_FP32 <= target`. Parameter retention is report-only by default; its coefficient is zero.
+- `search/greedy/engine.py` adds the robust comparison framework. Starting from all-keep highest precision, every iteration batches all one-step legal neighbors (one adjacent width decrease or one precision downgrade), recomputes their current marginal cost, and selects minimum incremental joint-Taylor loss per positive BOPS reduction. One monotonic path snapshots the first feasible unique candidate for each target `{0.05,0.10,0.15,0.20,0.25,0.30}`.
+- `search/orchestration/lidar_pyramid_search.py` now supports `search.method: ga|greedy`. GA evaluates repaired/expanded Top-5 candidates for 500 frames per budget round, chooses one round winner, and re-evaluates every unique round-winner engine for 1789 frames without rebuilding physical/ONNX/calibration/QDQ/engine artifacts. Greedy deploys only each unique final budget candidate and evaluates it directly for 1789 frames.
+- `search/stage2/lidar_pyramid_real_evaluator.py` adds an evaluation-only round-winner path that verifies the existing engine hash and explicitly records zero physical/ONNX/calibration/QDQ/engine rebuilds.
+- new formal configs: `search/configs/lidar_pyramid_h800_domain_width_joint_{ga,greedy}.yaml`; both pin physical GPU 6 through context `device:auto`, the modelopt TensorRT root, fixedK29696 train200 entropy calibration, strongly typed deployment, hard BOPS targets, 500-frame GA Stage-2, and 1789-frame full validation.
+- `scripts/audit_domain_width_search_space.py` builds and records the real production search space without running a search.
+
+Environment note: commands that inherit a login shell can still trigger a broken base-prefix Conda cross-compiler activation. The verified isolation command is a non-login shell followed by explicit `source .../conda.sh && conda activate modelopt`. It resolves Python/nvcc/GCC/G++ entirely under `/home/lixingfeng/miniconda3/envs/modelopt`, TensorRT is `10.9.0.34`, nvcc is `11.8.89`, and GCC/G++ are `11.2.0`. No system compiler or CUDA was used.
+
+Tests completed in `univ2x-opt`:
+
+```bash
+PYTHONPATH=. pytest -q tests/test_search_greedy_budget.py \
+  tests/test_search_domain_width_genes.py \
+  tests/test_search_gpu_batch_integration.py \
+  tests/test_search_stage2_physical_validation.py \
+  tests/test_two_stage_joint_search.py
+# 35 passed
+python -m py_compile <changed search modules and audit script>
+git diff --check
+```
+
+Pending before search execution: real GPU6 batched-proxy construction/evaluation smoke using the 6912-unit domain space, final broader regression suite, handoff/reproduction command refresh, and a clean Git commit. The one-batch ranking artifact is diagnostic only and must not be reused as the final eight-batch Fisher ranking.
+
+Completed: 2026-07-17 01:54:58 CST
+
+---
+
+## Round 10 — CUDA batched proxy acceptance, exact physical parameter accounting, and search delivery gate
+
+This round closes the implementation/verification gate before any real GA or
+greedy deployment search.  It did **not** run GA, greedy Pareto evaluation,
+physical pruning, ONNX export, calibration, Q/DQ insertion, TensorRT engine
+build, or validation-set AP evaluation.  Existing H800 artifacts were not
+overwritten.
+
+The production CUDA proxy was built from the real lidar_pyramid checkpoint,
+the 7383 traced atomic units, the 6912 safe formal units, the 24 legal
+root/axis domains and one diagnostic Fisher batch on physical H800 GPU 6.  The
+final performance artifact is:
+
+`outputs/H800_domain_width_cuda_proxy_audit_20260717_021305/`
+
+The exact acceptance facts are:
+
+- `proxy_backend=cuda_batched` and `scalar_evaluate_call_count=0` for a random
+  population of 128 legal domain-width/precision candidates;
+- no dense `6912 x layer x channel` atomic action tensor is allocated;
+- all-keep FP32 has exact `L_joint_weight_taylor=0`, `R_BOPS=1`, and physical
+  parameter retention `1`;
+- random legal candidates span `R_BOPS=0.0568479..0.3784325` and joint Taylor
+  loss `0.2643069..0.4249282`;
+- the small two-candidate batch reports about `156.13 candidates/s`; the full
+  128-candidate random population reports about `6.35 candidates/s`,
+  `20.155 s` CUDA-event time and `838,445,056` peak allocated bytes.  The full
+  population cost is dominated by exact layer/shape mask and bilinear Taylor
+  evaluation; it remains a true GPU batch and never calls the scalar path.
+
+Physical parameter-retention accounting was corrected after the real audit
+showed that 896 parameters outside the virtual weighted/prunable layer universe
+were being omitted from both sides of the ratio.  They are structurally
+constant, so production now carries them unchanged in every candidate.  The
+fresh verification artifact is:
+
+`outputs/H800_domain_width_search_space_audit_20260716_111741_paramfix_retry/`
+
+It records all-keep `parameter_count_base=5,464,791`,
+`parameter_count_after=5,464,791`, `R_parameter_retention=1`, and
+`constant_untracked_parameter_count=896`.  A width-64-to-60 diagnostic action
+reports `parameter_count_after=5,460,175` and physical pruning rate
+`0.0008446574`.  The failed predecessor directory ending in `_paramfix` is a
+launcher diagnostic only: setting `CUDA_VISIBLE_DEVICES=6` while the formal
+context requested physical `cuda:6` renumbered the visible GPU and caused
+`invalid device ordinal`; the accepted retry leaves `CUDA_VISIBLE_DEVICES`
+unset and uses the configured physical GPU ID.
+
+The finalized Stage-1 objective is deliberately not a four-term weighted
+mixture:
+
+```text
+delta_w = -w                              for physically pruned elements
+delta_w = Q_p(w) - w                      for retained quantized elements
+T_joint = sum(abs(g * delta_w) + 0.5 * E[g^2] * delta_w^2)
+L_joint = T_joint / (T_remove_all_searchable + epsilon)
+
+minimize L_joint
+subject to R_BOPS(original strict FP32) <= target
+```
+
+Activation Taylor and SQNR are absent from this new objective.  Physical
+parameter retention is report-only in the GA objective (`epsilon=0`) and is at
+most a deterministic lexicographic tie-break in the greedy comparison.  The
+greedy tie-break now uses `R_parameter_retention`, not mixed-bit model size.
+This directly answers the pruning-versus-quantization concern: a no-pruning
+candidate is allowed when quantization reaches a budget with lower predicted
+task loss; physical pruning is not forced by an arbitrary scalar reward.  The
+hard BOPS targets remain `{0.05,0.10,0.15,0.20,0.25,0.30}`.
+
+The earlier “two protected parameterized layers plus one unmapped MatMul”
+description must not be reused.  The current production search has 69 learned
+precision genes, zero hard-protected learned groups, and zero unresolved
+weighted mappings.  PFN Linear and `pyramid_backbone.single_head_2` are only
+the two FP16 exceptions selected by the Legacy-matched 67/3 recipe; ST69 proved
+that both can be requested and realized as INT8, although doing so is not
+accuracy-safe under the current recipe.  The 70th canonical compute entry,
+`pyramid_backbone.functional_affine_grid_matmul`, is fully mapped parameter-free
+geometry `torch.bmm` with two runtime inputs.  It has no weight initializer and
+therefore no learned precision gene; both Legacy and explicit engines realize
+it in FP16.
+
+The FP16 residual/concat merge contract means branch compute genes remain
+independent.  Every merge input is DQ/cast to FP16, Add/Concat and its declared
+post-merge semantic activation execute in FP16, and a downstream INT8 layer
+may insert a new Q at that calibrated post-merge tensor.  It does not force all
+layers in the participating branches to share FP16.
+
+Final source additions/changes for this phase include:
+
+- domain-width genotype/canonical/hash and all GA operators under
+  `search/{candidate,canonicalization,hashing,ga}/`;
+- legal dense/grouped domains and fixed pruning-only Taylor ranking under
+  `search/pruning_space/`;
+- joint weight Taylor, exact physical parameter accounting, layout-aware
+  per-channel simulation and CUDA batched scoring under `search/proxy/`;
+- robust one-step marginal-loss/BOPS greedy search under `search/greedy/`;
+- GA/greedy orchestration, target-independent proxy caching, 500-frame GA
+  Top-5, unique 1789-frame round-winner reuse, and greedy unique-full-validation
+  policy under `search/orchestration/` and `search/stage2/`;
+- formal configs
+  `search/configs/lidar_pyramid_h800_domain_width_joint_{ga,greedy}.yaml`;
+- real static/CUDA audit entrypoint
+  `scripts/audit_domain_width_search_space.py`;
+- focused tests for legal width expansion, grouped frozen maps, scalar/GPU
+  agreement, exact constant-parameter accounting, greedy budgets, GA dedup and
+  evaluation-only full-validation reuse.
+
+Verified environments in a non-login shell with explicit activation:
+
+```text
+univ2x-opt Python: /home/lixingfeng/miniconda3/envs/univ2x-opt/bin/python
+modelopt Python:   /home/lixingfeng/miniconda3/envs/modelopt/bin/python
+modelopt nvcc:     /home/lixingfeng/miniconda3/envs/modelopt/bin/nvcc (11.8.89)
+modelopt gcc/g++:  /home/lixingfeng/miniconda3/envs/modelopt/bin/{gcc,g++} (11.2.0)
+TensorRT root:     /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+TensorRT Python:   10.9.0.34
+```
+
+Final regression and syntax checks:
+
+```bash
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+PYTHONPATH=. pytest -q $(rg --files tests | \
+  rg '^tests/(test_search.*\\.py|test_two_stage_joint_search\\.py|test_formal_packages_cpu\\.py)$' | sort)
+# 223 passed, 3 non-failing dependency warnings
+python -m py_compile <all changed Python files>
+git diff --check
+```
+
+Reproduction/next-stage commands are recorded but were intentionally not run:
+
+```bash
+# Real search-space and GPU scorer audit only
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+unset CUDA_VISIBLE_DEVICES
+PYTHONPATH=. python scripts/audit_domain_width_search_space.py \
+  --config search/configs/lidar_pyramid_h800_domain_width_joint_ga.yaml \
+  --output-dir outputs/H800_domain_width_audit_<timestamp> \
+  --fisher-batches 8 --population-smoke-size 128
+
+# Formal GA (do not run until the implementation checkpoint is accepted)
+PYTHONPATH=. python -m search.cli \
+  --config search/configs/lidar_pyramid_h800_domain_width_joint_ga.yaml \
+  --output-root outputs --gpu-id 6
+
+# Formal greedy comparison (same acceptance restriction)
+PYTHONPATH=. python -m search.cli \
+  --config search/configs/lidar_pyramid_h800_domain_width_joint_greedy.yaml \
+  --output-root outputs --gpu-id 6
+```
+
+Current gate: production implementation and static/CUDA integration are ready
+for source synchronization; actual GA/greedy Pareto experiments remain
+`not_yet_run` and require the next explicit execution decision.
+
+Completed: 2026-07-17 02:20:03 CST
+
+---

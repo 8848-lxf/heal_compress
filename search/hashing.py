@@ -42,6 +42,10 @@ def candidate_hash_payload(phenotype: CandidatePhenotype, space: SearchSpaceSpec
 
     return {
         "pruned_unit_ids": sorted(phenotype.pruned_unit_ids),
+        "domain_width_profile": dict(phenotype.metadata.get("domain_width_profile") or {}),
+        "domain_width_expansion_hash": str(
+            phenotype.metadata.get("domain_width_expansion_hash", "")
+        ),
         "realized_precision_profile": phenotype.realized_precision_profile,
         "pruning_policy_version": phenotype.pruning_policy_version,
         "precision_policy_version": phenotype.precision_policy_version,
@@ -63,6 +67,10 @@ def search_hash(phenotype: CandidatePhenotype, *, trace_hash: str, proxy_version
     return canonical_json_hash(
         {
             "pruned_unit_ids": sorted(phenotype.pruned_unit_ids),
+            "domain_width_profile": dict(phenotype.metadata.get("domain_width_profile") or {}),
+            "domain_width_expansion_hash": str(
+                phenotype.metadata.get("domain_width_expansion_hash", "")
+            ),
             "requested_precision_profile": phenotype.requested_precision_profile,
             "trace_hash": trace_hash,
             "proxy_version": proxy_version,
