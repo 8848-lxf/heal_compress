@@ -769,3 +769,33 @@ must be created after committing this correction.
 Completed checkpoint: 2026-07-17 04:55:07 +0800 CST
 
 ---
+
+## H800 GA preflight correction: batched explicit-mask encoding
+
+The second preflight directory
+`outputs/h800_domain_width_joint_ga_20260716_135612` is also preserved and was
+stopped during the first multi-GPU proxy call.  Compact raw genotypes removed
+hash overhead, but the exact channel-mask encoder still issued a separate
+Torch advanced-index assignment for every pruned atomic unit.  With thousands
+of units per phenotype, all six CUDA scorers waited on millions of fine-grained
+CPU tensor operations.
+
+`TorchBatchedProxyScorer._encode` now:
+
+- caches atomic-id and flattened layer/channel effect indices once per scorer;
+- writes all pruned action indices in one operation per candidate;
+- merges all output-channel effects into one flattened mask assignment per
+  candidate;
+- does the same for input-channel effects;
+- preserves overlapping/duplicate effect semantics because the destination is
+  Boolean.
+
+The multi-device clones own independent cache dictionaries, so lazy cache
+construction cannot race across scoring threads.  A new exact mask test covers
+overlapping output effects and multi-layer input/output effects.  Focused
+proxy/domain tests: 21 passed.  A new formal GA directory is required; neither
+preflight directory may be reused as a completed search.
+
+Completed checkpoint: 2026-07-17 05:02:51 +0800 CST
+
+---

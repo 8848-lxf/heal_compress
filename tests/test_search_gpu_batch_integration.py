@@ -492,3 +492,43 @@ def test_multi_device_proxy_shards_concurrently_and_preserves_candidate_order() 
     assert result.stats["gpu_batch_count"] == 2
     assert result.stats["proxy_gpu_ids"] == ["cuda:1", "cuda:3"]
     assert elapsed < 0.09
+
+
+def test_explicit_candidate_mask_encoder_batches_atomic_effects_exactly() -> None:
+    from types import SimpleNamespace
+
+    import torch
+
+    from search.candidate import CandidatePhenotype
+    from search.proxy.gpu_batch_proxy import TorchBatchedProxyScorer
+
+    scorer = object.__new__(TorchBatchedProxyScorer)
+    scorer.action_ids = ("u0", "u1", "u2")
+    scorer.precision_gene_ids = ()
+    scorer.device = torch.device("cpu")
+    scorer.uses_explicit_candidate_masks = True
+    scorer.layer_ids = ("layer0", "layer1")
+    scorer.channel_resolver = SimpleNamespace(max_channels=4)
+    scorer.unit_channel_effects = {
+        "u0": ((0, "out", (1, 3)), (1, "in", (2,))),
+        "u1": ((0, "out", (3,)), (1, "in", (0, 2))),
+        "u2": ((1, "out", (1,)),),
+    }
+    scorer.space = SimpleNamespace(quantization_groups=())
+    scorer._action_index_cache = {}
+    scorer._unit_out_flat_indices = {}
+    scorer._unit_in_flat_indices = {}
+
+    pruning, precision, out_mask, in_mask = scorer._encode(
+        [
+            CandidatePhenotype(pruned_unit_ids=["u0", "u1"]),
+            CandidatePhenotype(pruned_unit_ids=["u2"]),
+        ]
+    )
+
+    assert pruning.tolist() == [[1, 1, 0], [0, 0, 1]]
+    assert tuple(precision.shape) == (2, 0)
+    assert out_mask is not None and in_mask is not None
+    assert out_mask[0, 0].tolist() == [False, True, False, True]
+    assert in_mask[0, 1].tolist() == [True, False, True, False]
+    assert out_mask[1, 1].tolist() == [False, True, False, False]

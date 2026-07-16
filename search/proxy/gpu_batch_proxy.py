@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from typing import Any
 
 import torch
@@ -171,6 +171,15 @@ class TorchBatchedProxyScorer:
     uses_explicit_candidate_masks: bool = False
     compute_legacy_sqnr_metrics: bool = True
     gpu_batch_count: int = 0
+    _action_index_cache: dict[str, int] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _unit_out_flat_indices: dict[str, tuple[int, ...]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _unit_in_flat_indices: dict[str, tuple[int, ...]] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     backend: str = "cuda_batched"
 
@@ -186,7 +195,35 @@ class TorchBatchedProxyScorer:
         clone.device = target
         clone.channel_resolver = self.channel_resolver.clone_to(target)
         clone.gpu_batch_count = 0
+        clone._action_index_cache = dict(self._action_index_cache)
+        clone._unit_out_flat_indices = dict(self._unit_out_flat_indices)
+        clone._unit_in_flat_indices = dict(self._unit_in_flat_indices)
         return clone
+
+    def _prepare_encode_cache(self) -> None:
+        if self._action_index_cache:
+            return
+        self._action_index_cache = {
+            value: index for index, value in enumerate(self.action_ids)
+        }
+        max_channels = int(self.channel_resolver.max_channels)
+        out_rows: dict[str, tuple[int, ...]] = {}
+        in_rows: dict[str, tuple[int, ...]] = {}
+        for unit_id, effects in self.unit_channel_effects.items():
+            out_indices: list[int] = []
+            in_indices: list[int] = []
+            for layer, direction, indices in effects:
+                flattened = [
+                    int(layer) * max_channels + int(index) for index in indices
+                ]
+                if direction == "out":
+                    out_indices.extend(flattened)
+                else:
+                    in_indices.extend(flattened)
+            out_rows[str(unit_id)] = tuple(out_indices)
+            in_rows[str(unit_id)] = tuple(in_indices)
+        self._unit_out_flat_indices = out_rows
+        self._unit_in_flat_indices = in_rows
 
     @classmethod
     def from_components(
@@ -592,7 +629,8 @@ class TorchBatchedProxyScorer:
         self,
         phenotypes: list[CandidatePhenotype],
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
-        action_index = {value: idx for idx, value in enumerate(self.action_ids)}
+        self._prepare_encode_cache()
+        action_index = self._action_index_cache
         group_index = {value: idx for idx, value in enumerate(self.precision_gene_ids)}
         pruning = torch.zeros((len(phenotypes), len(self.action_ids)), dtype=torch.int16)
         precision = torch.full((len(phenotypes), len(self.precision_gene_ids)), 1, dtype=torch.int16)
@@ -605,17 +643,36 @@ class TorchBatchedProxyScorer:
             else None
         )
         in_masks = torch.zeros_like(out_masks) if out_masks is not None else None
+        out_masks_flat = (
+            out_masks.view(len(phenotypes), -1) if out_masks is not None else None
+        )
+        in_masks_flat = (
+            in_masks.view(len(phenotypes), -1) if in_masks is not None else None
+        )
         for row_idx, phenotype in enumerate(phenotypes):
-            for action_id in phenotype.pruned_unit_ids:
-                idx = action_index.get(str(action_id))
-                if idx is not None:
-                    pruning[row_idx, idx] = 1.0
-                if out_masks is not None and in_masks is not None:
-                    for layer, direction, indices in self.unit_channel_effects.get(
-                        str(action_id), ()
-                    ):
-                        target = out_masks if direction == "out" else in_masks
-                        target[row_idx, layer, list(indices)] = True
+            pruned_ids = [str(action_id) for action_id in phenotype.pruned_unit_ids]
+            action_indices = [
+                action_index[action_id]
+                for action_id in pruned_ids
+                if action_id in action_index
+            ]
+            if action_indices:
+                pruning[row_idx, action_indices] = 1
+            if out_masks_flat is not None and in_masks_flat is not None:
+                out_indices = [
+                    index
+                    for action_id in pruned_ids
+                    for index in self._unit_out_flat_indices.get(action_id, ())
+                ]
+                in_indices = [
+                    index
+                    for action_id in pruned_ids
+                    for index in self._unit_in_flat_indices.get(action_id, ())
+                ]
+                if out_indices:
+                    out_masks_flat[row_idx, out_indices] = True
+                if in_indices:
+                    in_masks_flat[row_idx, in_indices] = True
             if self.space.quantization_groups:
                 for group in self.space.quantization_groups:
                     first_module = group.module_paths[0]
