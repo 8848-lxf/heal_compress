@@ -1612,3 +1612,42 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 27 completed: 2026-07-17 04:40:07 CST ---
+
+## Round 28 - greedy endpoint real deployment and full validation
+
+The six primary greedy endpoints were built and evaluated through the real
+production path. One shared strict-FP32 reference was built on GPU 6. Endpoint
+build-smoke tasks ran on GPUs 6/7/1/5/0/4, and full-validation tasks ran on
+GPUs 2/3/6/7/1/5. All six endpoints passed 10/10 smoke and 1,789/1,789 full
+validation with zero skips. Evaluation used the common manifest hash
+`f53bc4717da33ddde0e1d4d8078e1ed5cc71f0ed063d000f50cee8f016d264cb`,
+GPU IoU postprocessing, eight DataLoader workers, and warmup 20 followed by
+latency reset.
+
+The strongly typed build, physical structure, frozen pruning plan, semantic
+QDQ, per-channel weight scale, EntropyCalibration2 lineage, merge realization,
+`/Concat_9`, precision identity, engine deserialize, and realized BOPS audits
+passed for every endpoint. No nonterminal greedy candidate was built. Build
+count, unique endpoint count, and unique deployment count are all six. All
+candidate workers, calibration workers, and `trtexec` processes exited.
+
+Full-validation mAP for budgets `0.05/0.10/0.15/0.20/0.25/0.30` is
+`0.7041011985`, `0.7366048020`, `0.7367924802`, `0.7367551673`,
+`0.7367133415`, and `0.7367757633`. The shared strict-FP32 reference mAP is
+`0.7365732236`. The parallel p50 values are screening-only and range from
+`4.3749` to `7.4552` ms; they are not eligible for the official latency
+Pareto. Complete identities, AP values, realized BOPS, parameter retention,
+precision counts, and hashes are recorded in
+`docs/codex_handoffs/4090-greedy-six-budget-search-report.md`.
+
+Current state:
+
+- `GREEDY_PROXY_SEARCH_COMPLETE = true`;
+- `GREEDY_ENGINE_BUILD_SUCCESS_COUNT = 6`;
+- `GREEDY_FULL_VALIDATION_SUCCESS_COUNT = 6`;
+- `GREEDY_FORMAL_LATENCY_COMPLETE = false`;
+- `GA_SEARCH_STARTED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 28 completed: 2026-07-17 05:02:13 CST ---
