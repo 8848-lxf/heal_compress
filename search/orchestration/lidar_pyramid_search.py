@@ -44,6 +44,7 @@ from ..integration.runtime_environment import require_gpu_isolation
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.fisher_proxy import FisherTaylorProxy
 from ..proxy.joint_taylor import JointTaylorProxy
+from ..proxy.joint_loss_scale import load_joint_loss_scale
 from ..proxy.normalization import NormalizationStats, build_normalization_stats
 from ..proxy.objective import ProxyObjective, ProxyObjectiveConfig, bops_soft_penalty, bops_target_for_generation, bops_target_for_outer_round
 from ..proxy.gpu_batch_proxy import TorchBatchedProxyScorer
@@ -68,6 +69,7 @@ from ..stage2.round_results import write_round_stage2_results
 from .budget_final import run_budget_final_evaluation
 from .generation_stage2 import deploy_generation_with_backfill, fixed_bops_admission
 from .legal_width_joint_ga import run_legal_width_budget_sweep
+from .legal_width_greedy import run_six_budget_greedy
 from .legal_width_stage2 import (
     run_legal_width_full_validation,
     run_legal_width_stage2_screening,
@@ -135,6 +137,23 @@ def _load_joint_proxy_scale(proxy_config: dict[str, Any]) -> dict[str, Any]:
     mode = str(proxy_config.get("proxy_mode", ""))
     if not mode.startswith("joint_taylor"):
         return {}
+    mapping = str(proxy_config.get("task_score_mapping", "")).strip()
+    if not mapping:
+        raise RuntimeError("joint_taylor_task_score_mapping_required")
+    if mapping == "raw_joint_loss":
+        return {}
+    if mapping == "linear_fixed_scale":
+        raw_path = str(
+            proxy_config.get("joint_loss_scale_path")
+            or proxy_config.get("proxy_scale_path")
+            or ""
+        ).strip()
+        if not raw_path:
+            raise RuntimeError("joint_taylor_joint_loss_scale_path_required")
+        path = Path(raw_path).expanduser().resolve()
+        return {**load_joint_loss_scale(path), "path": str(path)}
+    if mapping != "exponential":
+        raise RuntimeError(f"joint_taylor_task_score_mapping_invalid:{mapping}")
     raw_path = str(proxy_config.get("proxy_scale_path", "")).strip()
     if not raw_path:
         raise RuntimeError("joint_taylor_proxy_scale_path_required")
@@ -156,6 +175,37 @@ def _load_joint_proxy_scale(proxy_config: dict[str, Any]) -> dict[str, Any]:
     ):
         raise RuntimeError("proxy_scale_contract_invalid")
     return {**payload, "path": str(path)}
+
+
+def _validate_joint_proxy_scale_identity(
+    expected: dict[str, Any],
+    current: dict[str, Any],
+    *,
+    generation: int,
+) -> dict[str, Any]:
+    mapping = str(expected.get("mapping", ""))
+    if mapping == "exponential":
+        return validate_fixed_proxy_scale(
+            expected,
+            current,
+            generation=generation,
+        )
+    if mapping != "linear_fixed_scale":
+        raise RuntimeError(f"joint_proxy_scale_mapping_invalid:{mapping}")
+    expected_hash = str(expected.get("joint_loss_scale_hash", ""))
+    current_hash = str(current.get("joint_loss_scale_hash", ""))
+    if not expected_hash or expected_hash != current_hash:
+        raise RuntimeError("joint_loss_scale_changed_during_ga")
+    if float(expected.get("value", 0.0)) != float(current.get("value", -1.0)):
+        raise RuntimeError("joint_loss_scale_value_changed_during_ga")
+    return {
+        "passed": True,
+        "generation": int(generation),
+        "mapping": mapping,
+        "joint_loss_scale_hash": expected_hash,
+        "value": float(expected["value"]),
+        "immutable_across_generations": True,
+    }
 
 
 class LidarPyramidTwoStageSearch:
@@ -187,6 +237,7 @@ class LidarPyramidTwoStageSearch:
         stage2_only: bool = False,
         baseline_only: bool = False,
         candidate_config: str | Path | list[str] | list[Path] | None = None,
+        greedy_only: bool = False,
     ) -> dict[str, Any]:
         run_dir = self._run_dir()
         (run_dir / "archives").mkdir(parents=True, exist_ok=True)
@@ -202,6 +253,7 @@ class LidarPyramidTwoStageSearch:
                 "stage1_only": stage1_only,
                 "stage2_only": stage2_only,
                 "baseline_only": baseline_only,
+                "greedy_only": greedy_only,
             }
         )
         _write_json(manifest_path, initial_manifest)
@@ -587,6 +639,67 @@ class LidarPyramidTwoStageSearch:
             ),
             flush=True,
         )
+        greedy_cfg = dict(self.config.get("greedy", {}) or {})
+        greedy_result: dict[str, Any] | None = None
+        if bool(greedy_cfg.get("enabled", False)):
+            if not legal_width_mode:
+                raise RuntimeError("greedy_requires_legal_width_mode")
+            greedy_result = run_six_budget_greedy(
+                context=context,
+                proxy=proxy,
+                run_dir=run_dir,
+                config=greedy_cfg,
+            )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["greedy"] = {
+                key: value
+                for key, value in greedy_result.items()
+                if key not in {"endpoint_records", "path_states"}
+            }
+            _write_json(manifest_path, manifest)
+            if greedy_only:
+                return {
+                    "run_dir": str(run_dir),
+                    "selected_gpu": context.physical_gpu_id,
+                    "greedy_only": True,
+                    "greedy": manifest["greedy"],
+                }
+            scale = dict(greedy_result["joint_loss_scale"])
+            objective.config = replace(
+                objective.config,
+                task_score_mapping="linear_fixed_scale",
+                joint_loss_scale=float(scale["value"]),
+            )
+            if batch_scorer is not None:
+                batch_scorer.config = objective.config
+            proxy.cache = ProxyCache(
+                run_dir / "archives" / "proxy_archive_linear_fixed_scale.jsonl"
+            )
+            scale_hash = str(scale["joint_loss_scale_hash"])
+            proxy.cache_key_fn = lambda phenotype, _space: search_hash(
+                phenotype,
+                trace_hash=context.search_space.trace_snapshot_hash,
+                proxy_version=f"joint-linear-fixed-scale-v1:{scale_hash}",
+                calibration_statistics_version=(
+                    fisher_stats.statistics_version
+                    + ":"
+                    + fisher_stats.manifest_hash
+                    + ":"
+                    + scale_hash
+                ),
+                code_commit=context.code_commit,
+            )
+            proxy_cfg.update(
+                {
+                    "task_score_mapping": "linear_fixed_scale",
+                    "joint_loss_scale_path": str(
+                        Path(greedy_result["joint_loss_scale_path"]).resolve()
+                    ),
+                }
+            )
+            self.config["proxy"] = proxy_cfg
+        elif greedy_only:
+            raise RuntimeError("greedy_only_requires_greedy_enabled")
         real_evaluator = LidarPyramidRealEvaluator(
             context=context,
             run_dir=run_dir,
@@ -952,6 +1065,16 @@ class LidarPyramidTwoStageSearch:
                     proxy_cfg.get("mac_weighted_sensitivity_weight", 0.0)
                 ),
                 proxy_mode=mode,
+                task_score_mapping=str(
+                    proxy_cfg.get("task_score_mapping", "legacy")
+                ),
+                joint_loss_scale=(
+                    float(dict(joint_proxy_scale or {}).get("value"))
+                    if dict(joint_proxy_scale or {}).get("value") is not None
+                    else None
+                ),
+                task_weight=float(proxy_cfg.get("task_weight", 0.8)),
+                prune_weight=float(proxy_cfg.get("prune_weight", 0.2)),
                 exponential_task_score_tau=(
                     float(dict(joint_proxy_scale or {}).get("tau"))
                     if dict(joint_proxy_scale or {}).get("tau") is not None
@@ -1172,6 +1295,12 @@ class LidarPyramidTwoStageSearch:
         proxy_backend = str(getattr(proxy, "proxy_backend", "scalar_cpu"))
         proxy_cfg = dict(self.config.get("proxy", self.config.get("proxy_objective", {})))
         fixed_proxy_scale = _load_joint_proxy_scale(proxy_cfg)
+        task_score_mapping = str(proxy_cfg.get("task_score_mapping", "legacy"))
+        if (
+            str(proxy_cfg.get("proxy_mode", "")).startswith("joint_taylor")
+            and task_score_mapping == "raw_joint_loss"
+        ):
+            raise RuntimeError("raw_joint_loss_calibration_only_ga_forbidden")
         soft_schedule = dict(proxy_cfg.get("bops_soft_constraint", {}) or {})
         if not soft_schedule:
             soft_schedule = dict(proxy_cfg.get("bops_target_schedule", {}) or {})
@@ -1220,11 +1349,14 @@ class LidarPyramidTwoStageSearch:
                 "T_BOPS": round_bops_target,
                 "bops_penalty_formula": objective_config.bops_penalty_formula,
                 "objective": (
-                    "maximize J1=0.8*exp(-L_joint/tau)+0.2*R_prune; BOPS is a hard admission gate"
-                    if str(proxy_cfg.get("proxy_mode", "")).startswith("joint_taylor")
+                    "maximize J1=-0.8*(L_joint/L_scale)+0.2*R_prune; BOPS is a hard admission gate"
+                    if task_score_mapping == "linear_fixed_scale"
+                    else "maximize J1=0.8*exp(-L_joint/tau)+0.2*R_prune; BOPS is a hard admission gate"
+                    if task_score_mapping == "exponential"
                     else "alpha*R_Fisher + beta*L_SQNR + gamma*R_Size_vs_FP32 + delta*P_BOPS"
                 ),
                 "proxy_mode": str(proxy_cfg.get("proxy_mode", "legacy_fisher_sqnr")),
+                "task_score_mapping": task_score_mapping,
                 "fixed_proxy_scale": fixed_proxy_scale,
                 "sqnr_main_objective_contribution": (
                     0.0
@@ -1438,7 +1570,7 @@ class LidarPyramidTwoStageSearch:
                     _write_json(
                         round_dir
                         / f"generation_{generation + 1:03d}_proxy_scale_audit.json",
-                        validate_fixed_proxy_scale(
+                        _validate_joint_proxy_scale_identity(
                             fixed_proxy_scale,
                             _load_joint_proxy_scale(proxy_cfg),
                             generation=generation,

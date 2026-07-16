@@ -14,7 +14,7 @@ runtime:
   plugin_boundary_dtype: fp32
 
 output:
-  experiment_name: 4090_legal_width_joint_ga
+  experiment_name: 4090_legal_width_greedy_six_budget
 
 structure_gene:
   type: legal_keep_width
@@ -53,8 +53,9 @@ candidate_proxy:
 
 proxy:
   proxy_mode: joint_taylor_second_order_fisher_diag
-  task_score_mapping: exponential
-  proxy_scale_path: docs/codex_handoffs/4090-legal-width-proxy-scale.json
+  task_score_mapping: raw_joint_loss
+  include_activation_taylor: false
+  sqnr_main_objective_weight: 0.0
   backend: cuda_batched
   device: auto
   batch_size: 128
@@ -77,85 +78,16 @@ conditional_channel_refinement:
   enabled: false
 
 search:
-  seed: 4090
-  initial_population_size: 64
-  population_size: 64
-  offspring_size: 64
-  generations: 30
-  independent_seeds: 3
-  elite_ratio: 0.10
-  crossover_rate: 0.80
-  width_mutation_rate: 0.12
-  precision_group_mutation_rate: 0.08
-  immigrant_ratio: 0.08
-  stagnation_generations: 8
-  stagnation_immigrant_ratio: 0.25
-  target_bops_retention: 0.21
-  bops_tolerance: 0.005
-  budget_intervals:
-    - [0.10, 0.12]
-    - [0.155, 0.175]
-    - [0.205, 0.215]
-    - [0.24, 0.26]
-    - [0.30, 0.35]
-  band_independent_seeds: 1
-  max_band_retry_runs: 4
-  minimum_unique_feasible_phenotypes_per_band: 5
-  minimum_total_unique_feasible_phenotypes: 30
-  minimum_total_unique_physical_structures: 15
-  maintain_external_pareto_archive: true
-  per_generation_stage2: false
+  max_pruning_units: 100000
 
-stage2:
-  ap_iou_backend: gpu
-  strict_gpu_ap_iou: true
-  num_workers: 8
-  smoke_frames: 10
-  smoke_warmup_frames: 10
-  num_frames: 50
-  warmup_frames: 20
-  reset_after_warmup: true
-  latency_rounds: 1
-  latency_metric: forward_p50_ms
-  target_bops_retention: 0.21
-  bops_tolerance: 0.005
-  required_evaluated_frames: 50
-  required_skipped_frames: 0
-  minimum_successful_candidates: 15
-  maximum_archive_attempts: 45
-
-full_validation:
-  ap_iou_backend: gpu
-  strict_gpu_ap_iou: true
-  num_workers: 8
-  num_frames: 1789
-  warmup_frames: 20
-  required_evaluated_frames: 1789
-  required_skipped_frames: 0
-  minimum_successful_candidates: 5
-  include_all_screening_nondominated: true
-
-formal_latency:
-  gpu_id: 4
-  warmup_frames: 20
-  measured_frames: 1789
-  serial: true
-
-stage2_parallel:
+greedy:
   enabled: true
-  gpu_ids: [4, 5, 6, 7]
-  allow_controller_process_on_stage1_gpu: true
-  startup_timeout_seconds: 1200
-  task_timeout_seconds: 28800
-  poll_interval_seconds: 0.25
-
-pareto:
-  axes:
-    - map_vs_bops_retention
-    - map_vs_param_retention
-    - map_vs_latency_p50
-  official_results_require_full_validation: true
-  official_latency_requires_formal_same_gpu: true
+  targets: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
+  primary_tolerance: 0.005
+  expanded_tolerance: 0.0075
+  frontier_size: 8
+  max_expansions: 4096
+  deploy_final_only: true
 
 cache:
   fresh_run: true

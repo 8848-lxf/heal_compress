@@ -18,6 +18,9 @@ from .legal_actions import GreedyAction
 
 
 Evaluator = Callable[[LegalWidthGenotype], Mapping[str, Any]]
+BatchEvaluator = Callable[
+    [Sequence[LegalWidthGenotype]], Sequence[Mapping[str, Any]]
+]
 SuccessorEnumerator = Callable[
     [LegalWidthGenotype],
     Sequence[tuple[GreedyAction, LegalWidthGenotype]],
@@ -174,6 +177,7 @@ def run_targeted_greedy(
     *,
     initial_genotype: LegalWidthGenotype,
     evaluate: Evaluator,
+    evaluate_batch: BatchEvaluator | None = None,
     enumerate_successors: SuccessorEnumerator,
     policy: BopsBandPolicy,
     frontier_size: int = 8,
@@ -213,6 +217,9 @@ def run_targeted_greedy(
 
     record_terminal(initial)
     while frontier and len(metrics_cache) < limit:
+        raw_proposals: list[
+            tuple[GreedySearchState, GreedyAction, LegalWidthGenotype]
+        ] = []
         proposals: dict[
             str,
             tuple[tuple[Any, ...], GreedySearchState, GreedyAction, LegalWidthGenotype],
@@ -236,36 +243,75 @@ def run_targeted_greedy(
                 if child_hash == parent.genotype_hash:
                     rejection_counts["identity_action"] += 1
                     continue
-                if child_hash not in metrics_cache:
-                    if child_hash in attempted_hashes:
-                        rejection_counts["duplicate_genotype"] += 1
-                        continue
-                    if len(metrics_cache) >= limit:
-                        rejection_counts["max_expansions_reached"] += 1
-                        break
-                    attempted_hashes.add(child_hash)
+                raw_proposals.append((parent, action, child))
+
+        pending: dict[str, LegalWidthGenotype] = {}
+        available = max(0, limit - len(metrics_cache))
+        for _parent, _action, child in raw_proposals:
+            child_hash = child.genotype_hash
+            if child_hash in metrics_cache or child_hash in pending:
+                continue
+            if child_hash in attempted_hashes:
+                rejection_counts["duplicate_genotype"] += 1
+                continue
+            if len(pending) >= available:
+                rejection_counts["max_expansions_reached"] += 1
+                continue
+            attempted_hashes.add(child_hash)
+            pending[child_hash] = child
+
+        if pending:
+            pending_items = list(pending.items())
+            if evaluate_batch is None:
+                metric_rows: Sequence[Mapping[str, Any] | Exception]
+                scalar_rows: list[Mapping[str, Any] | Exception] = []
+                for _child_hash, child in pending_items:
                     try:
-                        metrics_cache[child_hash] = MappingProxyType(
-                            _canonical_metrics(evaluate(child))
-                        )
-                    except (KeyError, TypeError, ValueError, RuntimeError):
-                        rejection_counts["evaluation_or_metric_failure"] += 1
-                        continue
-                    evaluation_order.append(child_hash)
-                child_metrics = metrics_cache[child_hash]
+                        scalar_rows.append(evaluate(child))
+                    except Exception as exc:  # noqa: BLE001
+                        scalar_rows.append(exc)
+                metric_rows = scalar_rows
+            else:
                 try:
-                    key = _transition_key(
-                        parent, child_metrics, action, child_hash
+                    metric_rows = list(
+                        evaluate_batch([child for _child_hash, child in pending_items])
                     )
-                except ValueError as exc:
-                    rejection_counts[str(exc)] += 1
+                except Exception as exc:  # noqa: BLE001
+                    raise RuntimeError("greedy_batch_evaluation_failed") from exc
+                if len(metric_rows) != len(pending_items):
+                    raise RuntimeError(
+                        "greedy_batch_evaluation_count_mismatch:"
+                        f"{len(metric_rows)}!={len(pending_items)}"
+                    )
+            for (child_hash, _child), metrics in zip(pending_items, metric_rows):
+                if isinstance(metrics, Exception):
+                    rejection_counts["evaluation_or_metric_failure"] += 1
                     continue
-                previous = proposals.get(child_hash)
-                proposal = (key, parent, action, child)
-                if previous is None or key < previous[0]:
-                    proposals[child_hash] = proposal
-                else:
-                    rejection_counts["duplicate_genotype"] += 1
+                try:
+                    metrics_cache[child_hash] = MappingProxyType(
+                        _canonical_metrics(metrics)
+                    )
+                except (KeyError, TypeError, ValueError, RuntimeError):
+                    rejection_counts["evaluation_or_metric_failure"] += 1
+                    continue
+                evaluation_order.append(child_hash)
+
+        for parent, action, child in raw_proposals:
+            child_hash = child.genotype_hash
+            if child_hash not in metrics_cache:
+                continue
+            child_metrics = metrics_cache[child_hash]
+            try:
+                key = _transition_key(parent, child_metrics, action, child_hash)
+            except ValueError as exc:
+                rejection_counts[str(exc)] += 1
+                continue
+            previous = proposals.get(child_hash)
+            proposal = (key, parent, action, child)
+            if previous is None or key < previous[0]:
+                proposals[child_hash] = proposal
+            else:
+                rejection_counts["duplicate_genotype"] += 1
 
         ranked: list[tuple[tuple[Any, ...], GreedySearchState]] = []
         for child_hash, (key, parent, action, child) in proposals.items():

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import platform
@@ -123,6 +124,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stage1-only", action="store_true")
     parser.add_argument("--stage2-only", action="store_true")
     parser.add_argument("--baseline-only", action="store_true")
+    parser.add_argument("--greedy-only", action="store_true")
+    parser.add_argument("--joint-loss-scale", default=None)
     parser.add_argument("--skip-baselines", action="store_true")
     parser.add_argument("--candidate-config", action="append", default=None)
     return parser.parse_args(argv)
@@ -170,6 +173,19 @@ def main(argv: list[str] | None = None) -> int:
         runtime_cfg["exclude_gpu_ids"] = [int(value) for value in str(args.exclude_gpu_ids).split(",") if value.strip()]
     if args.checkpoint:
         model_cfg["checkpoint"] = args.checkpoint
+    if args.joint_loss_scale:
+        scale_path = Path(args.joint_loss_scale).expanduser().resolve()
+        if not scale_path.is_file():
+            raise RuntimeError(f"joint_loss_scale_override_missing:{scale_path}")
+        proxy_cfg = dict(config.get("proxy", {}) or {})
+        proxy_cfg["joint_loss_scale_path"] = str(scale_path)
+        config["proxy"] = proxy_cfg
+        provenance = dict(config.get("runtime_provenance", {}) or {})
+        provenance["joint_loss_scale_override"] = {
+            "path": str(scale_path),
+            "sha256": hashlib.sha256(scale_path.read_bytes()).hexdigest(),
+        }
+        config["runtime_provenance"] = provenance
     config["search"] = search_cfg
     config["evaluation"] = eval_cfg
     if stage2_cfg:
@@ -197,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
             stage2_only=bool(args.stage2_only),
             baseline_only=bool(args.baseline_only),
             candidate_config=args.candidate_config,
+            greedy_only=bool(args.greedy_only),
         )
         run_dir = Path(result["run_dir"])
         _dump_yaml(run_dir / "resolved_config.yaml", config)
