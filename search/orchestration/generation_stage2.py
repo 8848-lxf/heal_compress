@@ -8,7 +8,11 @@ import math
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
-from ..admission.bops_band import BopsBandPolicy, classify_bops_value
+from ..admission.bops_band import (
+    BopsBandPolicy,
+    classify_bops_value,
+    select_bops_candidates,
+)
 
 
 def fixed_bops_admission(
@@ -54,6 +58,393 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writeheader()
         for row in rows:
             writer.writerow({field: row.get(field, "") for field in fields})
+
+
+def _record_metrics(record: Any) -> dict[str, Any]:
+    metrics = getattr(record, "metrics", {})
+    return dict(metrics) if isinstance(metrics, dict) else {}
+
+
+def _record_bops(record: Any) -> float:
+    metrics = _record_metrics(record)
+    for key in ("R_BOPS", "R_bops_vs_fp32", "R_bops", "BOPS_retention"):
+        if key in metrics:
+            return float(metrics[key])
+    return float("nan")
+
+
+def _result_bops(result: dict[str, Any], keys: tuple[str, ...]) -> float:
+    for key in keys:
+        if result.get(key) is not None:
+            try:
+                return float(result[key])
+            except (TypeError, ValueError):
+                return float("nan")
+    return float("nan")
+
+
+def _write_generation_artifacts(
+    destination: Path,
+    prefix: str,
+    report: dict[str, Any],
+) -> None:
+    _write_json(destination / f"{prefix}_top5.json", report)
+    _write_json(
+        destination / f"{prefix}_failures.json",
+        report.get("failure_records", []),
+    )
+    _write_json(
+        destination / f"{prefix}_bops_admission.json",
+        report.get("bops_admission", {}),
+    )
+    _write_json(
+        destination / f"{prefix}_count_decision.json",
+        {
+            "status": report.get("status"),
+            "build_success_count": report.get("build_success_count", 0),
+            "evaluated_500_count": report.get("evaluated_500_count", 0),
+            "selected_count": report.get("selected_count", 0),
+            "evaluation_500_skipped": bool(
+                report.get("winner", {}).get("evaluation_500_skipped", False)
+            ),
+        },
+    )
+    _write_csv(
+        destination / f"{prefix}_stage2.csv",
+        [dict(row) for row in report.get("candidates", [])],
+    )
+    winner = report.get("winner")
+    if winner is not None:
+        _write_json(destination / f"{prefix}_winner.json", winner)
+
+
+def run_generation_stage2(
+    ranked_records: Sequence[Any],
+    *,
+    generation_index: int,
+    output_dir: str | Path,
+    policy: BopsBandPolicy,
+    build_smoke_batch_fn: Callable[[list[Any]], list[dict[str, Any]]],
+    evaluate_500_batch_fn: Callable[
+        [list[dict[str, Any]]], list[dict[str, Any]]
+    ],
+    topk: int = 5,
+) -> dict[str, Any]:
+    """BOPS-select, build/backfill, then apply 0/1/2-5 evaluation semantics."""
+
+    destination = Path(output_dir)
+    generation_number = int(generation_index) + 1
+    prefix = f"generation_{generation_number:03d}"
+    records = list(ranked_records)
+    record_rank_by_id = {id(record): index for index, record in enumerate(records)}
+    admission_rows = [
+        {
+            "record_index": index,
+            "candidate_hash": str(record.candidate_hash),
+            "J1": float(_record_metrics(record).get("J1", -float(record.F1))),
+            "R_BOPS": _record_bops(record),
+        }
+        for index, record in enumerate(records)
+    ]
+    bops_admission = select_bops_candidates(
+        admission_rows,
+        policy=policy,
+        retention_key="R_BOPS",
+    )
+    annotated = list(bops_admission["annotated"])
+    primary_supply = [
+        records[int(row["record_index"])]
+        for row in annotated
+        if row["classification"] == "primary"
+    ]
+    expanded_supply = [
+        records[int(row["record_index"])]
+        for row in annotated
+        if row["classification"] == "expanded_only"
+        and bool(row["eligible_for_expanded"])
+    ]
+    failures: list[dict[str, Any]] = []
+    build_admitted: list[dict[str, Any]] = []
+    seen_physical: set[str] = set()
+    seen_deployment: set[str] = set()
+    attempted_count = 0
+
+    def build_supply(
+        supply: list[Any], *, mode: str, tolerance: float
+    ) -> None:
+        nonlocal attempted_count
+        cursor = 0
+        while cursor < len(supply) and len(build_admitted) < int(topk):
+            remaining = int(topk) - len(build_admitted)
+            wave = supply[cursor : cursor + remaining]
+            cursor += len(wave)
+            results = [dict(row) for row in build_smoke_batch_fn(wave)]
+            if len(results) != len(wave):
+                raise RuntimeError(
+                    "build_smoke_result_count_mismatch:"
+                    f"{len(results)}!={len(wave)}"
+                )
+            attempted_count += len(wave)
+            lower = float(policy.target) - float(tolerance)
+            upper = float(policy.target) + float(tolerance)
+            for record, result in zip(wave, results):
+                candidate_hash = str(record.candidate_hash)
+                metrics = _record_metrics(record)
+                base = {
+                    "generation": generation_number,
+                    "candidate_hash": candidate_hash,
+                    "stage1_rank": record_rank_by_id[id(record)],
+                    "F1": float(record.F1),
+                    "J1": float(metrics.get("J1", -float(record.F1))),
+                    "BOPS_proxy": _record_bops(record),
+                    "bops_admission_mode": mode,
+                    "effective_tolerance": float(tolerance),
+                }
+                if str(result.get("status", "")) != "ok":
+                    failures.append(
+                        {
+                            **base,
+                            **result,
+                            "status": str(
+                                result.get("status", "build_smoke_failed")
+                            ),
+                            "failure_reason": str(
+                                result.get(
+                                    "failure_reason",
+                                    result.get("status", "build_smoke_failed"),
+                                )
+                            ),
+                        }
+                    )
+                    continue
+                physical_hash = str(result.get("physical_hash", ""))
+                deployment_hash = str(result.get("deployment_hash", ""))
+                if not physical_hash or not deployment_hash:
+                    failures.append(
+                        {
+                            **base,
+                            "status": "deployment_identity_missing",
+                            "failure_reason": "physical_or_deployment_hash_missing",
+                        }
+                    )
+                    continue
+                if physical_hash in seen_physical:
+                    failures.append(
+                        {
+                            **base,
+                            "status": "duplicate_physical_hash",
+                            "failure_reason": "duplicate_physical_hash",
+                            "physical_hash": physical_hash,
+                            "deployment_hash": deployment_hash,
+                        }
+                    )
+                    continue
+                if deployment_hash in seen_deployment:
+                    failures.append(
+                        {
+                            **base,
+                            "status": "duplicate_deployment_hash",
+                            "failure_reason": "duplicate_deployment_hash",
+                            "physical_hash": physical_hash,
+                            "deployment_hash": deployment_hash,
+                        }
+                    )
+                    continue
+                physical_bops = _result_bops(
+                    result,
+                    (
+                        "physical_BOPS_retention",
+                        "BOPS_physical",
+                        "physical_bops_retention",
+                        "BOPS_retention",
+                    ),
+                )
+                realized_bops = _result_bops(
+                    result,
+                    (
+                        "BOPS_retention",
+                        "R_BOPS",
+                        "realized_BOPS_retention",
+                        "realized_bops_retention",
+                    ),
+                )
+                if not math.isfinite(physical_bops) or not lower <= physical_bops <= upper:
+                    failures.append(
+                        {
+                            **base,
+                            **result,
+                            "status": "physical_bops_out_of_band",
+                            "failure_reason": "physical_bops_out_of_active_interval",
+                            "BOPS_physical": physical_bops,
+                            "BOPS_realized": realized_bops,
+                            "active_interval": [lower, upper],
+                        }
+                    )
+                    continue
+                if not math.isfinite(realized_bops) or not lower <= realized_bops <= upper:
+                    failures.append(
+                        {
+                            **base,
+                            **result,
+                            "status": "realized_bops_out_of_band",
+                            "failure_reason": "realized_bops_out_of_active_interval",
+                            "BOPS_physical": physical_bops,
+                            "BOPS_realized": realized_bops,
+                            "active_interval": [lower, upper],
+                        }
+                    )
+                    continue
+                seen_physical.add(physical_hash)
+                seen_deployment.add(deployment_hash)
+                build_admitted.append(
+                    {
+                        **base,
+                        **result,
+                        "BOPS_physical": physical_bops,
+                        "BOPS_realized": realized_bops,
+                        "active_interval": [lower, upper],
+                    }
+                )
+
+    active_mode = "primary_bops_tolerance"
+    expanded_reason = ""
+    if primary_supply:
+        build_supply(
+            primary_supply,
+            mode=active_mode,
+            tolerance=float(policy.primary_tolerance),
+        )
+        if not build_admitted and expanded_supply:
+            active_mode = "expanded_bops_tolerance"
+            expanded_reason = "primary_build_supply_exhausted"
+            build_supply(
+                expanded_supply,
+                mode=active_mode,
+                tolerance=float(policy.expanded_tolerance),
+            )
+    elif expanded_supply:
+        active_mode = "expanded_bops_tolerance"
+        expanded_reason = "primary_proxy_supply_absent"
+        build_supply(
+            expanded_supply,
+            mode=active_mode,
+            tolerance=float(policy.expanded_tolerance),
+        )
+
+    bops_admission["deployment_admission_mode"] = active_mode
+    bops_admission["expanded_tolerance_reason"] = expanded_reason
+    bops_admission["deployment_attempted_count"] = attempted_count
+    bops_admission["deployment_admitted_count"] = len(build_admitted)
+    common = {
+        "generation": generation_number,
+        "topk_limit": int(topk),
+        "attempted_count": attempted_count,
+        "build_success_count": len(build_admitted),
+        "active_bops_mode": active_mode,
+        "expanded_tolerance_reason": expanded_reason,
+        "bops_admission": bops_admission,
+        "failure_records": failures,
+    }
+    if not primary_supply and not expanded_supply:
+        report = {
+            **common,
+            "status": "no_bops_admissible_candidates",
+            "selected_count": 0,
+            "evaluated_500_count": 0,
+            "candidates": [],
+        }
+        _write_generation_artifacts(destination, prefix, report)
+        return report
+    if not build_admitted:
+        report = {
+            **common,
+            "status": "no_deployable_candidates",
+            "selected_count": 0,
+            "evaluated_500_count": 0,
+            "candidates": [],
+        }
+        _write_generation_artifacts(destination, prefix, report)
+        return report
+    if len(build_admitted) == 1:
+        winner = {
+            **build_admitted[0],
+            "evaluation_500_skipped": True,
+            "winner_selection_reason": "sole_deployable_candidate",
+        }
+        report = {
+            **common,
+            "status": "single_candidate_direct_winner",
+            "selected_count": 1,
+            "evaluated_500_count": 0,
+            "candidates": [winner],
+            "winner": winner,
+        }
+        _write_generation_artifacts(destination, prefix, report)
+        return report
+
+    evaluation_results = [
+        dict(row) for row in evaluate_500_batch_fn(build_admitted)
+    ]
+    if len(evaluation_results) != len(build_admitted):
+        raise RuntimeError(
+            "evaluate_500_result_count_mismatch:"
+            f"{len(evaluation_results)}!={len(build_admitted)}"
+        )
+    evaluated: list[dict[str, Any]] = []
+    for build, evaluation in zip(build_admitted, evaluation_results):
+        row = {**build, **evaluation, "evaluation_500_skipped": False}
+        evaluated_frames = int(
+            row.get("evaluated", row.get("num_evaluated_frames", -1))
+        )
+        skipped_frames = int(
+            row.get("skipped", row.get("num_skipped_frames", -1))
+        )
+        f2 = float(row.get("F2", float("nan")))
+        reasons = []
+        if str(row.get("status", "")) != "ok":
+            reasons.append(str(row.get("status", "evaluation_500_failed")))
+        if evaluated_frames != 500:
+            reasons.append("evaluated_frames_not_500")
+        if skipped_frames != 0:
+            reasons.append("evaluation_skip")
+        if not math.isfinite(f2):
+            reasons.append("finite_F2_required")
+        if reasons:
+            failures.append(
+                {
+                    **row,
+                    "status": "evaluation_500_admission_failed",
+                    "failure_reason": ",".join(reasons),
+                }
+            )
+            continue
+        evaluated.append(row)
+    if not evaluated:
+        report = {
+            **common,
+            "status": "no_valid_500_evaluations",
+            "selected_count": 0,
+            "evaluated_500_count": 0,
+            "candidates": [],
+            "failure_records": failures,
+        }
+        _write_generation_artifacts(destination, prefix, report)
+        return report
+    winner = sorted(
+        evaluated,
+        key=lambda row: (-float(row["F2"]), str(row["candidate_hash"])),
+    )[0]
+    report = {
+        **common,
+        "status": "evaluated_generation_winner",
+        "selected_count": len(evaluated),
+        "evaluated_500_count": len(evaluated),
+        "candidates": evaluated,
+        "failure_records": failures,
+        "winner": winner,
+    }
+    _write_generation_artifacts(destination, prefix, report)
+    return report
 
 
 def deploy_generation_with_backfill(
