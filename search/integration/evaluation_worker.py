@@ -24,6 +24,29 @@ def _dataloader_worker_init(_worker_id: int) -> None:
     torch.set_num_threads(1)
 
 
+def _fixed_manifest_subset(
+    warmup_ids: list[str],
+    evaluation_ids: list[str],
+    *,
+    warmup_frames: int,
+    evaluation_frames: int,
+) -> tuple[list[str], list[str]]:
+    """Select a deterministic prefix from one shared full-val manifest."""
+
+    if len(warmup_ids) < int(warmup_frames) or len(evaluation_ids) < int(
+        evaluation_frames
+    ):
+        raise RuntimeError(
+            "eval_manifest_insufficient_frames:"
+            f"warmup={len(warmup_ids)}<{warmup_frames}:"
+            f"eval={len(evaluation_ids)}<{evaluation_frames}"
+        )
+    return (
+        list(warmup_ids[: int(warmup_frames)]),
+        list(evaluation_ids[: int(evaluation_frames)]),
+    )
+
+
 def _percentile(values: list[float], pct: float) -> float | None:
     if not values:
         return None
@@ -316,12 +339,16 @@ def main(argv: list[str] | None = None) -> int:
             warmup_ids = [str(value) for value in manifest_payload.get("warmup_frame_ids", [])]
             evaluation_ids = [str(value) for value in manifest_payload.get("evaluation_frame_ids", [])]
             reset_after_warmup = bool(manifest_payload.get("reset_after_warmup", False))
-            if len(warmup_ids) != warmup or len(evaluation_ids) != target:
-                raise RuntimeError(
-                    f"eval_manifest_count_mismatch:warmup={len(warmup_ids)}!={warmup}:eval={len(evaluation_ids)}!={target}"
-                )
             if len(set(warmup_ids)) != len(warmup_ids) or len(set(evaluation_ids)) != len(evaluation_ids):
                 raise RuntimeError("eval_manifest_duplicate_frame_ids_within_phase")
+            manifest_available_warmup_count = len(warmup_ids)
+            manifest_available_evaluation_count = len(evaluation_ids)
+            warmup_ids, evaluation_ids = _fixed_manifest_subset(
+                warmup_ids,
+                evaluation_ids,
+                warmup_frames=warmup,
+                evaluation_frames=target,
+            )
             if not reset_after_warmup and len(set(warmup_ids + evaluation_ids)) != len(warmup_ids) + len(evaluation_ids):
                 raise RuntimeError("eval_manifest_duplicate_frame_ids")
             if not reset_after_warmup:
@@ -480,6 +507,15 @@ def main(argv: list[str] | None = None) -> int:
             "fixed_manifest_enforced": bool(manifest_payload),
             "eval_manifest_path": str(manifest_path) if manifest_path is not None else "",
             "eval_manifest_hash": str(manifest_payload.get("manifest_hash", "")),
+            "eval_manifest_available_warmup_frames": (
+                manifest_available_warmup_count if manifest_payload else 0
+            ),
+            "eval_manifest_available_evaluation_frames": (
+                manifest_available_evaluation_count if manifest_payload else 0
+            ),
+            "eval_manifest_subset_policy": (
+                "deterministic_prefix" if manifest_payload else "not_applicable"
+            ),
             "reset_after_warmup": bool(reset_after_warmup),
             "evaluation_protocol_version": str(
                 request.get("evaluation_protocol_version", "unversioned")

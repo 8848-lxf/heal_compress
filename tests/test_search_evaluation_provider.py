@@ -44,10 +44,38 @@ def test_evaluation_provider_requests_gpu_postprocess_and_eight_workers(tmp_path
     request = captured["request"]
     assert request["device"] == "cuda:0"
     assert request["physical_device"] == "cuda:6"
-    assert request["evaluation_protocol_version"] == "fixed-manifest-gpu-postprocess-workers8-v3"
+    assert request["evaluation_protocol_version"] == "fixed-shared-manifest-prefix-gpu-postprocess-workers8-v4"
     assert request["ap_iou_backend"] == "gpu"
     assert request["require_cuda_postprocess"] is True
     assert request["dataloader_num_workers"] == 8
     assert request["torch_num_threads"] == 4
     assert captured["env"]["OMP_NUM_THREADS"] == "4"
     assert captured["env"]["MKL_NUM_THREADS"] == "4"
+
+
+def test_shared_full_manifest_selects_stable_stage2_prefix() -> None:
+    from search.integration.evaluation_worker import _fixed_manifest_subset
+
+    warmup, evaluation = _fixed_manifest_subset(
+        [f"w{index}" for index in range(200)],
+        [f"e{index}" for index in range(1789)],
+        warmup_frames=200,
+        evaluation_frames=500,
+    )
+
+    assert len(warmup) == 200
+    assert evaluation == [f"e{index}" for index in range(500)]
+
+
+def test_shared_manifest_rejects_insufficient_requested_frames() -> None:
+    import pytest
+
+    from search.integration.evaluation_worker import _fixed_manifest_subset
+
+    with pytest.raises(RuntimeError, match="eval_manifest_insufficient_frames"):
+        _fixed_manifest_subset(
+            ["w0"],
+            ["e0", "e1"],
+            warmup_frames=2,
+            evaluation_frames=2,
+        )

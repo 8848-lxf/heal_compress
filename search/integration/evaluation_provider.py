@@ -10,7 +10,7 @@ from typing import Any
 from .runtime_environment import modelopt_python_command, modelopt_subprocess_env
 
 
-EVALUATION_PROTOCOL_VERSION = "fixed-manifest-gpu-postprocess-workers8-v3"
+EVALUATION_PROTOCOL_VERSION = "fixed-shared-manifest-prefix-gpu-postprocess-workers8-v4"
 DEFAULT_AP_IOU_BACKEND = "gpu"
 DEFAULT_TORCH_NUM_THREADS = 4
 DEFAULT_DATALOADER_NUM_WORKERS = 8

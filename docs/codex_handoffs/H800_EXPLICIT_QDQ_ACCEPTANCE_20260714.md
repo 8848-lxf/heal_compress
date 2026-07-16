@@ -799,3 +799,35 @@ preflight directory may be reused as a completed search.
 Completed checkpoint: 2026-07-17 05:02:51 +0800 CST
 
 ---
+
+## H800 GA preflight correction: shared full-manifest prefix protocol
+
+The third GA directory `outputs/h800_domain_width_joint_ga_20260716_140356`
+proved the Stage-1 fixes: round 0 completed five generations with 36 CUDA
+batches, zero scalar calls, and about 224.7 candidates/s in the final batch.
+It was then stopped before candidate Stage-2 because the strict FP32 reference
+evaluation reported
+`eval_manifest_count_mismatch:warmup=200!=200:eval=1789!=500`.
+
+The shared manifest is intentionally sized for final full validation.  A
+500-frame round candidate must use the first 500 evaluation IDs in exactly the
+same order, not require a separate 500-entry manifest.  Production evaluation
+protocol v4 now:
+
+- accepts a manifest with at least the requested warmup/evaluation counts;
+- validates uniqueness on the full available manifest;
+- selects deterministic ordered prefixes of exactly the requested sizes;
+- fails when the manifest is too short;
+- records available counts and `deterministic_prefix` policy in evaluation
+  results;
+- includes the new protocol version in evaluation/deployment cache identity.
+
+The earlier greedy 1,789-frame v3 artifacts remain valid historical results;
+they are not relabeled.  New GA evaluations use
+`fixed-shared-manifest-prefix-gpu-postprocess-workers8-v4`.  Focused manifest,
+cache and Stage-2 tests passed.  The failed FP32 evaluation is preserved and
+must not be interpreted as an engine/model failure.
+
+Completed checkpoint: 2026-07-17 05:09:57 +0800 CST
+
+---

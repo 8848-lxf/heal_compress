@@ -219,7 +219,7 @@ def test_original_baseline_reuses_existing_eval_when_cache_key_is_new(tmp_path: 
         json.dumps(
             {
                 "status": "ok",
-                    "evaluation_protocol_version": "fixed-manifest-gpu-postprocess-workers8-v3",
+                    "evaluation_protocol_version": "fixed-shared-manifest-prefix-gpu-postprocess-workers8-v4",
                     "ap_iou_backend": "gpu",
                     "dataloader_num_workers": 8,
                     "cuda_postprocess_audit": {"passed": True},
