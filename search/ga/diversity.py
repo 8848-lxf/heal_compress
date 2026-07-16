@@ -8,6 +8,13 @@ from ..candidate import CandidateGenotype
 
 
 def hamming_distance(a: CandidateGenotype, b: CandidateGenotype) -> int:
+    if hasattr(a, "width_genes") or hasattr(b, "width_genes"):
+        width_keys = set(a.width_genes) | set(b.width_genes)
+        precision_keys = set(a.precision_genes) | set(b.precision_genes)
+        return sum(a.width_genes.get(key) != b.width_genes.get(key) for key in width_keys) + sum(
+            a.precision_genes.get(key, "FP16") != b.precision_genes.get(key, "FP16")
+            for key in precision_keys
+        )
     prune_keys = set(a.pruning_genes) | set(b.pruning_genes)
     precision_keys = set(a.precision_genes) | set(b.precision_genes)
     return sum(a.pruning_genes.get(key, 1) != b.pruning_genes.get(key, 1) for key in prune_keys) + sum(
@@ -22,11 +29,20 @@ def average_hamming_distance(population: list[CandidateGenotype]) -> float:
     size = len(population)
     pair_count = size * (size - 1) // 2
     total_distance = 0
-    pruning_keys = set().union(*(candidate.pruning_genes for candidate in population))
+    legal_width = all(hasattr(candidate, "width_genes") for candidate in population)
+    pruning_keys = set().union(*(
+        candidate.width_genes if legal_width else candidate.pruning_genes
+        for candidate in population
+    ))
     precision_keys = set().union(*(candidate.precision_genes for candidate in population))
     for key in pruning_keys:
-        ones = sum(int(candidate.pruning_genes.get(key, 1)) != 0 for candidate in population)
-        total_distance += ones * (size - ones)
+        if legal_width:
+            counts = Counter(candidate.width_genes.get(key) for candidate in population)
+            equal_pairs = sum(count * (count - 1) // 2 for count in counts.values())
+            total_distance += pair_count - equal_pairs
+        else:
+            ones = sum(int(candidate.pruning_genes.get(key, 1)) != 0 for candidate in population)
+            total_distance += ones * (size - ones)
     for key in precision_keys:
         counts = Counter(candidate.precision_genes.get(key, "FP16") for candidate in population)
         equal_pairs = sum(count * (count - 1) // 2 for count in counts.values())

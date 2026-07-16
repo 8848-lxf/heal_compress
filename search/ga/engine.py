@@ -12,7 +12,10 @@ from .crossover import block_crossover
 from .diversity import average_hamming_distance
 from .immigrants import immigrant_ratio_for_generation, make_immigrants
 from .initialization import initialize_population
+from .initialization import initialize_legal_width_population
 from .mutation import adapt_mutation_rate, mutate_candidate
+from ..operators.legal_width_crossover import crossover_legal_width
+from ..operators.legal_width_mutation import mutate_precision_only, mutate_width_only
 from .population import dedupe_population
 from .selection import tournament_select
 
@@ -91,13 +94,22 @@ class GeneticSearchEngine:
             self.config.initial_population_size,
         )
         if initial_population is None:
-            population = initialize_population(
-                self.space,
-                initial_size,
-                self.rng,
-                previous_elite=previous_elite,
-                previous_best=previous_best,
-            )
+            if self.space.structure_gene_type == "legal_keep_width":
+                population = initialize_legal_width_population(
+                    self.space,
+                    initial_size,
+                    self.rng,
+                    previous_elite=previous_elite,
+                    previous_best=previous_best,
+                )
+            else:
+                population = initialize_population(
+                    self.space,
+                    initial_size,
+                    self.rng,
+                    previous_elite=previous_elite,
+                    previous_best=previous_best,
+                )
             population = fresh_population(list(population), initial_size)
         else:
             population = list(initial_population)
@@ -120,7 +132,12 @@ class GeneticSearchEngine:
         stagnant = 0
         all_scored: list[tuple[CandidateGenotype, float, dict[str, Any]]] = []
         elite_count = max(1, int(round(self.config.population_size * self.config.elite_ratio)))
-        gene_count = len(self.space.pruning_unit_ids) + len(self.space.precision_gene_ids)
+        structure_gene_count = (
+            len(self.space.legal_width_domain_ids)
+            if self.space.structure_gene_type == "legal_keep_width"
+            else len(self.space.pruning_unit_ids)
+        )
+        gene_count = structure_gene_count + len(self.space.precision_gene_ids)
         for generation in range(self.config.num_generations):
             scored = []
             if batch_evaluator is not None:
@@ -165,14 +182,33 @@ class GeneticSearchEngine:
             while len(next_population) < elite_count + target_children:
                 left = tournament_select(scored, self.rng)
                 right = tournament_select(scored, self.rng)
-                child = block_crossover(left, right, self.space, self.rng) if self.rng.random() < self.config.crossover_rate else left
-                child = mutate_candidate(
-                    child,
-                    self.space,
-                    self.rng,
-                    prune_mutation_rate=prune_rate,
-                    precision_mutation_rate=precision_rate,
-                )
+                if self.space.structure_gene_type == "legal_keep_width":
+                    child = (
+                        crossover_legal_width(left, right, rng=self.rng)
+                        if self.rng.random() < self.config.crossover_rate
+                        else left
+                    )
+                    child = mutate_width_only(
+                        child,
+                        inventory=self.space.legal_width_inventory,
+                        rng=self.rng,
+                        mutation_rate=prune_rate,
+                    )
+                    child = mutate_precision_only(
+                        child,
+                        precision_actions=self.space.precision_action_space,
+                        rng=self.rng,
+                        mutation_rate=precision_rate,
+                    )
+                else:
+                    child = block_crossover(left, right, self.space, self.rng) if self.rng.random() < self.config.crossover_rate else left
+                    child = mutate_candidate(
+                        child,
+                        self.space,
+                        self.rng,
+                        prune_mutation_rate=prune_rate,
+                        precision_mutation_rate=precision_rate,
+                    )
                 next_population.append(child)
             next_population.extend(make_immigrants(self.space, immigrant_count, self.rng))
             population = dedupe_population(next_population)

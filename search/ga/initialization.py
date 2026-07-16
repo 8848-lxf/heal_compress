@@ -6,6 +6,10 @@ import random
 
 from ..candidate import CandidateGenotype
 from ..canonicalization import SearchSpaceSpec, repair_genotype
+from ..encoding.legal_width_genotype import (
+    LegalWidthGenotype,
+    random_legal_width_genotype,
+)
 from ..quantization_space.codec import forced_int8_group_genotype
 from .immigrants import random_immigrant
 
@@ -70,3 +74,47 @@ def initialize_population(
     while len(population) < population_size:
         population.append(random_immigrant(space, rng))
     return population[:population_size]
+
+
+def initialize_legal_width_population(
+    space: SearchSpaceSpec,
+    population_size: int,
+    rng: random.Random,
+    *,
+    previous_elite: list[LegalWidthGenotype] | None = None,
+    previous_best: LegalWidthGenotype | None = None,
+) -> list[LegalWidthGenotype]:
+    if space.structure_gene_type != "legal_keep_width":
+        raise ValueError("initialize_legal_width_population_requires_legal_width_space")
+    inventory = space.legal_width_inventory
+    full_width = {
+        domain.domain_id: len(domain.legal_keep_widths) - 1
+        for domain in inventory.domains
+    }
+    default_precision = {
+        group_id: (
+            space.default_precision
+            if space.default_precision in actions
+            else actions[0]
+        )
+        for group_id, actions in space.precision_action_space.items()
+    }
+    population: list[LegalWidthGenotype] = [
+        LegalWidthGenotype(
+            full_width,
+            default_precision,
+            {"created_by": "legal_width_original"},
+        )
+    ]
+    population.extend(previous_elite or [])
+    if previous_best is not None:
+        population.append(previous_best)
+    while len(population) < int(population_size):
+        population.append(
+            random_legal_width_genotype(
+                inventory,
+                precision_actions=space.precision_action_space,
+                rng=rng,
+            )
+        )
+    return population[: int(population_size)]

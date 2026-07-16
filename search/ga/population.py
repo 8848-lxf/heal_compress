@@ -9,7 +9,13 @@ def dedupe_population(population: list[CandidateGenotype]) -> list[CandidateGeno
     seen: set[tuple[tuple[tuple[str, int], ...], tuple[tuple[str, str], ...]]] = set()
     result = []
     for candidate in population:
-        key = (tuple(sorted(candidate.pruning_genes.items())), tuple(sorted(candidate.precision_genes.items())))
+        if hasattr(candidate, "width_genes"):
+            key = (
+                tuple(sorted(candidate.width_genes.items())),
+                tuple(sorted(candidate.precision_genes.items())),
+            )
+        else:
+            key = (tuple(sorted(candidate.pruning_genes.items())), tuple(sorted(candidate.precision_genes.items())))
         if key in seen:
             continue
         seen.add(key)

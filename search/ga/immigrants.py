@@ -6,6 +6,7 @@ import random
 
 from ..candidate import CandidateGenotype
 from ..canonicalization import SearchSpaceSpec, repair_genotype
+from ..encoding.legal_width_genotype import random_legal_width_genotype
 
 
 def _repairable_grouped_seed_mask(space: SearchSpaceSpec, pruning: dict[str, int], rng: random.Random) -> dict[str, int]:
@@ -65,6 +66,15 @@ def random_immigrant(space: SearchSpaceSpec, rng: random.Random, *, keep_probabi
 
 
 def make_immigrants(space: SearchSpaceSpec, count: int, rng: random.Random) -> list[CandidateGenotype]:
+    if space.structure_gene_type == "legal_keep_width":
+        return [
+            random_legal_width_genotype(
+                space.legal_width_inventory,
+                precision_actions=space.precision_action_space,
+                rng=rng,
+            )
+            for _ in range(max(0, int(count)))
+        ]
     result = []
     for idx in range(max(0, int(count))):
         keep_probability = 0.25 + 0.5 * ((idx % 5) / 4.0)
