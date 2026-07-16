@@ -251,3 +251,69 @@ def test_archive_first_stage2_backfills_until_minimum_success(tmp_path: Path) ->
         for task in pool.tasks
     )
     assert (tmp_path / "stage2_screening_results.json").is_file()
+
+
+def test_full_validation_reuses_screening_engine_and_marks_protocol(tmp_path: Path) -> None:
+    from search.orchestration.legal_width_stage2 import (
+        run_legal_width_full_validation,
+    )
+
+    screening = [
+        {
+            "candidate_hash": f"candidate{index}",
+            "status": "ok",
+            "engine_path": str(tmp_path / f"engine{index}.plan"),
+            "engine_hash": f"engine-hash-{index}",
+            "mAP": 0.70 - index * 0.001,
+            "R_BOPS": 0.18 + index * 0.01,
+            "R_param": 0.80 + index * 0.01,
+            "forward_p50_ms": 3.0 + index,
+            "raw_precision_gene_hash": f"precision-{index}",
+            "repaired_precision_gene_hash": f"precision-{index}",
+            "requested_precision_profile_hash": f"precision-{index}",
+            "realized_precision_profile_hash": f"precision-{index}",
+            "precision_identity_passed": True,
+        }
+        for index in range(6)
+    ]
+    for index in range(6):
+        (tmp_path / f"engine{index}.plan").write_bytes(b"engine")
+
+    class Pool:
+        parallelism = 4
+
+        def __init__(self):
+            self.tasks = []
+
+        def map_tasks(self, tasks):
+            self.tasks.extend(tasks)
+            return [
+                {
+                    "candidate_hash": task["candidate_hash"],
+                    "status": "ok",
+                    "mAP": 0.71,
+                    "num_evaluated_frames": 1789,
+                    "num_skipped_frames": 0,
+                    **task["deployment_metadata"],
+                }
+                for task in tasks
+            ]
+
+    pool = Pool()
+    result = run_legal_width_full_validation(
+        screening_rows=screening,
+        stage2_pool=pool,
+        run_dir=tmp_path,
+        minimum_successful_candidates=5,
+        required_evaluated_frames=1789,
+        required_skipped_frames=0,
+    )
+
+    assert result["successful_count"] >= 5
+    assert all(task["evaluation_only_engine_path"] for task in pool.tasks)
+    assert all(
+        row["evaluation_protocol"] == "full_validation"
+        and row["full_validation_success"]
+        for row in result["successful_candidates"]
+    )
+    assert (tmp_path / "full_validation_results.json").is_file()

@@ -52,6 +52,7 @@ from ..proxy.runtime_shape_profiler import profile_runtime_layer_shapes
 from ..proxy.size_proxy import SizeProxy
 from ..proxy.sqnr_proxy import SQNRProxy
 from ..proxy.tau_calibration import proxy_scale_hash, validate_fixed_proxy_scale
+from ..reporting.pareto_frontier import write_official_pareto_artifacts
 from ..space.legal_width_inventory import (
     prepare_legal_width_search_space,
     write_legal_width_search_space_artifacts,
@@ -67,7 +68,10 @@ from ..stage2.round_results import write_round_stage2_results
 from .budget_final import run_budget_final_evaluation
 from .generation_stage2 import deploy_generation_with_backfill, fixed_bops_admission
 from .legal_width_joint_ga import run_legal_width_stage1_seeds
-from .legal_width_stage2 import run_legal_width_stage2_screening
+from .legal_width_stage2 import (
+    run_legal_width_full_validation,
+    run_legal_width_stage2_screening,
+)
 from .stage2_process_pool import PersistentStage2ProcessPool
 
 
@@ -720,6 +724,131 @@ class LidarPyramidTwoStageSearch:
                 )
             finally:
                 stage2_pool.close()
+            full_cfg = dict(self.config.get("full_validation", {}) or {})
+            full_runtime_config = json.loads(json.dumps(self.config))
+            full_runtime_config["stage2"] = {
+                **dict(full_runtime_config.get("stage2", {}) or {}),
+                **full_cfg,
+                "smoke_frames": 0,
+                "target_bops_retention": None,
+            }
+            full_pool = PersistentStage2ProcessPool(
+                run_dir=run_dir / "full_validation_execution",
+                gpu_ids=[int(value) for value in parallel_cfg.get("gpu_ids", [])],
+                worker_payload={
+                    "config": full_runtime_config,
+                    "checkpoint": str(self.checkpoint),
+                    "code_commit": context.code_commit,
+                    "controller_pid": os.getpid(),
+                },
+                startup_timeout_seconds=float(
+                    parallel_cfg.get("startup_timeout_seconds", 1200)
+                ),
+                task_timeout_seconds=float(
+                    parallel_cfg.get("task_timeout_seconds", 28800)
+                ),
+                poll_interval_seconds=float(
+                    parallel_cfg.get("poll_interval_seconds", 0.25)
+                ),
+            )
+            try:
+                full_validation = run_legal_width_full_validation(
+                    screening_rows=list(screening["successful_candidates"]),
+                    stage2_pool=full_pool,
+                    run_dir=run_dir,
+                    minimum_successful_candidates=int(
+                        full_cfg.get("minimum_successful_candidates", 5)
+                    ),
+                    required_evaluated_frames=int(
+                        full_cfg.get("required_evaluated_frames", 1789)
+                    ),
+                    required_skipped_frames=int(
+                        full_cfg.get("required_skipped_frames", 0)
+                    ),
+                )
+            finally:
+                full_pool.close()
+
+            formal_cfg = dict(self.config.get("formal_latency", {}) or {})
+            formal_gpu_id = int(formal_cfg.get("gpu_id", 4))
+            formal_runtime_config = json.loads(json.dumps(full_runtime_config))
+            formal_runtime_config["runtime"]["gpu_id"] = str(formal_gpu_id)
+            formal_runtime_config["stage2"].update(
+                {
+                    "num_frames": int(
+                        formal_cfg.get(
+                            "measured_frames",
+                            full_cfg.get("num_frames", 1789),
+                        )
+                    ),
+                    "warmup_frames": int(formal_cfg.get("warmup_frames", 20)),
+                }
+            )
+            formal_pool = PersistentStage2ProcessPool(
+                run_dir=run_dir / "formal_latency_execution",
+                gpu_ids=[formal_gpu_id],
+                worker_payload={
+                    "config": formal_runtime_config,
+                    "checkpoint": str(self.checkpoint),
+                    "code_commit": context.code_commit,
+                    "controller_pid": os.getpid(),
+                },
+                startup_timeout_seconds=float(
+                    parallel_cfg.get("startup_timeout_seconds", 1200)
+                ),
+                task_timeout_seconds=float(
+                    parallel_cfg.get("task_timeout_seconds", 28800)
+                ),
+                poll_interval_seconds=float(
+                    parallel_cfg.get("poll_interval_seconds", 0.25)
+                ),
+            )
+            try:
+                formal = run_legal_width_full_validation(
+                    screening_rows=list(full_validation["successful_candidates"]),
+                    stage2_pool=formal_pool,
+                    run_dir=run_dir / "formal_latency",
+                    minimum_successful_candidates=len(
+                        full_validation["successful_candidates"]
+                    ),
+                    required_evaluated_frames=int(
+                        formal_runtime_config["stage2"]["num_frames"]
+                    ),
+                    required_skipped_frames=0,
+                )
+            finally:
+                formal_pool.close()
+            formal_by_candidate = {
+                str(row["candidate_hash"]): row
+                for row in formal["successful_candidates"]
+            }
+            official_rows = []
+            for row in full_validation["successful_candidates"]:
+                merged = dict(row)
+                formal_row = formal_by_candidate.get(str(row["candidate_hash"]))
+                if formal_row is None:
+                    merged["full_validation_success"] = False
+                    merged["formal_latency_failure_reason"] = (
+                        "formal_latency_result_missing"
+                    )
+                else:
+                    merged.update(
+                        {
+                            "formal_latency_p50_ms": formal_row.get(
+                                "forward_p50_ms"
+                            ),
+                            "formal_latency_p95_ms": formal_row.get(
+                                "forward_p95_ms"
+                            ),
+                            "formal_latency_gpu_id": formal_gpu_id,
+                            "formal_latency_engine_hash": formal_row.get(
+                                "engine_hash", row.get("engine_hash", "")
+                            ),
+                        }
+                    )
+                official_rows.append(merged)
+            _write_json(run_dir / "official_full_validation_rows.json", official_rows)
+            pareto = write_official_pareto_artifacts(official_rows, run_dir)
             rows = list(screening["results"])
             self._write_global(run_dir, rows)
             return {
@@ -730,6 +859,11 @@ class LidarPyramidTwoStageSearch:
                 "minimum_success_reached": bool(
                     screening["minimum_success_reached"]
                 ),
+                "full_validation_successful": int(
+                    full_validation["successful_count"]
+                ),
+                "formal_latency_successful": int(formal["successful_count"]),
+                "pareto": pareto,
                 "best": min(
                     screening["successful_candidates"],
                     key=lambda row: float(row.get("F2", float("inf"))),

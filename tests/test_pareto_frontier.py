@@ -59,3 +59,18 @@ def test_official_latency_front_rejects_proxy_latency_axis() -> None:
             resource_key="latency_proxy_ms",
         )
 
+
+def test_pareto_writer_emits_three_fronts_and_combined_plots(tmp_path) -> None:
+    from search.reporting.pareto_frontier import write_official_pareto_artifacts
+
+    result = write_official_pareto_artifacts(
+        [
+            _full("a", map_value=0.70, bops=0.20, params=0.8, latency=4.0),
+            _full("b", map_value=0.69, bops=0.18, params=0.7, latency=3.0),
+        ],
+        tmp_path,
+    )
+
+    assert set(result) == {"bops", "param", "latency", "combined"}
+    assert (tmp_path / "pareto_combined_bops_map_latency.png").is_file()
+    assert (tmp_path / "pareto_combined_param_map_latency.png").is_file()

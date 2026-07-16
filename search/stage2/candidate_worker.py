@@ -277,7 +277,19 @@ def _evaluate_task(evaluator: Any, task: dict[str, Any], gpu_id: int) -> dict[st
 
     phenotype = CandidatePhenotype.from_dict(dict(task["phenotype"]))
     smoke_frames = int(task.get("smoke_frames", 0) or 0)
-    if smoke_frames > 0:
+    evaluation_only_engine = str(task.get("evaluation_only_engine_path", ""))
+    if evaluation_only_engine:
+        result = {
+            **dict(
+                evaluator._evaluate_engine(
+                    evaluation_only_engine, Path(task["output_dir"])
+                )
+            ),
+            **dict(task.get("deployment_metadata", {}) or {}),
+            "candidate_hash": str(task["candidate_hash"]),
+            "engine_path": evaluation_only_engine,
+        }
+    elif smoke_frames > 0:
         result = evaluator.evaluate_candidate_two_level(
             phenotype,
             output_dir=task["output_dir"],
@@ -297,9 +309,11 @@ def _evaluate_task(evaluator: Any, task: dict[str, Any], gpu_id: int) -> dict[st
         "stage1_metrics": dict(task.get("stage1_metrics", {}) or {}),
         "raw_precision_gene_hash": str(
             task.get("raw_precision_gene_hash", "")
+            or result.get("raw_precision_gene_hash", "")
         ),
         "repaired_precision_gene_hash": str(
             task.get("repaired_precision_gene_hash", "")
+            or result.get("repaired_precision_gene_hash", "")
         ),
         "saturation_ratio": float(task.get("saturation_ratio", 0.0) or 0.0),
         "worker_gpu_id": int(gpu_id),

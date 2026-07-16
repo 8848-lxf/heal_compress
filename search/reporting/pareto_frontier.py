@@ -116,6 +116,71 @@ def _plot_front(
     plt.close(figure)
 
 
+def _plot_combined(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    x_key: str,
+    x_label: str,
+    front: Sequence[Mapping[str, Any]],
+    output_path: Path,
+) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    official = _official_rows(rows)
+    front_ids = {str(row.get("candidate_id", "")) for row in front}
+    marker_by_source = {"anchor": "s", "baseline": "^", "ga": "o"}
+    figure, axis = plt.subplots(figsize=(9.0, 6.0))
+    scatter = None
+    sources = sorted(
+        {str(row.get("candidate_source", "ga")).lower() for row in official}
+    )
+    for source in sources:
+        subset = [
+            row
+            for row in official
+            if str(row.get("candidate_source", "ga")).lower() == source
+        ]
+        scatter = axis.scatter(
+            [float(row[x_key]) for row in subset],
+            [float(row["mAP"]) for row in subset],
+            c=[float(row["formal_latency_p50_ms"]) for row in subset],
+            cmap="viridis",
+            vmin=min(float(row["formal_latency_p50_ms"]) for row in official),
+            vmax=max(float(row["formal_latency_p50_ms"]) for row in official),
+            marker=marker_by_source.get(source, "o"),
+            label=source,
+            alpha=0.78,
+            edgecolors=[
+                "black"
+                if str(row.get("candidate_id", "")) in front_ids
+                else "none"
+                for row in subset
+            ],
+            linewidths=1.0,
+        )
+    for row in front:
+        axis.annotate(
+            str(row.get("candidate_id", "")),
+            (float(row[x_key]), float(row["mAP"])),
+            xytext=(4, 4),
+            textcoords="offset points",
+            fontsize=7,
+        )
+    axis.set_xlabel(x_label)
+    axis.set_ylabel("mAP (full validation)")
+    axis.grid(True, alpha=0.25)
+    if sources:
+        axis.legend(title="candidate source")
+    if scatter is not None:
+        figure.colorbar(scatter, ax=axis, label="formal p50 latency (ms)")
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=180)
+    plt.close(figure)
+
+
 def write_official_pareto_artifacts(
     rows: Sequence[Mapping[str, Any]], output_dir: str | Path
 ) -> dict[str, Any]:
@@ -146,4 +211,24 @@ def write_official_pareto_artifacts(
             "png": str(png_path),
             "pdf": str(pdf_path),
         }
+    combined_bops = destination / "pareto_combined_bops_map_latency.png"
+    combined_param = destination / "pareto_combined_param_map_latency.png"
+    _plot_combined(
+        rows,
+        x_key="R_BOPS",
+        x_label="BOPS retention",
+        front=official_pareto_front(rows, resource_key="R_BOPS"),
+        output_path=combined_bops,
+    )
+    _plot_combined(
+        rows,
+        x_key="R_param",
+        x_label="Physical parameter retention",
+        front=official_pareto_front(rows, resource_key="R_param"),
+        output_path=combined_param,
+    )
+    result["combined"] = {
+        "bops_map_latency_png": str(combined_bops),
+        "param_map_latency_png": str(combined_param),
+    }
     return result

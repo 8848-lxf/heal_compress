@@ -147,3 +147,138 @@ def run_legal_width_stage2_screening(
     _write_json(destination / "stage2_screening_results.json", summary)
     _write_csv(destination / "stage2_screening_results.csv", results)
     return summary
+
+
+def _screening_nondominated(
+    rows: list[Mapping[str, Any]], resource_key: str
+) -> list[dict[str, Any]]:
+    valid = [
+        dict(row)
+        for row in rows
+        if str(row.get("status", "")) == "ok"
+        and row.get(resource_key) is not None
+        and row.get("mAP") is not None
+    ]
+    return [
+        candidate
+        for candidate in valid
+        if not any(
+            float(other[resource_key]) <= float(candidate[resource_key])
+            and float(other["mAP"]) >= float(candidate["mAP"])
+            and (
+                float(other[resource_key]) < float(candidate[resource_key])
+                or float(other["mAP"]) > float(candidate["mAP"])
+            )
+            for other in valid
+            if other is not candidate
+        )
+    ]
+
+
+def run_legal_width_full_validation(
+    *,
+    screening_rows: list[Mapping[str, Any]],
+    stage2_pool: Any,
+    run_dir: str | Path,
+    minimum_successful_candidates: int = 5,
+    required_evaluated_frames: int = 1789,
+    required_skipped_frames: int = 0,
+) -> dict[str, Any]:
+    """Evaluate screening fronts on the same engines and a full manifest."""
+
+    destination = Path(run_dir)
+    successful_screening = [
+        dict(row) for row in screening_rows if str(row.get("status", "")) == "ok"
+    ]
+    selected_by_hash: dict[str, dict[str, Any]] = {}
+    for key in ("R_BOPS", "R_param", "forward_p50_ms"):
+        for row in _screening_nondominated(successful_screening, key):
+            selected_by_hash.setdefault(str(row["candidate_hash"]), row)
+    ordered_supply = sorted(
+        successful_screening,
+        key=lambda row: (
+            -float(row.get("mAP", 0.0)),
+            float(row.get("R_BOPS", float("inf"))),
+            str(row.get("candidate_hash", "")),
+        ),
+    )
+    for row in ordered_supply:
+        if len(selected_by_hash) >= int(minimum_successful_candidates):
+            break
+        selected_by_hash.setdefault(str(row["candidate_hash"]), row)
+    selected = list(selected_by_hash.values())
+    tasks = []
+    metadata_fields = (
+        "structure_hash",
+        "precision_hash",
+        "phenotype_hash",
+        "physical_hash",
+        "deployment_hash",
+        "engine_hash",
+        "R_BOPS",
+        "R_param",
+        "raw_precision_gene_hash",
+        "repaired_precision_gene_hash",
+        "requested_precision_profile_hash",
+        "realized_precision_profile_hash",
+        "precision_identity_passed",
+        "deployment_audits_passed",
+    )
+    for row in selected:
+        engine_path = Path(str(row.get("engine_path", "")))
+        if not engine_path.is_file():
+            continue
+        tasks.append(
+            {
+                "candidate_hash": str(row["candidate_hash"]),
+                "phenotype": dict(row.get("phenotype", {})) or {
+                    "pruned_unit_ids": [],
+                    "precision_profile": {},
+                    "metadata": {},
+                },
+                "output_dir": str(
+                    (destination / "full_validation" / str(row["candidate_hash"])).resolve()
+                ),
+                "evaluation_only_engine_path": str(engine_path.resolve()),
+                "deployment_metadata": {
+                    key: row.get(key) for key in metadata_fields
+                },
+            }
+        )
+    results = stage2_pool.map_tasks(tasks) if tasks else []
+    successful: list[dict[str, Any]] = []
+    normalized = []
+    for result in results:
+        row = dict(result)
+        evaluated = int(row.get("num_evaluated_frames", row.get("evaluated", -1)))
+        skipped = int(row.get("num_skipped_frames", row.get("skipped", -1)))
+        passed = (
+            str(row.get("status", "")) == "ok"
+            and evaluated == int(required_evaluated_frames)
+            and skipped == int(required_skipped_frames)
+            and bool(row.get("precision_identity_passed", False))
+        )
+        row.update(
+            {
+                "evaluation_protocol": "full_validation",
+                "full_validation_success": passed,
+                "evaluated_frames": evaluated,
+                "skipped_frames": skipped,
+            }
+        )
+        normalized.append(row)
+        if passed:
+            successful.append(row)
+    summary = {
+        "selected_count": len(selected),
+        "task_count": len(tasks),
+        "successful_count": len(successful),
+        "minimum_successful_candidates": int(minimum_successful_candidates),
+        "minimum_success_reached": len(successful)
+        >= int(minimum_successful_candidates),
+        "results": normalized,
+        "successful_candidates": successful,
+    }
+    _write_json(destination / "full_validation_results.json", summary)
+    _write_csv(destination / "full_validation_results.csv", normalized)
+    return summary
