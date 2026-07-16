@@ -1357,3 +1357,106 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 23 completed: 2026-07-17 02:29:18 CST ---
+
+## Round 24 - three-seed six-budget Stage-2 orchestration implementation
+
+The second approved implementation plan is complete and pushed. This round
+implemented the real-experiment orchestration, cache identities, GPU
+scheduling, variable candidate-count semantics, generation-winner full
+validation, isolated formal latency, and Pareto plumbing. It did not execute
+the six-budget greedy experiment, the three-seed GA, candidate engine builds,
+500-frame evaluation, 1,789-frame validation, Stage A, or Stage B.
+
+Formal Stage-2 now maximizes the direct measured score
+`F2 = mAP - 0.10 * (candidate_p50 / strict_FP32_p50)`. It has no mAP, AP@0.7,
+or max-drop hard gate. Frame-count, zero-skip, finite-output, BOPS, physical
+structure, strongly typed precision identity, Q/DQ, and merge audits remain
+fail-closed. One signed strict-FP32 engine/mAP/p50 reference is built once and
+shared by all candidate workers; candidate workers are forbidden from
+building private references.
+
+Stage-2 work is split into explicit `reference_strict_fp32`, `build_smoke`,
+`evaluate_500`, `full_validation`, and `formal_latency` protocols. Pool reuse
+is keyed by mandatory protocol-specific `task_cache_key`, while
+`candidate_hash` is lineage only. `DeploymentRegistry` separates engine
+identity from evaluation-protocol identity and appends every
+budget/seed/generation reference instead of overwriting it. Build/smoke and
+evaluation-only evaluator methods ensure 500-frame and full-validation tasks
+reuse an existing engine rather than rebuilding it.
+
+The Stage-2 scheduler samples all configured RTX 4090 devices, excludes cards
+above 50% memory occupancy, includes exactly-50% cards, orders eligible cards
+by utilization and memory fraction, and records foreign processes without
+terminating them. An empty configured GPU allowlist means all eight cards are
+considered. No eligible device produces an explicit pending failure instead
+of selecting an overloaded card. Formal latency uses a stricter independent
+selection: no compute process, low utilization, one worker, and one GPU UUID.
+
+Per-generation Stage-2 now has the approved count semantics. Zero BOPS-
+admissible candidates write the complete primary/expanded funnel without
+building. A sole deployable candidate passes build/smoke/audits, skips the
+500-frame comparison, and enters the common full-validation winner queue.
+Two through five candidates require 500/500, zero skips, and finite formal F2;
+the maximum F2 wins. Primary `+/-0.005` candidates are exhausted before an
+expanded-only `+/-0.0075` candidate may be used. Physical and realized BOPS
+are checked again against the currently active interval. No candidate is
+copied to fill Top-5.
+
+The formal GA configuration is
+`search/configs/lidar_pyramid_4090_joint_six_budget_ga.yaml`. It fixes targets
+`0.05/0.10/0.15/0.20/0.25/0.30`, three independent seeds, population and
+offspring 64, and 20 generations. The three populations evolve independently;
+their records are merged once per generation, deduplicated by phenotype, and
+ranked by descending J1 before one global Stage-2 decision. Initial
+populations retain original/anchor/greedy endpoint seeds and legal adjacent
+width neighbors, while seed-specific RNG ordering prevents three identical
+initial populations. The configuration requires a CLI-provided read-only
+`--joint-loss-scale`; activation Taylor and SQNR have zero formal objective
+weight, and no AP hard gate is present.
+
+Full validation operates only on unique greedy terminal endpoints and unique
+generation winners. Repeated deployments retain all budget/generation
+lineage but run 1,789 frames once. After parallel workers close, formal latency
+replays strict FP32 first and then every unique full-validation candidate on
+one isolated GPU. Budget winners maximize full-validation
+`mAP - 0.10 * formal_p50/strict_FP32_formal_p50`. Official mAP-BOPS,
+mAP-parameter-retention, and mAP-formal-p50 fronts accept only successful
+full-validation rows joined to successful formal latency; screening metrics
+and latency proxies cannot enter the official fronts. Greedy points have a
+separate plot marker.
+
+Implementation commits pushed in this round:
+
+- `5d5d954` direct measured mAP/latency Stage-2 score;
+- `3a9e489` deployment/evaluation protocol split and cache registry;
+- `22eff11` low-occupancy multi-GPU scheduler;
+- `c32bb0c` zero/one/two-to-five generation semantics;
+- `da452a4` three-seed six-budget GA orchestration;
+- `24c1bcb` generation-winner full validation and formal latency;
+- `28e9dae` formal evaluator test-fixture initialization.
+
+The complete Plan-2 regression gate passed 83 tests in 2.93 seconds. All
+changed Python files passed `py_compile`; `git diff --check` passed. The one
+initial failure was an `object.__new__` test fixture missing the already
+mandatory `evaluation_num_workers=8` and `ap_iou_backend=gpu`; the fixture was
+corrected without weakening production constraints. Local and remote HEAD
+were both `28e9dae` before this documentation commit, and the required H800
+ancestor check returned zero.
+
+Current state:
+
+- `THREE_SEED_GA_ORCHESTRATION_IMPLEMENTED = true`;
+- `VARIABLE_STAGE2_SUPPLY_IMPLEMENTED = true`;
+- `SINGLE_CANDIDATE_500_SKIP_IMPLEMENTED = true`;
+- `SHARED_FP32_REFERENCE_IMPLEMENTED = true`;
+- `FORMAL_FULL_VALIDATION_ORCHESTRATION_IMPLEMENTED = true`;
+- `FORMAL_LATENCY_ORCHESTRATION_IMPLEMENTED = true`;
+- `PARETO_REPORTING_IMPLEMENTED = true`;
+- `REAL_SEARCH_STARTED = false`;
+- `GREEDY_SEARCH_STARTED = false`;
+- `GA_SEARCH_STARTED = false`;
+- `STAGE_A_ALLOWED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 24 completed: 2026-07-17 03:28:18 CST ---
