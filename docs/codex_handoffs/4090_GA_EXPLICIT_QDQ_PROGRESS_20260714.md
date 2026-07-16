@@ -1282,3 +1282,78 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 22 completed: 2026-07-17 01:45:40 CST ---
+
+## Round 23 - fixed-scale linear proxy and six-budget greedy implementation
+
+The first approved implementation plan is complete. This round implemented
+the Stage-1 and proxy-only greedy framework; it did not run a real greedy
+experiment, build an engine, evaluate mAP, start GA, or start Stage A/B.
+
+The formal joint objective is now available as
+`J1 = -0.8 * (L_joint / L_scale) + 0.2 * R_prune`. `L_joint` remains the
+weight-pruning plus retained-weight-quantization first/empirical-Fisher
+second-order Taylor perturbation. Activation Taylor and SQNR contribute zero
+to the formal objective. Generic GA code continues to minimize `F1=-J1`.
+Scalar and torch-batched implementations use float64 accumulation and have
+matching output fields. Linear rows contain `L_scale` and
+`normalized_joint_loss` and do not contain legacy `tau`, exponent, `S_task`,
+or saturation fields.
+
+`search/proxy/joint_loss_scale.py` calibrates `L_scale` as deterministic
+nearest-rank P90 over unique positive finite phenotype losses, signs the full
+member set, writes atomically, chmods the artifact read-only, and rejects
+mapping, value, member, write-mode, or hash violations. Pre-calibration greedy
+uses the explicit `raw_joint_loss` mapping; that mapping is now forbidden from
+entering GA directly. Historical exponential artifacts remain available only
+through an explicit `task_score_mapping: exponential` declaration.
+
+The new BOPS admission package implements primary `+/-0.005` admission and
+conditional `+/-0.0075` admission. Expanded candidates remain unpassed at the
+single-value classifier level and can be admitted only after the set-level
+selector proves primary supply is empty. Candidates in an adjacent budget's
+primary interval are excluded. Every result preserves signed error, effective
+tolerance, reason, complete funnel counts, and nearest misses.
+
+The greedy implementation uses only adjacent legal compression actions:
+one domain-width index decrement or one actually deployable precision-level
+decrement. It never invokes normal repair. The bounded search minimizes
+`delta_L_joint / delta_R_BOPS_saved`, then prefers larger structural pruning
+gain and stable action ID. It retains eight frontier alternatives, evaluates
+at most 4,096 unique states per budget, never evaluates one genotype twice,
+never expands one state twice, and searches the complete bounded frontier for
+a primary endpoint before considering expanded endpoints.
+
+`search/orchestration/legal_width_greedy.py` runs targets
+`0.05/0.10/0.15/0.20/0.25/0.30`, shares a proxy memo across budgets, writes
+per-budget trace and endpoint artifacts, creates deployable
+`ProxyCandidateRecord` endpoints, and freezes `joint_loss_scale.json`. Its
+successor layers use the existing `Stage1ProxyEvaluator.evaluate_batch`, so a
+CUDA-batched proxy is not degraded into thousands of scalar evaluations. The
+new CLI flags are `--greedy-only` and `--joint-loss-scale`; greedy-only returns
+before constructing the real evaluator or any Stage-2 worker.
+
+Implementation commits pushed to the 4090 branch:
+
+- `d40ed31` fixed linear joint-loss scale artifact;
+- `7781f04` scalar and batched linear joint objective;
+- `8cf16a9` auditable two-level BOPS admission;
+- `834e405` legal greedy compression actions;
+- `4b13111` bounded target-aware greedy search;
+- `1f9c560` six-budget orchestration, CLI routing, and formal config.
+
+The complete Plan-1 regression gate passed 72 tests in 2.98 seconds. All
+modified Python files passed `py_compile`; `git diff --check` passed. Local and
+remote HEAD were both `1f9c560` before this documentation commit, the worktree
+was clean, and the required H800 ancestor check returned zero.
+
+Current state:
+
+- `LINEAR_JOINT_SCORE_IMPLEMENTED = true`;
+- `TWO_LEVEL_BOPS_ADMISSION_IMPLEMENTED = true`;
+- `GREEDY_PROXY_SEARCH_IMPLEMENTED = true`;
+- `GREEDY_REAL_DEPLOYMENT_STARTED = false`;
+- `GA_SEARCH_STARTED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 23 completed: 2026-07-17 02:29:18 CST ---
