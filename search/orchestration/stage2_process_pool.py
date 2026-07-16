@@ -189,66 +189,94 @@ class PersistentStage2ProcessPool:
     def map_tasks(self, tasks: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
         self.start()
         ordered_tasks = [dict(task) for task in tasks]
-        ordered_results: list[dict[str, Any]] = []
-        for begin in range(0, len(ordered_tasks), self.parallelism):
-            wave = ordered_tasks[begin : begin + self.parallelism]
-            wave_results: list[dict[str, Any] | None] = [None] * len(wave)
-            uncached: list[tuple[int, dict[str, Any]]] = []
-            for index, task in enumerate(wave):
-                cache_key = str(task.get("candidate_hash", ""))
-                cached = self._result_cache.get(cache_key) if cache_key else None
-                if cached is None:
-                    uncached.append((index, task))
-                    continue
-                reused = dict(cached)
-                reused["pool_cache_hit"] = True
-                reused["reused_pool_task_id"] = str(
-                    cached.get("pool_task_id", "")
-                )
-                if task.get("output_dir"):
-                    reused["pool_reuse_requested_output_dir"] = str(
-                        task["output_dir"]
+        ordered_results: list[dict[str, Any] | None] = [None] * len(ordered_tasks)
+        uncached: list[tuple[int, dict[str, Any]]] = []
+        for index, task in enumerate(ordered_tasks):
+            cache_key = str(task.get("candidate_hash", ""))
+            cached = self._result_cache.get(cache_key) if cache_key else None
+            if cached is None:
+                uncached.append((index, task))
+                continue
+            reused = dict(cached)
+            reused["pool_cache_hit"] = True
+            reused["reused_pool_task_id"] = str(cached.get("pool_task_id", ""))
+            if task.get("output_dir"):
+                reused["pool_reuse_requested_output_dir"] = str(task["output_dir"])
+            ordered_results[index] = reused
+
+        pending: dict[str, dict[str, Any]] = {}
+        next_uncached = 0
+
+        def dispatch(worker: dict[str, Any]) -> None:
+            nonlocal next_uncached
+            result_index, task = uncached[next_uncached]
+            next_uncached += 1
+            self._sequence += 1
+            task_id = f"task_{self._sequence:08d}"
+            result_path = self.results / f"{task_id}.json"
+            payload = {
+                **task,
+                "task_id": task_id,
+                "assigned_gpu_id": worker["gpu_id"],
+                "pool_signature": self._pool_signature,
+                "result_path": str(result_path),
+            }
+            task_path = worker["queue_dir"] / f"{task_id}.task.json"
+            _atomic_write_json(task_path, payload)
+            pending[task_id] = {
+                "worker": worker,
+                "task_id": task_id,
+                "result_index": result_index,
+                "result_path": result_path,
+                "started_at": time.monotonic(),
+            }
+
+        initial_workers = [
+            self._workers[(self._cursor + offset) % self.parallelism]
+            for offset in range(min(len(uncached), self.parallelism))
+        ]
+        self._cursor = (self._cursor + len(initial_workers)) % self.parallelism
+        for worker in initial_workers:
+            dispatch(worker)
+
+        while pending:
+            progressed = False
+            for task_id, item in list(pending.items()):
+                worker = item["worker"]
+                if worker["process"].poll() is not None:
+                    raise RuntimeError(
+                        "stage2_worker_died:"
+                        f"gpu={worker['gpu_id']}:rc={worker['process'].returncode}:"
+                        f"task={task_id}:log={worker['log_path']}"
                     )
-                wave_results[index] = reused
-            pending: list[dict[str, Any]] = []
-            for offset, (result_index, task) in enumerate(uncached):
-                worker_index = (self._cursor + offset) % self.parallelism
-                worker = self._workers[worker_index]
-                self._sequence += 1
-                task_id = f"task_{self._sequence:08d}"
-                result_path = self.results / f"{task_id}.json"
-                payload = {
-                    **task,
-                    "task_id": task_id,
-                    "assigned_gpu_id": worker["gpu_id"],
-                    "pool_signature": self._pool_signature,
-                    "result_path": str(result_path),
-                }
-                task_path = worker["queue_dir"] / f"{task_id}.task.json"
-                _atomic_write_json(task_path, payload)
-                pending.append(
-                    {
-                        "worker": worker,
-                        "task_id": task_id,
-                        "result_index": result_index,
-                        "task_path": str(task_path),
-                        "result_path": result_path,
-                    }
-                )
-            self._cursor = (self._cursor + len(uncached)) % self.parallelism
-            fresh_results = self._wait_for_results(pending) if pending else []
-            for item, result in zip(pending, fresh_results):
+                if time.monotonic() - float(item["started_at"]) > self.task_timeout_seconds:
+                    raise TimeoutError(f"stage2_worker_task_timeout:['{task_id}']")
+                result_path = item["result_path"]
+                if not result_path.is_file():
+                    continue
+                try:
+                    result = json.loads(result_path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    continue
+                result.setdefault("worker_gpu_id", worker["gpu_id"])
+                result["pool_task_id"] = task_id
+                result["pool_signature"] = self._pool_signature
                 result["pool_cache_hit"] = False
-                wave_results[int(item["result_index"])] = result
+                _atomic_write_json(result_path, result)
+                ordered_results[int(item["result_index"])] = result
                 cache_key = str(result.get("candidate_hash", ""))
                 if cache_key and str(result.get("status", "")) == "ok":
                     self._result_cache[cache_key] = dict(result)
-            if any(result is None for result in wave_results):
-                raise RuntimeError("stage2_pool_internal_result_ordering_failure")
-            ordered_results.extend(
-                result for result in wave_results if result is not None
-            )
-        return ordered_results
+                del pending[task_id]
+                if next_uncached < len(uncached):
+                    dispatch(worker)
+                progressed = True
+            if pending and not progressed:
+                time.sleep(self.poll_interval_seconds)
+
+        if any(result is None for result in ordered_results):
+            raise RuntimeError("stage2_pool_internal_result_ordering_failure")
+        return [result for result in ordered_results if result is not None]
 
     def _wait_for_results(self, pending: list[dict[str, Any]]) -> list[dict[str, Any]]:
         deadline = time.monotonic() + self.task_timeout_seconds

@@ -95,3 +95,68 @@ def test_persistent_stage2_pool_requires_unique_gpu_ids(tmp_path: Path) -> None:
             gpu_ids=[4, 4],
             worker_payload={},
         )
+
+
+def test_persistent_stage2_pool_dispatches_next_task_without_wave_barrier(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    from search.orchestration.stage2_process_pool import PersistentStage2ProcessPool
+
+    worker = tmp_path / "variable_worker.py"
+    worker.write_text(
+        """
+import argparse
+import json
+import os
+import time
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--request', required=True)
+args = parser.parse_args()
+request = json.loads(Path(args.request).read_text())
+Path(request['ready_path']).write_text(json.dumps({'pid': os.getpid()}))
+queue = Path(request['queue_dir'])
+while not Path(request['stop_path']).exists():
+    tasks = sorted(queue.glob('*.task.json'))
+    if not tasks:
+        time.sleep(0.005)
+        continue
+    task_path = tasks[0]
+    task = json.loads(task_path.read_text())
+    started = time.monotonic()
+    time.sleep(float(task.get('delay', 0.0)))
+    Path(task['result_path']).write_text(json.dumps({
+        'status': 'ok',
+        'candidate_hash': task['candidate_hash'],
+        'worker_gpu_id': request['gpu_id'],
+        'started': started,
+        'finished': time.monotonic(),
+    }))
+    task_path.unlink()
+""",
+        encoding="utf-8",
+    )
+
+    with PersistentStage2ProcessPool(
+        run_dir=tmp_path / "run",
+        gpu_ids=[4, 5],
+        worker_payload={"kind": "dynamic_dispatch_test"},
+        worker_command=[sys.executable, str(worker)],
+        startup_timeout_seconds=5.0,
+        task_timeout_seconds=5.0,
+        poll_interval_seconds=0.005,
+    ) as pool:
+        results = pool.map_tasks(
+            [
+                {"candidate_hash": "slow", "delay": 0.4},
+                {"candidate_hash": "fast-1", "delay": 0.01},
+                {"candidate_hash": "fast-2", "delay": 0.01},
+            ]
+        )
+
+    by_hash = {row["candidate_hash"]: row for row in results}
+    assert by_hash["fast-2"]["started"] < by_hash["slow"]["finished"]
+    assert by_hash["fast-2"]["worker_gpu_id"] == 5

@@ -1137,3 +1137,44 @@ Current execution gates remain unchanged:
 - `TENSORRT_STARTED = false`.
 
 --- Round 19 completed: 2026-07-16 06:00:51 CST ---
+
+## Round 20 - GPU evaluation protocol and work-conserving Stage-2 dispatch
+
+The legal-width anchor deployment matrix now uses a two-level evaluation
+protocol. All precision/structure variants first run a common 50-frame GPU
+screening manifest; only the strict baselines plus selected accuracy-boundary
+and screening non-dominated rows proceed to the 1,789-frame full validation.
+The old behavior of running the entire initial 45-engine matrix on full
+validation is no longer the formal protocol.
+
+Formal AP matching was moved from the NumPy/Shapely CPU implementation to the
+OpenCOOD CUDA BEV-IoU extension. Production evaluation now requires
+`ap_iou_backend=gpu`, rejects a silent CPU fallback, performs a CUDA self-IoU
+smoke check, and records the backend in every result. Data loading uses eight
+persistent workers with prefetching. A real strict-FP32 10-frame check passed
+10/10 with zero skips; fixed-box CPU/GPU AP parity passed at IoU 0.3, 0.5, and
+0.7.
+
+During the new anchor screening run, the first seven completed deployments all
+passed 50/50 with zero skips and recorded `gpu` AP matching plus eight loader
+workers. The run directory is
+`outputs/4090_legal_width_joint_taylor_anchor_sweep_20260716_034830/`.
+This experiment remains in the screening/build stage; no screening metric has
+been promoted to a full-validation or formal Pareto result.
+
+The persistent four-GPU pool exposed a separate utilization defect: tasks were
+submitted in fixed waves, so one slow INT8/build task prevented idle workers
+from receiving the next candidate. A regression test reproduced the barrier.
+`PersistentStage2ProcessPool.map_tasks` now dispatches one task per worker and
+immediately replenishes whichever worker finishes, while retaining ordered
+results, per-task timeouts, cache identity, and one persistent process per
+physical GPU. The focused process-pool suite passes 3/3. The already-running
+anchor controller loaded the earlier implementation and therefore finishes its
+current screening with the old wave behavior; newly started full-validation
+and GA pools use the work-conserving scheduler.
+
+No candidate encoding, legal-width decoder, Taylor ranking, physical pruning,
+Q/DQ, precision realization, AP formula, or cache signature was relaxed by
+this scheduling update.
+
+--- Round 20 completed: 2026-07-16 19:16:42 CST ---
