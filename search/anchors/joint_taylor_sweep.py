@@ -95,8 +95,10 @@ def plan_legal_width_anchor_structures(
     }
     path: list[dict[str, Any]] = []
 
-    def record(width_genes: Mapping[str, int]) -> dict[str, Any]:
-        decoded = decoder.decode(width_genes)
+    def record(
+        width_genes: Mapping[str, int], *, decoded: Any | None = None
+    ) -> dict[str, Any]:
+        decoded = decoded or decoder.decode(width_genes)
         candidate_params = int(parameter_count_fn(decoded.group_mask))
         if not 0 <= candidate_params <= int(original_params):
             raise RuntimeError("legal_width_anchor_parameter_count_invalid")
@@ -124,8 +126,8 @@ def plan_legal_width_anchor_structures(
                 continue
             candidate_genes = dict(current)
             candidate_genes[domain_id] = index - 1
-            candidate = record(candidate_genes)
-            newly_pruned = set(candidate["decoded"].pruned_unit_ids) - before_pruned
+            candidate_decoded = decoder.decode(candidate_genes)
+            newly_pruned = set(candidate_decoded.pruned_unit_ids) - before_pruned
             if not newly_pruned:
                 raise RuntimeError(
                     f"legal_width_anchor_nonprogressing_move:{domain_id}:{index}"
@@ -134,14 +136,16 @@ def plan_legal_width_anchor_structures(
                 (
                     sum(scores[unit_id] for unit_id in newly_pruned),
                     domain_id,
-                    candidate,
+                    candidate_genes,
+                    candidate_decoded,
                 )
             )
         if not moves:
             break
-        _cost, selected_domain, selected = min(
+        _cost, selected_domain, selected_genes, selected_decoded = min(
             moves, key=lambda row: (float(row[0]), str(row[1]))
         )
+        selected = record(selected_genes, decoded=selected_decoded)
         current = dict(selected["width_genes"])
         selected["transition_domain"] = selected_domain
         path.append(selected)

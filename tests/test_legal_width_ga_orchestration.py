@@ -129,6 +129,13 @@ def test_legal_width_anchor_path_uses_only_adjacent_legal_states() -> None:
     ]
     decoder = FixedTaylorWidthDecoder(inventory, ranking)
 
+    count_calls = 0
+
+    def count_parameters(mask):
+        nonlocal count_calls
+        count_calls += 1
+        return 160 - 10 * sum(int(keep) == 0 for keep in mask.values())
+
     plan = plan_legal_width_anchor_structures(
         inventory=inventory,
         decoder=decoder,
@@ -136,9 +143,7 @@ def test_legal_width_anchor_path_uses_only_adjacent_legal_states() -> None:
         ranking_mode="prune_only_second_order_fisher",
         requested_prune_rates=(0.0, 0.25, 0.5),
         original_params=160,
-        parameter_count_fn=lambda mask: 160 - 10 * sum(
-            int(keep) == 0 for keep in mask.values()
-        ),
+        parameter_count_fn=count_parameters,
     )
 
     assert len(plan.structures) == 3
@@ -151,6 +156,8 @@ def test_legal_width_anchor_path_uses_only_adjacent_legal_states() -> None:
     )
     assert [row.requested_prune_rate for row in plan.structures] == [0.0, 0.25, 0.5]
     assert plan.maximum_realized_prune_rate == 0.5
+    # One expensive physical-parameter prediction per actual nested path state.
+    assert count_calls == 3
 
 
 def test_archive_first_stage2_backfills_until_minimum_success(tmp_path: Path) -> None:
