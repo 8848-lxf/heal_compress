@@ -638,6 +638,8 @@ class LidarPyramidTwoStageSearch:
                     warmup_frames=real_evaluator.warmup_frames,
                     latency_rounds=real_evaluator.latency_rounds,
                     stage2_config=real_evaluator.objective_config,
+                    artifact_cache=real_evaluator.artifacts,
+                    real_cache=real_evaluator.real_cache,
                     reference_baseline=reference,
                 )
                 workers.append((int(gpu_id), worker))

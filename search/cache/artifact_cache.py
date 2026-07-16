@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ class ArtifactCache:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.RLock()
         self._rows: dict[tuple[str, str], dict[str, Any]] = {}
         if self.path.is_file():
             for line in self.path.read_text(encoding="utf-8").splitlines():
@@ -22,13 +24,15 @@ class ArtifactCache:
                 self._rows[(str(row["kind"]), str(row["key"]))] = dict(row["value"])
 
     def _put(self, kind: str, key: str, value: dict[str, Any]) -> None:
-        self._rows[(kind, key)] = dict(value)
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps({"kind": kind, "key": key, "value": value}, sort_keys=True, ensure_ascii=True) + "\n")
+        with self._lock:
+            self._rows[(kind, key)] = dict(value)
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps({"kind": kind, "key": key, "value": value}, sort_keys=True, ensure_ascii=True) + "\n")
 
     def _get(self, kind: str, key: str) -> dict[str, Any] | None:
-        row = self._rows.get((kind, key))
-        return dict(row) if row is not None else None
+        with self._lock:
+            row = self._rows.get((kind, key))
+            return dict(row) if row is not None else None
 
     def put_physical(self, physical_hash: str, value: dict[str, Any]) -> None:
         self._put("physical", str(physical_hash), value)

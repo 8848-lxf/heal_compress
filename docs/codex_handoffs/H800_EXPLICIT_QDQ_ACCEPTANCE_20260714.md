@@ -831,3 +831,39 @@ must not be interpreted as an engine/model failure.
 Completed checkpoint: 2026-07-17 05:09:57 +0800 CST
 
 ---
+
+## H800 multi-GPU Stage-2 correction: thread-safe ONNX/cache publication
+
+The resumable formal directory
+`outputs/h800_domain_width_joint_ga_20260716_141052` completed round-0
+Stage-1 with 36 CUDA batches, zero scalar evaluations, and approximately
+240.58 candidates/s.  Its six-GPU Stage-2 launch then exposed a process-level
+PyTorch ONNX exporter race: one candidate completed, three independent
+candidates failed with `OnnxExportError`/`AssertionError`, and a fifth was
+still calibrating when the run was deliberately stopped.  This is a
+concurrency defect rather than an invalid candidate or model-structure result.
+
+Production corrections:
+
+- `search/stage2/lidar_pyramid_real_evaluator.py` serializes only the legacy
+  PyTorch ONNX export and shared ONNX cache publication with a process-wide
+  reentrant lock.  Calibration, Q/DQ generation, TensorRT builds and
+  evaluation remain parallel across GPUs.
+- `search/orchestration/lidar_pyramid_search.py` gives all per-GPU evaluators
+  the same artifact and real-evaluation cache objects, so identical physical
+  models and deployment identities are reused across worker queues.
+- `search/cache/artifact_cache.py` and `search/cache/proxy_cache.py` now guard
+  in-memory indices and JSONL append operations with reentrant locks.
+- `tests/test_search_cache_reuse.py` adds a 64-entry, eight-thread cache-writer
+  regression; `tests/test_search_multi_gpu_orchestration.py` verifies the
+  ONNX export critical section.
+
+The existing directory is the required resume source: completed Stage-1 and
+the successful candidate must be reused, while only the failed/incomplete
+Stage-2 candidates are rebuilt.  Focused cache, multi-GPU and physical
+validation tests: 17 passed.  Evaluation DataLoader policy remains eight
+workers per evaluator under protocol v4.
+
+Completed checkpoint: 2026-07-17 05:26:00 +0800 CST
+
+---

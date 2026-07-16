@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import json
+import inspect
 import threading
 import time
 from types import SimpleNamespace
+
+
+def test_stage2_serializes_only_process_global_torch_onnx_export() -> None:
+    from search.stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
+
+    source = inspect.getsource(LidarPyramidRealEvaluator._export_qdq)
+    assert "with _ONNX_EXPORT_LOCK" in source
 
 
 def test_stage2_parallel_scheduler_serializes_each_gpu_and_runs_gpus_concurrently(

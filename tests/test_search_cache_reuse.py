@@ -1,5 +1,32 @@
 from __future__ import annotations
 
+
+def test_artifact_cache_supports_parallel_stage2_writers(tmp_path) -> None:
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+
+    from search.cache.artifact_cache import ArtifactCache
+
+    cache = ArtifactCache(tmp_path / "artifact_index.jsonl")
+
+    def write(index: int) -> None:
+        cache.put_onnx(f"physical-{index}", {"index": index})
+        assert cache.get_onnx(f"physical-{index}") == {"index": index}
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(write, range(64)))
+
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "artifact_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+    ]
+    assert len(rows) == 64
+    assert {row["key"] for row in rows} == {
+        f"physical-{index}" for index in range(64)
+    }
+
 import sys
 from pathlib import Path
 

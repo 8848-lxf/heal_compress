@@ -6,6 +6,7 @@ import csv
 import json
 import os
 import shutil
+import threading
 from dataclasses import asdict, is_dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -49,6 +50,9 @@ from .objective import Stage2ObjectiveConfig, compute_stage2_score
 from .physical_validation import validate_repaired_physical_plan
 from .mixed_precision_export import summarize_qdq_realization
 from .trt_modelopt import build_engine_modelopt
+
+
+_ONNX_EXPORT_LOCK = threading.RLock()
 
 
 def _plain(value: Any) -> Any:
@@ -1375,56 +1379,60 @@ class LidarPyramidRealEvaluator:
             from heal_compress.quantization.types import CanonicalPrecisionMappingResult, PrecisionAssignment, PrecisionProfileResult
 
         qcfg = OnnxExportConfig(fixed_k=29696, min_agents=1, opt_agents=2, max_agents=2)
-        cached = self.artifacts.get_onnx(str(physical["physical_hash"]))
-        cached_onnx = Path(str(cached.get("onnx_path", ""))) if cached else Path()
-        cached_origin = Path(str(cached.get("origin_map", ""))) if cached else Path()
-        cached_hash = str(cached.get("onnx_sha256", "")) if cached else ""
-        cache_valid = (
-            cached_onnx.is_file()
-            and cached_origin.is_file()
-            and bool(cached_hash)
-            and _file_hash(cached_onnx) == cached_hash
-        )
-        if cache_valid:
-            target_onnx = output_dir / "exported.onnx"
-            if cached_onnx.resolve() != target_onnx.resolve():
-                shutil.copyfile(cached_onnx, target_onnx)
-            elif not target_onnx.is_file():
-                raise RuntimeError("onnx_cache_target_missing")
-            export = SimpleNamespace(onnx_path=str(target_onnx), origin_map=_load_origin_map_result(cached_origin))
-            _write_json(output_dir / "onnx_cache_hit.json", {"physical_hash": physical["physical_hash"], "onnx_sha256": cached_hash})
-        else:
-            wrapper = build_search_trt_compatible_export_module(
-                physical["model"],
-                output_names=qcfg.output_names,
-                fixed_k=qcfg.fixed_k,
-                modality="m1",
-            ).to(self.context.runtime_device).eval()
-            inputs = prepare_signal_maxk_inputs(self.context.trace_example_inputs, config=qcfg, modality="m1")
-            export = export_pruned_signal_maxk_onnx(
-                wrapper,
-                inputs,
-                output_dir / "exported.onnx",
-                physical["snapshot"],
-                config=qcfg,
-                naming_config=CanonicalNamingConfig(),
-                report_path=output_dir / "onnx_export_report.json",
+        # PyTorch 2.0's legacy ONNX exporter mutates process-global state and
+        # is not thread safe. Keep only export/cache publication serialized;
+        # calibration, TensorRT build and evaluation remain cross-GPU parallel.
+        with _ONNX_EXPORT_LOCK:
+            cached = self.artifacts.get_onnx(str(physical["physical_hash"]))
+            cached_onnx = Path(str(cached.get("onnx_path", ""))) if cached else Path()
+            cached_origin = Path(str(cached.get("origin_map", ""))) if cached else Path()
+            cached_hash = str(cached.get("onnx_sha256", "")) if cached else ""
+            cache_valid = (
+                cached_onnx.is_file()
+                and cached_origin.is_file()
+                and bool(cached_hash)
+                and _file_hash(cached_onnx) == cached_hash
             )
-        origin_map = export.origin_map
-        if origin_map is None:
-            raise RuntimeError("onnx_export_failed:no_origin_map")
-        if not (output_dir / "pruned_fp32.onnx").exists():
-            shutil.copyfile(output_dir / "exported.onnx", output_dir / "pruned_fp32.onnx")
-        _write_json(output_dir / "origin_map.json", origin_map.to_dict())
-        if not cache_valid:
-            self.artifacts.put_onnx(
-                str(physical["physical_hash"]),
-                {
-                    "onnx_path": str(output_dir / "pruned_fp32.onnx"),
-                    "onnx_sha256": _file_hash(output_dir / "pruned_fp32.onnx"),
-                    "origin_map": str(output_dir / "origin_map.json"),
-                },
-            )
+            if cache_valid:
+                target_onnx = output_dir / "exported.onnx"
+                if cached_onnx.resolve() != target_onnx.resolve():
+                    shutil.copyfile(cached_onnx, target_onnx)
+                elif not target_onnx.is_file():
+                    raise RuntimeError("onnx_cache_target_missing")
+                export = SimpleNamespace(onnx_path=str(target_onnx), origin_map=_load_origin_map_result(cached_origin))
+                _write_json(output_dir / "onnx_cache_hit.json", {"physical_hash": physical["physical_hash"], "onnx_sha256": cached_hash})
+            else:
+                wrapper = build_search_trt_compatible_export_module(
+                    physical["model"],
+                    output_names=qcfg.output_names,
+                    fixed_k=qcfg.fixed_k,
+                    modality="m1",
+                ).to(self.context.runtime_device).eval()
+                inputs = prepare_signal_maxk_inputs(self.context.trace_example_inputs, config=qcfg, modality="m1")
+                export = export_pruned_signal_maxk_onnx(
+                    wrapper,
+                    inputs,
+                    output_dir / "exported.onnx",
+                    physical["snapshot"],
+                    config=qcfg,
+                    naming_config=CanonicalNamingConfig(),
+                    report_path=output_dir / "onnx_export_report.json",
+                )
+            origin_map = export.origin_map
+            if origin_map is None:
+                raise RuntimeError("onnx_export_failed:no_origin_map")
+            if not (output_dir / "pruned_fp32.onnx").exists():
+                shutil.copyfile(output_dir / "exported.onnx", output_dir / "pruned_fp32.onnx")
+            _write_json(output_dir / "origin_map.json", origin_map.to_dict())
+            if not cache_valid:
+                self.artifacts.put_onnx(
+                    str(physical["physical_hash"]),
+                    {
+                        "onnx_path": str(output_dir / "pruned_fp32.onnx"),
+                        "onnx_sha256": _file_hash(output_dir / "pruned_fp32.onnx"),
+                        "origin_map": str(output_dir / "origin_map.json"),
+                    },
+                )
         assignments = []
         requested_profile = {}
         for order, origin in enumerate(sorted(origin_map.entries, key=lambda row: (row.call_index, row.graph_index))):
