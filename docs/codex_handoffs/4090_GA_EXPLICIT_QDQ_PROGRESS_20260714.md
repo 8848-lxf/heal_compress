@@ -1234,3 +1234,51 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 21 completed: 2026-07-17 01:11:38 CST ---
+
+## Round 22 - implementation and experiment plans
+
+The approved greedy-first six-budget design has been decomposed into three
+ordered, independently reviewable execution plans:
+
+1. `docs/superpowers/plans/2026-07-16-linear-joint-greedy-search.md` covers the
+   signed fixed P90 scale, scalar/CUDA linear joint objective, two-level BOPS
+   admission, legal action enumeration, bounded greedy search, and the
+   six-budget proxy orchestration.
+2. `docs/superpowers/plans/2026-07-16-three-seed-stage2-orchestration.md` covers
+   the direct mAP/p50 F2 score, one shared strict-FP32 reference, deployment and
+   evaluation protocol identities, low-occupancy GPU scheduling, variable
+   per-generation Stage-2 candidate supply, three-seed generation merging,
+   full validation, and formal latency.
+3. `docs/superpowers/plans/2026-07-16-six-budget-real-experiment-pareto.md`
+   covers the real greedy and GA runs, endpoint and generation-winner full
+   validation, isolated latency replay, official Pareto artifacts, reports,
+   and final branch verification.
+
+The plans explicitly resolve the pre-calibration dependency: greedy uses a
+`raw_joint_loss` diagnostic mapping because the greedy paths are themselves
+the source of `L_scale`. After those paths and legal anchors produce the
+read-only nearest-rank P90 artifact, formal GA switches to
+`linear_fixed_scale` and maximizes
+`J1 = -0.8 * (L_joint/L_scale) + 0.2 * R_prune`.
+
+Stage-2 is split into build/audit/smoke and evaluation-only protocols. This is
+required so a generation with exactly one deployable candidate can skip the
+500-frame comparison while still joining the common 1,789-frame validation
+queue. Protocol-specific cache keys prevent smoke, 500-frame, full-validation,
+and formal-latency rows from being confused.
+
+No implementation or experiment was started in this round. The existing
+uncommitted coarse-boundary tau test remains excluded from the plan commit and
+is explicitly scheduled for removal as obsolete WIP before the first RED test.
+
+Current state:
+
+- `DESIGN_APPROVED = true`;
+- `IMPLEMENTATION_PLANS_COMPLETE = true`;
+- `IMPLEMENTATION_STARTED = false`;
+- `GREEDY_SEARCH_STARTED = false`;
+- `GA_SEARCH_STARTED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 22 completed: 2026-07-17 01:45:40 CST ---
