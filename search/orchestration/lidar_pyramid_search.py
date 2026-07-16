@@ -93,6 +93,115 @@ def _append_jsonl(path: str | Path, rows: list[dict[str, Any]]) -> None:
             handle.write(json.dumps(row, sort_keys=True, default=str) + "\n")
 
 
+def _validate_shared_stage2_reference(
+    payload: dict[str, Any], *, latency_metric: str
+) -> dict[str, Any]:
+    reference = dict(payload)
+    unsigned = dict(reference)
+    reference_hash = str(unsigned.pop("reference_hash", ""))
+    reasons = []
+    if str(reference.get("status", "")) != "ok":
+        reasons.append("status_not_ok")
+    if str(reference.get("reference_precision", "")) != "strict_fp32":
+        reasons.append("reference_precision_not_strict_fp32")
+    for key in ("engine_hash", "eval_hash"):
+        if not str(reference.get(key, "")):
+            reasons.append(f"missing_{key}")
+    for key in ("mAP", latency_metric):
+        try:
+            finite = math.isfinite(float(reference.get(key, float("nan"))))
+        except (TypeError, ValueError):
+            finite = False
+        if not finite:
+            reasons.append(f"nonfinite_{key}")
+    if not reference_hash or reference_hash != canonical_json_hash(unsigned):
+        reasons.append("reference_hash_mismatch")
+    if reasons:
+        raise RuntimeError(
+            "shared_stage2_reference_invalid:" + ",".join(reasons)
+        )
+    return reference
+
+
+def _build_shared_stage2_reference(
+    *,
+    run_dir: Path,
+    gpu_id: int,
+    config: dict[str, Any],
+    checkpoint: str | Path,
+    code_commit: str,
+    controller_pid: int,
+    startup_timeout_seconds: float,
+    task_timeout_seconds: float,
+    poll_interval_seconds: float,
+) -> dict[str, Any]:
+    stage2 = dict(config.get("stage2", {}) or {})
+    latency_metric = str(stage2.get("latency_metric", "forward_p50_ms"))
+    task_cache_key = canonical_json_hash(
+        {
+            "protocol": "reference_strict_fp32",
+            "checkpoint": str(checkpoint),
+            "code_commit": str(code_commit),
+            "stage2": stage2,
+            "gpu_id": int(gpu_id),
+        }
+    )
+    pool = PersistentStage2ProcessPool(
+        run_dir=run_dir / "strict_fp32_reference_execution",
+        gpu_ids=[int(gpu_id)],
+        worker_payload={
+            "config": config,
+            "checkpoint": str(checkpoint),
+            "code_commit": str(code_commit),
+            "controller_pid": int(controller_pid),
+            "formal_protocol_tasks": True,
+            "allow_reference_tasks": True,
+        },
+        startup_timeout_seconds=float(startup_timeout_seconds),
+        task_timeout_seconds=float(task_timeout_seconds),
+        poll_interval_seconds=float(poll_interval_seconds),
+    )
+    try:
+        rows = pool.map_tasks(
+            [
+                {
+                    "task_protocol": "reference_strict_fp32",
+                    "task_cache_key": task_cache_key,
+                    "candidate_hash": "strict_fp32_reference",
+                    "output_dir": str(
+                        (
+                            run_dir
+                            / "strict_fp32_reference_execution"
+                            / "reference"
+                        ).resolve()
+                    ),
+                }
+            ]
+        )
+    finally:
+        pool.close()
+    if len(rows) != 1:
+        raise RuntimeError("strict_fp32_reference_result_count_mismatch")
+    reference = dict(rows[0])
+    for key in (
+        "reference_hash",
+        "pool_task_id",
+        "pool_signature",
+        "pool_cache_hit",
+        "reused_pool_task_id",
+        "pool_reuse_requested_output_dir",
+        "task_protocol",
+        "task_cache_key",
+    ):
+        reference.pop(key, None)
+    reference["reference_hash"] = canonical_json_hash(reference)
+    reference = _validate_shared_stage2_reference(
+        reference, latency_metric=latency_metric
+    )
+    _write_json(run_dir / "shared_stage2_reference.json", reference)
+    return reference
+
+
 def _load_candidate(path: str | Path) -> CandidateGenotype | CandidatePhenotype:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if "pruned_unit_ids" in payload or "precision_profile" in payload:
@@ -709,6 +818,10 @@ class LidarPyramidTwoStageSearch:
             target_bops_retention=stage2_cfg.get("target_bops_retention"),
             bops_tolerance=float(stage2_cfg.get("bops_tolerance", stage2_cfg.get("tolerance", 0.005))),
             stage2_config=Stage2ObjectiveConfig(
+                score_mode=str(
+                    stage2_cfg.get("score_mode", "legacy_normalized_loss")
+                ),
+                latency_weight=float(stage2_cfg.get("latency_weight", 0.10)),
                 eta_map=float(stage2_cfg.get("eta_ap", stage2_cfg.get("eta_map", 1.0))),
                 eta_latency=float(stage2_cfg.get("eta_latency", 1.0)),
                 latency_metric=str(stage2_cfg.get("latency_metric", "forward_mean_ms")),
@@ -754,6 +867,7 @@ class LidarPyramidTwoStageSearch:
             return {"run_dir": str(run_dir), "selected_gpu": context.physical_gpu_id, "stage2_only": True, "results": results, "result": results[0] if results else None}
         parallel_cfg = dict(self.config.get("stage2_parallel", {}) or {})
         stage2_pool = None
+        shared_stage2_reference = None
         if (
             bool(parallel_cfg.get("enabled", False))
             and (
@@ -762,14 +876,44 @@ class LidarPyramidTwoStageSearch:
             )
             and not stage1_only
         ):
+            worker_gpu_ids = [
+                int(value) for value in parallel_cfg.get("gpu_ids", [])
+            ]
+            formal_protocol_tasks = (
+                str(stage2_cfg.get("score_mode", "legacy_normalized_loss"))
+                == "map_minus_latency_ratio"
+            )
+            if formal_protocol_tasks:
+                if not worker_gpu_ids:
+                    raise RuntimeError("stage2_worker_gpu_ids_required")
+                shared_stage2_reference = _build_shared_stage2_reference(
+                    run_dir=run_dir,
+                    gpu_id=worker_gpu_ids[0],
+                    config=self.config,
+                    checkpoint=self.checkpoint,
+                    code_commit=context.code_commit,
+                    controller_pid=os.getpid(),
+                    startup_timeout_seconds=float(
+                        parallel_cfg.get("startup_timeout_seconds", 1200)
+                    ),
+                    task_timeout_seconds=float(
+                        parallel_cfg.get("task_timeout_seconds", 14400)
+                    ),
+                    poll_interval_seconds=float(
+                        parallel_cfg.get("poll_interval_seconds", 0.25)
+                    ),
+                )
             stage2_pool = PersistentStage2ProcessPool(
                 run_dir=run_dir,
-                gpu_ids=[int(value) for value in parallel_cfg.get("gpu_ids", [])],
+                gpu_ids=worker_gpu_ids,
                 worker_payload={
                     "config": self.config,
                     "checkpoint": str(self.checkpoint),
                     "code_commit": context.code_commit,
                     "controller_pid": os.getpid(),
+                    "formal_protocol_tasks": formal_protocol_tasks,
+                    "allow_reference_tasks": False,
+                    "shared_stage2_reference": shared_stage2_reference,
                 },
                 startup_timeout_seconds=float(
                     parallel_cfg.get("startup_timeout_seconds", 1200)
@@ -855,6 +999,9 @@ class LidarPyramidTwoStageSearch:
                     "checkpoint": str(self.checkpoint),
                     "code_commit": context.code_commit,
                     "controller_pid": os.getpid(),
+                    "formal_protocol_tasks": bool(shared_stage2_reference),
+                    "allow_reference_tasks": False,
+                    "shared_stage2_reference": shared_stage2_reference,
                 },
                 startup_timeout_seconds=float(
                     parallel_cfg.get("startup_timeout_seconds", 1200)
@@ -907,6 +1054,9 @@ class LidarPyramidTwoStageSearch:
                     "checkpoint": str(self.checkpoint),
                     "code_commit": context.code_commit,
                     "controller_pid": os.getpid(),
+                    "formal_protocol_tasks": bool(shared_stage2_reference),
+                    "allow_reference_tasks": False,
+                    "shared_stage2_reference": shared_stage2_reference,
                 },
                 startup_timeout_seconds=float(
                     parallel_cfg.get("startup_timeout_seconds", 1200)
@@ -930,6 +1080,7 @@ class LidarPyramidTwoStageSearch:
                         formal_runtime_config["stage2"]["num_frames"]
                     ),
                     required_skipped_frames=0,
+                    evaluation_protocol="formal_latency",
                 )
             finally:
                 formal_pool.close()

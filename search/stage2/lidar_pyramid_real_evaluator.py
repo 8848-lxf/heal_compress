@@ -15,6 +15,11 @@ import torch
 
 from ..adapters.pruning_adapter import FormalPruningAdapter
 from ..cache.artifact_cache import ArtifactCache
+from ..cache.deployment_registry import (
+    DeploymentRegistry,
+    deployment_identity,
+    evaluation_identity,
+)
 from ..cache.real_eval_cache import RealEvalCache
 from ..candidate import CandidatePhenotype, normalize_precision
 from ..constrained.policy import smoke10_admission
@@ -583,6 +588,9 @@ class LidarPyramidRealEvaluator:
         archives = self.run_dir / "archives"
         self.artifacts = artifact_cache or ArtifactCache(archives / "artifact_index.jsonl")
         self.real_cache = real_cache or RealEvalCache(archives / "real_eval_archive.jsonl")
+        self.deployment_registry = DeploymentRegistry(
+            archives / "deployment_registry.jsonl"
+        )
         self.pruning = FormalPruningAdapter()
         self._baseline: dict[str, Any] | None = None
         self._physical_memory: dict[str, dict[str, Any]] = {}
@@ -871,6 +879,362 @@ class LidarPyramidRealEvaluator:
             eval_frame_ids=manifest.frame_ids,
             eval_manifest_hash=manifest.manifest_hash,
         )
+
+    def _deployment_metadata_from_artifacts(
+        self,
+        phenotype: CandidatePhenotype,
+        destination: Path,
+    ) -> dict[str, Any]:
+        engine_precision = json.loads(
+            (destination / "engine_realized_precision_profile.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        requested_profile = {
+            str(module_path): normalize_precision(decision.requested_precision)
+            for module_path, decision in sorted(phenotype.precision_profile.items())
+        }
+        realized_full_profile = {
+            str(module_path): normalize_precision(precision)
+            for module_path, precision in dict(
+                engine_precision.get("realized_precision_profile", {})
+            ).items()
+        }
+        realized_profile = {
+            module_path: realized_full_profile.get(module_path, "UNRESOLVED")
+            for module_path in sorted(requested_profile)
+        }
+        requested_hash = canonical_json_hash(requested_profile)
+        realized_hash = canonical_json_hash(realized_profile)
+        audit_summary = self._deployment_audit_summary(destination)
+        qdq_summary_path = destination / "qdq_realization_summary.json"
+        qdq_summary = (
+            json.loads(qdq_summary_path.read_text(encoding="utf-8"))
+            if qdq_summary_path.is_file()
+            else {}
+        )
+        precision_validation_path = destination / "precision_realization_validation.json"
+        precision_validation = (
+            json.loads(precision_validation_path.read_text(encoding="utf-8"))
+            if precision_validation_path.is_file()
+            else {}
+        )
+        typed_graph_path = destination / "typed_graph_report.json"
+        typed_graph = (
+            json.loads(typed_graph_path.read_text(encoding="utf-8"))
+            if typed_graph_path.is_file()
+            else {}
+        )
+        lineage_path = destination / "deployment_lineage.json"
+        lineage = (
+            json.loads(lineage_path.read_text(encoding="utf-8"))
+            if lineage_path.is_file()
+            else {}
+        )
+        deployment_manifest_path = destination / "deployment_manifest.json"
+        deployment_manifest = (
+            json.loads(deployment_manifest_path.read_text(encoding="utf-8"))
+            if deployment_manifest_path.is_file()
+            else {}
+        )
+        build_signature_payload = dict(
+            deployment_manifest.get("deployment_signature", {}) or {}
+        )
+        calibration_signature_payload = {
+            "physical_hash": str(deployment_manifest.get("physical_hash", "")),
+            "precision_profile_hash": requested_hash,
+            "calibration_manifest_hash": str(
+                lineage.get("calibration_manifest_hash", "")
+            ),
+            "calibration_recipe_hash": str(
+                lineage.get("calibration_recipe_hash", "")
+            ),
+            "qdq_topology_hash": str(lineage.get("qdq_topology_hash", "")),
+        }
+        calibration_signature = canonical_json_hash(
+            calibration_signature_payload
+        )
+        build_signature = canonical_json_hash(build_signature_payload)
+        deployment_id = deployment_identity(
+            {
+                "physical_hash": str(deployment_manifest.get("physical_hash", "")),
+                "precision_hash": requested_hash,
+                "calibration_signature": calibration_signature,
+                "build_signature": build_signature,
+            }
+        )
+        return {
+            "requested_precision_profile_hash": requested_hash,
+            "realized_precision_profile_hash": realized_hash,
+            "precision_identity_passed": requested_hash == realized_hash,
+            "deployment_audits_passed": bool(audit_summary["passed"]),
+            "deployment_audit_summary": audit_summary,
+            "calibration_manifest_hash": str(
+                lineage.get("calibration_manifest_hash", "")
+            ),
+            "canonical_precision_counts": dict(
+                engine_precision.get("precision_counts", {}) or {}
+            ),
+            "unresolved_precision_count": int(
+                precision_validation.get("unresolved_layer_count", 0) or 0
+            ),
+            "requested_int8_groups": list(
+                qdq_summary.get("requested_int8_groups", []) or []
+            ),
+            "realized_int8_groups": list(
+                qdq_summary.get("realized_int8_groups", []) or []
+            ),
+            "QDQ_count": int(qdq_summary.get("QuantizeLinear_count", 0) or 0)
+            + int(qdq_summary.get("DequantizeLinear_count", 0) or 0),
+            "reformat_count": int(
+                precision_validation.get("reformat_count", 0) or 0
+            ),
+            "plugin_boundary_dtype": str(
+                typed_graph.get("plugin_boundary_dtype", "")
+            ),
+            "deployment_identity": deployment_id,
+            "calibration_signature": calibration_signature,
+            "build_signature": build_signature,
+        }
+
+    def build_and_smoke_candidate(
+        self,
+        phenotype: CandidatePhenotype,
+        *,
+        output_dir: str | Path,
+        candidate_hash: str,
+        smoke_frames: int = 10,
+        smoke_warmup_frames: int = 10,
+    ) -> dict[str, Any]:
+        """Build once, smoke the engine, and return reusable deployment metadata."""
+
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        _write_json(destination / "phenotype.json", phenotype.to_dict())
+        full_frames = self.num_frames
+        full_warmup = self.warmup_frames
+        full_context = self.context
+        smoke_context = self._smoke_evaluation_context(
+            smoke_frames=int(smoke_frames),
+            smoke_warmup_frames=int(smoke_warmup_frames),
+        )
+        try:
+            self.num_frames = int(smoke_frames)
+            self.warmup_frames = int(smoke_warmup_frames)
+            self.context = smoke_context
+            raw = self._deploy_and_evaluate(
+                phenotype=phenotype,
+                output_dir=destination,
+                candidate_label=candidate_hash,
+                pruned_unit_ids=phenotype.pruned_unit_ids,
+            )
+        finally:
+            self.num_frames = full_frames
+            self.warmup_frames = full_warmup
+            self.context = full_context
+        if str(raw.get("status", "")) != "ok":
+            return {
+                "candidate_hash": candidate_hash,
+                "status": str(raw.get("status", "build_smoke_failed")),
+                "failure_reason": str(
+                    raw.get("failure_reason", raw.get("status", ""))
+                ),
+                "F2": failure_stage2_score(self.objective_config),
+                "artifact_dir": str(destination),
+            }
+        smoke_evaluation = dict(raw["evaluation"])
+        smoke_dir = destination / "smoke10"
+        _write_json(smoke_dir / "evaluation.json", smoke_evaluation)
+        self._copy_latency(smoke_evaluation, smoke_dir / "latency.csv")
+        smoke_gate = smoke10_admission(smoke_evaluation)
+        _write_json(smoke_dir / "admission.json", smoke_gate)
+        if not smoke_gate["passed"]:
+            return {
+                "candidate_hash": candidate_hash,
+                "status": "smoke10_admission_failed",
+                "failure_reason": ",".join(smoke_gate["failure_reasons"]),
+                "F2": failure_stage2_score(self.objective_config),
+                "physical_hash": raw.get("physical_hash", ""),
+                "deployment_hash": raw.get("deployment_hash", ""),
+                "engine_hash": raw.get("engine_hash", ""),
+                "artifact_dir": str(destination),
+            }
+        bops_audit = json.loads(
+            (destination / "realized_bops_audit.json").read_text(encoding="utf-8")
+        )
+        resource_reasons: list[str] = []
+        if (
+            self.objective_config.r_mac_floor is not None
+            and float(bops_audit.get("R_MAC", 0.0))
+            < float(self.objective_config.r_mac_floor)
+        ):
+            resource_reasons.append("R_MAC_below_floor")
+        int8_share = float(bops_audit.get("int8_macs_share_full", 0.0))
+        if (
+            self.objective_config.int8_mac_share_min is not None
+            and int8_share < float(self.objective_config.int8_mac_share_min)
+        ) or (
+            self.objective_config.int8_mac_share_max is not None
+            and int8_share > float(self.objective_config.int8_mac_share_max)
+        ):
+            resource_reasons.append("INT8_MAC_share_out_of_range")
+        if not bool(bops_audit.get("passed", False)):
+            resource_reasons.append("realized_BOPS_out_of_budget")
+        if resource_reasons:
+            return {
+                "candidate_hash": candidate_hash,
+                "status": "realized_resource_gate_failed",
+                "failure_reason": ",".join(resource_reasons),
+                "F2": failure_stage2_score(self.objective_config),
+                "physical_hash": raw.get("physical_hash", ""),
+                "deployment_hash": raw.get("deployment_hash", ""),
+                "engine_hash": raw.get("engine_hash", ""),
+                "artifact_dir": str(destination),
+                "realized_bops_audit": bops_audit,
+            }
+        metadata = self._deployment_metadata_from_artifacts(phenotype, destination)
+        failure_reasons: list[str] = []
+        if not metadata["precision_identity_passed"]:
+            failure_reasons.append("requested_realized_precision_hash_mismatch")
+        if not metadata["deployment_audits_passed"]:
+            failure_reasons.extend(
+                metadata["deployment_audit_summary"]["failure_reasons"]
+            )
+        result = {
+            **smoke_evaluation,
+            **metadata,
+            "candidate_hash": candidate_hash,
+            "status": "ok" if not failure_reasons else "deployment_audit_failed",
+            "failure_reasons": failure_reasons,
+            "physical_hash": raw.get("physical_hash", ""),
+            "deployment_hash": raw.get("deployment_hash", ""),
+            "eval_hash": raw.get("eval_hash", ""),
+            "engine_hash": raw.get("engine_hash", ""),
+            "engine_path": raw.get("engine_path", ""),
+            "artifact_dir": str(destination),
+            "smoke10_admission": smoke_gate,
+            "realized_BOPS": bops_audit.get("realized_bops"),
+            "BOPS_retention": bops_audit.get("bops_retention"),
+            "R_MAC": bops_audit.get("R_MAC"),
+            "int8_macs_share_full": int8_share,
+            "physical_params": bops_audit.get("physical_params"),
+            "parameter_retention": bops_audit.get("parameter_retention"),
+            "weight_storage_retention": bops_audit.get(
+                "weight_storage_retention"
+            ),
+            "realized_precision_counts": bops_audit.get(
+                "realized_precision_counts", {}
+            ),
+            "evaluated": int(smoke_evaluation.get("num_evaluated_frames", -1)),
+            "skipped": int(smoke_evaluation.get("num_skipped_frames", -1)),
+        }
+        if failure_reasons:
+            result["F2"] = failure_stage2_score(self.objective_config)
+        self.deployment_registry.record(
+            kind="deployment",
+            identity=str(metadata["deployment_identity"]),
+            payload={
+                key: result.get(key)
+                for key in (
+                    "candidate_hash",
+                    "physical_hash",
+                    "deployment_hash",
+                    "engine_hash",
+                    "engine_path",
+                    "requested_precision_profile_hash",
+                    "realized_precision_profile_hash",
+                    "calibration_signature",
+                    "build_signature",
+                    "status",
+                )
+            },
+            lineage=dict(phenotype.metadata or {}),
+        )
+        _write_json(destination / "build_smoke_result.json", result)
+        return result
+
+    def evaluate_existing_engine(
+        self,
+        engine_path: str | Path,
+        *,
+        output_dir: str | Path,
+        deployment_metadata: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Evaluate an already-built engine without invoking deployment again."""
+
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        evaluation = self._evaluate_engine(str(engine_path), destination)
+        result = {
+            **dict(deployment_metadata),
+            **dict(evaluation),
+            "engine_path": str(engine_path),
+        }
+        if str(evaluation.get("status", "")) == "ok":
+            result.update(
+                compute_stage2_score(
+                    evaluation,
+                    baseline=self._stage2_reference_baseline(),
+                    config=self.objective_config,
+                )
+            )
+        else:
+            result["F2"] = failure_stage2_score(self.objective_config)
+        result["evaluated"] = int(
+            evaluation.get("num_evaluated_frames", evaluation.get("evaluated", -1))
+        )
+        result["skipped"] = int(
+            evaluation.get("num_skipped_frames", evaluation.get("skipped", -1))
+        )
+        result["validation_manifest_hash"] = str(
+            evaluation.get("eval_manifest_hash", "")
+        )
+        protocol = str(
+            deployment_metadata.get("evaluation_protocol", "evaluation")
+        )
+        deployment_id = str(
+            deployment_metadata.get("deployment_identity", "")
+        )
+        if deployment_id and result["validation_manifest_hash"]:
+            config_hash = canonical_json_hash(
+                {
+                    "num_frames": self.num_frames,
+                    "warmup_frames": self.warmup_frames,
+                    "latency_rounds": self.latency_rounds,
+                    "objective_config": asdict(self.objective_config),
+                }
+            )
+            evaluation_id = evaluation_identity(
+                deployment_id,
+                protocol,
+                result["validation_manifest_hash"],
+                config_hash,
+            )
+            result["evaluation_identity"] = evaluation_id
+            self.deployment_registry.record(
+                kind="evaluation",
+                identity=evaluation_id,
+                payload={
+                    key: result.get(key)
+                    for key in (
+                        "status",
+                        "engine_path",
+                        "mAP",
+                        "forward_p50_ms",
+                        "evaluated",
+                        "skipped",
+                        "validation_manifest_hash",
+                    )
+                },
+                lineage={
+                    "candidate_hash": str(
+                        deployment_metadata.get("candidate_hash", "")
+                    ),
+                    "protocol": protocol,
+                },
+            )
+        _write_json(destination / "evaluation_existing_engine.json", result)
+        return result
 
     def evaluate_candidate_two_level(
         self,

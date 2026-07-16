@@ -277,54 +277,118 @@ def _worker_environment(context: Any, request: dict[str, Any]) -> dict[str, Any]
     }
 
 
-def _evaluate_task(evaluator: Any, task: dict[str, Any], gpu_id: int) -> dict[str, Any]:
+def _evaluate_task(
+    evaluator: Any,
+    task: dict[str, Any],
+    gpu_id: int,
+    *,
+    allow_reference_task: bool = True,
+) -> dict[str, Any]:
     from ..candidate import CandidatePhenotype
+    from ..hashing import canonical_json_hash
     from .objective import failure_stage2_score
 
-    phenotype = CandidatePhenotype.from_dict(dict(task["phenotype"]))
-    smoke_frames = int(task.get("smoke_frames", 0) or 0)
-    evaluation_only_engine = str(task.get("evaluation_only_engine_path", ""))
-    if evaluation_only_engine:
+    protocol = str(task.get("task_protocol", ""))
+    deployment_metadata = dict(task.get("deployment_metadata", {}) or {})
+    known_protocols = {
+        "",
+        "reference_strict_fp32",
+        "build_smoke",
+        "evaluate_500",
+        "full_validation",
+        "formal_latency",
+    }
+    if protocol not in known_protocols:
+        raise ValueError(f"unknown_stage2_task_protocol:{protocol}")
+    if protocol == "reference_strict_fp32":
+        if not allow_reference_task:
+            raise RuntimeError("candidate_worker_reference_task_forbidden")
+        reference = dict(
+            evaluator.evaluate_original_baseline(
+                "strict_fp32", full_validation=False
+            )
+        )
         result = {
-            **dict(
-                evaluator._evaluate_engine(
-                    evaluation_only_engine, Path(task["output_dir"])
-                )
-            ),
-            **dict(task.get("deployment_metadata", {}) or {}),
-            "candidate_hash": str(task["candidate_hash"]),
-            "engine_path": evaluation_only_engine,
+            **reference,
+            "reference_precision": "strict_fp32",
         }
-    elif smoke_frames > 0:
-        result = evaluator.evaluate_candidate_two_level(
+        result["reference_hash"] = canonical_json_hash(result)
+    elif protocol == "build_smoke":
+        phenotype = CandidatePhenotype.from_dict(dict(task["phenotype"]))
+        result = evaluator.build_and_smoke_candidate(
             phenotype,
             output_dir=task["output_dir"],
             candidate_hash=str(task["candidate_hash"]),
-            smoke_frames=smoke_frames,
+            smoke_frames=int(task.get("smoke_frames", 10)),
             smoke_warmup_frames=int(task.get("smoke_warmup_frames", 10)),
         )
-    else:
-        result = evaluator.evaluate_candidate(
-            phenotype,
-            output_dir=task["output_dir"],
-            candidate_hash=str(task["candidate_hash"]),
+    elif protocol in {"evaluate_500", "full_validation", "formal_latency"}:
+        engine_path = str(
+            task.get("engine_path", task.get("evaluation_only_engine_path", ""))
         )
+        if not engine_path:
+            raise ValueError(f"{protocol}_engine_path_required")
+        deployment_metadata["evaluation_protocol"] = protocol
+        deployment_metadata.setdefault(
+            "candidate_hash", str(task.get("candidate_hash", ""))
+        )
+        result = evaluator.evaluate_existing_engine(
+            engine_path,
+            output_dir=task["output_dir"],
+            deployment_metadata=deployment_metadata,
+        )
+    else:
+        phenotype = CandidatePhenotype.from_dict(dict(task["phenotype"]))
+        smoke_frames = int(task.get("smoke_frames", 0) or 0)
+        evaluation_only_engine = str(task.get("evaluation_only_engine_path", ""))
+        if evaluation_only_engine:
+            result = {
+                **dict(
+                    evaluator._evaluate_engine(
+                        evaluation_only_engine, Path(task["output_dir"])
+                    )
+                ),
+                **deployment_metadata,
+                "candidate_hash": str(task["candidate_hash"]),
+                "engine_path": evaluation_only_engine,
+            }
+        elif smoke_frames > 0:
+            result = evaluator.evaluate_candidate_two_level(
+                phenotype,
+                output_dir=task["output_dir"],
+                candidate_hash=str(task["candidate_hash"]),
+                smoke_frames=smoke_frames,
+                smoke_warmup_frames=int(task.get("smoke_warmup_frames", 10)),
+            )
+        else:
+            result = evaluator.evaluate_candidate(
+                phenotype,
+                output_dir=task["output_dir"],
+                candidate_hash=str(task["candidate_hash"]),
+            )
     merged = {
         **dict(result),
+        "candidate_hash": str(task.get("candidate_hash", "")),
+        "task_protocol": protocol,
+        "task_cache_key": str(task.get("task_cache_key", "")),
         "seed_family": str(task.get("seed_family", "")),
         "stage1_metrics": dict(task.get("stage1_metrics", {}) or {}),
         "raw_precision_gene_hash": str(
             task.get("raw_precision_gene_hash", "")
+            or deployment_metadata.get("raw_precision_gene_hash", "")
             or result.get("raw_precision_gene_hash", "")
         ),
         "repaired_precision_gene_hash": str(
             task.get("repaired_precision_gene_hash", "")
+            or deployment_metadata.get("repaired_precision_gene_hash", "")
             or result.get("repaired_precision_gene_hash", "")
         ),
         "saturation_ratio": float(task.get("saturation_ratio", 0.0) or 0.0),
         "worker_gpu_id": int(gpu_id),
         "worker_pid": os.getpid(),
     }
+    if protocol == "reference_strict_fp32":
+        return merged
     hashes = [
         str(merged.get(key, ""))
         for key in (
@@ -402,7 +466,14 @@ def main(argv: list[str] | None = None) -> int:
             continue
         task = json.loads(running_path.read_text(encoding="utf-8"))
         try:
-            result = _evaluate_task(evaluator, task, int(request["gpu_id"]))
+            result = _evaluate_task(
+                evaluator,
+                task,
+                int(request["gpu_id"]),
+                allow_reference_task=bool(
+                    request.get("allow_reference_tasks", True)
+                ),
+            )
         except Exception as exc:  # noqa: BLE001
             from .objective import failure_stage2_score
 
@@ -411,6 +482,8 @@ def main(argv: list[str] | None = None) -> int:
                 "failure_reason": f"{type(exc).__name__}: {exc}",
                 "traceback": traceback.format_exc(),
                 "candidate_hash": str(task.get("candidate_hash", "")),
+                "task_protocol": str(task.get("task_protocol", "")),
+                "task_cache_key": str(task.get("task_cache_key", "")),
                 "worker_gpu_id": int(request["gpu_id"]),
                 "worker_pid": os.getpid(),
                 "F2": failure_stage2_score(

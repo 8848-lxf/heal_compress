@@ -93,6 +93,16 @@ def run_legal_width_stage2_screening(
             precision_hash = _expanded_precision_hash(record.phenotype)
             tasks.append(
                 {
+                    "task_protocol": "build_smoke",
+                    "task_cache_key": canonical_json_hash(
+                        {
+                            "protocol": "build_smoke",
+                            "candidate_hash": record.candidate_hash,
+                            "precision_hash": precision_hash,
+                            "smoke_frames": int(smoke_frames or 10),
+                            "smoke_warmup_frames": int(smoke_warmup_frames),
+                        }
+                    ),
                     "candidate_hash": record.candidate_hash,
                     "phenotype": record.phenotype.to_dict(),
                     "output_dir": str(candidate_dir.resolve()),
@@ -102,7 +112,7 @@ def run_legal_width_stage2_screening(
                     "stage1_metrics": dict(record.metrics),
                     "raw_precision_gene_hash": precision_hash,
                     "repaired_precision_gene_hash": precision_hash,
-                    "smoke_frames": int(smoke_frames),
+                    "smoke_frames": int(smoke_frames or 10),
                     "smoke_warmup_frames": int(smoke_warmup_frames),
                 }
             )
@@ -183,6 +193,7 @@ def run_legal_width_full_validation(
     minimum_successful_candidates: int = 5,
     required_evaluated_frames: int = 1789,
     required_skipped_frames: int = 0,
+    evaluation_protocol: str = "full_validation",
 ) -> dict[str, Any]:
     """Evaluate screening fronts on the same engines and a full manifest."""
 
@@ -244,6 +255,19 @@ def run_legal_width_full_validation(
             continue
         tasks.append(
             {
+                "task_protocol": str(evaluation_protocol),
+                "task_cache_key": canonical_json_hash(
+                    {
+                        "protocol": str(evaluation_protocol),
+                        "candidate_hash": str(row["candidate_hash"]),
+                        "deployment_hash": str(row.get("deployment_hash", "")),
+                        "engine_hash": str(row.get("engine_hash", "")),
+                        "required_evaluated_frames": int(
+                            required_evaluated_frames
+                        ),
+                        "required_skipped_frames": int(required_skipped_frames),
+                    }
+                ),
                 "candidate_hash": str(row["candidate_hash"]),
                 "phenotype": dict(row.get("phenotype", {})) or {
                     "pruned_unit_ids": [],
@@ -254,8 +278,11 @@ def run_legal_width_full_validation(
                     (destination / "full_validation" / str(row["candidate_hash"])).resolve()
                 ),
                 "evaluation_only_engine_path": str(engine_path.resolve()),
+                "engine_path": str(engine_path.resolve()),
                 "deployment_metadata": {
-                    key: row.get(key) for key in metadata_fields
+                    **{key: row.get(key) for key in metadata_fields},
+                    "candidate_hash": str(row["candidate_hash"]),
+                    "evaluation_protocol": str(evaluation_protocol),
                 },
             }
         )
@@ -274,7 +301,7 @@ def run_legal_width_full_validation(
         )
         row.update(
             {
-                "evaluation_protocol": "full_validation",
+                "evaluation_protocol": str(evaluation_protocol),
                 "full_validation_success": passed,
                 "evaluated_frames": evaluated,
                 "skipped_frames": skipped,

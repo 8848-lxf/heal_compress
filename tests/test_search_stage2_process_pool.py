@@ -160,3 +160,140 @@ while not Path(request['stop_path']).exists():
     by_hash = {row["candidate_hash"]: row for row in results}
     assert by_hash["fast-2"]["started"] < by_hash["slow"]["finished"]
     assert by_hash["fast-2"]["worker_gpu_id"] == 5
+
+
+def test_formal_pool_cache_is_protocol_specific(tmp_path: Path) -> None:
+    import json
+
+    from search.orchestration.stage2_process_pool import PersistentStage2ProcessPool
+
+    worker = tmp_path / "protocol_worker.py"
+    worker.write_text(
+        """
+import argparse
+import json
+import os
+import time
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--request', required=True)
+args = parser.parse_args()
+request = json.loads(Path(args.request).read_text())
+Path(request['ready_path']).write_text(json.dumps({'pid': os.getpid()}))
+queue = Path(request['queue_dir'])
+while not Path(request['stop_path']).exists():
+    tasks = sorted(queue.glob('*.task.json'))
+    if not tasks:
+        time.sleep(0.005)
+        continue
+    task_path = tasks[0]
+    task = json.loads(task_path.read_text())
+    Path(task['result_path']).write_text(json.dumps({
+        'status': 'ok',
+        'candidate_hash': task['candidate_hash'],
+        'worker_pid': os.getpid(),
+    }))
+    task_path.unlink()
+""",
+        encoding="utf-8",
+    )
+
+    with PersistentStage2ProcessPool(
+        run_dir=tmp_path / "run",
+        gpu_ids=[4],
+        worker_payload={"formal_protocol_tasks": True},
+        worker_command=[sys.executable, str(worker)],
+        startup_timeout_seconds=5.0,
+        task_timeout_seconds=5.0,
+        poll_interval_seconds=0.005,
+    ) as pool:
+        distinct = pool.map_tasks(
+            [
+                {
+                    "candidate_hash": "same",
+                    "task_protocol": "evaluate_500",
+                    "task_cache_key": "eval-500-key",
+                },
+                {
+                    "candidate_hash": "same",
+                    "task_protocol": "full_validation",
+                    "task_cache_key": "full-validation-key",
+                },
+            ]
+        )
+        reused = pool.map_tasks(
+            [
+                {
+                    "candidate_hash": "same",
+                    "task_protocol": "evaluate_500",
+                    "task_cache_key": "eval-500-key",
+                }
+            ]
+        )
+
+    assert [row["pool_cache_hit"] for row in distinct] == [False, False]
+    assert distinct[0]["pool_task_id"] != distinct[1]["pool_task_id"]
+    assert distinct[0]["task_protocol"] == "evaluate_500"
+    assert distinct[1]["task_protocol"] == "full_validation"
+    assert reused[0]["pool_cache_hit"] is True
+    assert reused[0]["task_cache_key"] == "eval-500-key"
+    persisted = [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted(
+            (tmp_path / "run" / "stage2_workers" / "results").glob("*.json")
+        )
+    ]
+    assert {row["task_cache_key"] for row in persisted} == {
+        "eval-500-key",
+        "full-validation-key",
+    }
+
+
+def test_formal_pool_rejects_missing_protocol_identity(tmp_path: Path) -> None:
+    import pytest
+
+    from search.orchestration.stage2_process_pool import PersistentStage2ProcessPool
+
+    worker = tmp_path / "identity_worker.py"
+    worker.write_text(
+        """
+import argparse
+import json
+import time
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--request', required=True)
+args = parser.parse_args()
+request = json.loads(Path(args.request).read_text())
+Path(request['ready_path']).write_text(json.dumps({'status': 'ready'}))
+queue = Path(request['queue_dir'])
+while not Path(request['stop_path']).exists():
+    tasks = sorted(queue.glob('*.task.json'))
+    if not tasks:
+        time.sleep(0.01)
+        continue
+    task_path = tasks[0]
+    task = json.loads(task_path.read_text())
+    Path(task['result_path']).write_text(json.dumps({
+        'status': 'ok',
+        'candidate_hash': task['candidate_hash'],
+    }))
+    task_path.unlink()
+""",
+        encoding="utf-8",
+    )
+    pool = PersistentStage2ProcessPool(
+        run_dir=tmp_path,
+        gpu_ids=[4],
+        worker_payload={"formal_protocol_tasks": True},
+        worker_command=[sys.executable, str(worker)],
+        startup_timeout_seconds=5.0,
+    )
+
+    try:
+        with pytest.raises(ValueError, match="formal_stage2_task_identity_missing"):
+            pool.map_tasks([{"candidate_hash": "candidate"}])
+    finally:
+        pool.close()

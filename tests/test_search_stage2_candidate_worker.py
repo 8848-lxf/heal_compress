@@ -157,3 +157,142 @@ def test_candidate_worker_requires_raw_repaired_requested_realized_hash_identity
     assert rejected["precision_identity_passed"] is False
     assert rejected["status"] == "precision_profile_hash_mismatch"
     assert rejected["F2"] == float("inf")
+
+
+def test_candidate_worker_routes_build_smoke_without_formal_evaluation(
+    tmp_path: Path,
+) -> None:
+    from search.candidate import CandidatePhenotype, PrecisionDecision
+    from search.stage2.candidate_worker import _evaluate_task
+
+    calls: list[str] = []
+
+    class Evaluator:
+        def build_and_smoke_candidate(self, *_args, **_kwargs):
+            calls.append("build_smoke")
+            return {
+                "status": "ok",
+                "precision_identity_passed": True,
+                "requested_precision_profile_hash": "same",
+                "realized_precision_profile_hash": "same",
+            }
+
+        def evaluate_existing_engine(self, *_args, **_kwargs):
+            raise AssertionError("build_smoke must not run formal evaluation")
+
+    phenotype = CandidatePhenotype(
+        pruned_unit_ids=[],
+        precision_profile={"layer": PrecisionDecision("FP16", "FP16", "")},
+    )
+    result = _evaluate_task(
+        Evaluator(),
+        {
+            "task_protocol": "build_smoke",
+            "task_cache_key": "build-key",
+            "candidate_hash": "candidate",
+            "phenotype": phenotype.to_dict(),
+            "output_dir": str(tmp_path),
+            "smoke_frames": 10,
+            "smoke_warmup_frames": 10,
+            "raw_precision_gene_hash": "same",
+            "repaired_precision_gene_hash": "same",
+        },
+        4,
+    )
+
+    assert calls == ["build_smoke"]
+    assert result["task_protocol"] == "build_smoke"
+    assert result["task_cache_key"] == "build-key"
+    assert result["status"] == "ok"
+
+
+def test_candidate_worker_routes_evaluation_without_rebuilding_engine(
+    tmp_path: Path,
+) -> None:
+    from search.stage2.candidate_worker import _evaluate_task
+
+    calls: list[str] = []
+
+    class Evaluator:
+        def build_and_smoke_candidate(self, *_args, **_kwargs):
+            raise AssertionError("evaluation-only task must not rebuild engine")
+
+        def evaluate_existing_engine(self, engine_path, **_kwargs):
+            calls.append(str(engine_path))
+            return {
+                "status": "ok",
+                "precision_identity_passed": True,
+                "requested_precision_profile_hash": "same",
+                "realized_precision_profile_hash": "same",
+            }
+
+    result = _evaluate_task(
+        Evaluator(),
+        {
+            "task_protocol": "full_validation",
+            "task_cache_key": "full-key",
+            "candidate_hash": "candidate",
+            "engine_path": "/engine.plan",
+            "output_dir": str(tmp_path),
+            "deployment_metadata": {
+                "raw_precision_gene_hash": "same",
+                "repaired_precision_gene_hash": "same",
+            },
+        },
+        5,
+    )
+
+    assert calls == ["/engine.plan"]
+    assert result["task_protocol"] == "full_validation"
+    assert result["task_cache_key"] == "full-key"
+    assert result["status"] == "ok"
+
+
+def test_candidate_worker_reference_protocol_needs_no_phenotype(tmp_path: Path) -> None:
+    from search.stage2.candidate_worker import _evaluate_task
+
+    class Evaluator:
+        def evaluate_original_baseline(self, precision, *, full_validation=False):
+            assert precision == "strict_fp32"
+            assert full_validation is False
+            return {
+                "status": "ok",
+                "mAP": 0.73,
+                "forward_p50_ms": 10.0,
+                "engine_hash": "engine",
+                "eval_hash": "evaluation",
+            }
+
+    result = _evaluate_task(
+        Evaluator(),
+        {
+            "task_protocol": "reference_strict_fp32",
+            "task_cache_key": "reference-key",
+            "candidate_hash": "strict-fp32-reference",
+            "output_dir": str(tmp_path),
+        },
+        4,
+    )
+
+    assert result["status"] == "ok"
+    assert result["reference_precision"] == "strict_fp32"
+    assert result["reference_hash"]
+    assert result["task_protocol"] == "reference_strict_fp32"
+
+
+def test_candidate_worker_rejects_unknown_formal_protocol(tmp_path: Path) -> None:
+    import pytest
+
+    from search.stage2.candidate_worker import _evaluate_task
+
+    with pytest.raises(ValueError, match="unknown_stage2_task_protocol"):
+        _evaluate_task(
+            object(),
+            {
+                "task_protocol": "evaluate_123",
+                "task_cache_key": "unknown-key",
+                "candidate_hash": "candidate",
+                "output_dir": str(tmp_path),
+            },
+            4,
+        )

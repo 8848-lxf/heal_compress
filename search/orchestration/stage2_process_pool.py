@@ -43,6 +43,9 @@ class PersistentStage2ProcessPool:
         if len(self.gpu_ids) != len(set(self.gpu_ids)):
             raise ValueError("stage2_worker_gpu_ids_must_be_unique")
         self.worker_payload = dict(worker_payload)
+        self.formal_protocol_tasks = bool(
+            self.worker_payload.get("formal_protocol_tasks", False)
+        )
         self._pool_signature = hashlib.sha256(
             json.dumps(
                 {
@@ -68,6 +71,7 @@ class PersistentStage2ProcessPool:
         self._cursor = 0
         self._started = False
         self._result_cache: dict[str, dict[str, Any]] = {}
+        self._seen_task_protocols: set[str] = set()
         self._load_result_cache()
 
     @property
@@ -82,7 +86,7 @@ class PersistentStage2ProcessPool:
                 result = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
-            cache_key = str(result.get("candidate_hash", ""))
+            cache_key = self._cache_key(result)
             if (
                 cache_key
                 and str(result.get("status", "")) == "ok"
@@ -91,6 +95,41 @@ class PersistentStage2ProcessPool:
             ):
                 result.setdefault("pool_task_id", path.stem)
                 self._result_cache[cache_key] = result
+
+    def _cache_key(self, payload: dict[str, Any]) -> str:
+        task_cache_key = str(payload.get("task_cache_key", ""))
+        if task_cache_key:
+            return task_cache_key
+        if self.formal_protocol_tasks:
+            return ""
+        return str(payload.get("candidate_hash", ""))
+
+    def _validate_tasks(self, tasks: Sequence[dict[str, Any]]) -> None:
+        if not self.formal_protocol_tasks:
+            return
+        for index, task in enumerate(tasks):
+            missing = [
+                key
+                for key in ("task_protocol", "task_cache_key")
+                if not str(task.get(key, ""))
+            ]
+            if missing:
+                raise ValueError(
+                    "formal_stage2_task_identity_missing:"
+                    f"index={index}:fields={','.join(missing)}"
+                )
+
+    def _refresh_manifest_protocols(self) -> None:
+        path = self.root / "pool_manifest.json"
+        if not path.is_file():
+            return
+        try:
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        manifest["formal_protocol_tasks"] = self.formal_protocol_tasks
+        manifest["task_protocols"] = sorted(self._seen_task_protocols)
+        _atomic_write_json(path, manifest)
 
     def start(self) -> "PersistentStage2ProcessPool":
         if self._started:
@@ -160,6 +199,8 @@ class PersistentStage2ProcessPool:
                 ],
                 "isolation": "one_persistent_process_per_physical_gpu",
                 "nested_tensorrt_cuda_visible_devices": True,
+                "formal_protocol_tasks": self.formal_protocol_tasks,
+                "task_protocols": [],
             },
         )
         return self
@@ -187,12 +228,19 @@ class PersistentStage2ProcessPool:
         raise TimeoutError("stage2_worker_start_timeout")
 
     def map_tasks(self, tasks: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
-        self.start()
         ordered_tasks = [dict(task) for task in tasks]
+        self._validate_tasks(ordered_tasks)
+        self._seen_task_protocols.update(
+            str(task.get("task_protocol", ""))
+            for task in ordered_tasks
+            if str(task.get("task_protocol", ""))
+        )
+        self.start()
+        self._refresh_manifest_protocols()
         ordered_results: list[dict[str, Any] | None] = [None] * len(ordered_tasks)
         uncached: list[tuple[int, dict[str, Any]]] = []
         for index, task in enumerate(ordered_tasks):
-            cache_key = str(task.get("candidate_hash", ""))
+            cache_key = self._cache_key(task)
             cached = self._result_cache.get(cache_key) if cache_key else None
             if cached is None:
                 uncached.append((index, task))
@@ -200,6 +248,10 @@ class PersistentStage2ProcessPool:
             reused = dict(cached)
             reused["pool_cache_hit"] = True
             reused["reused_pool_task_id"] = str(cached.get("pool_task_id", ""))
+            if task.get("task_protocol"):
+                reused["task_protocol"] = str(task["task_protocol"])
+            if task.get("task_cache_key"):
+                reused["task_cache_key"] = str(task["task_cache_key"])
             if task.get("output_dir"):
                 reused["pool_reuse_requested_output_dir"] = str(task["output_dir"])
             ordered_results[index] = reused
@@ -229,6 +281,8 @@ class PersistentStage2ProcessPool:
                 "result_index": result_index,
                 "result_path": result_path,
                 "started_at": time.monotonic(),
+                "task_protocol": str(task.get("task_protocol", "")),
+                "task_cache_key": str(task.get("task_cache_key", "")),
             }
 
         initial_workers = [
@@ -262,9 +316,13 @@ class PersistentStage2ProcessPool:
                 result["pool_task_id"] = task_id
                 result["pool_signature"] = self._pool_signature
                 result["pool_cache_hit"] = False
+                if item["task_protocol"]:
+                    result["task_protocol"] = item["task_protocol"]
+                if item["task_cache_key"]:
+                    result["task_cache_key"] = item["task_cache_key"]
                 _atomic_write_json(result_path, result)
                 ordered_results[int(item["result_index"])] = result
-                cache_key = str(result.get("candidate_hash", ""))
+                cache_key = self._cache_key(result)
                 if cache_key and str(result.get("status", "")) == "ok":
                     self._result_cache[cache_key] = dict(result)
                 del pending[task_id]
