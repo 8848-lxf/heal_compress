@@ -11,9 +11,44 @@ import torch
 
 from ..hashing import canonical_json_hash
 from ..proxy.fisher_proxy import FisherStatistics
-from ..proxy.joint_taylor import _slice_union_mask
 from ..proxy.parameter_slice_resolver import ParameterSlice
 from ..space.legal_width_inventory import LegalWidthInventory
+
+
+def _slice_union_flat_indices(
+    shape: Sequence[int], parameter_slices: Sequence[ParameterSlice]
+) -> torch.Tensor:
+    """Return sorted CPU flat indices without allocating full-size masks."""
+
+    dimensions = tuple(int(value) for value in shape)
+    rows: list[torch.Tensor] = []
+    for parameter_slice in parameter_slices:
+        axis = int(parameter_slice.axis)
+        if not 0 <= axis < len(dimensions):
+            continue
+        axis_size = dimensions[axis]
+        selected = sorted(
+            {
+                int(value)
+                for value in parameter_slice.indices
+                if 0 <= int(value) < axis_size
+            }
+        )
+        if not selected:
+            continue
+        outer = math.prod(dimensions[:axis])
+        inner = math.prod(dimensions[axis + 1 :])
+        outer_offsets = (
+            torch.arange(outer, dtype=torch.long) * axis_size * inner
+        ).view(-1, 1, 1)
+        axis_offsets = (
+            torch.tensor(selected, dtype=torch.long) * inner
+        ).view(1, -1, 1)
+        inner_offsets = torch.arange(inner, dtype=torch.long).view(1, 1, -1)
+        rows.append((outer_offsets + axis_offsets + inner_offsets).reshape(-1))
+    if not rows:
+        return torch.empty(0, dtype=torch.long)
+    return torch.unique(torch.cat(rows), sorted=True)
 
 
 @dataclass(frozen=True)
@@ -76,8 +111,20 @@ def build_canonical_prune_ranking(
         raise ValueError(f"unsupported_prune_ranking_mode:{ranking_mode}")
     parameters = dict(model.named_parameters())
     claimed = {
-        name: torch.zeros_like(parameter.detach(), dtype=torch.bool)
+        name: torch.zeros(int(parameter.numel()), dtype=torch.bool)
         for name, parameter in parameters.items()
+    }
+    parameter_values = {
+        name: parameter.detach().to(device="cpu", dtype=torch.float64).reshape(-1)
+        for name, parameter in parameters.items()
+    }
+    gradient_values = {
+        name: value.detach().to(device="cpu", dtype=torch.float64).reshape(-1)
+        for name, value in statistics.gradients.items()
+    }
+    fisher_values_by_name = {
+        name: value.detach().to(device="cpu", dtype=torch.float64).reshape(-1)
+        for name, value in statistics.fisher_diag.items()
     }
     domain_by_unit = {
         unit_id: (domain, int(group))
@@ -113,26 +160,24 @@ def build_canonical_prune_ranking(
                 raise RuntimeError(
                     f"canonical_prune_ranking_fisher_missing:{parameter_name}"
                 )
-            selected = _slice_union_mask(parameter.detach(), parameter_slices)
-            owned = selected & ~claimed[parameter_name]
-            duplicate_count += int(selected.sum().item() - owned.sum().item())
-            claimed[parameter_name] |= selected
-            if not owned.any():
-                continue
-            statistics_device = gradient.device
-            weight = parameter.detach()[owned].to(
-                device=statistics_device, dtype=torch.float64
+            selected = _slice_union_flat_indices(
+                parameter.shape, parameter_slices
             )
-            grad = gradient.detach()[owned.to(gradient.device)].to(torch.float64)
+            already_claimed = claimed[parameter_name][selected]
+            duplicate_count += int(already_claimed.sum().item())
+            owned = selected[~already_claimed]
+            claimed[parameter_name][selected] = True
+            if owned.numel() == 0:
+                continue
+            weight = parameter_values[parameter_name][owned]
+            grad = gradient_values[parameter_name][owned]
             first_total += float((grad * weight).abs().sum().cpu())
             if ranking_mode == "prune_only_second_order_fisher":
-                fisher_values = fisher.detach()[owned.to(fisher.device)].to(
-                    device=statistics_device, dtype=torch.float64
-                )
+                fisher_values = fisher_values_by_name[parameter_name][owned]
                 second_term += 0.5 * float(
                     (fisher_values * weight.square()).sum().cpu()
                 )
-            element_count += int(owned.sum().item())
+            element_count += int(owned.numel())
         if not math.isfinite(first_total + second_term):
             raise RuntimeError(f"canonical_prune_ranking_nonfinite:{unit_id}")
         domain, physical_group = domain_by_unit[unit_id]

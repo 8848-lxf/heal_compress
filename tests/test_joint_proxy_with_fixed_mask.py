@@ -114,6 +114,25 @@ def test_canonical_ranking_accepts_cpu_fisher_for_cuda_model() -> None:
     assert all(row.parameter_element_count == 2 for row in ranking.rows)
 
 
+def test_flat_slice_union_indexes_only_covered_elements() -> None:
+    from search.decoding.fixed_taylor_width_decoder import (
+        _slice_union_flat_indices,
+    )
+    from search.proxy.parameter_slice_resolver import ParameterSlice
+
+    indices = _slice_union_flat_indices(
+        (2, 3, 2),
+        [
+            ParameterSlice("weight", "conv", 0, (1,), "out"),
+            ParameterSlice("weight", "conv", 1, (1,), "in"),
+            ParameterSlice("weight", "conv", 1, (1,), "duplicate"),
+        ],
+    )
+
+    assert indices.device.type == "cpu"
+    assert indices.tolist() == [2, 3, 6, 7, 8, 9, 10, 11]
+
+
 def test_same_fixed_mask_has_precision_dependent_joint_score() -> None:
     from search.candidate import CandidatePhenotype, PrecisionDecision
     from search.decoding.fixed_taylor_width_decoder import FixedTaylorWidthDecoder
