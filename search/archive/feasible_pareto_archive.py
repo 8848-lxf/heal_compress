@@ -78,6 +78,19 @@ class FeasibleParetoArchive:
         selected: list[dict[str, Any]] = []
         used_structures: set[str] = set()
         used_precisions: set[str] = set()
+        rows_by_band: dict[tuple[float, float], list[dict[str, Any]]] = {}
+        for row in ordered:
+            if "budget_lower" not in row or "budget_upper" not in row:
+                continue
+            band = (float(row["budget_lower"]), float(row["budget_upper"]))
+            rows_by_band.setdefault(band, []).append(row)
+        for band in sorted(rows_by_band):
+            row = rows_by_band[band][0]
+            selected.append(row)
+            used_structures.add(str(row.get("structure_hash", "")))
+            used_precisions.add(str(row.get("precision_hash", "")))
+            if len(selected) >= target:
+                return selected
         for prefer_new_precision in (True, False):
             for row in ordered:
                 if row in selected:

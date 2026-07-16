@@ -69,3 +69,31 @@ def test_stage2_selection_preserves_structure_and_precision_diversity() -> None:
     assert len({row["structure_hash"] for row in selected}) == 3
     assert len({row["phenotype_hash"] for row in selected}) == 3
 
+
+def test_stage2_selection_covers_all_budget_bands() -> None:
+    from search.archive.feasible_pareto_archive import FeasibleParetoArchive
+
+    archive = FeasibleParetoArchive()
+    for band in range(5):
+        lower = 0.10 + band * 0.04
+        upper = lower + 0.02
+        for index in range(3):
+            row = _row(
+                f"p{band}_{index}",
+                f"s{band}_{index}",
+                f"q{index}",
+                bops=lower + 0.001 * index,
+                task=0.9 - 0.01 * index,
+                params=0.9,
+                latency=0.8,
+            )
+            row.update({"budget_lower": lower, "budget_upper": upper})
+            assert archive.add(row, active_budget=upper)
+
+    selected = archive.select_stage2_candidates(10)
+    selected_bands = {
+        (row["budget_lower"], row["budget_upper"]) for row in selected
+    }
+
+    assert len(selected) == 10
+    assert len(selected_bands) == 5

@@ -317,3 +317,79 @@ def test_full_validation_reuses_screening_engine_and_marks_protocol(tmp_path: Pa
         for row in result["successful_candidates"]
     )
     assert (tmp_path / "full_validation_results.json").is_file()
+
+
+def test_budget_intervals_include_primary_and_remain_distinct() -> None:
+    from search.orchestration.legal_width_joint_ga import normalize_budget_intervals
+
+    intervals = normalize_budget_intervals(
+        {
+            "target_bops_retention": 0.21,
+            "bops_tolerance": 0.005,
+            "budget_intervals": [
+                [0.15, 0.17],
+                [0.175, 0.19],
+                [0.205, 0.215],
+                [0.23, 0.25],
+                [0.27, 0.30],
+            ],
+        }
+    )
+
+    assert len(intervals) == 5
+    assert (0.205, 0.215) in intervals
+    assert intervals == sorted(set(intervals))
+
+
+def test_anchor_width_seed_is_inserted_once(tmp_path: Path) -> None:
+    from search.canonicalization import SearchSpaceSpec
+    from search.decoding.fixed_taylor_width_decoder import FixedTaylorWidthDecoder
+    from search.orchestration.legal_width_joint_ga import _initial_population
+    from search.space.legal_width_inventory import build_legal_width_inventory
+    import random
+
+    units = [
+        AtomicPruneUnit(
+            "scope", "conv", "out", [index], [f"c{index}"], float(index),
+            _stable_id=f"u{index}",
+        )
+        for index in range(8)
+    ]
+    inventory = build_legal_width_inventory(units, dense_alignment=4)
+    ranking = [
+        {
+            "domain_id": inventory.domain_ids[0],
+            "physical_group_id": 0,
+            "atomic_unit_id": f"u{index}",
+            "first_order_score": float(index),
+            "second_order_score": float(index),
+        }
+        for index in range(8)
+    ]
+    space = SearchSpaceSpec(
+        pruning_unit_ids=list(inventory.unit_ids),
+        precision_layer_ids=["pg0"],
+        structure_gene_type="legal_keep_width",
+        legal_width_inventory=inventory,
+        fixed_width_decoder=FixedTaylorWidthDecoder(inventory, ranking),
+        precision_action_space={"pg0": ("FP16", "INT8")},
+    )
+    width_seed = {inventory.domain_ids[0]: 0}
+
+    population = _initial_population(
+        space,
+        size=4,
+        rng=random.Random(5),
+        anchor_width_seeds=[
+            {"width_genes": width_seed, "ranking_mode": "first"},
+            {"width_genes": width_seed, "ranking_mode": "second"},
+        ],
+    )
+
+    matches = [
+        row
+        for row in population
+        if row.width_genes == width_seed and row.precision_genes == {"pg0": "FP16"}
+    ]
+    assert len(matches) == 1
+    assert matches[0].meta["seed_family"] == "anchor_derived"

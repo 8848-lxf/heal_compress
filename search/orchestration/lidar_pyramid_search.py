@@ -67,7 +67,7 @@ from ..stage2.repaired_topk_manifest import write_repaired_topk_manifest
 from ..stage2.round_results import write_round_stage2_results
 from .budget_final import run_budget_final_evaluation
 from .generation_stage2 import deploy_generation_with_backfill, fixed_bops_admission
-from .legal_width_joint_ga import run_legal_width_stage1_seeds
+from .legal_width_joint_ga import run_legal_width_budget_sweep
 from .legal_width_stage2 import (
     run_legal_width_full_validation,
     run_legal_width_stage2_screening,
@@ -669,7 +669,7 @@ class LidarPyramidTwoStageSearch:
                 ),
             )
         if legal_width_mode:
-            stage1_result = run_legal_width_stage1_seeds(
+            stage1_result = run_legal_width_budget_sweep(
                 context=context,
                 proxy=proxy,
                 run_dir=run_dir,
@@ -701,6 +701,8 @@ class LidarPyramidTwoStageSearch:
                     "stage1_only": True,
                     "legal_width_ga": manifest["legal_width_ga"],
                 }
+            if not bool(stage1_result.get("budget_coverage_passed", False)):
+                raise RuntimeError("legal_width_budget_archive_coverage_insufficient")
             if stage2_pool is None:
                 raise RuntimeError("legal_width_stage2_process_pool_required")
             try:

@@ -91,6 +91,17 @@ search:
   stagnation_immigrant_ratio: 0.25
   target_bops_retention: 0.21
   bops_tolerance: 0.005
+  budget_intervals:
+    - [0.10, 0.12]
+    - [0.155, 0.175]
+    - [0.205, 0.215]
+    - [0.24, 0.26]
+    - [0.30, 0.35]
+  band_independent_seeds: 1
+  max_band_retry_runs: 4
+  minimum_unique_feasible_phenotypes_per_band: 5
+  minimum_total_unique_feasible_phenotypes: 30
+  minimum_total_unique_physical_structures: 15
   maintain_external_pareto_archive: true
   per_generation_stage2: false
 

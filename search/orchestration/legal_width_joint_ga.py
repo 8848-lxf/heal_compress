@@ -46,6 +46,7 @@ def _initial_population(
     *,
     size: int,
     rng: random.Random,
+    anchor_width_seeds: Sequence[Mapping[str, Any]] = (),
 ) -> list[LegalWidthGenotype]:
     inventory = space.legal_width_inventory
     full_widths = {
@@ -67,6 +68,31 @@ def _initial_population(
             {"seed_family": "original_width"},
         )
     ]
+    for row in anchor_width_seeds:
+        widths = {
+            str(domain_id): int(index)
+            for domain_id, index in dict(row.get("width_genes", {})).items()
+        }
+        if set(widths) != set(full_widths):
+            continue
+        proposals.append(
+            LegalWidthGenotype(
+                widths,
+                {
+                    group_id: str(
+                        dict(row.get("precision_genes", {})).get(
+                            group_id, default_precision[group_id]
+                        )
+                    )
+                    for group_id in default_precision
+                },
+                {
+                    "seed_family": "anchor_derived",
+                    "anchor_id": str(row.get("anchor_id", "")),
+                    "ranking_mode": str(row.get("ranking_mode", "")),
+                },
+            )
+        )
     for domain in inventory.domains:
         full_index = full_widths[domain.domain_id]
         if full_index <= 0:
@@ -99,9 +125,9 @@ def _initial_population(
                     },
                 )
             )
-    unique: dict[str, LegalWidthGenotype] = {
-        candidate.genotype_hash: candidate for candidate in proposals
-    }
+    unique: dict[str, LegalWidthGenotype] = {}
+    for candidate in proposals:
+        unique.setdefault(candidate.genotype_hash, candidate)
     attempts = 0
     max_attempts = max(1000, int(size) * 500)
     while len(unique) < int(size) and attempts < max_attempts:
@@ -117,6 +143,47 @@ def _initial_population(
             f"legal_width_initial_population_supply_exhausted:{len(unique)}<{int(size)}"
         )
     return list(unique.values())[: int(size)]
+
+
+def normalize_budget_intervals(
+    search_config: Mapping[str, Any],
+) -> list[tuple[float, float]]:
+    target = float(search_config.get("target_bops_retention", 0.21))
+    tolerance = float(search_config.get("bops_tolerance", 0.005))
+    raw = list(search_config.get("budget_intervals", []) or [])
+    raw.append([target - tolerance, target + tolerance])
+    intervals = {
+        (round(float(row[0]), 12), round(float(row[1]), 12))
+        for row in raw
+        if len(row) == 2 and float(row[0]) < float(row[1])
+    }
+    return sorted(intervals)
+
+
+def _load_anchor_width_seeds(
+    search_config: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    rows = [dict(row) for row in search_config.get("anchor_width_seeds", []) or []]
+    raw_path = str(search_config.get("anchor_structure_manifest", "")).strip()
+    if not raw_path:
+        return rows
+    path = Path(raw_path).expanduser().resolve()
+    if not path.is_file():
+        raise RuntimeError(f"anchor_structure_manifest_missing:{path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    for structure in payload.get("evaluated_structures", payload.get("structures", [])):
+        metadata = dict(structure.get("repair_metadata", {}) or {})
+        width_genes = dict(metadata.get("width_genes", {}) or {})
+        if not width_genes:
+            continue
+        rows.append(
+            {
+                "anchor_id": structure.get("anchor_id", ""),
+                "ranking_mode": metadata.get("ranking_mode", ""),
+                "width_genes": width_genes,
+            }
+        )
+    return rows
 
 
 def _precision_histogram(genotypes: Sequence[LegalWidthGenotype]) -> dict[str, int]:
@@ -163,6 +230,7 @@ def run_legal_width_stage1_seeds(
     all_metric_rows: list[dict[str, Any]] = []
     generation_summaries: list[dict[str, Any]] = []
     total_evaluations = 0
+    anchor_width_seeds = _load_anchor_width_seeds(search_config)
 
     for seed_offset in range(seed_count):
         seed = base_seed + seed_offset
@@ -171,6 +239,7 @@ def run_legal_width_stage1_seeds(
             context.search_space,
             size=initial_size,
             rng=rng,
+            anchor_width_seeds=anchor_width_seeds,
         )
         seed_dir = destination / f"ga_seed_{seed_offset:02d}_{seed}"
         seed_dir.mkdir(parents=True, exist_ok=True)
@@ -257,6 +326,9 @@ def run_legal_width_stage1_seeds(
                             "R_bops_vs_fp32", metrics.get("R_bops", float("inf"))
                         )
                     ),
+                    "budget_target": target,
+                    "budget_lower": lower,
+                    "budget_upper": upper,
                     "R_MAC": float(metrics.get("R_MAC", 1.0)),
                     "latency_proxy_value": float(metrics.get("R_MAC", 1.0)),
                     "latency_proxy_source": "MAC_retention_normalized_proxy",
@@ -372,6 +444,7 @@ def run_legal_width_stage1_seeds(
         "generation_summaries": generation_summaries,
         "archive_summary": archive.summary(),
         "repair_report": repair_report,
+        "anchor_width_seed_count": len(anchor_width_seeds),
     }
     _write_json(destination / "stage1_legal_width_summary.json", summary)
     _write_csv(destination / "stage1_all_candidates.csv", all_metric_rows)
@@ -380,4 +453,152 @@ def run_legal_width_stage1_seeds(
         "archive": archive,
         "records_by_phenotype_hash": records_by_hash,
         "all_metric_rows": all_metric_rows,
+    }
+
+
+def run_legal_width_budget_sweep(
+    *,
+    context: Any,
+    proxy: Any,
+    run_dir: str | Path,
+    search_config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Run the primary seeds plus independently seeded BOPS bands."""
+
+    destination = Path(run_dir)
+    intervals = normalize_budget_intervals(search_config)
+    primary_target = float(search_config.get("target_bops_retention", 0.21))
+    primary_tolerance = float(search_config.get("bops_tolerance", 0.005))
+    primary = (
+        round(primary_target - primary_tolerance, 12),
+        round(primary_target + primary_tolerance, 12),
+    )
+    minimum_per_band = int(
+        search_config.get("minimum_unique_feasible_phenotypes_per_band", 5)
+    )
+    minimum_total = int(
+        search_config.get("minimum_total_unique_feasible_phenotypes", 30)
+    )
+    minimum_structures = int(
+        search_config.get("minimum_total_unique_physical_structures", 15)
+    )
+    band_seed_count = int(search_config.get("band_independent_seeds", 1))
+    max_band_retries = int(search_config.get("max_band_retry_runs", 2))
+    combined_archive = FeasibleParetoArchive()
+    combined_records: dict[str, ProxyCandidateRecord] = {}
+    all_rows: list[dict[str, Any]] = []
+    band_reports = []
+    total_evaluations = 0
+    normal_candidate_count = 0
+    repair_invocations = 0
+
+    for band_index, (lower, upper) in enumerate(intervals):
+        target = 0.5 * (lower + upper)
+        tolerance = 0.5 * (upper - lower)
+        is_primary = (lower, upper) == primary
+        band_rows: dict[str, dict[str, Any]] = {}
+        attempts = 1 if is_primary else max(1, max_band_retries + 1)
+        run_reports = []
+        for retry in range(attempts):
+            config = dict(search_config)
+            config.update(
+                {
+                    "target_bops_retention": target,
+                    "bops_tolerance": tolerance,
+                    "independent_seeds": (
+                        int(search_config.get("independent_seeds", 3))
+                        if is_primary and retry == 0
+                        else band_seed_count
+                    ),
+                    "seed": int(search_config.get("seed", 42))
+                    + band_index * 10000
+                    + retry * 1000,
+                    "budget_intervals": [],
+                }
+            )
+            band_dir = (
+                destination
+                / "budget_bands"
+                / f"band_{band_index:02d}_{lower:.6f}_{upper:.6f}"
+                / f"retry_{retry:02d}"
+            )
+            result = run_legal_width_stage1_seeds(
+                context=context,
+                proxy=proxy,
+                run_dir=band_dir,
+                search_config=config,
+            )
+            run_reports.append(
+                {
+                    key: value
+                    for key, value in result.items()
+                    if key
+                    not in {
+                        "archive",
+                        "records_by_phenotype_hash",
+                        "all_metric_rows",
+                    }
+                }
+            )
+            total_evaluations += int(result["total_proxy_evaluations"])
+            normal_candidate_count += int(
+                result["repair_report"]["normal_candidate_count"]
+            )
+            repair_invocations += int(
+                result["repair_report"]["repair_invocation_count"]
+            )
+            for row in result["archive"].records:
+                phenotype_hash = str(row["phenotype_hash"])
+                band_rows.setdefault(phenotype_hash, row)
+                combined_archive.add(row, active_budget=upper)
+            combined_records.update(result["records_by_phenotype_hash"])
+            all_rows.extend(result["all_metric_rows"])
+            if len(band_rows) >= minimum_per_band:
+                break
+        band_reports.append(
+            {
+                "band_index": band_index,
+                "lower": lower,
+                "upper": upper,
+                "target": target,
+                "primary": is_primary,
+                "feasible_phenotype_count": len(band_rows),
+                "minimum_required": minimum_per_band,
+                "passed": len(band_rows) >= minimum_per_band,
+                "runs": run_reports,
+            }
+        )
+
+    archive_summary = combined_archive.summary()
+    coverage_passed = (
+        len(intervals) >= 5
+        and all(row["passed"] for row in band_reports)
+        and int(archive_summary["feasible_phenotype_count"]) >= minimum_total
+        and int(archive_summary["unique_structure_count"]) >= minimum_structures
+    )
+    repair_report = {
+        "normal_candidate_count": normal_candidate_count,
+        "repair_invocation_count": repair_invocations,
+        "repair_invocation_rate": (
+            repair_invocations / max(normal_candidate_count, 1)
+        ),
+        "repair_changed_structure_count": 0,
+        "repair_changed_precision_count": 0,
+    }
+    summary = {
+        "structure_gene_type": "legal_keep_width",
+        "budget_intervals": [list(row) for row in intervals],
+        "budget_band_reports": band_reports,
+        "budget_coverage_passed": coverage_passed,
+        "total_proxy_evaluations": total_evaluations,
+        "archive_summary": archive_summary,
+        "repair_report": repair_report,
+    }
+    _write_json(destination / "legal_width_budget_sweep_summary.json", summary)
+    _write_csv(destination / "legal_width_budget_sweep_candidates.csv", all_rows)
+    return {
+        **summary,
+        "archive": combined_archive,
+        "records_by_phenotype_hash": combined_records,
+        "all_metric_rows": all_rows,
     }
