@@ -159,6 +159,53 @@ def test_formal_six_budget_config_contract() -> None:
     assert config["stage2"]["num_workers"] == 8
     assert config["runtime"]["stage2_gpu_ids"] == "auto"
     assert config["runtime"]["max_stage2_gpu_memory_fraction"] == 0.50
+    retention = config["search"]["stage2_artifact_retention"]
+    assert retention["enabled"] is True
+    assert retention["removable_suffixes"] == [".onnx", ".pth"]
+    assert retention["preserve_engine"] is True
+
+
+def test_stage2_retention_removes_only_reproducible_intermediates(
+    tmp_path: Path,
+) -> None:
+    from search.orchestration.legal_width_six_budget_ga import (
+        retain_stage2_deployment_artifacts,
+    )
+
+    candidate = tmp_path / "stage2" / "candidate-a"
+    nested = candidate / "nested"
+    nested.mkdir(parents=True)
+    removable = [
+        candidate / "exported.onnx",
+        candidate / "pruned_checkpoint.pth",
+        nested / "typed_qdq.onnx",
+    ]
+    for path in removable:
+        path.write_bytes(b"reproducible")
+    preserved = [
+        candidate / "engine.plan",
+        candidate / "calibration.cache",
+        candidate / "physical_validation.json",
+        candidate / "engine_build.log",
+    ]
+    for path in preserved:
+        path.write_bytes(b"preserved")
+
+    result = retain_stage2_deployment_artifacts(
+        generation_dir=tmp_path,
+        config={
+            "enabled": True,
+            "removable_suffixes": [".onnx", ".pth"],
+            "preserve_engine": True,
+        },
+    )
+
+    assert result["removed_file_count"] == 3
+    assert result["removed_bytes"] == 3 * len(b"reproducible")
+    assert result["preserved_engine_count"] == 1
+    assert all(not path.exists() for path in removable)
+    assert all(path.is_file() for path in preserved)
+    assert (tmp_path / "stage2_artifact_retention.json").is_file()
 
 
 def test_budget_winner_uses_full_map_and_formal_latency_exchange(tmp_path: Path) -> None:

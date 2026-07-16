@@ -1703,3 +1703,58 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 29 completed: 2026-07-17 05:10:32 CST ---
+
+## Round 30 - fail-closed Stage-2 artifact retention before the GA restart
+
+The first formal GA attempt is preserved at
+`outputs/4090_joint_six_budget_ga_20260716_141230`. It completed Fisher
+collection, legal-width inventory, fixed first/second-order rankings, one
+shared strict-FP32 reference, and all 60 Stage-1 generations for the 0.05
+budget (three seeds times 20 generations). The first generation then started
+five real Stage-2 candidates on the persistent multi-GPU pool. No candidate
+engine or Stage-2 result completed before the run was stopped, so none of
+this attempt is accepted as formal search evidence.
+
+The stop was deliberate and fail closed. The filesystem had approximately
+123 GiB free. The five in-progress candidate directories had already reached
+approximately 962 MiB; each candidate carried about 109 MiB in reproducible
+ONNX and PTH intermediates before its engine was available. Retaining those
+intermediates for up to 600 per-generation candidates would consume about 65
+GiB by itself, in addition to engines, proxy archives, reports, and final
+evaluation artifacts. The run was stopped before a predictable out-of-space
+failure. All controller, worker, calibration, evaluation, and TensorRT
+processes exited, and the 3.2 GiB incomplete output remains intact.
+
+The formal GA now applies a strict post-generation retention policy. Only
+regular files ending in `.onnx` or `.pth` below that generation's `stage2/`
+directory may be removed, and only after build/smoke and any required
+500-frame evaluation have returned. Serialized engines, calibration caches,
+typed/QDQ/merge/physical/precision audits, JSON/CSV identities, metrics, logs,
+and failure records are retained. Symlinks are never followed. The code
+records every removed relative path and byte count in
+`stage2_artifact_retention.json`, verifies that the engine set is unchanged,
+and rejects any configured suffix outside the `.onnx/.pth` allowlist.
+
+Changed files:
+
+- `search/orchestration/legal_width_six_budget_ga.py`: bounded retention and
+  per-generation invocation;
+- `search/configs/lidar_pyramid_4090_joint_six_budget_ga.yaml`: explicit
+  enabled suffix allowlist and engine-preservation contract;
+- `tests/test_three_seed_generation_merge.py`: RED-to-GREEN deletion and
+  preservation contract plus formal-config assertions.
+
+The focused test module passed 5/5. The complete current regression gate
+passed 164/164 in 4.50 seconds; `py_compile` and `git diff --check` passed.
+
+Current state:
+
+- `FIRST_GA_ATTEMPT_ACCEPTED = false`;
+- `FIRST_GA_ATTEMPT_STOP_REASON = predictable_disk_exhaustion`;
+- `STAGE2_REPRODUCIBLE_ARTIFACT_RETENTION_IMPLEMENTED = true`;
+- `STAGE2_ENGINE_RETENTION_REQUIRED = true`;
+- `FORMAL_GA_RESTART_REQUIRED = true`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 30 completed: 2026-07-17 05:30:21 CST ---

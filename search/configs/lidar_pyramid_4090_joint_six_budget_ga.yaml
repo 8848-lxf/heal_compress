@@ -109,6 +109,10 @@ search:
   anchor_structure_manifest: null
   greedy_endpoint_manifest: null
   greedy_full_validation_manifest: null
+  stage2_artifact_retention:
+    enabled: true
+    removable_suffixes: [.onnx, .pth]
+    preserve_engine: true
 
 stage2:
   score_mode: map_minus_latency_ratio

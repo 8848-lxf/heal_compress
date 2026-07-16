@@ -43,6 +43,64 @@ def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
             )
 
 
+def retain_stage2_deployment_artifacts(
+    *,
+    generation_dir: str | Path,
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Remove only reproducible build intermediates after Stage-2 completes."""
+
+    destination = Path(generation_dir)
+    stage2_dir = destination / "stage2"
+    enabled = bool(config.get("enabled", False))
+    suffixes = {
+        str(value).lower() for value in config.get("removable_suffixes", ())
+    }
+    allowed_suffixes = {".onnx", ".pth"}
+    unsupported = sorted(suffixes - allowed_suffixes)
+    if unsupported:
+        raise ValueError(f"unsafe_stage2_retention_suffixes:{unsupported}")
+    preserve_engine = bool(config.get("preserve_engine", True))
+    if not preserve_engine:
+        raise ValueError("stage2_retention_must_preserve_engine")
+
+    engine_paths_before = (
+        sorted(path for path in stage2_dir.rglob("*.plan") if path.is_file())
+        if stage2_dir.is_dir()
+        else []
+    )
+    removed = []
+    if enabled and suffixes and stage2_dir.is_dir():
+        for path in sorted(stage2_dir.rglob("*")):
+            if path.is_symlink() or not path.is_file():
+                continue
+            if path.suffix.lower() not in suffixes:
+                continue
+            size = int(path.stat().st_size)
+            relative_path = str(path.relative_to(destination))
+            path.unlink()
+            removed.append({"path": relative_path, "size_bytes": size})
+
+    engine_paths_after = (
+        sorted(path for path in stage2_dir.rglob("*.plan") if path.is_file())
+        if stage2_dir.is_dir()
+        else []
+    )
+    if engine_paths_before != engine_paths_after:
+        raise RuntimeError("stage2_retention_engine_set_changed")
+    summary = {
+        "enabled": enabled,
+        "removable_suffixes": sorted(suffixes),
+        "preserve_engine": preserve_engine,
+        "removed_file_count": len(removed),
+        "removed_bytes": sum(int(row["size_bytes"]) for row in removed),
+        "preserved_engine_count": len(engine_paths_after),
+        "removed_files": removed,
+    }
+    _write_json(destination / "stage2_artifact_retention.json", summary)
+    return summary
+
+
 def _budget_label(target: float) -> str:
     return f"budget_{int(round(float(target) * 100.0)):03d}"
 
@@ -288,6 +346,10 @@ def run_six_budget_joint_ga(
                     generation_dir=generation_dir,
                 ),
                 topk=topk,
+            )
+            report["artifact_retention"] = retain_stage2_deployment_artifacts(
+                generation_dir=generation_dir,
+                config=dict(config.get("stage2_artifact_retention", {}) or {}),
             )
             stage2_call_count += 1
             generation_reports.append(report)
