@@ -78,6 +78,43 @@ def test_group_gene_expands_to_all_members_and_records_fallback() -> None:
     assert expanded["head"].realized_precision == "FP16"
 
 
+def test_protected_group_default_precision_is_not_a_fallback() -> None:
+    from search.quantization_space.types import QuantizationSearchGroup
+    from search.quantization_space.legalizer import legalize_group_precision_genes
+
+    group = QuantizationSearchGroup(
+        group_id="pg_protected",
+        module_paths=("protected",),
+        canonical_node_ids=("node",),
+        allowed_precisions=("FP32", "FP16"),
+        protected=True,
+        protection_reason="fixed_fp16_contract",
+        ordering=0,
+        parameter_count=1,
+        baseline_macs=1.0,
+        metadata={"default_precision": "FP16"},
+    )
+
+    result = legalize_group_precision_genes(
+        {"pg_protected": "FP16"},
+        [group],
+        default_precision="FP16",
+    )
+
+    assert result.stage1_legalized_group_profile == {"pg_protected": "FP16"}
+    assert result.fallback_report == {}
+
+    rejected = legalize_group_precision_genes(
+        {"pg_protected": "FP32"},
+        [group],
+        default_precision="FP16",
+    )
+    assert rejected.stage1_legalized_group_profile == {"pg_protected": "FP16"}
+    assert rejected.fallback_report["pg_protected"]["fallback_reason"] == (
+        "fixed_fp16_contract"
+    )
+
+
 def test_quantization_group_hash_is_order_stable() -> None:
     from search.quantization_space.types import QuantizationSearchGroup
     from search.quantization_space.codec import quantization_group_profile_hash
