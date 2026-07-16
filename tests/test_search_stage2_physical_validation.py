@@ -210,6 +210,8 @@ def test_original_baseline_reuses_existing_eval_when_cache_key_is_new(tmp_path: 
     evaluator.num_frames = 300
     evaluator.warmup_frames = 30
     evaluator.latency_rounds = 3
+    evaluator.evaluation_num_workers = 8
+    evaluator.ap_iou_backend = "gpu"
     evaluator.real_cache = RealEvalCache(tmp_path / "archives" / "real_eval_archive.jsonl")
 
     baseline_dir = tmp_path / "baselines" / "original_strict_fp16"
