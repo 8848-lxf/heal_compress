@@ -68,6 +68,7 @@ from ..stage2.repaired_topk_manifest import write_repaired_topk_manifest
 from ..stage2.round_results import write_round_stage2_results
 from .budget_final import run_budget_final_evaluation
 from .generation_stage2 import deploy_generation_with_backfill, fixed_bops_admission
+from .gpu_scheduler import select_stage2_gpu_ids
 from .legal_width_joint_ga import run_legal_width_budget_sweep
 from .legal_width_greedy import run_six_budget_greedy
 from .legal_width_stage2 import (
@@ -200,6 +201,34 @@ def _build_shared_stage2_reference(
     )
     _write_json(run_dir / "shared_stage2_reference.json", reference)
     return reference
+
+
+def _select_runtime_stage2_gpus(
+    *,
+    run_dir: Path,
+    configured_gpu_ids: list[int],
+    max_memory_fraction: float,
+) -> dict[str, Any]:
+    from ..integration.runtime_environment import query_gpus
+
+    snapshot = query_gpus()
+    configured = {int(value) for value in configured_gpu_ids}
+    candidate_rows = [
+        row
+        for row in snapshot
+        if not configured or int(row.get("index", -1)) in configured
+    ]
+    report = select_stage2_gpu_ids(
+        candidate_rows,
+        [],
+        max_memory_fraction=float(max_memory_fraction),
+    )
+    report["configured_gpu_ids"] = sorted(configured)
+    report["all_gpu_snapshot"] = snapshot
+    _write_json(run_dir / "stage2_gpu_selection.json", report)
+    if not report["dispatch_allowed"]:
+        raise RuntimeError("stage2_dispatch_pending_no_eligible_gpu")
+    return report
 
 
 def _load_candidate(path: str | Path) -> CandidateGenotype | CandidatePhenotype:
@@ -879,6 +908,14 @@ class LidarPyramidTwoStageSearch:
             worker_gpu_ids = [
                 int(value) for value in parallel_cfg.get("gpu_ids", [])
             ]
+            gpu_selection = _select_runtime_stage2_gpus(
+                run_dir=run_dir,
+                configured_gpu_ids=worker_gpu_ids,
+                max_memory_fraction=float(
+                    parallel_cfg.get("max_memory_fraction", 0.50)
+                ),
+            )
+            worker_gpu_ids = list(gpu_selection["selected_gpu_ids"])
             formal_protocol_tasks = (
                 str(stage2_cfg.get("score_mode", "legacy_normalized_loss"))
                 == "map_minus_latency_ratio"
@@ -993,7 +1030,7 @@ class LidarPyramidTwoStageSearch:
             }
             full_pool = PersistentStage2ProcessPool(
                 run_dir=run_dir / "full_validation_execution",
-                gpu_ids=[int(value) for value in parallel_cfg.get("gpu_ids", [])],
+                gpu_ids=worker_gpu_ids,
                 worker_payload={
                     "config": full_runtime_config,
                     "checkpoint": str(self.checkpoint),
