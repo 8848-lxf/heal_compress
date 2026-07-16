@@ -243,6 +243,101 @@ def _select_runtime_stage2_gpus(
     return report
 
 
+def _run_greedy_endpoint_stage2_resume(
+    *,
+    run_dir: str | Path,
+    config: dict[str, Any],
+    checkpoint: str | Path,
+    code_commit: str,
+) -> dict[str, Any]:
+    """Build and full-validate only terminal endpoints from a greedy run."""
+
+    destination = Path(run_dir)
+    endpoints = load_greedy_endpoints(destination / "greedy")
+    if not endpoints:
+        raise RuntimeError("greedy_stage2_resume_has_no_terminal_endpoints")
+    parallel_cfg = dict(config.get("stage2_parallel", {}) or {})
+    if not bool(parallel_cfg.get("enabled", False)):
+        raise RuntimeError("greedy_stage2_resume_requires_process_pool")
+    gpu_selection = _select_runtime_stage2_gpus(
+        run_dir=destination,
+        configured_gpu_ids=[
+            int(value) for value in parallel_cfg.get("gpu_ids", [])
+        ],
+        max_memory_fraction=float(parallel_cfg.get("max_memory_fraction", 0.50)),
+    )
+    worker_gpu_ids = list(gpu_selection["selected_gpu_ids"])
+    if not worker_gpu_ids:
+        raise RuntimeError("stage2_worker_gpu_ids_required")
+
+    full_cfg = dict(config.get("full_validation", {}) or {})
+    runtime_config = json.loads(json.dumps(config))
+    runtime_config["stage2"] = {
+        **dict(runtime_config.get("stage2", {}) or {}),
+        **full_cfg,
+        "score_mode": "map_minus_latency_ratio",
+        "latency_weight": 0.10,
+        "latency_metric": "forward_p50_ms",
+        "target_bops_retention": None,
+        "num_workers": 8,
+        "ap_iou_backend": "gpu",
+    }
+    startup_timeout = float(parallel_cfg.get("startup_timeout_seconds", 1200))
+    task_timeout = float(parallel_cfg.get("task_timeout_seconds", 28800))
+    poll_interval = float(parallel_cfg.get("poll_interval_seconds", 0.25))
+    shared_reference = _build_shared_stage2_reference(
+        run_dir=destination,
+        gpu_id=worker_gpu_ids[0],
+        config=runtime_config,
+        checkpoint=Path(checkpoint),
+        code_commit=str(code_commit),
+        controller_pid=os.getpid(),
+        startup_timeout_seconds=startup_timeout,
+        task_timeout_seconds=task_timeout,
+        poll_interval_seconds=poll_interval,
+    )
+    pool = PersistentStage2ProcessPool(
+        run_dir=destination / "greedy_endpoint_stage2_execution",
+        gpu_ids=worker_gpu_ids,
+        worker_payload={
+            "config": runtime_config,
+            "checkpoint": str(Path(checkpoint).expanduser().resolve()),
+            "code_commit": str(code_commit),
+            "controller_pid": os.getpid(),
+            "formal_protocol_tasks": True,
+            "allow_reference_tasks": False,
+            "shared_stage2_reference": shared_reference,
+        },
+        startup_timeout_seconds=startup_timeout,
+        task_timeout_seconds=task_timeout,
+        poll_interval_seconds=poll_interval,
+    )
+    try:
+        result = run_greedy_endpoint_full_validation(
+            endpoints=endpoints,
+            stage2_pool=pool,
+            run_dir=destination / "greedy_full_validation",
+            required_evaluated_frames=int(
+                full_cfg.get("required_evaluated_frames", 1789)
+            ),
+            required_skipped_frames=int(
+                full_cfg.get("required_skipped_frames", 0)
+            ),
+        )
+    finally:
+        pool.close()
+    payload = {
+        "run_dir": str(destination),
+        "stage2_only": True,
+        "greedy_endpoint_stage2": True,
+        "selected_gpu_ids": worker_gpu_ids,
+        "shared_stage2_reference": shared_reference,
+        "result": result,
+    }
+    _write_json(destination / "greedy_endpoint_stage2_result.json", payload)
+    return payload
+
+
 def _load_candidate(path: str | Path) -> CandidateGenotype | CandidatePhenotype:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if "pruned_unit_ids" in payload or "precision_profile" in payload:
@@ -411,6 +506,29 @@ class LidarPyramidTwoStageSearch:
         search_cfg = dict(self.config.get("search", {}))
         pruning_cfg = dict(self.config.get("pruning", {}))
         proxy_cfg = dict(self.config.get("proxy", self.config.get("proxy_objective", {})))
+        greedy_cfg = dict(self.config.get("greedy", {}) or {})
+        if (
+            stage2_only
+            and candidate_config is None
+            and bool(greedy_cfg.get("enabled", False))
+        ):
+            if self.resume is None:
+                raise RuntimeError("greedy_stage2_only_requires_resume")
+            import subprocess
+
+            code_commit = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=Path(__file__).resolve().parents[2],
+                text=True,
+                capture_output=True,
+                check=True,
+            ).stdout.strip()
+            return _run_greedy_endpoint_stage2_resume(
+                run_dir=run_dir,
+                config=self.config,
+                checkpoint=self.checkpoint,
+                code_commit=code_commit,
+            )
         joint_proxy_scale = _load_joint_proxy_scale(proxy_cfg)
         stage2_cfg = dict(self.config.get("stage2") or self.config.get("stage2_smoke") or self.config.get("evaluation", {}))
         constrained_cfg = dict(self.config.get("constrained_search", {}) or {})
@@ -789,7 +907,6 @@ class LidarPyramidTwoStageSearch:
             ),
             flush=True,
         )
-        greedy_cfg = dict(self.config.get("greedy", {}) or {})
         greedy_result: dict[str, Any] | None = None
         if bool(greedy_cfg.get("enabled", False)):
             if not legal_width_mode:

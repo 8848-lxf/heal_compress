@@ -230,3 +230,150 @@ def test_cli_accepts_greedy_only_and_joint_loss_scale() -> None:
 
     assert args.greedy_only is True
     assert args.joint_loss_scale == "scale.json"
+
+
+def test_greedy_stage2_resume_uses_terminal_endpoints_and_closes_pool(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import search.orchestration.lidar_pyramid_search as module
+
+    endpoints = [{"candidate_hash": "a"}, {"candidate_hash": "b"}]
+    calls: dict[str, object] = {}
+
+    def fake_load_endpoints(path):
+        calls["endpoint_path"] = str(path)
+        return endpoints
+
+    monkeypatch.setattr(module, "load_greedy_endpoints", fake_load_endpoints)
+    monkeypatch.setattr(
+        module,
+        "_select_runtime_stage2_gpus",
+        lambda **kwargs: {"selected_gpu_ids": [6, 7]},
+    )
+    monkeypatch.setattr(
+        module,
+        "_build_shared_stage2_reference",
+        lambda **kwargs: {"reference_hash": "reference", "forward_p50_ms": 10.0},
+    )
+
+    class FakePool:
+        def __init__(self, **kwargs):
+            calls["pool_kwargs"] = kwargs
+            calls["pool"] = self
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(module, "PersistentStage2ProcessPool", FakePool)
+
+    def fake_full_validation(**kwargs):
+        calls["full_validation_kwargs"] = kwargs
+        return {"successful_count": 2}
+
+    monkeypatch.setattr(
+        module, "run_greedy_endpoint_full_validation", fake_full_validation
+    )
+    config = {
+        "stage2": {"score_mode": "map_minus_latency_ratio"},
+        "full_validation": {
+            "num_frames": 1789,
+            "required_evaluated_frames": 1789,
+            "required_skipped_frames": 0,
+            "num_workers": 8,
+            "ap_iou_backend": "gpu",
+        },
+        "stage2_parallel": {
+            "enabled": True,
+            "gpu_ids": [],
+            "max_memory_fraction": 0.5,
+            "startup_timeout_seconds": 10,
+            "task_timeout_seconds": 20,
+            "poll_interval_seconds": 0.1,
+        },
+    }
+
+    result = module._run_greedy_endpoint_stage2_resume(
+        run_dir=tmp_path,
+        config=config,
+        checkpoint=tmp_path / "model.pth",
+        code_commit="commit",
+    )
+
+    assert result["greedy_endpoint_stage2"] is True
+    assert result["result"]["successful_count"] == 2
+    assert calls["endpoint_path"].endswith("/greedy")
+    assert calls["pool_kwargs"]["gpu_ids"] == [6, 7]
+    worker_config = calls["pool_kwargs"]["worker_payload"]["config"]
+    assert worker_config["stage2"]["num_frames"] == 1789
+    assert worker_config["stage2"]["num_workers"] == 8
+    assert calls["full_validation_kwargs"]["endpoints"] == endpoints
+    assert calls["pool"].closed is True
+
+
+def test_greedy_config_includes_full_validation_gpu_protocol() -> None:
+    import yaml
+
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "search/configs/lidar_pyramid_4090_greedy_six_budget.yaml"
+    )
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert payload["stage2_parallel"]["enabled"] is True
+    assert payload["stage2_parallel"]["gpu_ids"] == []
+    assert payload["stage2_parallel"]["max_memory_fraction"] == pytest.approx(0.5)
+    assert payload["full_validation"]["num_frames"] == 1789
+    assert payload["full_validation"]["required_evaluated_frames"] == 1789
+    assert payload["full_validation"]["required_skipped_frames"] == 0
+    assert payload["full_validation"]["num_workers"] == 8
+    assert payload["full_validation"]["ap_iou_backend"] == "gpu"
+
+
+def test_runner_routes_greedy_stage2_resume_before_context_build(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import search.orchestration.lidar_pyramid_search as module
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    checkpoint = tmp_path / "model.pth"
+    checkpoint.touch()
+    calls: dict[str, object] = {}
+
+    def fake_resume(**kwargs):
+        calls.update(kwargs)
+        return {"run_dir": str(run_dir), "greedy_endpoint_stage2": True}
+
+    monkeypatch.setattr(module, "_run_greedy_endpoint_stage2_resume", fake_resume)
+    monkeypatch.setattr(
+        module,
+        "build_lidar_pyramid_context",
+        lambda **kwargs: pytest.fail("context build must be skipped"),
+    )
+    runner = module.LidarPyramidTwoStageSearch(
+        config={"greedy": {"enabled": True}},
+        checkpoint=checkpoint,
+        output_root=tmp_path,
+        resume=run_dir,
+    )
+
+    result = runner.run(stage2_only=True)
+
+    assert result["greedy_endpoint_stage2"] is True
+    assert calls["run_dir"] == run_dir
+    assert calls["checkpoint"] == checkpoint.resolve()
+
+
+def test_resume_stage2_uses_separate_resolved_config_snapshot(tmp_path: Path) -> None:
+    from search.cli import _resolved_config_output_path
+
+    assert _resolved_config_output_path(
+        tmp_path, resume=True, stage2_only=True
+    ).name == "resolved_stage2_config.yaml"
+    assert _resolved_config_output_path(
+        tmp_path, resume=False, stage2_only=True
+    ).name == "resolved_config.yaml"
+    assert _resolved_config_output_path(
+        tmp_path, resume=True, stage2_only=False
+    ).name == "resolved_config.yaml"

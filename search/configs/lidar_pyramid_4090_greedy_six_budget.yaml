@@ -89,6 +89,41 @@ greedy:
   max_expansions: 16384
   deploy_final_only: true
 
+stage2:
+  score_mode: map_minus_latency_ratio
+  latency_weight: 0.10
+  latency_metric: forward_p50_ms
+  ap_iou_backend: gpu
+  strict_gpu_ap_iou: true
+  num_frames: 500
+  warmup_frames: 20
+  smoke_frames: 10
+  smoke_warmup_frames: 10
+  reset_after_warmup: true
+  latency_rounds: 1
+  required_evaluated_frames: 500
+  required_skipped_frames: 0
+  shared_reference_precision: strict_fp32
+  num_workers: 8
+
+full_validation:
+  ap_iou_backend: gpu
+  strict_gpu_ap_iou: true
+  num_frames: 1789
+  warmup_frames: 20
+  required_evaluated_frames: 1789
+  required_skipped_frames: 0
+  num_workers: 8
+
+stage2_parallel:
+  enabled: true
+  gpu_ids: []
+  max_memory_fraction: 0.50
+  allow_controller_process_on_stage1_gpu: true
+  startup_timeout_seconds: 1200
+  task_timeout_seconds: 28800
+  poll_interval_seconds: 0.25
+
 cache:
   fresh_run: true
   reuse_external_cache: false

@@ -40,6 +40,13 @@ def _dump_yaml(path: Path, payload: dict[str, Any]) -> None:
         path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def _resolved_config_output_path(
+    run_dir: Path, *, resume: bool, stage2_only: bool
+) -> Path:
+    name = "resolved_stage2_config.yaml" if resume and stage2_only else "resolved_config.yaml"
+    return run_dir / name
+
+
 def _gpu_report() -> dict[str, Any]:
     try:
         completed = subprocess.run(
@@ -216,7 +223,14 @@ def main(argv: list[str] | None = None) -> int:
             greedy_only=bool(args.greedy_only),
         )
         run_dir = Path(result["run_dir"])
-        _dump_yaml(run_dir / "resolved_config.yaml", config)
+        _dump_yaml(
+            _resolved_config_output_path(
+                run_dir,
+                resume=args.resume is not None,
+                stage2_only=bool(args.stage2_only),
+            ),
+            config,
+        )
         command_path = run_dir / "commands.sh"
         with command_path.open("a" if command_path.exists() else "w", encoding="utf-8") as handle:
             handle.write(

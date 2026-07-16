@@ -1559,3 +1559,56 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 26 completed: 2026-07-17 04:14:35 CST ---
+
+## Round 27 - successful six-budget proxy endpoints and deployment resume route
+
+The fourth fresh proxy run,
+`outputs/4090_legal_width_greedy_six_budget_20260716_131554`, completed on
+entry commit `49770d6`. All six budgets produced primary-tolerance endpoints;
+none used the conditional expanded interval. Actual proxy BOPS retentions for
+targets `0.05/0.10/0.15/0.20/0.25/0.30` are respectively
+`0.0549569651`, `0.1048461348`, `0.1540474743`, `0.2048732042`,
+`0.2548551559`, and `0.3042219281`. The corresponding structural parameter
+prune rates are `0.3618260973`, `0.2134800764`, `0.2134800764`,
+`0.2134800764`, `0.2101328303`, and `0.2096431501`. All six genotype,
+precision, phenotype, and candidate identities are unique; they contain four
+unique physical structure hashes, and normal repair was never invoked.
+
+The frozen linear scale is read-only mode `0444`, has value
+`0.013404028918218002`, uses nearest-rank P90 over 206 unique positive greedy
+path states, and has semantic hash
+`fa9243cca1b09d42d92c8c23ce7e1e4e76ce0f09392e0f8ac9bb766a890915fd`.
+Its file SHA256 is
+`c0b273837408ff19650f707916140909007668a938493b72bc9c5260f3c1cefb`.
+The artifact contains no tau field. Commands, resolved config, Fisher
+manifest, checkpoint/context identity, legal-width inventory, width-space
+hash, and canonical ranking manifest are present in the run directory.
+
+A missing real-experiment route was found before deployment: generic
+`--stage2-only` required explicit candidate files and would have recomputed
+Fisher instead of reading greedy terminal endpoints. The runner now handles
+`--resume RUN --stage2-only` for a greedy-enabled config before context or
+Fisher construction. It loads only `greedy/budget_*_endpoint.json`, selects
+all GPUs satisfying the 50-percent memory policy, builds one shared strict
+FP32 reference, deduplicates terminal deployments, runs build/smoke followed
+by GPU-IoU 1,789-frame validation with eight DataLoader workers, and closes
+all workers in a `finally` path. The greedy config now carries explicit
+Stage-2, full-validation, and multi-GPU protocol sections. Focused runner,
+process-pool, physical, strongly typed, Q/DQ, merge, and realized-BOPS
+regressions passed 46 tests.
+
+Current state:
+
+- `GREEDY_PROXY_SEARCH_COMPLETE = true`;
+- `GREEDY_PRIMARY_ENDPOINT_COUNT = 6`;
+- `GREEDY_EXPANDED_ENDPOINT_COUNT = 0`;
+- `GREEDY_UNIQUE_PHENOTYPE_COUNT = 6`;
+- `GREEDY_UNIQUE_PHYSICAL_STRUCTURE_COUNT = 4`;
+- `LINEAR_SCALE_FROZEN = true`;
+- `GREEDY_STAGE2_RESUME_ROUTE_IMPLEMENTED = true`;
+- `GREEDY_ENDPOINT_DEPLOYMENT_STARTED = false`;
+- `GA_SEARCH_STARTED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 27 completed: 2026-07-17 04:40:07 CST ---
