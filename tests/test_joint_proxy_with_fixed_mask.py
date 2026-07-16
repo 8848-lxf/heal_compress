@@ -274,7 +274,10 @@ def test_scalar_and_batched_joint_score_align_for_fixed_mask() -> None:
     config = ProxyObjectiveConfig(
         bops_threshold=None,
         proxy_mode="joint_taylor_second_order_fisher_diag",
-        exponential_task_score_tau=2.0,
+        task_score_mapping="linear_fixed_scale",
+        joint_loss_scale=10.0,
+        task_weight=0.8,
+        prune_weight=0.2,
     )
     scalar = ProxyObjective(
         joint=JointTaylorProxy(
@@ -316,7 +319,8 @@ def test_scalar_and_batched_joint_score_align_for_fixed_mask() -> None:
             "L_joint_raw",
             "L_joint_first_order",
             "L_joint_second_order",
-            "S_task",
+            "normalized_joint_loss",
+            "L_scale",
             "candidate_params",
             "R_prune",
             "J1",
@@ -324,6 +328,15 @@ def test_scalar_and_batched_joint_score_align_for_fixed_mask() -> None:
         ):
             assert row[key] == pytest.approx(expected[key], rel=1e-5, abs=1e-7)
         assert row["sqnr_main_objective_contribution"] == 0.0
+        assert row["task_score_mapping"] == "linear_fixed_scale"
+        for obsolete in (
+            "tau",
+            "exponent_value",
+            "S_task",
+            "task_score_saturated",
+        ):
+            assert obsolete not in row
+            assert obsolete not in expected
 
 
 def test_stage1_evaluator_decodes_legal_width_candidate_without_repair() -> None:

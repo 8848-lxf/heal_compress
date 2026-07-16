@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -558,6 +559,8 @@ class TorchBatchedProxyScorer:
             "candidate_params": [],
             "R_prune": [],
             "J1": [],
+            "L_scale": [],
+            "normalized_joint_loss": [],
             "exponent_value": [],
             "task_score_saturated": [],
         }
@@ -750,15 +753,62 @@ class TorchBatchedProxyScorer:
             r_prune = 1.0 - candidate_params / original_params.clamp_min(1.0)
             l_joint = joint_first + joint_second
             if joint_mode:
-                tau = getattr(self.config, "exponential_task_score_tau", None)
-                if tau is None or not float(tau) > 0.0:
-                    raise RuntimeError("joint_taylor_objective_missing_fixed_tau")
-                raw_exponent = l_joint / float(tau)
-                exponent = raw_exponent.clamp(max=80.0)
-                s_task = torch.exp(-exponent)
-                j1 = 0.8 * s_task + 0.2 * r_prune
-                score = -j1
+                mapping = str(getattr(self.config, "task_score_mapping", "legacy"))
+                if mapping == "linear_fixed_scale":
+                    scale = getattr(self.config, "joint_loss_scale", None)
+                    task_weight = float(getattr(self.config, "task_weight", 0.8))
+                    prune_weight = float(getattr(self.config, "prune_weight", 0.2))
+                    if (
+                        scale is None
+                        or not math.isfinite(float(scale))
+                        or float(scale) <= 0.0
+                    ):
+                        raise RuntimeError("joint_taylor_objective_missing_fixed_scale")
+                    if (
+                        not math.isfinite(task_weight)
+                        or task_weight < 0.0
+                        or not math.isfinite(prune_weight)
+                        or prune_weight < 0.0
+                        or task_weight + prune_weight <= 0.0
+                    ):
+                        raise RuntimeError("joint_score_weights_must_be_finite_nonnegative")
+                    normalized_joint_loss = l_joint / float(scale)
+                    j1 = (
+                        -task_weight * normalized_joint_loss
+                        + prune_weight * r_prune
+                    )
+                    score = -j1
+                    l_scale = torch.full_like(l_joint, float(scale))
+                    raw_exponent = torch.zeros_like(l_joint)
+                    exponent = torch.zeros_like(l_joint)
+                    s_task = torch.zeros_like(l_joint)
+                elif mapping == "exponential":
+                    tau = getattr(self.config, "exponential_task_score_tau", None)
+                    if tau is None or not float(tau) > 0.0:
+                        raise RuntimeError("joint_taylor_objective_missing_fixed_tau")
+                    raw_exponent = l_joint / float(tau)
+                    exponent = raw_exponent.clamp(max=80.0)
+                    s_task = torch.exp(-exponent)
+                    j1 = 0.8 * s_task + 0.2 * r_prune
+                    score = -j1
+                    l_scale = torch.zeros_like(l_joint)
+                    normalized_joint_loss = torch.zeros_like(l_joint)
+                elif mapping == "raw_joint_loss":
+                    score = l_joint
+                    j1 = torch.zeros_like(l_joint)
+                    l_scale = torch.zeros_like(l_joint)
+                    normalized_joint_loss = torch.zeros_like(l_joint)
+                    raw_exponent = torch.zeros_like(l_joint)
+                    exponent = torch.zeros_like(l_joint)
+                    s_task = torch.zeros_like(l_joint)
+                else:
+                    raise RuntimeError(
+                        f"joint_taylor_objective_invalid_task_score_mapping:{mapping}"
+                    )
             else:
+                mapping = "legacy"
+                l_scale = torch.zeros_like(l_joint)
+                normalized_joint_loss = torch.zeros_like(l_joint)
                 raw_exponent = torch.zeros_like(l_joint)
                 exponent = torch.zeros_like(l_joint)
                 s_task = torch.zeros_like(l_joint)
@@ -791,6 +841,10 @@ class TorchBatchedProxyScorer:
             metric_chunks["candidate_params"].append(candidate_params.detach())
             metric_chunks["R_prune"].append(r_prune.detach())
             metric_chunks["J1"].append(j1.detach())
+            metric_chunks["L_scale"].append(l_scale.detach())
+            metric_chunks["normalized_joint_loss"].append(
+                normalized_joint_loss.detach()
+            )
             metric_chunks["exponent_value"].append(exponent.detach())
             metric_chunks["task_score_saturated"].append(
                 (raw_exponent > 80.0).detach()
@@ -814,8 +868,7 @@ class TorchBatchedProxyScorer:
             r_size = float(metrics_cpu["R_size"][idx])
             r_bops = float(metrics_cpu["R_bops"][idx])
             score = float(metrics_cpu["F1"][idx])
-            rows.append(
-                {
+            row = {
                     "L_fisher": float(metrics_cpu["L_fisher"][idx]),
                     "L_sqnr": float(metrics_cpu["L_sqnr"][idx]),
                     "L_quant_incremental": float(metrics_cpu["L_quant_incremental"][idx]),
@@ -845,23 +898,11 @@ class TorchBatchedProxyScorer:
                     "L_joint_raw": float(metrics_cpu["L_joint_raw"][idx]),
                     "L_joint_first_order": float(metrics_cpu["L_joint_first_order"][idx]),
                     "L_joint_second_order": float(metrics_cpu["L_joint_second_order"][idx]),
-                    "tau": (
-                        float(getattr(self.config, "exponential_task_score_tau"))
-                        if getattr(self.config, "exponential_task_score_tau", None)
-                        is not None
-                        else None
-                    ),
-                    "exponent_value": float(metrics_cpu["exponent_value"][idx]),
-                    "S_task": float(metrics_cpu["S_task"][idx]),
                     "original_params": int(metrics_cpu["original_params"][idx]),
                     "candidate_params": int(metrics_cpu["candidate_params"][idx]),
                     "R_prune": float(metrics_cpu["R_prune"][idx]),
-                    "J1": float(metrics_cpu["J1"][idx]),
                     "proxy_mode": str(
                         getattr(self.config, "proxy_mode", "legacy_fisher_sqnr")
-                    ),
-                    "task_score_saturated": bool(
-                        metrics_cpu["task_score_saturated"][idx]
                     ),
                     "sqnr_main_objective_contribution": 0.0
                     if str(getattr(self.config, "proxy_mode", "")).startswith("joint_taylor")
@@ -869,7 +910,62 @@ class TorchBatchedProxyScorer:
                     "generation": generation,
                     "outer_round": outer_round,
                 }
-            )
+            joint_mode = str(
+                getattr(self.config, "proxy_mode", "legacy_fisher_sqnr")
+            ).startswith("joint_taylor")
+            mapping = str(getattr(self.config, "task_score_mapping", "legacy"))
+            if joint_mode and mapping == "linear_fixed_scale":
+                row.update(
+                    {
+                        "task_score_mapping": mapping,
+                        "L_scale": float(metrics_cpu["L_scale"][idx]),
+                        "normalized_joint_loss": float(
+                            metrics_cpu["normalized_joint_loss"][idx]
+                        ),
+                        "J1": float(metrics_cpu["J1"][idx]),
+                    }
+                )
+            elif joint_mode and mapping == "exponential":
+                row.update(
+                    {
+                        "task_score_mapping": mapping,
+                        "tau": float(
+                            getattr(self.config, "exponential_task_score_tau")
+                        ),
+                        "exponent_value": float(
+                            metrics_cpu["exponent_value"][idx]
+                        ),
+                        "S_task": float(metrics_cpu["S_task"][idx]),
+                        "J1": float(metrics_cpu["J1"][idx]),
+                        "task_score_saturated": bool(
+                            metrics_cpu["task_score_saturated"][idx]
+                        ),
+                    }
+                )
+            elif joint_mode and mapping == "raw_joint_loss":
+                row["task_score_mapping"] = mapping
+            elif not joint_mode:
+                row.update(
+                    {
+                        "tau": (
+                            float(getattr(self.config, "exponential_task_score_tau"))
+                            if getattr(
+                                self.config, "exponential_task_score_tau", None
+                            )
+                            is not None
+                            else None
+                        ),
+                        "exponent_value": float(
+                            metrics_cpu["exponent_value"][idx]
+                        ),
+                        "S_task": float(metrics_cpu["S_task"][idx]),
+                        "J1": float(metrics_cpu["J1"][idx]),
+                        "task_score_saturated": bool(
+                            metrics_cpu["task_score_saturated"][idx]
+                        ),
+                    }
+                )
+            rows.append(row)
         self.gpu_batch_count += batch_count
         return BatchProxyResult(
             metrics=rows,

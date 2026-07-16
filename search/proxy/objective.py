@@ -13,7 +13,7 @@ from .joint_taylor import JointTaylorProxy
 from .normalization import NormalizationStats
 from .size_proxy import SizeProxy
 from .sqnr_proxy import SQNRProxy
-from .task_score import compute_exponential_j1
+from .task_score import compute_exponential_j1, compute_linear_joint_j1
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,10 @@ class ProxyObjectiveConfig:
     mac_weighted_sensitivity_weight: float = 0.0
     illegal_score: float = float("inf")
     proxy_mode: str = "legacy_fisher_sqnr"
+    task_score_mapping: str = "legacy"
+    joint_loss_scale: float | None = None
+    task_weight: float = 0.8
+    prune_weight: float = 0.2
     exponential_task_score_tau: float | None = None
 
 
@@ -103,8 +107,6 @@ class ProxyObjective:
         if str(self.config.proxy_mode).startswith("joint_taylor"):
             if self.joint is None:
                 raise RuntimeError("joint_taylor_objective_missing_proxy")
-            if self.config.exponential_task_score_tau is None:
-                raise RuntimeError("joint_taylor_objective_missing_fixed_tau")
             joint = self.joint.evaluate(phenotype)
             if not joint.finite:
                 return {
@@ -115,15 +117,55 @@ class ProxyObjective:
             original_params, candidate_params = self.size.structural_parameter_counts(
                 phenotype
             )
-            task = compute_exponential_j1(
-                l_joint=joint.total_importance,
-                l_joint_first_order=joint.first_order_sum,
-                l_joint_second_order=joint.second_order_fisher_sum,
-                tau=float(self.config.exponential_task_score_tau),
-                original_params=original_params,
-                candidate_params=candidate_params,
-                proxy_mode=self.config.proxy_mode,
-            )
+            mapping = str(self.config.task_score_mapping)
+            if mapping == "linear_fixed_scale":
+                if self.config.joint_loss_scale is None:
+                    raise RuntimeError("joint_taylor_objective_missing_fixed_scale")
+                task = compute_linear_joint_j1(
+                    l_joint=joint.total_importance,
+                    l_joint_first_order=joint.first_order_sum,
+                    l_joint_second_order=joint.second_order_fisher_sum,
+                    l_scale=float(self.config.joint_loss_scale),
+                    original_params=original_params,
+                    candidate_params=candidate_params,
+                    task_weight=float(self.config.task_weight),
+                    prune_weight=float(self.config.prune_weight),
+                    proxy_mode=self.config.proxy_mode,
+                )
+            elif mapping == "exponential":
+                if self.config.exponential_task_score_tau is None:
+                    raise RuntimeError("joint_taylor_objective_missing_fixed_tau")
+                task = compute_exponential_j1(
+                    l_joint=joint.total_importance,
+                    l_joint_first_order=joint.first_order_sum,
+                    l_joint_second_order=joint.second_order_fisher_sum,
+                    tau=float(self.config.exponential_task_score_tau),
+                    original_params=original_params,
+                    candidate_params=candidate_params,
+                    proxy_mode=self.config.proxy_mode,
+                )
+                task["task_score_mapping"] = "exponential"
+            elif mapping == "raw_joint_loss":
+                if original_params <= 0 or not 0 <= candidate_params <= original_params:
+                    raise RuntimeError("invalid_structural_parameter_counts")
+                task = {
+                    "task_score_mapping": "raw_joint_loss",
+                    "L_joint_raw": float(joint.total_importance),
+                    "L_joint_first_order": float(joint.first_order_sum),
+                    "L_joint_second_order": float(joint.second_order_fisher_sum),
+                    "original_params": int(original_params),
+                    "candidate_params": int(candidate_params),
+                    "R_prune": float(
+                        1.0 - float(candidate_params) / float(original_params)
+                    ),
+                    "F1": float(joint.total_importance),
+                    "proxy_mode": str(self.config.proxy_mode),
+                    "sqnr_main_objective_contribution": 0.0,
+                }
+            else:
+                raise RuntimeError(
+                    f"joint_taylor_objective_invalid_task_score_mapping:{mapping}"
+                )
             bops_metrics = self.bops.evaluate_breakdown(phenotype)
             return {
                 **task,
