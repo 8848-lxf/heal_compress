@@ -119,11 +119,16 @@ def build_canonical_prune_ranking(
             claimed[parameter_name] |= selected
             if not owned.any():
                 continue
-            weight = parameter.detach()[owned].to(torch.float64)
-            grad = gradient.detach()[owned].to(torch.float64)
+            statistics_device = gradient.device
+            weight = parameter.detach()[owned].to(
+                device=statistics_device, dtype=torch.float64
+            )
+            grad = gradient.detach()[owned.to(gradient.device)].to(torch.float64)
             first_total += float((grad * weight).abs().sum().cpu())
             if ranking_mode == "prune_only_second_order_fisher":
-                fisher_values = fisher.detach()[owned].to(torch.float64)
+                fisher_values = fisher.detach()[owned.to(fisher.device)].to(
+                    device=statistics_device, dtype=torch.float64
+                )
                 second_term += 0.5 * float(
                     (fisher_values * weight.square()).sum().cpu()
                 )

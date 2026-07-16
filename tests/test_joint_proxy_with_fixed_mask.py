@@ -68,6 +68,52 @@ def test_canonical_prune_ranking_is_precision_independent_and_audited() -> None:
     assert ranking.rows[0].second_order_score == pytest.approx(2.125)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is required")
+def test_canonical_ranking_accepts_cpu_fisher_for_cuda_model() -> None:
+    from search.decoding.fixed_taylor_width_decoder import (
+        build_canonical_prune_ranking,
+    )
+    from search.proxy.fisher_proxy import FisherStatistics
+    from search.proxy.parameter_slice_resolver import ParameterSlice
+    from search.space.legal_width_inventory import build_legal_width_inventory
+
+    model = torch.nn.Sequential()
+    model.add_module("conv", torch.nn.Conv2d(2, 2, 1, bias=False))
+    model = model.cuda()
+    units = [
+        AtomicPruneUnit(
+            "scope", "conv", "out", [index], [f"c{index}"], 0.0,
+            _stable_id=f"u{index}",
+        )
+        for index in range(2)
+    ]
+    inventory = build_legal_width_inventory(
+        units, dense_alignment=1, per_domain_max_prune_rate=0.5
+    )
+    slices = {
+        f"u{index}": [
+            ParameterSlice("conv.weight", "conv", 0, (index,), "root_out")
+        ]
+        for index in range(2)
+    }
+    statistics = FisherStatistics(
+        gradients={"conv.weight": torch.ones_like(model.conv.weight.cpu())},
+        fisher_diag={"conv.weight": torch.ones_like(model.conv.weight.cpu())},
+    )
+
+    ranking = build_canonical_prune_ranking(
+        model,
+        statistics=statistics,
+        unit_to_parameter_slices=slices,
+        inventory=inventory,
+        checkpoint_hash="checkpoint",
+        fisher_manifest_hash="fisher",
+    )
+
+    assert len(ranking.rows) == 2
+    assert all(row.parameter_element_count == 2 for row in ranking.rows)
+
+
 def test_same_fixed_mask_has_precision_dependent_joint_score() -> None:
     from search.candidate import CandidatePhenotype, PrecisionDecision
     from search.decoding.fixed_taylor_width_decoder import FixedTaylorWidthDecoder
