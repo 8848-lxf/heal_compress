@@ -1460,3 +1460,62 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 24 completed: 2026-07-17 03:28:18 CST ---
+
+## Round 25 - six-budget greedy entry gate and real-run blocker fixes
+
+Plan-3 execution started inline on the only permitted 4090 branch. The entry
+audit is preserved at
+`outputs/20260717_033025_six_budget_entry_audit/entry_audit.json`. Entry HEAD
+was `c1ec729`; branch, remote divergence, clean worktree, and required H800
+ancestor checks passed. PyTorch is `2.0.1+cu118`, TensorRT Python is
+`10.9.0.34` when loaded with the formal TensorRT library path, and the local
+SM89 PointPillarScatterTRT plugin SHA256 is
+`91aec743dca383151b995a60d004cd254ce115ed16152873c1f46754bb15022d`.
+The complete pre-experiment gate initially passed 111 tests.
+
+The first fresh proxy run,
+`outputs/4090_legal_width_greedy_six_budget_20260716_123446`, failed before
+candidate scoring because the precision legalizer treated explanatory
+protection reasons on `pg_0000` and `pg_0146` as deployment fallbacks even
+though both requested and legalized precisions were FP16. A RED test proved
+the behavior. Commit `5b182e7` now records no fallback when a protected group
+requests its fixed default precision, while an external request for another
+precision still produces a fail-closed fallback. The focused regression
+passed 15 tests and the expanded gate passed 118 tests before the commit was
+pushed.
+
+The second fresh proxy run,
+`outputs/4090_legal_width_greedy_six_budget_20260716_124119`, passed Fisher,
+legal-width inventory, and deterministic Taylor-ranking construction, then
+evaluated the full configured 4,096-state bound for every budget. All six
+targets were correctly reported infeasible rather than admitted out of band,
+and scale calibration failed closed because there was no accepted positive
+path. Direct trace audit showed that beam width eight exhausted the state
+budget at depths `{0: 1, 1: 101, 2: 1137, 3: 2857}`; the minimum proxy BOPS
+retention reached only `0.5788060426712036`. This is a search-depth supply
+failure, not evidence that the requested BOPS budgets are structurally
+unreachable.
+
+The approved iterative `delta L / delta BOPS` comparator is therefore set to
+one deterministic path (`frontier_size: 1`) while retaining the 4,096 unique
+state hard bound. This lets the same bound cover deep compression actions
+instead of spending it on shallow beam combinations. Greedy metrics also drop
+the fully expanded phenotype payload because genotype plus fixed decoder
+reconstruct it exactly; candidate and genotype hashes remain in every state.
+This removes the cause of approximately 3.4 GB per-budget trace files without
+changing proxy values, candidate identity, BOPS admission, or endpoint
+deployment. RED-to-GREEN tests for the compact trace contract and formal
+single-path configuration passed, with the related suite at 22 tests.
+
+Current state:
+
+- `ENTRY_AUDIT_PASS = true`;
+- `PRE_EXPERIMENT_TEST_GATE_PASS = true`;
+- `PROTECTED_FIXED_PRECISION_LEGALIZER_FIXED = true`;
+- `GREEDY_DEPTH_SUPPLY_FIX_APPLIED = true`;
+- `GREEDY_ENDPOINT_DEPLOYMENT_STARTED = false`;
+- `GA_SEARCH_STARTED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 25 completed: 2026-07-17 04:05:13 CST ---

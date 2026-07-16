@@ -105,6 +105,10 @@ def _metric_value(metrics: Mapping[str, Any], *keys: str) -> float:
 
 def _canonical_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     row = dict(metrics)
+    # The genotype deterministically reconstructs the phenotype. Keeping the
+    # expanded physical plan in every beam state multiplies trace and memory
+    # use without adding lineage information.
+    row.pop("phenotype", None)
     bops = _metric_value(row, "R_BOPS", "R_bops_vs_fp32", "R_bops")
     loss = _metric_value(row, "L_joint_raw")
     prune = _metric_value(row, "R_prune")

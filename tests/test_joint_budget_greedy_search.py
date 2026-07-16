@@ -19,6 +19,21 @@ def _metric(bops: float, loss: float, prune: float) -> dict[str, float]:
     return {"R_BOPS": bops, "L_joint_raw": loss, "R_prune": prune}
 
 
+def test_greedy_metrics_drop_reconstructable_phenotype_payload() -> None:
+    from search.greedy.joint_budget_search import _canonical_metrics
+
+    row = _canonical_metrics(
+        {
+            **_metric(0.5, 0.1, 0.2),
+            "candidate_hash": "candidate",
+            "phenotype": {"metadata": {"large": [1, 2, 3]}},
+        }
+    )
+
+    assert row["candidate_hash"] == "candidate"
+    assert "phenotype" not in row
+
+
 def test_bounded_frontier_recovers_from_best_immediate_budget_overshoot() -> None:
     from search.admission.bops_band import BopsBandPolicy
     from search.greedy.joint_budget_search import run_targeted_greedy
