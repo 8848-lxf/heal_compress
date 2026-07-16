@@ -5,7 +5,7 @@ model:
 runtime:
   gpu_id: "5"
   exclude_gpu_ids: []
-  allow_foreign_gpu_processes: false
+  allow_foreign_gpu_processes: true
   max_gpu_utilization_pct: 20
   model_env: univ2x-opt
   tensorrt_env: modelopt
