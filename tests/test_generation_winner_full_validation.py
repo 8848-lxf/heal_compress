@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -149,3 +150,51 @@ def test_all_unique_generation_winners_are_full_validated_once(
         row["candidate_hash"]: row for row in result["successful_candidates"]
     }
     assert len(by_candidate["a"]["lineage_references"]) == 2
+
+
+def test_external_greedy_full_validation_is_reused_without_tasks(
+    tmp_path: Path,
+) -> None:
+    from search.orchestration.legal_width_stage2 import (
+        load_external_greedy_full_validation,
+    )
+
+    rows = []
+    endpoints = []
+    for candidate in ("a", "b"):
+        engine = tmp_path / f"{candidate}.plan"
+        engine.write_bytes(b"engine")
+        endpoints.append({"candidate_hash": candidate})
+        rows.append(
+            {
+                "candidate_hash": candidate,
+                "status": "ok",
+                "engine_path": str(engine),
+                "full_validation_success": True,
+                "evaluated_frames": 1789,
+                "skipped_frames": 0,
+                "precision_identity_passed": True,
+                "mAP": 0.7,
+            }
+        )
+    path = tmp_path / "greedy_full_validation.json"
+    path.write_text(
+        json.dumps(
+            {
+                "successful_count": 2,
+                "successful_candidates": rows,
+                "results": rows,
+                "build_task_count": 2,
+                "full_validation_task_count": 2,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = load_external_greedy_full_validation(path, endpoints=endpoints)
+
+    assert result["external_reuse"] is True
+    assert result["current_run_build_task_count"] == 0
+    assert result["current_run_full_validation_task_count"] == 0
+    assert result["successful_count"] == 2
+    assert result["external_manifest_sha256"]

@@ -225,11 +225,49 @@ def test_cli_accepts_greedy_only_and_joint_loss_scale() -> None:
             "--greedy-only",
             "--joint-loss-scale",
             "scale.json",
+            "--greedy-run",
+            "outputs/greedy",
         ]
     )
 
     assert args.greedy_only is True
     assert args.joint_loss_scale == "scale.json"
+    assert args.greedy_run == "outputs/greedy"
+
+
+def test_bind_greedy_run_records_endpoint_and_full_validation_lineage(
+    tmp_path: Path,
+) -> None:
+    from search.cli import _bind_greedy_run
+
+    run_dir = tmp_path / "greedy-run"
+    endpoint_dir = run_dir / "greedy"
+    endpoint_dir.mkdir(parents=True)
+    (endpoint_dir / "greedy_summary.json").write_text(
+        '{"endpoints": []}', encoding="utf-8"
+    )
+    full_dir = run_dir / "greedy_full_validation"
+    full_dir.mkdir()
+    full_manifest = full_dir / "greedy_full_validation.json"
+    full_manifest.write_text(
+        '{"successful_count": 0, "successful_candidates": []}',
+        encoding="utf-8",
+    )
+    config: dict = {}
+    search_config: dict = {}
+
+    _bind_greedy_run(config, search_config, run_dir)
+
+    assert search_config["greedy_endpoint_manifest"] == str(
+        endpoint_dir.resolve()
+    )
+    assert search_config["greedy_full_validation_manifest"] == str(
+        full_manifest.resolve()
+    )
+    lineage = config["runtime_provenance"]["greedy_run_override"]
+    assert lineage["run_dir"] == str(run_dir.resolve())
+    assert len(lineage["endpoint_manifest_sha256"]) == 64
+    assert len(lineage["full_validation_manifest_sha256"]) == 64
 
 
 def test_greedy_stage2_resume_uses_terminal_endpoints_and_closes_pool(

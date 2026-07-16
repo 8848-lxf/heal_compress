@@ -1651,3 +1651,55 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 28 completed: 2026-07-17 05:02:13 CST ---
+
+## Round 29 - immutable greedy evidence binding for the six-budget GA
+
+The formal GA entry can now bind the already completed greedy run with
+`--greedy-run`. The CLI resolves and hashes both
+`greedy/greedy_summary.json` and
+`greedy_full_validation/greedy_full_validation.json`, writes their paths and
+SHA256 values into runtime provenance, and passes separate endpoint and
+full-validation manifests to the runner. Missing files fail closed before
+search starts.
+
+The full-validation loader independently rechecks endpoint coverage,
+successful-count consistency, 1,789 evaluated frames, zero skips, finite mAP,
+requested/realized precision identity, and the existence of every serialized
+engine. For the accepted run
+`outputs/4090_legal_width_greedy_six_budget_20260716_131554`, all six endpoint
+rows passed. Its full-validation manifest SHA256 is
+`022f507477c7fd1d69f2aeefa10a893889a34a2b02d16f6281e119b714e40dac`.
+The new GA run will therefore schedule zero greedy build tasks and zero greedy
+full-validation tasks while still using those engines in the final formal
+latency and Pareto comparison. Generation winners remain subject to the
+original fresh full-validation protocol.
+
+Modified implementation and contract files:
+
+- `search/cli.py`: `--greedy-run` binding and immutable provenance;
+- `search/orchestration/legal_width_stage2.py`: strict external evidence
+  validation and normalized frame fields;
+- `search/orchestration/lidar_pyramid_search.py`: reuse branch before
+  generation-winner full validation;
+- `search/configs/lidar_pyramid_4090_joint_six_budget_ga.yaml`: explicit
+  external full-validation manifest field;
+- `tests/test_generation_winner_full_validation.py` and
+  `tests/test_legal_width_greedy_orchestration.py`: RED-to-GREEN reuse,
+  zero-current-task, CLI, and provenance contracts.
+
+The focused tests passed 12/12. The combined greedy, legal-width, three-seed,
+Stage-2, strongly typed, QDQ, merge, realized-BOPS, full-validation, formal
+latency, and Pareto regression gate passed 163/163 in 4.60 seconds. The three
+modified Python files passed `py_compile`, and `git diff --check` passed.
+
+Current state:
+
+- `GREEDY_EXTERNAL_EVIDENCE_BOUND = true`;
+- `GREEDY_CURRENT_RUN_BUILD_TASK_COUNT = 0`;
+- `GREEDY_CURRENT_RUN_FULL_VALIDATION_TASK_COUNT = 0`;
+- `GREEDY_FULL_VALIDATION_SUCCESS_COUNT = 6`;
+- `GA_SEARCH_STARTED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 29 completed: 2026-07-17 05:10:32 CST ---

@@ -47,6 +47,38 @@ def _resolved_config_output_path(
     return run_dir / name
 
 
+def _bind_greedy_run(
+    config: dict[str, Any],
+    search_config: dict[str, Any],
+    run_dir: str | Path,
+) -> None:
+    root = Path(run_dir).expanduser().resolve()
+    endpoint_dir = root / "greedy"
+    endpoint_manifest = endpoint_dir / "greedy_summary.json"
+    full_manifest = root / "greedy_full_validation" / "greedy_full_validation.json"
+    for label, path in (
+        ("endpoint_manifest", endpoint_manifest),
+        ("full_validation_manifest", full_manifest),
+    ):
+        if not path.is_file():
+            raise RuntimeError(f"greedy_run_{label}_missing:{path}")
+    search_config["greedy_endpoint_manifest"] = str(endpoint_dir)
+    search_config["greedy_full_validation_manifest"] = str(full_manifest)
+    provenance = dict(config.get("runtime_provenance", {}) or {})
+    provenance["greedy_run_override"] = {
+        "run_dir": str(root),
+        "endpoint_manifest": str(endpoint_manifest),
+        "endpoint_manifest_sha256": hashlib.sha256(
+            endpoint_manifest.read_bytes()
+        ).hexdigest(),
+        "full_validation_manifest": str(full_manifest),
+        "full_validation_manifest_sha256": hashlib.sha256(
+            full_manifest.read_bytes()
+        ).hexdigest(),
+    }
+    config["runtime_provenance"] = provenance
+
+
 def _gpu_report() -> dict[str, Any]:
     try:
         completed = subprocess.run(
@@ -132,6 +164,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stage2-only", action="store_true")
     parser.add_argument("--baseline-only", action="store_true")
     parser.add_argument("--greedy-only", action="store_true")
+    parser.add_argument("--greedy-run", default=None)
     parser.add_argument("--joint-loss-scale", default=None)
     parser.add_argument("--skip-baselines", action="store_true")
     parser.add_argument("--candidate-config", action="append", default=None)
@@ -193,6 +226,8 @@ def main(argv: list[str] | None = None) -> int:
             "sha256": hashlib.sha256(scale_path.read_bytes()).hexdigest(),
         }
         config["runtime_provenance"] = provenance
+    if args.greedy_run:
+        _bind_greedy_run(config, search_cfg, args.greedy_run)
     config["search"] = search_cfg
     config["evaluation"] = eval_cfg
     if stage2_cfg:

@@ -108,6 +108,7 @@ search:
   per_generation_stage2: true
   anchor_structure_manifest: null
   greedy_endpoint_manifest: null
+  greedy_full_validation_manifest: null
 
 stage2:
   score_mode: map_minus_latency_ratio

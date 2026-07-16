@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 from collections import Counter
@@ -426,9 +427,17 @@ def _normalize_full_validation_results(
     for source in results:
         row = dict(source)
         evaluated = int(
-            row.get("evaluated", row.get("num_evaluated_frames", -1))
+            row.get(
+                "evaluated",
+                row.get("num_evaluated_frames", row.get("evaluated_frames", -1)),
+            )
         )
-        skipped = int(row.get("skipped", row.get("num_skipped_frames", -1)))
+        skipped = int(
+            row.get(
+                "skipped",
+                row.get("num_skipped_frames", row.get("skipped_frames", -1)),
+            )
+        )
         passed = (
             str(row.get("status", "")) == "ok"
             and evaluated == int(required_evaluated_frames)
@@ -455,6 +464,102 @@ def _normalize_full_validation_results(
         if passed:
             successful.append(row)
     return normalized, successful
+
+
+def load_external_greedy_full_validation(
+    path: str | Path,
+    *,
+    endpoints: Sequence[Mapping[str, Any]],
+    required_evaluated_frames: int = 1789,
+    required_skipped_frames: int = 0,
+) -> dict[str, Any]:
+    """Validate and reuse a completed greedy full-validation manifest."""
+
+    manifest_path = Path(path).expanduser().resolve()
+    if not manifest_path.is_file():
+        raise RuntimeError(
+            f"external_greedy_full_validation_missing:{manifest_path}"
+        )
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(
+            f"external_greedy_full_validation_invalid:{manifest_path}:{exc}"
+        ) from exc
+    if not isinstance(payload, Mapping):
+        raise RuntimeError("external_greedy_full_validation_not_mapping")
+
+    source_rows = payload.get("successful_candidates", [])
+    if not isinstance(source_rows, list):
+        raise RuntimeError("external_greedy_successful_candidates_not_list")
+    declared_count = int(payload.get("successful_count", -1))
+    if declared_count != len(source_rows):
+        raise RuntimeError(
+            "external_greedy_successful_count_mismatch:"
+            f"declared={declared_count}:actual={len(source_rows)}"
+        )
+
+    normalized, successful = _normalize_full_validation_results(
+        source_rows,
+        required_evaluated_frames=required_evaluated_frames,
+        required_skipped_frames=required_skipped_frames,
+    )
+    failed = [
+        str(row.get("candidate_hash", "missing_candidate_hash"))
+        for row in normalized
+        if not bool(row.get("full_validation_success", False))
+    ]
+    if failed:
+        raise RuntimeError(
+            "external_greedy_full_validation_gate_failed:" + ",".join(failed)
+        )
+
+    endpoint_hashes = {str(row.get("candidate_hash", "")) for row in endpoints}
+    successful_hashes = {
+        str(row.get("candidate_hash", "")) for row in successful
+    }
+    if "" in endpoint_hashes or "" in successful_hashes:
+        raise RuntimeError("external_greedy_candidate_hash_missing")
+    if endpoint_hashes != successful_hashes:
+        missing = sorted(endpoint_hashes - successful_hashes)
+        unexpected = sorted(successful_hashes - endpoint_hashes)
+        raise RuntimeError(
+            "external_greedy_endpoint_coverage_mismatch:"
+            f"missing={missing}:unexpected={unexpected}"
+        )
+
+    for row in successful:
+        engine_path = Path(str(row.get("engine_path", ""))).expanduser()
+        if not engine_path.is_absolute():
+            engine_path = manifest_path.parent / engine_path
+        engine_path = engine_path.resolve()
+        if not engine_path.is_file():
+            raise RuntimeError(
+                "external_greedy_engine_missing:"
+                f"{row.get('candidate_hash', '')}:{engine_path}"
+            )
+        row["engine_path"] = str(engine_path)
+
+    result = dict(payload)
+    result.update(
+        {
+            "external_reuse": True,
+            "external_manifest_path": str(manifest_path),
+            "external_manifest_sha256": hashlib.sha256(
+                manifest_path.read_bytes()
+            ).hexdigest(),
+            "source_build_task_count": int(payload.get("build_task_count", 0)),
+            "source_full_validation_task_count": int(
+                payload.get("full_validation_task_count", 0)
+            ),
+            "current_run_build_task_count": 0,
+            "current_run_full_validation_task_count": 0,
+            "results": normalized,
+            "successful_candidates": successful,
+            "successful_count": len(successful),
+        }
+    )
+    return result
 
 
 def run_generation_winner_full_validation(

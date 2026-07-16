@@ -77,6 +77,7 @@ from .legal_width_six_budget_ga import (
     select_and_write_budget_winners,
 )
 from .legal_width_stage2 import (
+    load_external_greedy_full_validation,
     run_generation_winner_full_validation,
     run_greedy_endpoint_full_validation,
     run_legal_width_full_validation,
@@ -1201,17 +1202,38 @@ class LidarPyramidTwoStageSearch:
                     "precision_identity_passed": True,
                 }
                 try:
-                    greedy_full = run_greedy_endpoint_full_validation(
-                        endpoints=greedy_endpoints,
-                        stage2_pool=full_pool,
-                        run_dir=run_dir / "greedy_full_validation",
-                        required_evaluated_frames=int(
-                            full_cfg.get("required_evaluated_frames", 1789)
-                        ),
-                        required_skipped_frames=int(
-                            full_cfg.get("required_skipped_frames", 0)
-                        ),
+                    external_greedy_full = search_cfg.get(
+                        "greedy_full_validation_manifest"
                     )
+                    if external_greedy_full:
+                        greedy_full = load_external_greedy_full_validation(
+                            external_greedy_full,
+                            endpoints=greedy_endpoints,
+                            required_evaluated_frames=int(
+                                full_cfg.get("required_evaluated_frames", 1789)
+                            ),
+                            required_skipped_frames=int(
+                                full_cfg.get("required_skipped_frames", 0)
+                            ),
+                        )
+                        _write_json(
+                            run_dir
+                            / "greedy_full_validation"
+                            / "greedy_full_validation_external_reuse.json",
+                            greedy_full,
+                        )
+                    else:
+                        greedy_full = run_greedy_endpoint_full_validation(
+                            endpoints=greedy_endpoints,
+                            stage2_pool=full_pool,
+                            run_dir=run_dir / "greedy_full_validation",
+                            required_evaluated_frames=int(
+                                full_cfg.get("required_evaluated_frames", 1789)
+                            ),
+                            required_skipped_frames=int(
+                                full_cfg.get("required_skipped_frames", 0)
+                            ),
+                        )
                     generation_full = run_generation_winner_full_validation(
                         generation_winners=[
                             strict_reference_winner,
