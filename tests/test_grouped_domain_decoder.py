@@ -60,3 +60,9 @@ def test_grouped_decoder_keeps_equal_counts_without_shared_positions() -> None:
     assert decoded.group_prune_map == {0: (0, 1, 2, 3), 1: (4, 5, 6, 7)}
     assert all(len(values) == 4 for values in decoded.group_keep_map.values())
     assert decoded.group_keep_map[0] != decoded.group_keep_map[1]
+    assert decoded.group_keep_map_by_scope == {
+        "grouped_scope": decoded.group_keep_map
+    }
+    assert decoded.group_prune_map_by_scope == {
+        "grouped_scope": decoded.group_prune_map
+    }

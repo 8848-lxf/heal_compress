@@ -32,11 +32,21 @@ from ..proxy.tau_calibration import calibrate_tau, write_proxy_scale
 from ..proxy.virtual_shape_resolver import resolve_virtual_shapes
 from ..stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
 from ..stage2.objective import Stage2ObjectiveConfig
-from .joint_taylor_sweep import AnchorPruningUnit, plan_anchor_structures
+from .joint_taylor_sweep import (
+    AnchorPruningUnit,
+    AnchorSweepPlan,
+    plan_anchor_structures,
+    plan_legal_width_anchor_structures,
+)
 from .joint_taylor_sweep import (
     ANCHOR_PRECISION_VARIANTS,
     assert_formal_latency_isolation,
     propose_boundary_bisections,
+)
+from ..decoding.fixed_taylor_width_decoder import FixedTaylorWidthDecoder
+from ..space.legal_width_inventory import (
+    prepare_legal_width_search_space,
+    write_legal_width_search_space_artifacts,
 )
 
 
@@ -493,6 +503,140 @@ class JointTaylorAnchorStudy:
                 "statistics_version": fisher.statistics_version,
             },
         )
+        pruning_cfg = dict(self.config.get("pruning", {}) or {})
+        if str(pruning_cfg.get("gene_type", "")) == "legal_keep_width":
+            dense = dict(pruning_cfg.get("dense", {}) or {})
+            grouped = dict(pruning_cfg.get("grouped_conv", {}) or {})
+            precision_cfg = dict(self.config.get("precision", {}) or {})
+            anchor_cfg = dict(
+                self.config.get("joint_taylor_anchor_sweep", {}) or {}
+            )
+            prepared = prepare_legal_width_search_space(
+                context.search_space,
+                model=context.model,
+                units=context.atomic_prune_units,
+                statistics=fisher,
+                unit_to_parameter_slices=unit_slices,
+                checkpoint_hash=context.checkpoint_hash,
+                fisher_manifest_hash=fisher.manifest_hash,
+                requested_precision_actions=tuple(
+                    str(value)
+                    for value in precision_cfg.get(
+                        "candidates", ["FP32", "FP16", "INT8"]
+                    )
+                ),
+                minimum_retained_ratio=float(
+                    pruning_cfg.get("minimum_retained_ratio", 0.10)
+                ),
+                minimum_retained_channels=int(
+                    pruning_cfg.get("minimum_retained_channels", 4)
+                ),
+                dense_alignment=int(dense.get("alignment", 4)),
+                grouped_allowed_channels_per_group=tuple(
+                    int(value)
+                    for value in grouped.get(
+                        "allowed_channels_per_group",
+                        [4, 8, 16, 32, 64, 128, 256, 512],
+                    )
+                ),
+                per_domain_max_prune_rate=float(
+                    anchor_cfg.get("per_domain_max_prune_rate", 0.8)
+                ),
+            )
+            context = replace(context, search_space=prepared.search_space)
+            write_legal_width_search_space_artifacts(prepared, run_dir)
+            original_params, count_fn = self._parameter_count_callback(
+                context, unit_slices
+            )
+            requested_rates = [
+                float(value)
+                for value in anchor_cfg.get(
+                    "requested_prune_rates",
+                    [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+                )
+            ]
+            first_decoder = FixedTaylorWidthDecoder(
+                prepared.inventory,
+                prepared.first_order_ranking.to_decoder_rows(),
+                ranking_mode="prune_only_first_order",
+            )
+            first_plan = plan_legal_width_anchor_structures(
+                inventory=prepared.inventory,
+                decoder=first_decoder,
+                ranking_rows=prepared.first_order_ranking.to_decoder_rows(),
+                ranking_mode="prune_only_first_order",
+                requested_prune_rates=requested_rates,
+                original_params=original_params,
+                parameter_count_fn=count_fn,
+            )
+            second_plan = plan_legal_width_anchor_structures(
+                inventory=prepared.inventory,
+                decoder=prepared.decoder,
+                ranking_rows=prepared.second_order_ranking.to_decoder_rows(),
+                ranking_mode="prune_only_second_order_fisher",
+                requested_prune_rates=requested_rates,
+                original_params=original_params,
+                parameter_count_fn=count_fn,
+            )
+            plan = AnchorSweepPlan(
+                structures=tuple(
+                    [*first_plan.structures, *second_plan.structures]
+                ),
+                global_ranking=tuple(
+                    [*first_plan.global_ranking, *second_plan.global_ranking]
+                ),
+                maximum_realized_prune_rate=max(
+                    first_plan.maximum_realized_prune_rate,
+                    second_plan.maximum_realized_prune_rate,
+                ),
+                per_domain_max_prune_rate=max(
+                    first_plan.per_domain_max_prune_rate,
+                    second_plan.per_domain_max_prune_rate,
+                ),
+            )
+            audit = [
+                {
+                    "group_id": row.atomic_unit_id,
+                    "prune_domain_id": row.domain_id,
+                    "physical_group_id": row.physical_group_id,
+                    "first_order_sum": row.first_order_score,
+                    "second_order_total": row.second_order_score,
+                    "unique_parameter_count": row.parameter_element_count,
+                    "duplicate_parameter_element_count": row.duplicate_parameter_element_count,
+                    "importance_mode": "prune_only_second_order_fisher",
+                    "finite": math.isfinite(row.second_order_score),
+                    "failure_reason": "",
+                }
+                for row in prepared.second_order_ranking.rows
+            ]
+            _write_json(run_dir / "importance_group_audit.json", audit)
+            _write_csv(run_dir / "importance_group_audit.csv", audit)
+            _write_json(
+                run_dir / "anchor_structure_manifest.json", plan.to_dict()
+            )
+            _write_json(
+                run_dir / "global_group_ranking.json", list(plan.global_ranking)
+            )
+            _write_csv(
+                run_dir / "global_group_ranking.csv", list(plan.global_ranking)
+            )
+            joint = JointTaylorProxy(
+                context.model,
+                statistics=fisher,
+                unit_to_parameter_slices=unit_slices,
+                mode="joint_taylor_second_order_fisher_diag",
+            )
+            return {
+                "context": context,
+                "unit_slices": unit_slices,
+                "fisher": fisher,
+                "joint": joint,
+                "plan": plan,
+                "importance_audit": audit,
+                "original_params": original_params,
+                "parameter_count_fn": count_fn,
+                "legal_width_prepared": prepared,
+            }
         fp16 = build_anchor_precision_phenotype(
             context.search_space, [], "strict_fp16"
         )
@@ -753,6 +897,17 @@ class JointTaylorAnchorStudy:
 
     def _plan_one_rate(self, planning: Mapping[str, Any], rate: float) -> Any:
         anchor_cfg = dict(self.config.get("joint_taylor_anchor_sweep", {}) or {})
+        if planning.get("legal_width_prepared") is not None:
+            prepared = planning["legal_width_prepared"]
+            return plan_legal_width_anchor_structures(
+                inventory=prepared.inventory,
+                decoder=prepared.decoder,
+                ranking_rows=prepared.second_order_ranking.to_decoder_rows(),
+                ranking_mode="prune_only_second_order_fisher",
+                requested_prune_rates=[float(rate)],
+                original_params=int(planning["original_params"]),
+                parameter_count_fn=planning["parameter_count_fn"],
+            ).structures[0]
         return plan_anchor_structures(
             planning["anchor_units"],
             requested_prune_rates=[float(rate)],

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import csv
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
@@ -99,6 +100,221 @@ class LegalWidthInventory:
             "width_space_hash": self.width_space_hash,
             "domains": [domain.to_dict() for domain in self.domains],
         }
+
+
+@dataclass(frozen=True)
+class PreparedLegalWidthSearchSpace:
+    search_space: Any
+    inventory: LegalWidthInventory
+    first_order_ranking: Any
+    second_order_ranking: Any
+    decoder: Any
+
+
+def _precision_action_space(
+    search_space: Any,
+    requested_actions: Sequence[str],
+) -> dict[str, tuple[str, ...]]:
+    from ..candidate import normalize_precision
+
+    requested = tuple(
+        dict.fromkeys(normalize_precision(value) for value in requested_actions)
+    )
+    result: dict[str, tuple[str, ...]] = {}
+    if search_space.quantization_groups:
+        for group in search_space.quantization_groups:
+            if group.protected:
+                default = normalize_precision(
+                    group.metadata.get("default_precision", search_space.default_precision)
+                )
+                actions = (default,)
+            else:
+                actions = tuple(
+                    value for value in requested if value in group.allowed_precisions
+                )
+            if not actions:
+                raise RuntimeError(
+                    f"precision_group_has_no_deployable_action:{group.group_id}"
+                )
+            result[group.group_id] = actions
+        return result
+    for layer_id in search_space.precision_layer_ids:
+        if not requested:
+            raise RuntimeError(f"precision_layer_has_no_deployable_action:{layer_id}")
+        result[layer_id] = requested
+    return result
+
+
+def prepare_legal_width_search_space(
+    search_space: Any,
+    *,
+    model: Any,
+    units: Sequence[Any],
+    statistics: Any,
+    unit_to_parameter_slices: Mapping[str, Sequence[Any]],
+    checkpoint_hash: str,
+    fisher_manifest_hash: str,
+    requested_precision_actions: Sequence[str],
+    minimum_retained_ratio: float = 0.10,
+    minimum_retained_channels: int = 1,
+    dense_alignment: int = 4,
+    grouped_allowed_channels_per_group: Sequence[int] = (4, 8, 16, 32, 64, 128, 256, 512),
+    per_domain_max_prune_rate: float = 0.80,
+    allowlisted_domain_ids: set[str] | frozenset[str] | None = None,
+    unsupported_domain_ids: set[str] | frozenset[str] = frozenset(),
+) -> PreparedLegalWidthSearchSpace:
+    """Bind a legal inventory and immutable rankings to an existing space."""
+
+    from dataclasses import replace
+
+    from ..decoding.fixed_taylor_width_decoder import (
+        FixedTaylorWidthDecoder,
+        build_canonical_prune_ranking,
+    )
+
+    inventory = build_legal_width_inventory(
+        units,
+        minimum_retained_ratio=minimum_retained_ratio,
+        minimum_retained_channels=minimum_retained_channels,
+        dense_alignment=dense_alignment,
+        grouped_allowed_channels_per_group=grouped_allowed_channels_per_group,
+        per_domain_max_prune_rate=per_domain_max_prune_rate,
+        allowlisted_domain_ids=allowlisted_domain_ids,
+        unsupported_domain_ids=unsupported_domain_ids,
+    )
+    first = build_canonical_prune_ranking(
+        model,
+        statistics=statistics,
+        unit_to_parameter_slices=unit_to_parameter_slices,
+        inventory=inventory,
+        checkpoint_hash=checkpoint_hash,
+        fisher_manifest_hash=fisher_manifest_hash,
+        ranking_mode="prune_only_first_order",
+    )
+    second = build_canonical_prune_ranking(
+        model,
+        statistics=statistics,
+        unit_to_parameter_slices=unit_to_parameter_slices,
+        inventory=inventory,
+        checkpoint_hash=checkpoint_hash,
+        fisher_manifest_hash=fisher_manifest_hash,
+        ranking_mode="prune_only_second_order_fisher",
+    )
+    decoder = FixedTaylorWidthDecoder(
+        inventory,
+        second.to_decoder_rows(),
+        ranking_mode="prune_only_second_order_fisher",
+    )
+    actions = _precision_action_space(search_space, requested_precision_actions)
+    prepared_space = replace(
+        search_space,
+        pruning_unit_ids=list(inventory.unit_ids),
+        structure_gene_type="legal_keep_width",
+        legal_width_inventory=inventory,
+        fixed_width_decoder=decoder,
+        precision_action_space=actions,
+        pruning_policy_version="legal-width-fixed-prune-only-taylor-v1",
+    )
+    return PreparedLegalWidthSearchSpace(
+        search_space=prepared_space,
+        inventory=inventory,
+        first_order_ranking=first,
+        second_order_ranking=second,
+        decoder=decoder,
+    )
+
+
+def write_legal_width_search_space_artifacts(
+    prepared: PreparedLegalWidthSearchSpace,
+    output_dir: str | Any,
+) -> dict[str, str]:
+    """Persist lightweight inventory and canonical ranking evidence."""
+
+    import json
+    from pathlib import Path
+
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    inventory_json = destination / "legal_width_inventory.json"
+    inventory_csv = destination / "legal_width_inventory.csv"
+    first_csv = destination / "canonical_prune_ranking_first_order.csv"
+    second_csv = destination / "canonical_prune_ranking_second_order.csv"
+    ranking_manifest = destination / "canonical_ranking_manifest.json"
+    width_hash = destination / "width_space_hash.json"
+    inventory_json.write_text(
+        json.dumps(prepared.inventory.to_dict(), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    inventory_fields = [
+        "domain_id",
+        "root_module",
+        "root_axis",
+        "scope_id",
+        "domain_kind",
+        "original_width",
+        "legal_keep_widths",
+        "minimum_width",
+        "alignment",
+        "group_count",
+        "per_group_original_width",
+        "protected",
+        "prunable",
+        "physical_replay_supported",
+        "exclusion_reason",
+    ]
+    with inventory_csv.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=inventory_fields)
+        writer.writeheader()
+        for domain in prepared.inventory.domains:
+            row = domain.to_dict()
+            writer.writerow(
+                {
+                    key: (
+                        json.dumps(row[key], sort_keys=True)
+                        if isinstance(row[key], (list, dict))
+                        else row[key]
+                    )
+                    for key in inventory_fields
+                }
+            )
+    ranking_fields = list(prepared.first_order_ranking.rows[0].to_dict()) if prepared.first_order_ranking.rows else []
+    for path, ranking in (
+        (first_csv, prepared.first_order_ranking),
+        (second_csv, prepared.second_order_ranking),
+    ):
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=ranking_fields)
+            writer.writeheader()
+            writer.writerows(row.to_dict() for row in ranking.rows)
+    ranking_manifest.write_text(
+        json.dumps(
+            {
+                "first_order": prepared.first_order_ranking.manifest,
+                "second_order": prepared.second_order_ranking.manifest,
+                "decoder_ranking_hash": prepared.decoder.ranking_hash,
+                "precision_action_space": prepared.search_space.precision_action_space,
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    width_hash.write_text(
+        json.dumps(
+            {"width_space_hash": prepared.inventory.width_space_hash},
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "inventory_json": str(inventory_json),
+        "inventory_csv": str(inventory_csv),
+        "first_order_ranking_csv": str(first_csv),
+        "second_order_ranking_csv": str(second_csv),
+        "ranking_manifest": str(ranking_manifest),
+        "width_space_hash": str(width_hash),
+    }
 
 
 def _domain_key(unit: Any) -> tuple[str, str, str]:

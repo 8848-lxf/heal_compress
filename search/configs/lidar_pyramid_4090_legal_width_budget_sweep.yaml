@@ -1,0 +1,24 @@
+source_config: search/configs/lidar_pyramid_4090_legal_width_joint_ga.yaml
+
+budget_sweep:
+  enabled: true
+  derive_intervals_from_anchor_results: true
+  minimum_interval_count: 5
+  include_primary_budget: 0.21
+  lower_interval_count: 2
+  higher_interval_count: 2
+  minimum_unique_feasible_phenotypes_per_interval: 5
+  minimum_total_unique_feasible_phenotypes: 30
+  minimum_total_unique_physical_structures: 15
+  hard_fail_on_unreachable_interval: true
+  do_not_hardcode_outside_anchor_range: true
+
+seeding:
+  include_original_width: true
+  include_first_order_anchors: true
+  include_second_order_anchors: true
+  include_verified_safe_structures: true
+  include_adjacent_legal_widths: true
+  include_precision_budget_solutions: true
+  include_random_legal_width_candidates: true
+  duplicate_anchor_copies: false

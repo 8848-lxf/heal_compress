@@ -259,3 +259,61 @@ def test_scalar_and_batched_joint_score_align_for_fixed_mask() -> None:
         ):
             assert row[key] == pytest.approx(expected[key], rel=1e-5, abs=1e-7)
         assert row["sqnr_main_objective_contribution"] == 0.0
+
+
+def test_stage1_evaluator_decodes_legal_width_candidate_without_repair() -> None:
+    from search.canonicalization import SearchSpaceSpec
+    from search.decoding.fixed_taylor_width_decoder import FixedTaylorWidthDecoder
+    from search.encoding.legal_width_genotype import LegalWidthGenotype
+    from search.space.legal_width_inventory import build_legal_width_inventory
+    from search.stage1.proxy_evaluator import Stage1ProxyEvaluator
+
+    units = [
+        AtomicPruneUnit(
+            "scope", "conv", "out", [index], [f"c{index}"], float(index),
+            _stable_id=f"u{index}",
+        )
+        for index in range(4)
+    ]
+    inventory = build_legal_width_inventory(
+        units, dense_alignment=1, per_domain_max_prune_rate=0.5
+    )
+    domain_id = inventory.domain_ids[0]
+    decoder = FixedTaylorWidthDecoder(
+        inventory,
+        [
+            {
+                "domain_id": domain_id,
+                "physical_group_id": 0,
+                "atomic_unit_id": f"u{index}",
+                "first_order_score": float(index),
+                "second_order_score": float(index),
+            }
+            for index in range(4)
+        ],
+    )
+    space = SearchSpaceSpec(
+        pruning_unit_ids=list(inventory.unit_ids),
+        precision_layer_ids=["conv"],
+        structure_gene_type="legal_keep_width",
+        legal_width_inventory=inventory,
+        fixed_width_decoder=decoder,
+        precision_action_space={"conv": ("FP16", "INT8")},
+    )
+
+    class Objective:
+        @staticmethod
+        def evaluate(phenotype):
+            return {
+                "F1": float(len(phenotype.pruned_unit_ids)),
+                "normal_candidate_repair_invoked": phenotype.metadata[
+                    "normal_candidate_repair_invoked"
+                ],
+            }
+
+    candidate = LegalWidthGenotype({domain_id: 0}, {"conv": "FP16"})
+    result = Stage1ProxyEvaluator(space, objective=Objective()).evaluate(candidate)
+
+    assert result["F1"] == 2.0
+    assert result["normal_candidate_repair_invoked"] is False
+    assert result["phenotype"]["metadata"]["structure_hash"]

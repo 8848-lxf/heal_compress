@@ -37,9 +37,12 @@ class FeasibleParetoArchive:
             return "R_BOPS_nonfinite"
         if bops > float(active_budget) + 1.0e-12:
             return "R_BOPS_above_active_budget"
-        for field in ("S_task", "R_param", "latency_proxy_ms"):
+        for field in ("S_task", "R_param"):
             if not math.isfinite(float(row.get(field, float("nan")))):
                 return f"{field}_nonfinite"
+        latency_proxy = row.get("latency_proxy_value", row.get("latency_proxy_ms"))
+        if not math.isfinite(float(latency_proxy)):
+            return "latency_proxy_nonfinite"
         return ""
 
     def add(self, row: Mapping[str, Any], *, active_budget: float) -> bool:
@@ -68,7 +71,7 @@ class FeasibleParetoArchive:
                 float(row["R_BOPS"]),
                 -float(row["S_task"]),
                 float(row["R_param"]),
-                float(row["latency_proxy_ms"]),
+                float(row.get("latency_proxy_value", row.get("latency_proxy_ms"))),
                 str(row["phenotype_hash"]),
             ),
         )

@@ -7,7 +7,11 @@ from typing import Any, Callable, Sequence
 
 from ..cache.proxy_cache import ProxyCache
 from ..candidate import CandidateGenotype
-from ..canonicalization import SearchSpaceSpec, canonicalize_candidate
+from ..canonicalization import (
+    SearchSpaceSpec,
+    canonicalize_candidate,
+    canonicalize_legal_width_candidate,
+)
 from ..hashing import candidate_hash
 from ..proxy.objective import ProxyObjective
 
@@ -48,9 +52,14 @@ class Stage1ProxyEvaluator:
         self.current_unique_phenotype_count = 0
         self.last_batch_stats: dict[str, Any] = {}
 
+    def _canonicalize(self, genotype: Any) -> Any:
+        if self.space.structure_gene_type == "legal_keep_width":
+            return canonicalize_legal_width_candidate(genotype, self.space)
+        return canonicalize_candidate(genotype, self.space)
+
     def evaluate(self, genotype: CandidateGenotype, *, generation: int = 0, outer_round: int = 0) -> dict[str, Any]:
         self.scalar_evaluate_call_count += 1
-        phenotype = canonicalize_candidate(genotype, self.space)
+        phenotype = self._canonicalize(genotype)
         deploy_key = candidate_hash(phenotype, self.space)
         key = self.cache_key_fn(phenotype, self.space) if self.cache_key_fn is not None else deploy_key
 
@@ -88,7 +97,7 @@ class Stage1ProxyEvaluator:
         deploy_keys = []
         cache_keys = []
         for row in genotypes_or_phenotypes:
-            phenotype = row if hasattr(row, "pruned_unit_ids") and hasattr(row, "precision_profile") else canonicalize_candidate(row, self.space)
+            phenotype = row if hasattr(row, "pruned_unit_ids") and hasattr(row, "precision_profile") else self._canonicalize(row)
             deploy_key = candidate_hash(phenotype, self.space)
             key = self.cache_key_fn(phenotype, self.space) if self.cache_key_fn is not None else deploy_key
             phenotypes.append(phenotype)

@@ -139,6 +139,14 @@ def _gpu_isolation_kwargs(request: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _requires_global_pruning_context(config: dict[str, Any]) -> bool:
+    joint_anchor = dict(config.get("joint_taylor_anchor_sweep", {}) or {})
+    pruning = dict(config.get("pruning", {}) or {})
+    return bool(joint_anchor.get("enabled", False)) or str(
+        pruning.get("gene_type", pruning.get("search_variable", ""))
+    ) == "legal_keep_width"
+
+
 def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
     from ..constrained.context import apply_constrained_pruning_context
     from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
@@ -147,8 +155,7 @@ def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
 
     context = build_lidar_pyramid_context(**_context_kwargs(request))
     config = dict(request.get("config", {}))
-    joint_anchor = dict(config.get("joint_taylor_anchor_sweep", {}) or {})
-    if bool(joint_anchor.get("enabled", False)):
+    if _requires_global_pruning_context(config):
         from ..anchors.joint_taylor_runner import apply_global_anchor_pruning_context
 
         pruning = dict(config.get("pruning", {}) or {})

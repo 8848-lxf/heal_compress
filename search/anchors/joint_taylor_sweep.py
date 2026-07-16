@@ -64,6 +64,150 @@ class AnchorSweepPlan:
         }
 
 
+def plan_legal_width_anchor_structures(
+    *,
+    inventory: Any,
+    decoder: Any,
+    ranking_rows: Sequence[Mapping[str, Any]],
+    ranking_mode: str,
+    requested_prune_rates: Sequence[float],
+    original_params: int,
+    parameter_count_fn: Callable[[dict[str, int]], int],
+) -> AnchorSweepPlan:
+    """Build one nested anchor path using adjacent legal width actions."""
+
+    if int(original_params) <= 0:
+        raise ValueError("anchor_original_params_must_be_positive")
+    score_key = (
+        "first_order_score"
+        if ranking_mode == "prune_only_first_order"
+        else "second_order_score"
+    )
+    scores = {
+        str(row["atomic_unit_id"]): float(row[score_key])
+        for row in ranking_rows
+    }
+    if set(scores) != set(inventory.unit_ids):
+        raise RuntimeError("legal_width_anchor_ranking_inventory_mismatch")
+    current = {
+        domain.domain_id: len(domain.legal_keep_widths) - 1
+        for domain in inventory.domains
+    }
+    path: list[dict[str, Any]] = []
+
+    def record(width_genes: Mapping[str, int]) -> dict[str, Any]:
+        decoded = decoder.decode(width_genes)
+        candidate_params = int(parameter_count_fn(decoded.group_mask))
+        if not 0 <= candidate_params <= int(original_params):
+            raise RuntimeError("legal_width_anchor_parameter_count_invalid")
+        rates = {}
+        for domain in inventory.domains:
+            pruned = sum(
+                int(decoded.group_mask[unit_id]) == 0 for unit_id in domain.unit_ids
+            )
+            rates[domain.domain_id] = float(pruned / max(domain.original_width, 1))
+        return {
+            "width_genes": dict(width_genes),
+            "decoded": decoded,
+            "candidate_params": candidate_params,
+            "realized_prune_rate": 1.0 - candidate_params / float(original_params),
+            "domain_prune_rates": rates,
+        }
+
+    path.append(record(current))
+    while any(index > 0 for index in current.values()):
+        before = path[-1]["decoded"]
+        moves = []
+        before_pruned = set(before.pruned_unit_ids)
+        for domain_id, index in sorted(current.items()):
+            if index <= 0:
+                continue
+            candidate_genes = dict(current)
+            candidate_genes[domain_id] = index - 1
+            candidate = record(candidate_genes)
+            newly_pruned = set(candidate["decoded"].pruned_unit_ids) - before_pruned
+            if not newly_pruned:
+                raise RuntimeError(
+                    f"legal_width_anchor_nonprogressing_move:{domain_id}:{index}"
+                )
+            moves.append(
+                (
+                    sum(scores[unit_id] for unit_id in newly_pruned),
+                    domain_id,
+                    candidate,
+                )
+            )
+        if not moves:
+            break
+        _cost, selected_domain, selected = min(
+            moves, key=lambda row: (float(row[0]), str(row[1]))
+        )
+        current = dict(selected["width_genes"])
+        selected["transition_domain"] = selected_domain
+        path.append(selected)
+    maximum = max(row["realized_prune_rate"] for row in path)
+    mode_token = (
+        "first" if ranking_mode == "prune_only_first_order" else "second"
+    )
+    structures = []
+    for requested in requested_prune_rates:
+        target = float(requested)
+        selected = min(
+            path,
+            key=lambda row: (
+                round(abs(float(row["realized_prune_rate"]) - target), 12),
+                float(row["realized_prune_rate"]) > target,
+                row["decoded"].structure_hash,
+            ),
+        )
+        decoded = selected["decoded"]
+        structures.append(
+            AnchorStructure(
+                anchor_id=f"{mode_token}_prune_{int(round(target * 10000)):04d}",
+                requested_prune_rate=target,
+                realized_prune_rate=float(selected["realized_prune_rate"]),
+                original_params=int(original_params),
+                candidate_params=int(selected["candidate_params"]),
+                group_mask=dict(decoded.group_mask),
+                mask_hash=str(decoded.structure_hash),
+                domain_prune_rates=dict(selected["domain_prune_rates"]),
+                infeasible_under_domain_cap=target > maximum + 1.0e-12,
+                repair_metadata={
+                    **decoded.to_dict(),
+                    "ranking_mode": ranking_mode,
+                    "repair_invoked": False,
+                    "conditional_channel_refinement": False,
+                    "transition_domain": selected.get("transition_domain", ""),
+                },
+            )
+        )
+    global_rows = [
+        {
+            **dict(row),
+            "ranking_mode": ranking_mode,
+            "importance": float(row[score_key]),
+        }
+        for row in ranking_rows
+    ]
+    global_rows.sort(
+        key=lambda row: (float(row["importance"]), str(row["atomic_unit_id"]))
+    )
+    for rank, row in enumerate(global_rows, start=1):
+        row["global_rank"] = rank
+    return AnchorSweepPlan(
+        structures=tuple(structures),
+        global_ranking=tuple(global_rows),
+        maximum_realized_prune_rate=float(maximum),
+        per_domain_max_prune_rate=max(
+            (
+                max(row["domain_prune_rates"].values(), default=0.0)
+                for row in path
+            ),
+            default=0.0,
+        ),
+    )
+
+
 def global_group_ranking(units: Sequence[AnchorPruningUnit]) -> list[dict[str, Any]]:
     rows = [
         {

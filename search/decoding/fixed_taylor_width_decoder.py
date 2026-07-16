@@ -201,6 +201,8 @@ class DecodedWidthStructure:
     group_prune_map: dict[int, tuple[int, ...]]
     per_domain_group_keep_map: dict[str, dict[int, tuple[int, ...]]]
     per_domain_group_prune_map: dict[str, dict[int, tuple[int, ...]]]
+    group_keep_map_by_scope: dict[str, dict[int, tuple[int, ...]]]
+    group_prune_map_by_scope: dict[str, dict[int, tuple[int, ...]]]
     width_vector_hash: str
     structure_hash: str
     physical_plan_hash: str
@@ -220,6 +222,14 @@ class DecodedWidthStructure:
             "per_domain_group_prune_map": {
                 domain: {str(group): list(values) for group, values in sorted(rows.items())}
                 for domain, rows in sorted(self.per_domain_group_prune_map.items())
+            },
+            "group_keep_map_by_scope": {
+                scope: {str(group): list(values) for group, values in sorted(rows.items())}
+                for scope, rows in sorted(self.group_keep_map_by_scope.items())
+            },
+            "group_prune_map_by_scope": {
+                scope: {str(group): list(values) for group, values in sorted(rows.items())}
+                for scope, rows in sorted(self.group_prune_map_by_scope.items())
             },
             "width_vector_hash": self.width_vector_hash,
             "structure_hash": self.structure_hash,
@@ -315,6 +325,8 @@ class FixedTaylorWidthDecoder:
         keep_widths: dict[str, int] = {}
         domain_keep_maps: dict[str, dict[int, tuple[int, ...]]] = {}
         domain_prune_maps: dict[str, dict[int, tuple[int, ...]]] = {}
+        keep_maps_by_scope: dict[str, dict[int, tuple[int, ...]]] = {}
+        prune_maps_by_scope: dict[str, dict[int, tuple[int, ...]]] = {}
         pruned: set[str] = set()
         for domain in self.inventory.domains:
             index = genes[domain.domain_id]
@@ -353,6 +365,13 @@ class FixedTaylorWidthDecoder:
                 per_group_keep[int(physical_group)] = kept_local
             domain_prune_maps[domain.domain_id] = per_group_prune
             domain_keep_maps[domain.domain_id] = per_group_keep
+            if domain.domain_kind == "grouped":
+                if domain.scope_id in keep_maps_by_scope:
+                    raise RuntimeError(
+                        f"grouped_scope_has_multiple_width_domains:{domain.scope_id}"
+                    )
+                keep_maps_by_scope[domain.scope_id] = per_group_keep
+                prune_maps_by_scope[domain.scope_id] = per_group_prune
         width_hash = canonical_json_hash(genes)
         structure_payload = {
             "inventory_hash": self.inventory.width_space_hash,
@@ -377,6 +396,8 @@ class FixedTaylorWidthDecoder:
             group_prune_map=dict(domain_prune_maps.get(only_domain, {})),
             per_domain_group_keep_map=domain_keep_maps,
             per_domain_group_prune_map=domain_prune_maps,
+            group_keep_map_by_scope=keep_maps_by_scope,
+            group_prune_map_by_scope=prune_maps_by_scope,
             width_vector_hash=width_hash,
             structure_hash=structure_hash,
             physical_plan_hash=physical_plan_hash,
