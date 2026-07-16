@@ -8,6 +8,8 @@ import math
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+from ..admission.bops_band import BopsBandPolicy, classify_bops_value
+
 
 def fixed_bops_admission(
     retention: float,
@@ -15,11 +17,19 @@ def fixed_bops_admission(
     target: float,
     tolerance: float,
 ) -> dict[str, Any]:
-    lower = float(target) - float(tolerance)
-    upper = float(target) + float(tolerance)
-    violation = max(0.0, abs(float(retention) - float(target)) - float(tolerance))
+    policy = BopsBandPolicy(
+        target=float(target),
+        primary_tolerance=float(tolerance),
+        expanded_tolerance=float(tolerance),
+    )
+    classification = classify_bops_value(float(retention), policy=policy)
+    lower, upper = classification["primary_interval"]
+    violation = max(
+        0.0,
+        float(classification["absolute_error"]) - float(tolerance),
+    )
     return {
-        "passed": violation <= 1.0e-12,
+        "passed": classification["classification"] == "primary",
         "retention": float(retention),
         "target": float(target),
         "tolerance": float(tolerance),
