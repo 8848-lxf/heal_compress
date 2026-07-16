@@ -9,9 +9,11 @@ from typing import Any
 from ..candidate import CandidatePhenotype, PrecisionDecision
 from .bops_proxy import BOPSProxy
 from .fisher_proxy import FisherTaylorProxy
+from .joint_taylor import JointTaylorProxy
 from .normalization import NormalizationStats
 from .size_proxy import SizeProxy
 from .sqnr_proxy import SQNRProxy
+from .task_score import compute_exponential_j1
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,8 @@ class ProxyObjectiveConfig:
     interaction_weight: float = 1.0
     mac_weighted_sensitivity_weight: float = 0.0
     illegal_score: float = float("inf")
+    proxy_mode: str = "legacy_fisher_sqnr"
+    exponential_task_score_tau: float | None = None
 
 
 def bops_target_for_generation(generation: int, num_generations: int, schedule: dict[str, float] | None) -> float | None:
@@ -80,6 +84,7 @@ class ProxyObjective:
         sqnr: SQNRProxy | None = None,
         size: SizeProxy | None = None,
         bops: BOPSProxy | None = None,
+        joint: JointTaylorProxy | None = None,
         *,
         normalization: NormalizationStats | None = None,
         config: ProxyObjectiveConfig | None = None,
@@ -88,12 +93,59 @@ class ProxyObjective:
         self.sqnr = sqnr or SQNRProxy()
         self.size = size or SizeProxy(layer_parameter_counts={})
         self.bops = bops or BOPSProxy(layer_ops={})
+        self.joint = joint
         self.normalization = normalization or NormalizationStats()
         self.config = config or ProxyObjectiveConfig()
 
     def evaluate(self, phenotype: CandidatePhenotype, *, legal: bool = True) -> dict[str, Any]:
         if not legal:
             return {"F1": self.config.illegal_score, "legal": False}
+        if str(self.config.proxy_mode).startswith("joint_taylor"):
+            if self.joint is None:
+                raise RuntimeError("joint_taylor_objective_missing_proxy")
+            if self.config.exponential_task_score_tau is None:
+                raise RuntimeError("joint_taylor_objective_missing_fixed_tau")
+            joint = self.joint.evaluate(phenotype)
+            if not joint.finite:
+                return {
+                    "F1": self.config.illegal_score,
+                    "legal": False,
+                    "failure_reason": joint.failure_reason,
+                }
+            original_params, candidate_params = self.size.structural_parameter_counts(
+                phenotype
+            )
+            task = compute_exponential_j1(
+                l_joint=joint.total_importance,
+                l_joint_first_order=joint.first_order_sum,
+                l_joint_second_order=joint.second_order_fisher_sum,
+                tau=float(self.config.exponential_task_score_tau),
+                original_params=original_params,
+                candidate_params=candidate_params,
+                proxy_mode=self.config.proxy_mode,
+            )
+            bops_metrics = self.bops.evaluate_breakdown(phenotype)
+            return {
+                **task,
+                "L_fisher": float(joint.total_importance),
+                "L_sqnr": 0.0,
+                "R_bops": float(bops_metrics["R_bops_vs_fp32"]),
+                "R_bops_vs_fp16_deploy": float(
+                    bops_metrics["R_bops_vs_fp16_deploy"]
+                ),
+                "R_bops_vs_fp32": float(bops_metrics["R_bops_vs_fp32"]),
+                "R_bops_reference": "original_fp32",
+                "int8_macs_ratio": float(bops_metrics["int8_macs_ratio"]),
+                "int8_macs_share_full": float(
+                    bops_metrics["int8_macs_share_full"]
+                ),
+                "R_MAC": float(bops_metrics["R_MAC"]),
+                "bops_fp16_baseline": float(bops_metrics["bops_fp16_baseline"]),
+                "bops_fp32_baseline": float(bops_metrics["bops_fp32_baseline"]),
+                "proxy_score_raw": float(task["F1"]),
+                "legal": True,
+                "normalization": {"strategy": "none"},
+            }
         fisher = self.fisher.evaluate(phenotype)
         sqnr = self.sqnr.evaluate(phenotype)
         fp16_phenotype = CandidatePhenotype(

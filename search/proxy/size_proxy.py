@@ -36,6 +36,24 @@ class SizeProxy:
     def evaluate(self, phenotype: CandidatePhenotype) -> float:
         return float(self.evaluate_breakdown(phenotype)["R_size_vs_fp32"])
 
+    def structural_parameter_counts(
+        self, phenotype: CandidatePhenotype
+    ) -> tuple[int, int]:
+        """Return original/candidate counts without applying precision bits."""
+
+        if self.model is None:
+            original = int(sum(self.layer_parameter_counts.values()))
+            return original, original
+        original = int(sum(parameter.numel() for parameter in self.model.parameters()))
+        if not self.unit_to_parameter_slices:
+            return original, original
+        shapes = resolve_virtual_shapes(
+            self.model, phenotype, self.unit_to_parameter_slices
+        )
+        mapped_before = sum(row.parameter_count_before for row in shapes.values())
+        mapped_after = sum(row.parameter_count_after for row in shapes.values())
+        return original, int(original - mapped_before + mapped_after)
+
     def evaluate_breakdown(self, phenotype: CandidatePhenotype) -> dict[str, float]:
         if self.model is not None and self.unit_to_parameter_slices:
             shapes = resolve_virtual_shapes(self.model, phenotype, self.unit_to_parameter_slices)

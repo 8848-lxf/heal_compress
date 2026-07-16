@@ -14,6 +14,7 @@ from ..stage1.proxy_evaluator import BatchProxyResult
 from .batch_channel_resolver import BatchChannelResolver, BatchChannelTables
 from .candidate_perturbation import pseudo_quantize_tensor
 from .fisher_proxy import FisherStatistics
+from .joint_taylor import _pseudo_quantize as _joint_pseudo_quantize
 from .normalization import NormalizationStats
 from .parameter_slice_resolver import ParameterSlice
 from .runtime_shape_profiler import RuntimeLayerShape
@@ -145,6 +146,14 @@ class TorchBatchedProxyScorer:
     fisher_out_vector: torch.Tensor
     fisher_weight_total: torch.Tensor
     fisher_total: torch.Tensor
+    joint_prune_first_weight: torch.Tensor
+    joint_prune_second_weight: torch.Tensor
+    joint_prune_first_vector: torch.Tensor
+    joint_prune_second_vector: torch.Tensor
+    joint_quant_first_weight: torch.Tensor
+    joint_quant_second_weight: torch.Tensor
+    joint_quant_first_vector: torch.Tensor
+    joint_quant_second_vector: torch.Tensor
     sqnr_noise_table: torch.Tensor
     sqnr_signal_matrix: torch.Tensor
     sqnr_noise_matrix: torch.Tensor
@@ -325,6 +334,18 @@ class TorchBatchedProxyScorer:
         sqnr_noise = torch.zeros((len(layer_ids), 3), dtype=torch.float32)
         fisher_weight_matrix = torch.zeros((len(layer_ids), max_channels, max_channels), dtype=torch.float64)
         fisher_out_vector = torch.zeros((len(layer_ids), max_channels), dtype=torch.float64)
+        joint_prune_first_weight = torch.zeros_like(fisher_weight_matrix)
+        joint_prune_second_weight = torch.zeros_like(fisher_weight_matrix)
+        joint_prune_first_vector = torch.zeros_like(fisher_out_vector)
+        joint_prune_second_vector = torch.zeros_like(fisher_out_vector)
+        joint_quant_first_weight = torch.zeros(
+            (len(layer_ids), max_channels, max_channels, 3), dtype=torch.float64
+        )
+        joint_quant_second_weight = torch.zeros_like(joint_quant_first_weight)
+        joint_quant_first_vector = torch.zeros(
+            (len(layer_ids), max_channels, 3), dtype=torch.float64
+        )
+        joint_quant_second_vector = torch.zeros_like(joint_quant_first_vector)
         sqnr_signal_matrix = torch.zeros((len(layer_ids), max_channels, max_channels), dtype=torch.float32)
         sqnr_noise_matrix = torch.zeros((len(layer_ids), max_channels, max_channels, 3), dtype=torch.float32)
         for name, idx in layer_index.items():
@@ -335,22 +356,34 @@ class TorchBatchedProxyScorer:
             w = weight.detach()
             signal = float(w.pow(2).sum().cpu())
             sqnr_signal[idx] = signal
-            grad = fisher_statistics.gradients.get(f"{name}.weight")
-            fisher = fisher_statistics.fisher_diag.get(f"{name}.weight")
-            if grad is not None and fisher is not None:
-                grad_value = grad.detach().to(device=w.device, dtype=w.dtype)
-                fisher_value = fisher.detach().to(device=w.device, dtype=w.dtype)
-                contribution = (grad_value * w).abs() + 0.5 * fisher_value * w.pow(2)
+            weight_grad = fisher_statistics.gradients.get(f"{name}.weight")
+            weight_fisher = fisher_statistics.fisher_diag.get(f"{name}.weight")
+            weight_grad_value = None
+            weight_fisher_value = None
+            if weight_grad is not None and weight_fisher is not None:
+                weight_grad_value = weight_grad.detach().to(device=w.device, dtype=w.dtype)
+                weight_fisher_value = weight_fisher.detach().to(device=w.device, dtype=w.dtype)
+                prune_first = (weight_grad_value * w).abs()
+                prune_second = 0.5 * weight_fisher_value * w.pow(2)
+                contribution = prune_first + prune_second
                 if contribution.ndim >= 2:
                     reduced = contribution.reshape(contribution.shape[0], contribution.shape[1], -1).sum(dim=2)
+                    reduced_first = prune_first.reshape(prune_first.shape[0], prune_first.shape[1], -1).sum(dim=2)
+                    reduced_second = prune_second.reshape(prune_second.shape[0], prune_second.shape[1], -1).sum(dim=2)
                     if isinstance(module, nn.ConvTranspose2d):
                         reduced = reduced.transpose(0, 1)
+                        reduced_first = reduced_first.transpose(0, 1)
+                        reduced_second = reduced_second.transpose(0, 1)
                     out_stop = min(max_channels, int(reduced.shape[0]))
                     in_stop = min(max_channels, int(reduced.shape[1]))
                     fisher_weight_matrix[idx, :out_stop, :in_stop] = reduced[:out_stop, :in_stop].detach().double().cpu()
+                    joint_prune_first_weight[idx, :out_stop, :in_stop] = reduced_first[:out_stop, :in_stop].detach().double().cpu()
+                    joint_prune_second_weight[idx, :out_stop, :in_stop] = reduced_second[:out_stop, :in_stop].detach().double().cpu()
                 elif contribution.ndim == 1:
                     stop = min(max_channels, int(contribution.shape[0]))
                     fisher_out_vector[idx, :stop] += contribution[:stop].detach().double().cpu()
+                    joint_prune_first_vector[idx, :stop] += prune_first[:stop].detach().double().cpu()
+                    joint_prune_second_vector[idx, :stop] += prune_second[:stop].detach().double().cpu()
             bias = getattr(module, "bias", None)
             if bias is not None:
                 grad = fisher_statistics.gradients.get(f"{name}.bias")
@@ -362,9 +395,40 @@ class TorchBatchedProxyScorer:
                     contribution = (grad_value * b).abs() + 0.5 * fisher_value * b.pow(2)
                     stop = min(max_channels, int(contribution.shape[0]))
                     fisher_out_vector[idx, :stop] += contribution[:stop].detach().double().cpu()
+                    joint_prune_first_vector[idx, :stop] += (grad_value * b).abs()[:stop].detach().double().cpu()
+                    joint_prune_second_vector[idx, :stop] += (0.5 * fisher_value * b.pow(2))[:stop].detach().double().cpu()
             for precision, pidx in {"FP32": 0, "FP16": 1, "INT8": 2}.items():
                 q = pseudo_quantize_tensor(w, precision)
                 sqnr_noise[idx, pidx] = float((q - w).pow(2).sum().cpu())
+                if weight_grad_value is not None and weight_fisher_value is not None:
+                    delta = _joint_pseudo_quantize(w, precision) - w
+                    quant_first = (weight_grad_value * delta).abs()
+                    quant_second = 0.5 * weight_fisher_value * delta.pow(2)
+                    if w.ndim >= 2:
+                        reduced_first = quant_first.reshape(quant_first.shape[0], quant_first.shape[1], -1).sum(dim=2)
+                        reduced_second = quant_second.reshape(quant_second.shape[0], quant_second.shape[1], -1).sum(dim=2)
+                        if isinstance(module, nn.ConvTranspose2d):
+                            reduced_first = reduced_first.transpose(0, 1)
+                            reduced_second = reduced_second.transpose(0, 1)
+                        out_stop = min(max_channels, int(reduced_first.shape[0]))
+                        in_stop = min(max_channels, int(reduced_first.shape[1]))
+                        joint_quant_first_weight[idx, :out_stop, :in_stop, pidx] = reduced_first[:out_stop, :in_stop].detach().double().cpu()
+                        joint_quant_second_weight[idx, :out_stop, :in_stop, pidx] = reduced_second[:out_stop, :in_stop].detach().double().cpu()
+                    elif w.ndim == 1:
+                        stop = min(max_channels, int(w.shape[0]))
+                        joint_quant_first_vector[idx, :stop, pidx] += quant_first[:stop].detach().double().cpu()
+                        joint_quant_second_vector[idx, :stop, pidx] += quant_second[:stop].detach().double().cpu()
+                bias = getattr(module, "bias", None)
+                bias_grad = fisher_statistics.gradients.get(f"{name}.bias")
+                bias_fisher = fisher_statistics.fisher_diag.get(f"{name}.bias")
+                if bias is not None and bias_grad is not None and bias_fisher is not None:
+                    b = bias.detach()
+                    b_delta = _joint_pseudo_quantize(b, precision) - b
+                    b_grad = bias_grad.detach().to(device=b.device, dtype=b.dtype)
+                    b_fisher = bias_fisher.detach().to(device=b.device, dtype=b.dtype)
+                    stop = min(max_channels, int(b.shape[0]))
+                    joint_quant_first_vector[idx, :stop, pidx] += (b_grad * b_delta).abs()[:stop].detach().double().cpu()
+                    joint_quant_second_vector[idx, :stop, pidx] += (0.5 * b_fisher * b_delta.pow(2))[:stop].detach().double().cpu()
                 if w.ndim >= 2:
                     signal_reduced = w.pow(2).reshape(w.shape[0], w.shape[1], -1).sum(dim=2)
                     noise_reduced = (q - w).pow(2).reshape(w.shape[0], w.shape[1], -1).sum(dim=2)
@@ -409,6 +473,14 @@ class TorchBatchedProxyScorer:
             fisher_out_vector=fisher_out_vector.to(target),
             fisher_weight_total=fisher_weight_total.to(target),
             fisher_total=fisher_total.to(target).clamp_min(1.0e-12),
+            joint_prune_first_weight=joint_prune_first_weight.to(target),
+            joint_prune_second_weight=joint_prune_second_weight.to(target),
+            joint_prune_first_vector=joint_prune_first_vector.to(target),
+            joint_prune_second_vector=joint_prune_second_vector.to(target),
+            joint_quant_first_weight=joint_quant_first_weight.to(target),
+            joint_quant_second_weight=joint_quant_second_weight.to(target),
+            joint_quant_first_vector=joint_quant_first_vector.to(target),
+            joint_quant_second_vector=joint_quant_second_vector.to(target),
             sqnr_noise_table=sqnr_noise.to(target),
             sqnr_signal_matrix=sqnr_signal_matrix.to(target),
             sqnr_noise_matrix=sqnr_noise_matrix.to(target),
@@ -478,6 +550,16 @@ class TorchBatchedProxyScorer:
             "int8_macs_share_full": [],
             "R_MAC": [],
             "F1": [],
+            "L_joint_raw": [],
+            "L_joint_first_order": [],
+            "L_joint_second_order": [],
+            "S_task": [],
+            "original_params": [],
+            "candidate_params": [],
+            "R_prune": [],
+            "J1": [],
+            "exponent_value": [],
+            "task_score_saturated": [],
         }
         batch_count = 0
         for start_idx in range(0, len(phenotypes), self.batch_size):
@@ -489,7 +571,9 @@ class TorchBatchedProxyScorer:
             layer_precision = torch.where(
                 self.layer_has_group.unsqueeze(0),
                 precision[:, self.layer_to_group],
-                torch.ones((precision.shape[0], len(self.layer_ids)), dtype=torch.long, device=self.device),
+                torch.zeros((precision.shape[0], len(self.layer_ids)), dtype=torch.long, device=self.device)
+                if str(getattr(self.config, "proxy_mode", "")).startswith("joint_taylor")
+                else torch.ones((precision.shape[0], len(self.layer_ids)), dtype=torch.long, device=self.device),
             )
             layer_bits = self.precision_bits[layer_precision]
             params_after = channel["params_after"]
@@ -527,6 +611,63 @@ class TorchBatchedProxyScorer:
                     (fp16_noise_after / (signal_after + 1.0e-12))
                     * self.sqnr_active_mask.unsqueeze(0)
                 ).sum(dim=1)
+                retained_out_joint = retained_out.to(dtype=torch.float64)
+                retained_in_joint = retained_in.to(dtype=torch.float64)
+
+                def retained_weight(matrix: torch.Tensor) -> torch.Tensor:
+                    return torch.einsum(
+                        "blo,loi,bli->bl",
+                        retained_out_joint,
+                        matrix,
+                        retained_in_joint,
+                    )
+
+                def retained_vector(vector: torch.Tensor) -> torch.Tensor:
+                    return (retained_out_joint * vector.unsqueeze(0)).sum(dim=2)
+
+                retained_prune_first = retained_weight(
+                    self.joint_prune_first_weight
+                ) + retained_vector(self.joint_prune_first_vector)
+                retained_prune_second = retained_weight(
+                    self.joint_prune_second_weight
+                ) + retained_vector(self.joint_prune_second_vector)
+                quant_first = torch.zeros_like(retained_prune_first)
+                quant_second = torch.zeros_like(retained_prune_second)
+                for precision_idx in range(3):
+                    current_first = retained_weight(
+                        self.joint_quant_first_weight[:, :, :, precision_idx]
+                    ) + retained_vector(
+                        self.joint_quant_first_vector[:, :, precision_idx]
+                    )
+                    current_second = retained_weight(
+                        self.joint_quant_second_weight[:, :, :, precision_idx]
+                    ) + retained_vector(
+                        self.joint_quant_second_vector[:, :, precision_idx]
+                    )
+                    quant_first = torch.where(
+                        layer_precision == precision_idx,
+                        current_first,
+                        quant_first,
+                    )
+                    quant_second = torch.where(
+                        layer_precision == precision_idx,
+                        current_second,
+                        quant_second,
+                    )
+                prune_first_total = (
+                    self.joint_prune_first_weight.sum(dim=(1, 2))
+                    + self.joint_prune_first_vector.sum(dim=1)
+                ).unsqueeze(0)
+                prune_second_total = (
+                    self.joint_prune_second_weight.sum(dim=(1, 2))
+                    + self.joint_prune_second_vector.sum(dim=1)
+                ).unsqueeze(0)
+                joint_first = (
+                    prune_first_total - retained_prune_first + quant_first
+                ).sum(dim=1)
+                joint_second = (
+                    prune_second_total - retained_prune_second + quant_second
+                ).sum(dim=1)
             else:
                 fisher = pruning.matmul(self.action_fisher_cost) / self.action_fisher_cost.sum().clamp_min(1.0e-12)
                 sqnr_noise_total = torch.gather(
@@ -549,6 +690,8 @@ class TorchBatchedProxyScorer:
                     (fp16_noise_after / (signal_after + 1.0e-12))
                     * self.sqnr_active_mask.unsqueeze(0)
                 ).sum(dim=1)
+                joint_first = fisher.to(dtype=torch.float64)
+                joint_second = torch.zeros_like(joint_first)
             macs_after = self.channel_resolver.macs_after(channel)
             shape_bits = layer_bits[:, self.channel_resolver.shape_layer_indices]
             bops = (macs_after * shape_bits * shape_bits).sum(dim=1)
@@ -599,7 +742,30 @@ class TorchBatchedProxyScorer:
                     + float(getattr(self.config, "gamma_size", 1.0)) * r_size
                     + float(getattr(self.config, "delta_bops", 1.0)) * p_bops
                 )
-            metric_chunks["L_fisher"].append(fisher.detach())
+            joint_mode = str(
+                getattr(self.config, "proxy_mode", "legacy_fisher_sqnr")
+            ).startswith("joint_taylor")
+            original_params = self.channel_resolver.base_params.sum().to(torch.float64)
+            candidate_params = params_after.sum(dim=1).to(torch.float64)
+            r_prune = 1.0 - candidate_params / original_params.clamp_min(1.0)
+            l_joint = joint_first + joint_second
+            if joint_mode:
+                tau = getattr(self.config, "exponential_task_score_tau", None)
+                if tau is None or not float(tau) > 0.0:
+                    raise RuntimeError("joint_taylor_objective_missing_fixed_tau")
+                raw_exponent = l_joint / float(tau)
+                exponent = raw_exponent.clamp(max=80.0)
+                s_task = torch.exp(-exponent)
+                j1 = 0.8 * s_task + 0.2 * r_prune
+                score = -j1
+            else:
+                raw_exponent = torch.zeros_like(l_joint)
+                exponent = torch.zeros_like(l_joint)
+                s_task = torch.zeros_like(l_joint)
+                j1 = -score.to(dtype=torch.float64)
+            metric_chunks["L_fisher"].append(
+                l_joint.detach() if joint_mode else fisher.detach()
+            )
             metric_chunks["L_sqnr"].append(sqnr.detach())
             metric_chunks["L_quant_incremental"].append(quant_incremental.detach())
             metric_chunks["L_prune_x_quant_prior"].append(interaction_prior.detach())
@@ -615,6 +781,22 @@ class TorchBatchedProxyScorer:
             metric_chunks["int8_macs_share_full"].append(int8_macs_share_full.detach())
             metric_chunks["R_MAC"].append(r_mac.detach())
             metric_chunks["F1"].append(score.detach())
+            metric_chunks["L_joint_raw"].append(l_joint.detach())
+            metric_chunks["L_joint_first_order"].append(joint_first.detach())
+            metric_chunks["L_joint_second_order"].append(joint_second.detach())
+            metric_chunks["S_task"].append(s_task.detach())
+            metric_chunks["original_params"].append(
+                original_params.expand_as(candidate_params).detach()
+            )
+            metric_chunks["candidate_params"].append(candidate_params.detach())
+            metric_chunks["R_prune"].append(r_prune.detach())
+            metric_chunks["J1"].append(j1.detach())
+            metric_chunks["exponent_value"].append(exponent.detach())
+            metric_chunks["task_score_saturated"].append(
+                (raw_exponent > 80.0).detach()
+                if joint_mode
+                else torch.zeros_like(l_joint, dtype=torch.bool)
+            )
         if self.device.type == "cuda" and start is not None and end is not None:
             end.record()
             torch.cuda.synchronize(self.device)
@@ -660,6 +842,30 @@ class TorchBatchedProxyScorer:
                     "F1": score,
                     "legal": True,
                     "normalization": normalization_payload,
+                    "L_joint_raw": float(metrics_cpu["L_joint_raw"][idx]),
+                    "L_joint_first_order": float(metrics_cpu["L_joint_first_order"][idx]),
+                    "L_joint_second_order": float(metrics_cpu["L_joint_second_order"][idx]),
+                    "tau": (
+                        float(getattr(self.config, "exponential_task_score_tau"))
+                        if getattr(self.config, "exponential_task_score_tau", None)
+                        is not None
+                        else None
+                    ),
+                    "exponent_value": float(metrics_cpu["exponent_value"][idx]),
+                    "S_task": float(metrics_cpu["S_task"][idx]),
+                    "original_params": int(metrics_cpu["original_params"][idx]),
+                    "candidate_params": int(metrics_cpu["candidate_params"][idx]),
+                    "R_prune": float(metrics_cpu["R_prune"][idx]),
+                    "J1": float(metrics_cpu["J1"][idx]),
+                    "proxy_mode": str(
+                        getattr(self.config, "proxy_mode", "legacy_fisher_sqnr")
+                    ),
+                    "task_score_saturated": bool(
+                        metrics_cpu["task_score_saturated"][idx]
+                    ),
+                    "sqnr_main_objective_contribution": 0.0
+                    if str(getattr(self.config, "proxy_mode", "")).startswith("joint_taylor")
+                    else None,
                     "generation": generation,
                     "outer_round": outer_round,
                 }
