@@ -98,6 +98,15 @@ def test_multi_seed_stage1_runs_full_generations_without_normal_repair(tmp_path:
     assert len(result["generation_summaries"]) == 6
     assert result["repair_report"]["normal_candidate_count"] == 48
     assert result["repair_report"]["repair_invocation_count"] == 0
+    assert set(result["generation_records"]) == {0, 1, 2}
+    assert all(set(rows) == {0, 1} for rows in result["generation_records"].values())
+    assert {
+        row.genotype.genotype_hash
+        for row in result["generation_records"][0][0]
+    } != {
+        row.genotype.genotype_hash
+        for row in result["generation_records"][0][1]
+    }
     assert result["archive_summary"]["feasible_phenotype_count"] > 0
     assert (tmp_path / "stage1_legal_width_summary.json").is_file()
 
@@ -435,7 +444,7 @@ def test_anchor_width_seed_is_inserted_once(tmp_path: Path) -> None:
 
     population = _initial_population(
         space,
-        size=4,
+        size=3,
         rng=random.Random(5),
         anchor_width_seeds=[
             {"width_genes": width_seed, "ranking_mode": "first"},
@@ -450,3 +459,45 @@ def test_anchor_width_seed_is_inserted_once(tmp_path: Path) -> None:
     ]
     assert len(matches) == 1
     assert matches[0].meta["seed_family"] == "anchor_derived"
+
+
+
+def test_greedy_endpoint_manifest_supplies_width_and_precision_seeds(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    from search.orchestration.legal_width_joint_ga import (
+        _load_anchor_width_seeds,
+    )
+
+    greedy_dir = tmp_path / "greedy"
+    greedy_dir.mkdir()
+    (greedy_dir / "budget_020_endpoint.json").write_text(
+        json.dumps(
+            {
+                "candidate_hash": "greedy-candidate",
+                "genotype": {
+                    "width_genes": {"domain": 2},
+                    "precision_genes": {"pg": "INT8"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rows = _load_anchor_width_seeds(
+        {
+            "anchor_structure_manifest": None,
+            "greedy_endpoint_manifest": str(greedy_dir),
+        }
+    )
+
+    assert rows == [
+        {
+            "anchor_id": "greedy-candidate",
+            "ranking_mode": "greedy_endpoint",
+            "width_genes": {"domain": 2},
+            "precision_genes": {"pg": "INT8"},
+        }
+    ]

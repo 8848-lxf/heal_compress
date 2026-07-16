@@ -71,6 +71,7 @@ from .generation_stage2 import deploy_generation_with_backfill, fixed_bops_admis
 from .gpu_scheduler import select_stage2_gpu_ids
 from .legal_width_joint_ga import run_legal_width_budget_sweep
 from .legal_width_greedy import run_six_budget_greedy
+from .legal_width_six_budget_ga import run_six_budget_joint_ga
 from .legal_width_stage2 import (
     run_legal_width_full_validation,
     run_legal_width_stage2_screening,
@@ -963,6 +964,69 @@ class LidarPyramidTwoStageSearch:
                 ),
             )
         if legal_width_mode:
+            if (
+                str(search_cfg.get("orchestration", ""))
+                == "three_seed_six_budget_joint_ga"
+            ):
+                if stage1_only:
+                    raise RuntimeError(
+                        "three_seed_six_budget_joint_ga_requires_stage2_execution"
+                    )
+                if stage2_pool is None:
+                    raise RuntimeError("joint_six_budget_stage2_process_pool_required")
+                if greedy_result is not None:
+                    search_cfg["anchor_width_seeds"] = [
+                        *list(search_cfg.get("anchor_width_seeds", []) or []),
+                        *[
+                            {
+                                "anchor_id": str(
+                                    endpoint.get("candidate_hash", "")
+                                ),
+                                "ranking_mode": "greedy_endpoint",
+                                "width_genes": dict(
+                                    endpoint.get("genotype", {}).get(
+                                        "width_genes", {}
+                                    )
+                                ),
+                                "precision_genes": dict(
+                                    endpoint.get("genotype", {}).get(
+                                        "precision_genes",
+                                        endpoint.get("genotype", {}).get(
+                                            "layer_bitwidth", {}
+                                        ),
+                                    )
+                                ),
+                            }
+                            for endpoint in greedy_result.get("endpoints", [])
+                        ],
+                    ]
+                try:
+                    joint_ga = run_six_budget_joint_ga(
+                        context=context,
+                        proxy=proxy,
+                        stage2_pool=stage2_pool,
+                        run_dir=run_dir,
+                        config=search_cfg,
+                    )
+                finally:
+                    stage2_pool.close()
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest["joint_six_budget_ga"] = {
+                    key: value
+                    for key, value in joint_ga.items()
+                    if key not in {"generation_winners", "budget_reports"}
+                }
+                manifest["joint_six_budget_ga"]["generation_winner_count"] = len(
+                    joint_ga["generation_winners"]
+                )
+                _write_json(manifest_path, manifest)
+                return {
+                    "run_dir": str(run_dir),
+                    "selected_gpu": context.physical_gpu_id,
+                    "joint_six_budget_ga": joint_ga,
+                    "STAGE_A_STARTED": False,
+                    "STAGE_B_ALLOWED": False,
+                }
             stage1_result = run_legal_width_budget_sweep(
                 context=context,
                 proxy=proxy,

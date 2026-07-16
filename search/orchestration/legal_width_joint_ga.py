@@ -75,17 +75,18 @@ def _initial_population(
         }
         if set(widths) != set(full_widths):
             continue
+        precision_genes = {
+            group_id: str(
+                dict(row.get("precision_genes", {})).get(
+                    group_id, default_precision[group_id]
+                )
+            )
+            for group_id in default_precision
+        }
         proposals.append(
             LegalWidthGenotype(
                 widths,
-                {
-                    group_id: str(
-                        dict(row.get("precision_genes", {})).get(
-                            group_id, default_precision[group_id]
-                        )
-                    )
-                    for group_id in default_precision
-                },
+                precision_genes,
                 {
                     "seed_family": "anchor_derived",
                     "anchor_id": str(row.get("anchor_id", "")),
@@ -93,6 +94,24 @@ def _initial_population(
                 },
             )
         )
+        for domain in inventory.domains:
+            current = int(widths[domain.domain_id])
+            for neighbor in (current - 1, current + 1):
+                if not 0 <= neighbor < len(domain.legal_keep_widths):
+                    continue
+                adjacent = dict(widths)
+                adjacent[domain.domain_id] = neighbor
+                proposals.append(
+                    LegalWidthGenotype(
+                        adjacent,
+                        precision_genes,
+                        {
+                            "seed_family": "anchor_neighbor",
+                            "anchor_id": str(row.get("anchor_id", "")),
+                            "seed_domain": domain.domain_id,
+                        },
+                    )
+                )
     for domain in inventory.domains:
         full_index = full_widths[domain.domain_id]
         if full_index <= 0:
@@ -128,6 +147,21 @@ def _initial_population(
     unique: dict[str, LegalWidthGenotype] = {}
     for candidate in proposals:
         unique.setdefault(candidate.genotype_hash, candidate)
+    mandatory = [
+        candidate
+        for candidate in unique.values()
+        if str(candidate.meta.get("seed_family", ""))
+        in {"original_width", "anchor_derived"}
+    ]
+    optional = [
+        candidate
+        for candidate in unique.values()
+        if candidate.genotype_hash
+        not in {row.genotype_hash for row in mandatory}
+    ]
+    rng.shuffle(optional)
+    ordered = [*mandatory, *optional]
+    unique = {candidate.genotype_hash: candidate for candidate in ordered}
     attempts = 0
     max_attempts = max(1000, int(size) * 500)
     while len(unique) < int(size) and attempts < max_attempts:
@@ -164,25 +198,66 @@ def _load_anchor_width_seeds(
     search_config: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     rows = [dict(row) for row in search_config.get("anchor_width_seeds", []) or []]
-    raw_path = str(search_config.get("anchor_structure_manifest", "")).strip()
-    if not raw_path:
-        return rows
-    path = Path(raw_path).expanduser().resolve()
-    if not path.is_file():
-        raise RuntimeError(f"anchor_structure_manifest_missing:{path}")
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    for structure in payload.get("evaluated_structures", payload.get("structures", [])):
-        metadata = dict(structure.get("repair_metadata", {}) or {})
-        width_genes = dict(metadata.get("width_genes", {}) or {})
-        if not width_genes:
-            continue
-        rows.append(
-            {
-                "anchor_id": structure.get("anchor_id", ""),
-                "ranking_mode": metadata.get("ranking_mode", ""),
-                "width_genes": width_genes,
-            }
+    raw_anchor_path = search_config.get("anchor_structure_manifest")
+    if raw_anchor_path:
+        path = Path(str(raw_anchor_path)).expanduser().resolve()
+        if not path.is_file():
+            raise RuntimeError(f"anchor_structure_manifest_missing:{path}")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        for structure in payload.get(
+            "evaluated_structures", payload.get("structures", [])
+        ):
+            metadata = dict(structure.get("repair_metadata", {}) or {})
+            width_genes = dict(metadata.get("width_genes", {}) or {})
+            if not width_genes:
+                continue
+            rows.append(
+                {
+                    "anchor_id": structure.get("anchor_id", ""),
+                    "ranking_mode": metadata.get("ranking_mode", ""),
+                    "width_genes": width_genes,
+                }
+            )
+    raw_greedy_path = search_config.get("greedy_endpoint_manifest")
+    if raw_greedy_path:
+        path = Path(str(raw_greedy_path)).expanduser().resolve()
+        if not path.exists():
+            raise RuntimeError(f"greedy_endpoint_manifest_missing:{path}")
+        paths = (
+            sorted(path.glob("budget_*_endpoint.json"))
+            if path.is_dir()
+            else [path]
         )
+        for endpoint_path in paths:
+            payload = json.loads(endpoint_path.read_text(encoding="utf-8"))
+            endpoints = (
+                list(payload.get("endpoints", []))
+                if isinstance(payload, dict) and "endpoints" in payload
+                else [payload]
+            )
+            for endpoint in endpoints:
+                genotype = dict(endpoint.get("genotype", {}) or {})
+                width_genes = dict(genotype.get("width_genes", {}) or {})
+                if not width_genes:
+                    continue
+                rows.append(
+                    {
+                        "anchor_id": str(
+                            endpoint.get(
+                                "candidate_hash", endpoint_path.stem
+                            )
+                        ),
+                        "ranking_mode": "greedy_endpoint",
+                        "width_genes": width_genes,
+                        "precision_genes": dict(
+                            genotype.get(
+                                "precision_genes",
+                                genotype.get("layer_bitwidth", {}),
+                            )
+                            or {}
+                        ),
+                    }
+                )
     return rows
 
 
@@ -229,6 +304,7 @@ def run_legal_width_stage1_seeds(
     records_by_hash: dict[str, ProxyCandidateRecord] = {}
     all_metric_rows: list[dict[str, Any]] = []
     generation_summaries: list[dict[str, Any]] = []
+    generation_records: dict[int, dict[int, list[ProxyCandidateRecord]]] = {}
     total_evaluations = 0
     anchor_width_seeds = _load_anchor_width_seeds(search_config)
 
@@ -293,6 +369,7 @@ def run_legal_width_stage1_seeds(
             scored: list[tuple[LegalWidthGenotype, float, dict[str, Any]]],
         ) -> None:
             generation_rows: list[dict[str, Any]] = []
+            seed_generation_records: list[ProxyCandidateRecord] = []
             for genotype, score, metrics in scored:
                 phenotype = canonicalize_legal_width_candidate(
                     genotype, context.search_space
@@ -341,16 +418,24 @@ def run_legal_width_stage1_seeds(
                 }
                 generation_rows.append(row)
                 all_metric_rows.append(row)
-                records_by_hash.setdefault(
-                    phenotype_hash,
-                    ProxyCandidateRecord(
-                        deploy_hash,
-                        genotype,
-                        phenotype,
-                        float(score),
-                        dict(metrics),
-                    ),
+                record_metrics = {
+                    **dict(metrics),
+                    "seed_index": seed_offset,
+                    "seed": seed,
+                    "generation": generation,
+                    "J1": row["J1"],
+                    "R_BOPS": row["R_BOPS"],
+                    "R_param": row["R_param"],
+                }
+                record = ProxyCandidateRecord(
+                    deploy_hash,
+                    genotype,
+                    phenotype,
+                    float(score),
+                    record_metrics,
                 )
+                seed_generation_records.append(record)
+                records_by_hash.setdefault(phenotype_hash, record)
                 if row["bops_feasible"]:
                     archive.add(row, active_budget=upper)
             scores = [float(row[1]) for row in scored]
@@ -393,6 +478,9 @@ def run_legal_width_stage1_seeds(
                 "best_F1": min(scores) if scores else None,
             }
             generation_summaries.append(summary)
+            generation_records.setdefault(generation, {})[
+                seed_offset
+            ] = seed_generation_records
             _write_csv(
                 seed_dir / f"generation_{generation:03d}.csv", generation_rows
             )
@@ -453,6 +541,7 @@ def run_legal_width_stage1_seeds(
         "archive": archive,
         "records_by_phenotype_hash": records_by_hash,
         "all_metric_rows": all_metric_rows,
+        "generation_records": generation_records,
     }
 
 
