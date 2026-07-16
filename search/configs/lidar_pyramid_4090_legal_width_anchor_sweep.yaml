@@ -66,17 +66,27 @@ stage2:
   ap_iou_backend: gpu
   strict_gpu_ap_iou: true
   num_workers: 8
-  num_frames: 1789
+  num_frames: 50
   warmup_frames: 20
   reset_after_warmup: true
   latency_rounds: 1
   latency_metric: forward_p50_ms
   target_bops_retention: null
   bops_tolerance: 0.005
-  required_evaluated_frames: 1789
+  required_evaluated_frames: 50
   required_skipped_frames: 0
   min_map: null
   min_ap07: null
+
+full_validation:
+  ap_iou_backend: gpu
+  strict_gpu_ap_iou: true
+  num_workers: 8
+  num_frames: 1789
+  warmup_frames: 20
+  required_evaluated_frames: 1789
+  required_skipped_frames: 0
+  minimum_successful_candidates: 5
 
 stage2_parallel:
   enabled: true

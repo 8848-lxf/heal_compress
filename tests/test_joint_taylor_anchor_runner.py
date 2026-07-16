@@ -162,3 +162,41 @@ def test_tau_row_requires_full_manifest_and_all_deployment_audits() -> None:
     assert "full_validation_incomplete" in incomplete["tau_rejection_reasons"]
     assert changed["valid_for_tau"] is False
     assert "precision_identity_failed" in changed["tau_rejection_reasons"]
+
+
+def test_anchor_full_validation_selection_keeps_baselines_and_map_boundary() -> None:
+    from search.anchors.joint_taylor_runner import (
+        select_anchor_full_validation_rows,
+    )
+
+    rows = []
+    for precision in ("strict_fp32", "strict_fp16", "maximal_legal_int8"):
+        for rate, map_value in ((0.0, 0.72), (0.3, 0.64), (0.5, 0.61)):
+            rows.append(
+                {
+                    "candidate_hash": f"{precision}-{rate}",
+                    "status": "ok",
+                    "precision_variant": precision,
+                    "realized_prune_rate": rate,
+                    "mAP": map_value,
+                    "BOPS_retention": 0.25 - rate * 0.1,
+                    "parameter_retention": 1.0 - rate,
+                    "forward_p50_ms": 4.0 - rate,
+                }
+            )
+
+    selected = select_anchor_full_validation_rows(
+        rows,
+        max_allowed_absolute_map_drop=0.1,
+        minimum_candidates=5,
+    )
+    selected_ids = {row["candidate_hash"] for row in selected}
+
+    assert {
+        "strict_fp32-0.0",
+        "strict_fp16-0.0",
+        "maximal_legal_int8-0.0",
+    }.issubset(selected_ids)
+    assert "strict_fp16-0.3" in selected_ids
+    assert "strict_fp16-0.5" in selected_ids
+    assert all(row["force_full_validation"] for row in selected)

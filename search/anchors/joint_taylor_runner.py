@@ -26,6 +26,7 @@ from ..hashing import candidate_hash, canonical_json_hash
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
 from ..integration.runtime_environment import query_gpus
 from ..orchestration.stage2_process_pool import PersistentStage2ProcessPool
+from ..orchestration.legal_width_stage2 import run_legal_width_full_validation
 from ..proxy.joint_taylor import JointTaylorProxy
 from ..proxy.parameter_slice_resolver import build_unit_parameter_slices
 from ..proxy.tau_calibration import calibrate_tau, write_proxy_scale
@@ -48,6 +49,97 @@ from ..space.legal_width_inventory import (
     prepare_legal_width_search_space,
     write_legal_width_search_space_artifacts,
 )
+
+
+def select_anchor_full_validation_rows(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    max_allowed_absolute_map_drop: float,
+    minimum_candidates: int,
+) -> list[dict[str, Any]]:
+    """Select baselines and screening boundary representatives for full-val."""
+
+    valid = [
+        dict(row)
+        for row in rows
+        if str(row.get("status", "")) == "ok" and row.get("mAP") is not None
+    ]
+    references = [
+        row
+        for row in valid
+        if row.get("precision_variant") == "strict_fp16"
+        and abs(float(row.get("realized_prune_rate", 0.0))) <= 1.0e-12
+    ]
+    if len(references) != 1:
+        raise RuntimeError(
+            f"anchor_screening_fp16_reference_invalid:{len(references)}"
+        )
+    reference_map = float(references[0]["mAP"])
+    selected: dict[str, dict[str, Any]] = {}
+    for row in valid:
+        if abs(float(row.get("realized_prune_rate", 0.0))) <= 1.0e-12:
+            selected.setdefault(str(row["candidate_hash"]), row)
+    for precision in ANCHOR_PRECISION_VARIANTS:
+        candidates = [
+            row
+            for row in valid
+            if row.get("precision_variant") == precision
+            and float(row.get("realized_prune_rate", 0.0)) > 0.0
+        ]
+        safe = [
+            row
+            for row in candidates
+            if reference_map - float(row["mAP"])
+            <= float(max_allowed_absolute_map_drop) + 1.0e-12
+        ]
+        unsafe = [
+            row
+            for row in candidates
+            if reference_map - float(row["mAP"])
+            > float(max_allowed_absolute_map_drop) + 1.0e-12
+        ]
+        if safe:
+            row = max(
+                safe,
+                key=lambda item: (
+                    reference_map - float(item["mAP"]),
+                    float(item.get("realized_prune_rate", 0.0)),
+                    str(item["candidate_hash"]),
+                ),
+            )
+            selected.setdefault(str(row["candidate_hash"]), row)
+        if unsafe:
+            row = min(
+                unsafe,
+                key=lambda item: (
+                    reference_map - float(item["mAP"]),
+                    -float(item.get("realized_prune_rate", 0.0)),
+                    str(item["candidate_hash"]),
+                ),
+            )
+            selected.setdefault(str(row["candidate_hash"]), row)
+    for row in sorted(
+        valid,
+        key=lambda item: (
+            -float(item["mAP"]),
+            float(item.get("BOPS_retention", float("inf"))),
+            str(item["candidate_hash"]),
+        ),
+    ):
+        if len(selected) >= int(minimum_candidates):
+            break
+        selected.setdefault(str(row["candidate_hash"]), row)
+    return [
+        {
+            **row,
+            "force_full_validation": True,
+            "R_BOPS": float(row.get("BOPS_retention", row.get("R_BOPS", 1.0))),
+            "R_param": float(
+                row.get("parameter_retention", row.get("R_param", 1.0))
+            ),
+        }
+        for row in selected.values()
+    ]
 
 
 def apply_global_anchor_pruning_context(
@@ -834,6 +926,37 @@ class JointTaylorAnchorStudy:
             poll_interval_seconds=float(parallel.get("poll_interval_seconds", 0.25)),
         )
 
+    def _full_validation_pool(
+        self, run_dir: Path, context: Any
+    ) -> PersistentStage2ProcessPool:
+        parallel = dict(self.config.get("stage2_parallel", {}) or {})
+        full_config = json.loads(json.dumps(self.config))
+        full_config["stage2"] = {
+            **dict(full_config.get("stage2", {}) or {}),
+            **dict(full_config.get("full_validation", {}) or {}),
+            "smoke_frames": 0,
+            "target_bops_retention": None,
+        }
+        return PersistentStage2ProcessPool(
+            run_dir=run_dir / "full_validation_execution",
+            gpu_ids=[
+                int(value) for value in parallel.get("gpu_ids", [4, 5, 6, 7])
+            ],
+            worker_payload={
+                "config": full_config,
+                "checkpoint": str(context.checkpoint_path),
+                "code_commit": context.code_commit,
+                "controller_pid": os.getpid(),
+            },
+            startup_timeout_seconds=float(
+                parallel.get("startup_timeout_seconds", 1200)
+            ),
+            task_timeout_seconds=float(
+                parallel.get("task_timeout_seconds", 28800)
+            ),
+            poll_interval_seconds=float(parallel.get("poll_interval_seconds", 0.25)),
+        )
+
     @staticmethod
     def _enrich_results(
         tasks: Sequence[Mapping[str, Any]],
@@ -1227,9 +1350,37 @@ class JointTaylorAnchorStudy:
                 "structure_count": len(planning["plan"].structures),
             }
         screening_rows, _tasks, structures = self._run_matrix(run_dir, planning)
-        stage2 = dict(self.config.get("stage2", {}) or {})
-        required_frames = int(stage2.get("required_evaluated_frames", 1789))
-        tau_rows = self._tau_rows(screening_rows, required_frames=required_frames)
+        _write_json(run_dir / "anchor_screening_results.json", screening_rows)
+        _write_csv(run_dir / "anchor_screening_results.csv", screening_rows)
+        anchor_cfg = dict(self.config.get("joint_taylor_anchor_sweep", {}) or {})
+        full_cfg = dict(self.config.get("full_validation", {}) or {})
+        selected = select_anchor_full_validation_rows(
+            screening_rows,
+            max_allowed_absolute_map_drop=float(
+                anchor_cfg.get("max_allowed_absolute_mAP_drop", 0.1)
+            ),
+            minimum_candidates=int(full_cfg.get("minimum_successful_candidates", 5)),
+        )
+        with self._full_validation_pool(run_dir, planning["context"]) as pool:
+            full_report = run_legal_width_full_validation(
+                screening_rows=selected,
+                stage2_pool=pool,
+                run_dir=run_dir,
+                minimum_successful_candidates=int(
+                    full_cfg.get("minimum_successful_candidates", 5)
+                ),
+                required_evaluated_frames=int(
+                    full_cfg.get("required_evaluated_frames", 1789)
+                ),
+                required_skipped_frames=int(
+                    full_cfg.get("required_skipped_frames", 0)
+                ),
+            )
+        full_rows = list(full_report["successful_candidates"])
+        if not bool(full_report["minimum_success_reached"]):
+            raise RuntimeError("anchor_full_validation_supply_insufficient")
+        required_frames = int(full_cfg.get("required_evaluated_frames", 1789))
+        tau_rows = self._tau_rows(full_rows, required_frames=required_frames)
         reference_rows = [
             row
             for row in tau_rows
@@ -1253,14 +1404,17 @@ class JointTaylorAnchorStudy:
             code_commit=planning["context"].code_commit,
         )
         scale_hash = write_proxy_scale(run_dir / "proxy_scale.json", scale)
-        formal = self._formal_latency_replay(run_dir, screening_rows)
+        formal = self._formal_latency_replay(run_dir, full_rows)
         correlations = self._correlations(
-            screening_rows, formal, tau_rows, reference_map
+            full_rows, formal, tau_rows, reference_map
         )
         self._write_result_artifacts(
-            run_dir, screening_rows, formal, tau_rows, correlations
+            run_dir, full_rows, formal, tau_rows, correlations
         )
-        completed = all(str(row.get("status", "")) == "ok" for row in screening_rows)
+        completed = (
+            all(str(row.get("status", "")) == "ok" for row in screening_rows)
+            and bool(full_report["minimum_success_reached"])
+        )
         _write_json(
             run_dir / "anchor_structure_manifest.json",
             {
@@ -1285,6 +1439,8 @@ class JointTaylorAnchorStudy:
             "run_dir": str(run_dir),
             **state,
             "engine_count": len(screening_rows),
+            "screening_engine_count": len(screening_rows),
+            "full_validation_count": len(full_rows),
             "formal_latency_count": len(formal),
             "mAP_reference": reference_map,
             "tau": scale.tau,

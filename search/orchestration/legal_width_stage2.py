@@ -190,7 +190,11 @@ def run_legal_width_full_validation(
     successful_screening = [
         dict(row) for row in screening_rows if str(row.get("status", "")) == "ok"
     ]
-    selected_by_hash: dict[str, dict[str, Any]] = {}
+    selected_by_hash: dict[str, dict[str, Any]] = {
+        str(row["candidate_hash"]): row
+        for row in successful_screening
+        if bool(row.get("force_full_validation", False))
+    }
     for key in ("R_BOPS", "R_param", "forward_p50_ms"):
         for row in _screening_nondominated(successful_screening, key):
             selected_by_hash.setdefault(str(row["candidate_hash"]), row)
@@ -223,6 +227,16 @@ def run_legal_width_full_validation(
         "realized_precision_profile_hash",
         "precision_identity_passed",
         "deployment_audits_passed",
+        "anchor_id",
+        "precision_variant",
+        "requested_prune_rate",
+        "realized_prune_rate",
+        "mask_hash",
+        "proxy_result",
+        "candidate_source",
+        "BOPS_retention",
+        "parameter_retention",
+        "calibration_manifest_hash",
     )
     for row in selected:
         engine_path = Path(str(row.get("engine_path", "")))
@@ -264,6 +278,9 @@ def run_legal_width_full_validation(
                 "full_validation_success": passed,
                 "evaluated_frames": evaluated,
                 "skipped_frames": skipped,
+                "validation_manifest_hash": str(
+                    row.get("eval_manifest_hash", "")
+                ),
             }
         )
         normalized.append(row)

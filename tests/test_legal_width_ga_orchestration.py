@@ -319,6 +319,63 @@ def test_full_validation_reuses_screening_engine_and_marks_protocol(tmp_path: Pa
     assert (tmp_path / "full_validation_results.json").is_file()
 
 
+def test_full_validation_keeps_forced_candidate_outside_screening_front(
+    tmp_path: Path,
+) -> None:
+    from search.orchestration.legal_width_stage2 import (
+        run_legal_width_full_validation,
+    )
+
+    rows = []
+    for index in range(3):
+        engine = tmp_path / f"forced-engine-{index}.plan"
+        engine.write_bytes(b"engine")
+        rows.append(
+            {
+                "candidate_hash": f"candidate{index}",
+                "status": "ok",
+                "engine_path": str(engine),
+                "mAP": 0.70 - index * 0.1,
+                "R_BOPS": 0.2 + index * 0.1,
+                "R_param": 0.8 + index * 0.05,
+                "forward_p50_ms": 4.0 + index,
+                "force_full_validation": index == 2,
+                "raw_precision_gene_hash": "p",
+                "repaired_precision_gene_hash": "p",
+                "requested_precision_profile_hash": "p",
+                "realized_precision_profile_hash": "p",
+                "precision_identity_passed": True,
+            }
+        )
+
+    class Pool:
+        parallelism = 4
+
+        def map_tasks(self, tasks):
+            return [
+                {
+                    "candidate_hash": task["candidate_hash"],
+                    "status": "ok",
+                    "mAP": 0.7,
+                    "num_evaluated_frames": 1789,
+                    "num_skipped_frames": 0,
+                    **task["deployment_metadata"],
+                }
+                for task in tasks
+            ]
+
+    result = run_legal_width_full_validation(
+        screening_rows=rows,
+        stage2_pool=Pool(),
+        run_dir=tmp_path,
+        minimum_successful_candidates=1,
+    )
+
+    assert "candidate2" in {
+        row["candidate_hash"] for row in result["results"]
+    }
+
+
 def test_budget_intervals_include_primary_and_remain_distinct() -> None:
     from search.orchestration.legal_width_joint_ga import normalize_budget_intervals
 
