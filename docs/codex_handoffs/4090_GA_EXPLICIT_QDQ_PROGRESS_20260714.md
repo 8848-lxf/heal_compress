@@ -1169,9 +1169,10 @@ from receiving the next candidate. A regression test reproduced the barrier.
 immediately replenishes whichever worker finishes, while retaining ordered
 results, per-task timeouts, cache identity, and one persistent process per
 physical GPU. The focused process-pool suite passes 3/3. The already-running
-anchor controller loaded the earlier implementation and therefore finishes its
-current screening with the old wave behavior; newly started full-validation
-and GA pools use the work-conserving scheduler.
+anchor controller loaded the earlier module implementation and therefore uses
+the old wave behavior for both its current screening and any full-validation
+pool created later by that same controller. Only a newly started controller
+process, including the later GA run, loads the work-conserving scheduler.
 
 No candidate encoding, legal-width decoder, Taylor ranking, physical pruning,
 Q/DQ, precision realization, AP formula, or cache signature was relaxed by
