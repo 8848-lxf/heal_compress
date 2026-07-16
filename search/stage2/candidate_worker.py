@@ -222,6 +222,8 @@ def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
             stage2.get("bops_tolerance", stage2.get("tolerance", 0.005))
         ),
         stage2_config=Stage2ObjectiveConfig(
+            score_mode=str(stage2.get("score_mode", "legacy_normalized_loss")),
+            latency_weight=float(stage2.get("latency_weight", 0.10)),
             eta_map=float(stage2.get("eta_ap", stage2.get("eta_map", 1.0))),
             eta_latency=float(stage2.get("eta_latency", 1.0)),
             latency_metric=str(
@@ -249,6 +251,7 @@ def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
         ),
         evaluation_num_workers=int(stage2.get("num_workers", 8)),
         ap_iou_backend=str(stage2.get("ap_iou_backend", "gpu")),
+        shared_stage2_reference=request.get("shared_stage2_reference"),
     )
     return context, evaluator
 
@@ -276,6 +279,7 @@ def _worker_environment(context: Any, request: dict[str, Any]) -> dict[str, Any]
 
 def _evaluate_task(evaluator: Any, task: dict[str, Any], gpu_id: int) -> dict[str, Any]:
     from ..candidate import CandidatePhenotype
+    from .objective import failure_stage2_score
 
     phenotype = CandidatePhenotype.from_dict(dict(task["phenotype"]))
     smoke_frames = int(task.get("smoke_frames", 0) or 0)
@@ -340,7 +344,9 @@ def _evaluate_task(evaluator: Any, task: dict[str, Any], gpu_id: int) -> dict[st
     ]:
         merged["status"] = "precision_profile_hash_mismatch"
         merged["failure_reason"] = "raw_repaired_requested_realized_hash_mismatch"
-        merged["F2"] = float("inf")
+        merged["F2"] = failure_stage2_score(
+            getattr(evaluator, "objective_config", None)
+        )
     return merged
 
 
@@ -398,6 +404,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = _evaluate_task(evaluator, task, int(request["gpu_id"]))
         except Exception as exc:  # noqa: BLE001
+            from .objective import failure_stage2_score
+
             result = {
                 "status": "stage2_worker_task_failed",
                 "failure_reason": f"{type(exc).__name__}: {exc}",
@@ -405,7 +413,9 @@ def main(argv: list[str] | None = None) -> int:
                 "candidate_hash": str(task.get("candidate_hash", "")),
                 "worker_gpu_id": int(request["gpu_id"]),
                 "worker_pid": os.getpid(),
-                "F2": float("inf"),
+                "F2": failure_stage2_score(
+                    getattr(evaluator, "objective_config", None)
+                ),
             }
         _atomic_write_json(task["result_path"], result)
         running_path.unlink(missing_ok=True)

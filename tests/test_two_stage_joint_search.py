@@ -119,19 +119,27 @@ def test_resume_reuses_real_eval_cache(tmp_path: Path) -> None:
     assert calls["stage2"] == 1
 
 
-def test_real_evaluator_combines_fp32_accuracy_and_fp16_latency_references() -> None:
+def test_real_evaluator_uses_one_strict_fp32_map_and_latency_reference() -> None:
     from search.stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
 
     evaluator = object.__new__(LidarPyramidRealEvaluator)
-    evaluator.objective_config = Stage2ObjectiveConfig(latency_metric="forward_p50_ms")
+    evaluator.objective_config = Stage2ObjectiveConfig(
+        score_mode="map_minus_latency_ratio",
+        latency_metric="forward_p50_ms",
+    )
+    evaluator.shared_stage2_reference = None
     calls: list[str] = []
 
     def fake_baseline(precision: str, *, full_validation: bool = False):
         calls.append(precision)
         if precision == "strict_fp32":
-            return {"status": "ok", "mAP": 0.75, "forward_p50_ms": 4.0}
-        if precision == "strict_fp16":
-            return {"status": "ok", "mAP": 0.70, "forward_p50_ms": 2.0}
+            return {
+                "status": "ok",
+                "mAP": 0.75,
+                "forward_p50_ms": 4.0,
+                "engine_hash": "engine",
+                "eval_hash": "evaluation",
+            }
         raise AssertionError(precision)
 
     evaluator.evaluate_original_baseline = fake_baseline  # type: ignore[method-assign]
@@ -139,8 +147,9 @@ def test_real_evaluator_combines_fp32_accuracy_and_fp16_latency_references() -> 
 
     baseline = evaluator._stage2_reference_baseline()
 
-    assert calls == ["strict_fp32", "strict_fp16"]
+    assert calls == ["strict_fp32"]
     assert baseline["mAP"] == 0.75
-    assert baseline["forward_p50_ms"] == 2.0
+    assert baseline["forward_p50_ms"] == 4.0
     assert baseline["accuracy_reference"] == "original_strict_fp32"
-    assert baseline["latency_reference"] == "original_strict_fp16"
+    assert baseline["latency_reference"] == "original_strict_fp32"
+    assert baseline["reference_precision"] == "strict_fp32"

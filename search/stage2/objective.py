@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
 class Stage2ObjectiveConfig:
+    score_mode: str = "legacy_normalized_loss"
+    latency_weight: float = 0.10
     eta_map: float = 1.0
     eta_latency: float = 1.0
     latency_metric: str = "forward_mean_ms"
@@ -36,6 +39,13 @@ FAILURE_STATUSES = {
 }
 
 
+def failure_stage2_score(config: Stage2ObjectiveConfig | None = None) -> float:
+    policy = config or Stage2ObjectiveConfig()
+    if policy.score_mode == "map_minus_latency_ratio":
+        return -float("inf")
+    return float(policy.failure_score)
+
+
 def compute_stage2_score(
     evaluation: Mapping[str, Any],
     *,
@@ -45,7 +55,77 @@ def compute_stage2_score(
     policy = config or Stage2ObjectiveConfig()
     status = str(evaluation.get("status", "ok"))
     if status in FAILURE_STATUSES or status.endswith("_failed"):
-        return {"F2": policy.failure_score, "status": status}
+        return {
+            "F2": failure_stage2_score(policy),
+            "status": status,
+            "selection_direction": (
+                "maximize"
+                if policy.score_mode == "map_minus_latency_ratio"
+                else "minimize"
+            ),
+        }
+    if policy.score_mode == "map_minus_latency_ratio":
+        if status != "ok":
+            return {
+                "F2": failure_stage2_score(policy),
+                "status": status,
+                "selection_direction": "maximize",
+                "accuracy_admission_passed": True,
+                "failure_reasons": ["stage2_status_not_ok"],
+            }
+        cand_map = float(
+            evaluation.get("mAP", evaluation.get("map", float("nan")))
+        )
+        cand_latency = float(
+            evaluation.get(policy.latency_metric, float("nan"))
+        )
+        base_latency = float(baseline.get(policy.latency_metric, float("nan")))
+        protocol_reasons: list[str] = []
+        if policy.required_evaluated_frames is not None and int(
+            evaluation.get("num_evaluated_frames", -1)
+        ) != int(policy.required_evaluated_frames):
+            protocol_reasons.append("evaluated_frame_count_mismatch")
+        if policy.required_skipped_frames is not None and int(
+            evaluation.get("num_skipped_frames", -1)
+        ) != int(policy.required_skipped_frames):
+            protocol_reasons.append("skipped_frame_count_mismatch")
+        if protocol_reasons:
+            return {
+                "F2": failure_stage2_score(policy),
+                "status": "evaluation_protocol_failed",
+                "selection_direction": "maximize",
+                "accuracy_admission_passed": True,
+                "failure_reasons": protocol_reasons,
+            }
+        if not all(
+            math.isfinite(value)
+            for value in (cand_map, cand_latency, base_latency)
+        ):
+            return {
+                "F2": failure_stage2_score(policy),
+                "status": "nonfinite_stage2_metric",
+                "selection_direction": "maximize",
+                "accuracy_admission_passed": True,
+                "failure_reasons": ["finite_mAP_and_latency_required"],
+            }
+        if cand_latency < 0.0 or base_latency <= 0.0:
+            return {
+                "F2": failure_stage2_score(policy),
+                "status": "invalid_stage2_latency",
+                "selection_direction": "maximize",
+                "accuracy_admission_passed": True,
+                "failure_reasons": ["nonnegative_candidate_and_positive_reference_latency_required"],
+            }
+        latency_ratio = cand_latency / max(base_latency, policy.epsilon)
+        return {
+            "F2": float(cand_map - policy.latency_weight * latency_ratio),
+            "status": status,
+            "selection_direction": "maximize",
+            "R_latency_real": float(latency_ratio),
+            "mAP_real": float(cand_map),
+            "accuracy_admission_passed": True,
+            "failure_reasons": [],
+        }
     base_map = float(baseline.get("mAP", baseline.get("map", 0.0)) or 0.0)
     cand_map = float(evaluation.get("mAP", evaluation.get("map", 0.0)) or 0.0)
     base_latency = float(baseline.get(policy.latency_metric, 0.0) or 0.0)
@@ -71,6 +151,7 @@ def compute_stage2_score(
         return {
             "F2": policy.failure_score,
             "status": "accuracy_hard_gate_failed",
+            "selection_direction": "minimize",
             "accuracy_admission_passed": False,
             "failure_reasons": hard_gate_reasons,
             "L_map_real": float(loss_map),
@@ -80,6 +161,7 @@ def compute_stage2_score(
         return {
             "F2": policy.failure_score,
             "status": "accuracy_hard_gate_failed",
+            "selection_direction": "minimize",
             "accuracy_admission_passed": False,
             "failure_reasons": ["mAP_drop_exceeds_maximum"],
             "L_map_real": float(loss_map),
@@ -89,6 +171,7 @@ def compute_stage2_score(
     return {
         "F2": float(score),
         "status": status,
+        "selection_direction": "minimize",
         "accuracy_admission_passed": True,
         "failure_reasons": [],
         "L_map_real": float(loss_map),

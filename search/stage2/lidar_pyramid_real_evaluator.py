@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import shutil
 from dataclasses import asdict, is_dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Mapping
 
 import torch
 
@@ -40,7 +41,11 @@ from ..baselines.original_engines import (
     validate_baseline_layer_precisions,
 )
 from .candidate_artifacts import write_candidate_summary_artifacts
-from .objective import Stage2ObjectiveConfig, compute_stage2_score
+from .objective import (
+    Stage2ObjectiveConfig,
+    compute_stage2_score,
+    failure_stage2_score,
+)
 from .physical_validation import validate_repaired_physical_plan
 from .realized_bops import compute_realized_bops, engine_realized_precision_profile
 from .mixed_precision_export import summarize_qdq_realization
@@ -552,6 +557,7 @@ class LidarPyramidRealEvaluator:
         real_cache: RealEvalCache | None = None,
         evaluation_num_workers: int = 8,
         ap_iou_backend: str = "gpu",
+        shared_stage2_reference: Mapping[str, Any] | None = None,
     ) -> None:
         self.context = context
         self.run_dir = Path(run_dir)
@@ -565,6 +571,11 @@ class LidarPyramidRealEvaluator:
         self.objective_config = stage2_config or Stage2ObjectiveConfig()
         self.evaluation_num_workers = int(evaluation_num_workers)
         self.ap_iou_backend = str(ap_iou_backend).lower()
+        self.shared_stage2_reference = (
+            None
+            if shared_stage2_reference is None
+            else dict(shared_stage2_reference)
+        )
         if self.evaluation_num_workers != 8:
             raise ValueError("formal_evaluation_num_workers_must_equal_8")
         if self.ap_iou_backend != "gpu":
@@ -710,7 +721,7 @@ class LidarPyramidRealEvaluator:
                 "latency_rounds": self.latency_rounds,
                 "evaluation_num_workers": self.evaluation_num_workers,
                 "ap_iou_backend": self.ap_iou_backend,
-                "stage2_reference_policy": "strict_fp32_ap_strict_fp16_latency_v1",
+                "stage2_reference_policy": "shared_strict_fp32_map_latency_v1",
                 "objective_config": asdict(self.objective_config),
                 "gpu": self.context.physical_gpu_id,
                 "tensorrt": _tensorrt_cache_identity(self.context.tensorrt),
@@ -761,7 +772,7 @@ class LidarPyramidRealEvaluator:
                 "cache_key": cache_key,
                 "status": str(raw.get("status", "evaluation_failed")),
                 "failure_reason": str(raw.get("failure_reason", raw.get("status", ""))),
-                "F2": float("inf"),
+                "F2": failure_stage2_score(self.objective_config),
                 "artifact_dir": str(destination),
             }
         _write_json(destination / "stage2_score.json", result)
@@ -904,7 +915,7 @@ class LidarPyramidRealEvaluator:
                 "failure_reason": str(
                     raw.get("failure_reason", raw.get("status", ""))
                 ),
-                "F2": float("inf"),
+                "F2": failure_stage2_score(self.objective_config),
                 "artifact_dir": str(destination),
             }
         smoke_evaluation = dict(raw["evaluation"])
@@ -918,7 +929,7 @@ class LidarPyramidRealEvaluator:
                 "candidate_hash": candidate_hash,
                 "status": "smoke10_admission_failed",
                 "failure_reason": ",".join(smoke_gate["failure_reasons"]),
-                "F2": float("inf"),
+                "F2": failure_stage2_score(self.objective_config),
                 "physical_hash": raw.get("physical_hash", ""),
                 "deployment_hash": raw.get("deployment_hash", ""),
                 "engine_hash": raw.get("engine_hash", ""),
@@ -961,7 +972,7 @@ class LidarPyramidRealEvaluator:
                 "candidate_hash": candidate_hash,
                 "status": "realized_resource_gate_failed",
                 "failure_reason": ",".join(resource_reasons),
-                "F2": float("inf"),
+                "F2": failure_stage2_score(self.objective_config),
                 "physical_hash": raw.get("physical_hash", ""),
                 "deployment_hash": raw.get("deployment_hash", ""),
                 "engine_hash": raw.get("engine_hash", ""),
@@ -976,7 +987,7 @@ class LidarPyramidRealEvaluator:
                 "failure_reason": str(
                     full_evaluation.get("failure_reason", "full_evaluation_failed")
                 ),
-                "F2": float("inf"),
+                "F2": failure_stage2_score(self.objective_config),
                 "physical_hash": raw.get("physical_hash", ""),
                 "deployment_hash": raw.get("deployment_hash", ""),
                 "engine_hash": raw.get("engine_hash", ""),
@@ -1150,7 +1161,7 @@ class LidarPyramidRealEvaluator:
             ),
         }
         if final_status != "ok":
-            result["F2"] = float("inf")
+            result["F2"] = failure_stage2_score(self.objective_config)
         _write_json(destination / "stage2_score.json", result)
         write_candidate_summary_artifacts(
             destination,
@@ -1163,22 +1174,55 @@ class LidarPyramidRealEvaluator:
         return result
 
     def _stage2_reference_baseline(self) -> dict[str, Any]:
-        accuracy = self.evaluate_original_baseline("strict_fp32", full_validation=False)
-        latency = self.evaluate_original_baseline("strict_fp16", full_validation=False)
-        if str(accuracy.get("status", "")) != "ok":
-            raise RuntimeError(f"strict_fp32_accuracy_baseline_failed:{accuracy.get('failure_reason', accuracy.get('status'))}")
-        if str(latency.get("status", "")) != "ok":
-            raise RuntimeError(f"strict_fp16_latency_baseline_failed:{latency.get('failure_reason', latency.get('status'))}")
+        shared = getattr(self, "shared_stage2_reference", None)
         metric = self.objective_config.latency_metric
+        if shared is not None:
+            payload = dict(shared)
+            unsigned = dict(payload)
+            reference_hash = str(unsigned.pop("reference_hash", ""))
+            required_hashes = (
+                str(payload.get("engine_hash", "")),
+                str(payload.get("eval_hash", payload.get("evaluation_hash", ""))),
+            )
+            values = (
+                float(payload.get("mAP", payload.get("map", float("nan")))),
+                float(payload.get(metric, float("nan"))),
+            )
+            if (
+                str(payload.get("status", "")) != "ok"
+                or str(payload.get("reference_precision", "")) != "strict_fp32"
+                or not all(required_hashes)
+                or not all(math.isfinite(value) for value in values)
+                or not reference_hash
+                or reference_hash != canonical_json_hash(unsigned)
+            ):
+                raise RuntimeError("shared_strict_fp32_reference_invalid")
+            _write_json(self.run_dir / "stage2_reference_baseline.json", payload)
+            return payload
+        reference = self.evaluate_original_baseline(
+            "strict_fp32", full_validation=False
+        )
+        if str(reference.get("status", "")) != "ok":
+            raise RuntimeError(
+                "strict_fp32_reference_failed:"
+                f"{reference.get('failure_reason', reference.get('status'))}"
+            )
         combined = {
             "status": "ok",
-            "mAP": float(accuracy.get("mAP", accuracy.get("map", 0.0)) or 0.0),
-            metric: float(latency.get(metric, 0.0) or 0.0),
+            "reference_precision": "strict_fp32",
+            "mAP": float(
+                reference.get("mAP", reference.get("map", 0.0)) or 0.0
+            ),
+            metric: float(reference.get(metric, 0.0) or 0.0),
             "accuracy_reference": "original_strict_fp32",
-            "latency_reference": "original_strict_fp16",
-            "strict_fp32": accuracy,
-            "strict_fp16": latency,
+            "latency_reference": "original_strict_fp32",
+            "engine_hash": str(reference.get("engine_hash", "")),
+            "eval_hash": str(
+                reference.get("eval_hash", reference.get("evaluation_hash", ""))
+            ),
+            "strict_fp32": reference,
         }
+        combined["reference_hash"] = canonical_json_hash(combined)
         _write_json(self.run_dir / "stage2_reference_baseline.json", combined)
         return combined
 

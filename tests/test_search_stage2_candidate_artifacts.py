@@ -70,3 +70,29 @@ def test_candidate_summary_artifacts_can_skip_existing_files_for_resume(tmp_path
 
     assert target.stat().st_mtime_ns == before
     assert json.loads(target.read_text())["phenotype"]["pruned_unit_ids"] == []
+
+
+def test_formal_candidate_objective_report_has_direct_formula_and_no_tau(tmp_path: Path) -> None:
+    from search.candidate import CandidatePhenotype
+    from search.stage2.candidate_artifacts import write_candidate_summary_artifacts
+    from search.stage2.objective import Stage2ObjectiveConfig
+
+    candidate_dir = tmp_path / "candidate"
+    candidate_dir.mkdir()
+    write_candidate_summary_artifacts(
+        candidate_dir,
+        candidate_hash="abc",
+        phenotype=CandidatePhenotype(),
+        stage2_score={"status": "ok", "F2": 0.62, "R_latency_real": 1.0},
+        objective_config=Stage2ObjectiveConfig(
+            score_mode="map_minus_latency_ratio",
+            latency_weight=0.10,
+            latency_metric="forward_p50_ms",
+        ),
+    )
+
+    report = json.loads((candidate_dir / "stage2_objective_report.json").read_text())
+    assert report["formula"] == "mAP - 0.10 * (p50/strict_fp32_p50)"
+    assert report["selection_direction"] == "maximize"
+    assert "tau_AP" not in report
+    assert report["latency_reference"] == "original_strict_fp32"

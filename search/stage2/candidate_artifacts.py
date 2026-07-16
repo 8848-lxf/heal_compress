@@ -101,18 +101,33 @@ def write_candidate_summary_artifacts(
         "required_artifacts": list(SUMMARY_ARTIFACTS),
     }
     _write_json(root / "candidate_manifest.json", manifest, overwrite=overwrite)
-    objective = {
-        "formula": "eta_AP * L_AP + eta_latency * R_latency",
-        "eta_AP": float(objective_config.eta_map),
-        "eta_latency": float(objective_config.eta_latency),
-        "tau_AP": objective_config.tau_ap,
-        "latency_metric": objective_config.latency_metric,
-        "L_AP": stage2_score.get("L_map_real"),
-        "R_latency": stage2_score.get("R_latency_real"),
-        "F2": stage2_score.get("F2"),
-        "status": stage2_score.get("status"),
-        "accuracy_reference": "original_strict_fp32_required_by_contract",
-        "latency_reference": "original_strict_fp16_required_by_contract",
-    }
+    if objective_config.score_mode == "map_minus_latency_ratio":
+        objective = {
+            "formula": "mAP - 0.10 * (p50/strict_fp32_p50)",
+            "score_mode": objective_config.score_mode,
+            "latency_weight": float(objective_config.latency_weight),
+            "latency_metric": objective_config.latency_metric,
+            "R_latency": stage2_score.get("R_latency_real"),
+            "F2": stage2_score.get("F2"),
+            "status": stage2_score.get("status"),
+            "selection_direction": "maximize",
+            "accuracy_reference": "original_strict_fp32",
+            "latency_reference": "original_strict_fp32",
+        }
+    else:
+        objective = {
+            "formula": "eta_AP * L_AP + eta_latency * R_latency",
+            "eta_AP": float(objective_config.eta_map),
+            "eta_latency": float(objective_config.eta_latency),
+            "tau_AP": objective_config.tau_ap,
+            "latency_metric": objective_config.latency_metric,
+            "L_AP": stage2_score.get("L_map_real"),
+            "R_latency": stage2_score.get("R_latency_real"),
+            "F2": stage2_score.get("F2"),
+            "status": stage2_score.get("status"),
+            "selection_direction": "minimize",
+            "accuracy_reference": "original_strict_fp32_required_by_contract",
+            "latency_reference": "original_strict_fp16_required_by_contract",
+        }
     _write_json(root / "stage2_objective_report.json", objective, overwrite=overwrite)
     _write_json(root / "artifact_hashes.json", artifact_hashes(root), overwrite=overwrite)
