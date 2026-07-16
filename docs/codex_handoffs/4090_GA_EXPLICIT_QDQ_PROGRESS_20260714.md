@@ -1519,3 +1519,43 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 25 completed: 2026-07-17 04:05:13 CST ---
+
+## Round 26 - bounded greedy state-limit correction
+
+The third fresh greedy run,
+`outputs/4090_legal_width_greedy_six_budget_20260716_130654`, verified that
+the single-path comparator and compact trace changes work as intended. The
+first budget trace fell from approximately 3.4 GB to 38 MB while retaining
+all scalar proxy metrics, genotype lineage, parent hashes, and action IDs.
+No deployment or evaluation worker was started.
+
+The run also provided a direct bound diagnosis. With 4,096 unique evaluated
+states, the deterministic path executed 46 compression actions and reached
+`R_BOPS=0.5263378620147705`, `R_prune=0.1585839238865676`, and
+`L_joint_raw=9.00602388724472e-05`. It then exhausted the state limit before
+any requested budget interval. Therefore all six endpoint records remained
+explicitly infeasible and scale calibration failed closed. The observed
+roughly 100 remaining legal actions per step means the original limit cannot
+cover the approximately one hundred or more sequential precision/width
+actions needed for the lowest budgets.
+
+The formal greedy configuration now uses `max_expansions: 16384` with
+`frontier_size: 1`. This is still a deterministic bounded search and does not
+change the primary `+/-0.005`, conditional `+/-0.0075`, legal-width,
+precision-legality, joint Taylor, or BOPS definitions. A RED-to-GREEN config
+contract test fixes this state limit so a future edit cannot silently return
+to the empirically insufficient 4,096-state bound. The focused greedy suite
+passed 18 tests before the full gate and fresh rerun.
+
+Current state:
+
+- `GREEDY_TRACE_COMPACTION_VERIFIED = true`;
+- `GREEDY_4096_STATE_LIMIT_SUFFICIENT = false`;
+- `GREEDY_16384_STATE_LIMIT_APPLIED = true`;
+- `GREEDY_REAL_ENDPOINTS_AVAILABLE = false`;
+- `GREEDY_ENDPOINT_DEPLOYMENT_STARTED = false`;
+- `GA_SEARCH_STARTED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 26 completed: 2026-07-17 04:14:35 CST ---

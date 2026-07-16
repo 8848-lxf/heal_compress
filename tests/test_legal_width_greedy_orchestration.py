@@ -171,6 +171,7 @@ def test_greedy_config_contract_is_raw_weight_only_and_has_no_ap_gate() -> None:
     assert payload["proxy"]["bops_reference"] == "original_strict_fp32"
     assert payload["greedy"]["targets"] == [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
     assert payload["greedy"]["frontier_size"] == 1
+    assert payload["greedy"]["max_expansions"] == 16_384
     assert payload["greedy"]["primary_tolerance"] == pytest.approx(0.005)
     assert payload["greedy"]["expanded_tolerance"] == pytest.approx(0.0075)
     assert "min_map" not in payload.get("stage2", {})
