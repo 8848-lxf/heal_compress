@@ -20,7 +20,7 @@ def mutate_candidate(
     pruning = dict(candidate.pruning_genes)
     width_genes = dict(candidate.pruning_width_genes)
     if space.pruning_domains:
-        pruning = {unit_id: 1 for unit_id in space.pruning_unit_ids}
+        pruning = {}
         for domain in space.pruning_domains:
             current = int(width_genes.get(domain.domain_id, domain.original_width))
             if rng.random() >= prune_mutation_rate or len(domain.legal_widths) <= 1:

@@ -49,7 +49,7 @@ def random_immigrant(space: SearchSpaceSpec, rng: random.Random, *, keep_probabi
     keep_p = 0.5 if keep_probability is None else float(keep_probability)
     precision_values = ["FP32", "FP16", "INT8"]
     if space.pruning_domains:
-        pruning = {unit_id: 1 for unit_id in space.pruning_unit_ids}
+        pruning = {}
         width_genes = {}
         for domain in space.pruning_domains:
             target = float(domain.original_width) * keep_p

@@ -68,9 +68,10 @@ def repair_genotype(genotype: CandidateGenotype, space: SearchSpaceSpec) -> Cand
     """Repair raw genes without collapsing unknowns into persistent identity."""
 
     pruning = {}
-    for unit_id in space.pruning_unit_ids:
-        pruning[unit_id] = 1 if unit_id in space.protected_pruning_unit_ids else int(genotype.pruning_genes.get(unit_id, 1))
-        pruning[unit_id] = 1 if pruning[unit_id] else 0
+    if not space.pruning_domains:
+        for unit_id in space.pruning_unit_ids:
+            pruning[unit_id] = 1 if unit_id in space.protected_pruning_unit_ids else int(genotype.pruning_genes.get(unit_id, 1))
+            pruning[unit_id] = 1 if pruning[unit_id] else 0
     width_genes = (
         legalize_domain_width_genes(genotype.pruning_width_genes, space.pruning_domains)
         if space.pruning_domains
@@ -78,9 +79,9 @@ def repair_genotype(genotype: CandidateGenotype, space: SearchSpaceSpec) -> Cand
     )
     if space.pruning_domains:
         # Atomic masks are derived only after width expansion. Keeping this raw
-        # field all-one prevents a second, contradictory mask coordinate from
-        # entering the genotype identity.
-        pruning = {unit_id: 1 for unit_id in space.pruning_unit_ids}
+        # field empty prevents both a second coordinate and thousands of
+        # redundant all-keep values from entering hash/GA bookkeeping.
+        pruning = {}
     if space.quantization_groups:
         legalization = legalize_group_precision_genes(
             genotype.precision_genes,

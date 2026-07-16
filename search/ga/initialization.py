@@ -12,7 +12,10 @@ from .immigrants import random_immigrant
 
 def baseline_candidate(space: SearchSpaceSpec) -> CandidateGenotype:
     return CandidateGenotype(
-        pruning_genes={unit_id: 1 for unit_id in space.pruning_unit_ids},
+        pruning_genes=(
+            {} if space.pruning_domains
+            else {unit_id: 1 for unit_id in space.pruning_unit_ids}
+        ),
         precision_genes={gene_id: "FP32" for gene_id in space.precision_gene_ids},
         meta={"created_by": "baseline_full_fp32"},
         pruning_width_genes={domain.domain_id: domain.original_width for domain in space.pruning_domains},
@@ -30,7 +33,7 @@ def compressed_seed(space: SearchSpaceSpec, keep_probability: float, precision: 
             )
         return repair_genotype(
             CandidateGenotype(
-                pruning_genes={unit_id: 1 for unit_id in space.pruning_unit_ids},
+                pruning_genes={},
                 precision_genes={gene_id: precision for gene_id in space.precision_gene_ids},
                 meta={"created_by": f"domain_width_seed_{keep_probability:.2f}_{precision}"},
                 pruning_width_genes=width_genes,
@@ -61,7 +64,10 @@ def initialize_population(
     population.append(
         repair_genotype(
             CandidateGenotype(
-                pruning_genes={unit_id: 1 for unit_id in space.pruning_unit_ids},
+                pruning_genes=(
+                    {} if space.pruning_domains
+                    else {unit_id: 1 for unit_id in space.pruning_unit_ids}
+                ),
                 precision_genes={gene_id: "FP16" for gene_id in space.precision_gene_ids},
                 meta={"created_by": "baseline_fp16_deploy"},
                 pruning_width_genes={

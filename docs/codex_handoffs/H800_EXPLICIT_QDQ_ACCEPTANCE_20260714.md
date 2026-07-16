@@ -735,3 +735,37 @@ serial.
 Completed checkpoint: 2026-07-17 04:42:15 +0800 CST
 
 ---
+
+## H800 GA preflight correction: compact domain-width genotype
+
+The first six-GPU GA attempt is preserved at
+`outputs/h800_domain_width_joint_ga_20260716_134325` and was intentionally
+stopped before generation 0 completed.  Runtime evidence showed all six proxy
+tables allocated on GPUs `[1,3,4,5,6,7]`, but CUDA utilization remained idle
+for more than nine minutes while CPU bookkeeping processed each candidate.
+The root cause was a representation defect: the new 21-value domain-width
+genotype still serialized 7,383 redundant all-keep atomic mask entries in
+every raw candidate.  These entries were not searchable and did not affect
+the expanded phenotype, but they polluted repair, hash, deduplication and GA
+operator work.
+
+Production genotype handling is now compact for any search space with legal
+pruning domains:
+
+- `CandidateGenotype.pruning_genes` remains empty;
+- only `pruning_width_genes` participates in the pruning genotype identity;
+- canonicalization still deterministically expands the fixed Taylor ranking
+  into the exact atomic `pruned_unit_ids` mask;
+- the legacy redundant all-one representation is accepted on load and
+  canonicalizes to exactly the same phenotype;
+- initialization, immigrants, crossover and mutation no longer reconstruct
+  the redundant 7,383-value coordinate.
+
+Focused regression: 30 tests passed, including a new exact phenotype equality
+test between the legacy redundant representation and the compact genotype.
+The aborted run directory was not deleted or reused; a new formal GA directory
+must be created after committing this correction.
+
+Completed checkpoint: 2026-07-17 04:55:07 +0800 CST
+
+---

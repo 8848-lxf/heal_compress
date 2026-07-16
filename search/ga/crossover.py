@@ -32,7 +32,7 @@ def block_crossover(
     pruning = dict(left.pruning_genes)
     width_genes = dict(left.pruning_width_genes)
     if space.pruning_domains:
-        pruning = {unit_id: 1 for unit_id in space.pruning_unit_ids}
+        pruning = {}
         for _stage, domain_ids in _stage_groups(tuple(space.pruning_gene_ids)):
             if rng.random() < 0.5:
                 for domain_id in domain_ids:

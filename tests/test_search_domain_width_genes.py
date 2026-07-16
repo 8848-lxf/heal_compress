@@ -131,7 +131,36 @@ def test_domain_width_ga_operators_preserve_legal_widths() -> None:
 
     assert set(mutated.pruning_width_genes) == {domains[0].domain_id}
     assert mutated.pruning_width_genes[domains[0].domain_id] in domains[0].legal_widths
-    assert all(value == 1 for value in mutated.pruning_genes.values())
+    assert mutated.pruning_genes == {}
+
+
+def test_compact_domain_width_genotype_preserves_expanded_atomic_mask() -> None:
+    from search.candidate import CandidateGenotype
+    from search.canonicalization import (
+        SearchSpaceSpec,
+        canonicalize_candidate,
+        repair_genotype,
+    )
+    from search.pruning_space.local_domains import build_local_pruning_domains
+
+    units = [_unit("scope", "backbone.conv", index, float(index)) for index in range(16)]
+    domain = build_local_pruning_domains(units)[0]
+    space = SearchSpaceSpec(
+        pruning_unit_ids=[unit.stable_id for unit in units],
+        precision_layer_ids=[],
+        pruning_domains=(domain,),
+    )
+    width_gene = {domain.domain_id: domain.legal_widths[0]}
+    legacy_redundant = CandidateGenotype(
+        pruning_genes={unit.stable_id: 1 for unit in units},
+        pruning_width_genes=width_gene,
+    )
+    compact = CandidateGenotype(pruning_width_genes=width_gene)
+
+    assert repair_genotype(legacy_redundant, space).pruning_genes == {}
+    assert canonicalize_candidate(legacy_redundant, space).to_dict() == canonicalize_candidate(
+        compact, space
+    ).to_dict()
 
 
 def test_candidate_width_genes_round_trip() -> None:
