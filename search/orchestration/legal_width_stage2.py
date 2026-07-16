@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from collections import Counter
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from ..hashing import canonical_json_hash
+from ..candidate import normalize_precision
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -45,6 +47,20 @@ def _expanded_precision_hash(phenotype: Any) -> str:
             for module_path, decision in sorted(phenotype.precision_profile.items())
         }
     )
+
+
+def _serialized_precision_hash(phenotype: Mapping[str, Any]) -> str:
+    profile = dict(phenotype.get("precision_profile", {}) or {})
+    expanded = {}
+    for module_path, source in sorted(profile.items()):
+        if isinstance(source, Mapping):
+            precision = source.get(
+                "requested_precision", source.get("realized_precision", "")
+            )
+        else:
+            precision = source
+        expanded[str(module_path)] = normalize_precision(str(precision))
+    return canonical_json_hash(expanded)
 
 
 def run_legal_width_stage2_screening(
@@ -325,4 +341,265 @@ def run_legal_width_full_validation(
     }
     _write_json(destination / "full_validation_results.json", summary)
     _write_csv(destination / "full_validation_results.csv", normalized)
+    return summary
+
+
+def _lineage_identity(row: Mapping[str, Any], *, built: bool) -> str:
+    keys = (
+        ("deployment_identity", "deployment_hash", "engine_hash", "candidate_hash")
+        if built
+        else ("phenotype_hash", "candidate_hash")
+    )
+    for key in keys:
+        value = str(row.get(key, ""))
+        if value:
+            return value
+    raise ValueError("full_validation_candidate_identity_missing")
+
+
+def _lineage_reference(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        key: row.get(key)
+        for key in (
+            "budget",
+            "target_bops",
+            "budget_label",
+            "generation",
+            "candidate_hash",
+            "candidate_source",
+        )
+        if row.get(key) is not None
+    }
+
+
+def _full_validation_tasks(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    destination: Path,
+    required_evaluated_frames: int,
+    required_skipped_frames: int,
+) -> list[dict[str, Any]]:
+    tasks = []
+    for source in rows:
+        row = dict(source)
+        engine_path = Path(str(row.get("engine_path", "")))
+        if not engine_path.is_file():
+            continue
+        candidate_hash = str(row["candidate_hash"])
+        deployment_key = _lineage_identity(row, built=True)
+        tasks.append(
+            {
+                "task_protocol": "full_validation",
+                "task_cache_key": canonical_json_hash(
+                    {
+                        "protocol": "full_validation",
+                        "deployment_identity": deployment_key,
+                        "engine_hash": str(row.get("engine_hash", "")),
+                        "required_evaluated_frames": int(
+                            required_evaluated_frames
+                        ),
+                        "required_skipped_frames": int(required_skipped_frames),
+                    }
+                ),
+                "candidate_hash": candidate_hash,
+                "engine_path": str(engine_path.resolve()),
+                "output_dir": str(
+                    (destination / "full_validation" / candidate_hash).resolve()
+                ),
+                "deployment_metadata": {
+                    **row,
+                    "evaluation_protocol": "full_validation",
+                },
+            }
+        )
+    return tasks
+
+
+def _normalize_full_validation_results(
+    results: Sequence[Mapping[str, Any]],
+    *,
+    required_evaluated_frames: int,
+    required_skipped_frames: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    normalized = []
+    successful = []
+    for source in results:
+        row = dict(source)
+        evaluated = int(
+            row.get("evaluated", row.get("num_evaluated_frames", -1))
+        )
+        skipped = int(row.get("skipped", row.get("num_skipped_frames", -1)))
+        passed = (
+            str(row.get("status", "")) == "ok"
+            and evaluated == int(required_evaluated_frames)
+            and skipped == int(required_skipped_frames)
+            and bool(row.get("precision_identity_passed", False))
+            and math.isfinite(float(row.get("mAP", float("nan"))))
+        )
+        row.update(
+            {
+                "evaluation_protocol": "full_validation",
+                "full_validation_success": passed,
+                "evaluated_frames": evaluated,
+                "skipped_frames": skipped,
+                "candidate_id": str(
+                    row.get("candidate_id", row.get("candidate_hash", ""))
+                ),
+                "R_BOPS": row.get("R_BOPS", row.get("BOPS_retention")),
+                "R_param": row.get(
+                    "R_param", row.get("parameter_retention")
+                ),
+            }
+        )
+        normalized.append(row)
+        if passed:
+            successful.append(row)
+    return normalized, successful
+
+
+def run_generation_winner_full_validation(
+    *,
+    generation_winners: Sequence[Mapping[str, Any]],
+    stage2_pool: Any,
+    run_dir: str | Path,
+    required_evaluated_frames: int = 1789,
+    required_skipped_frames: int = 0,
+) -> dict[str, Any]:
+    """Full-validate every unique generation-winner deployment exactly once."""
+
+    destination = Path(run_dir)
+    unique: dict[str, dict[str, Any]] = {}
+    lineage: dict[str, list[dict[str, Any]]] = {}
+    for source in generation_winners:
+        row = dict(source)
+        identity = _lineage_identity(row, built=True)
+        unique.setdefault(identity, row)
+        lineage.setdefault(identity, []).append(_lineage_reference(row))
+    selected = []
+    for identity, row in unique.items():
+        selected.append(
+            {
+                **row,
+                "candidate_source": str(row.get("candidate_source", "ga")),
+                "lineage_references": lineage[identity],
+            }
+        )
+    tasks = _full_validation_tasks(
+        selected,
+        destination=destination,
+        required_evaluated_frames=required_evaluated_frames,
+        required_skipped_frames=required_skipped_frames,
+    )
+    results = stage2_pool.map_tasks(tasks) if tasks else []
+    normalized, successful = _normalize_full_validation_results(
+        results,
+        required_evaluated_frames=required_evaluated_frames,
+        required_skipped_frames=required_skipped_frames,
+    )
+    summary = {
+        "unique_deployment_count": len(unique),
+        "lineage_reference_count": sum(len(rows) for rows in lineage.values()),
+        "task_count": len(tasks),
+        "successful_count": len(successful),
+        "results": normalized,
+        "successful_candidates": successful,
+    }
+    _write_json(destination / "generation_winner_full_validation.json", summary)
+    _write_csv(destination / "generation_winner_full_validation.csv", normalized)
+    return summary
+
+
+def run_greedy_endpoint_full_validation(
+    *,
+    endpoints: Sequence[Mapping[str, Any]],
+    stage2_pool: Any,
+    run_dir: str | Path,
+    required_evaluated_frames: int = 1789,
+    required_skipped_frames: int = 0,
+) -> dict[str, Any]:
+    """Build and full-validate only unique terminal greedy endpoint phenotypes."""
+
+    destination = Path(run_dir)
+    unique: dict[str, dict[str, Any]] = {}
+    lineage: dict[str, list[dict[str, Any]]] = {}
+    for source in endpoints:
+        row = dict(source)
+        identity = _lineage_identity(row, built=False)
+        unique.setdefault(identity, row)
+        lineage.setdefault(identity, []).append(_lineage_reference(row))
+    build_tasks = []
+    identities = []
+    for identity, row in unique.items():
+        candidate_hash = str(row["candidate_hash"])
+        phenotype = dict(row.get("phenotype", {}) or {})
+        precision_hash = _serialized_precision_hash(phenotype)
+        build_tasks.append(
+            {
+                "task_protocol": "build_smoke",
+                "task_cache_key": canonical_json_hash(
+                    {
+                        "protocol": "build_smoke",
+                        "candidate_hash": candidate_hash,
+                        "precision_hash": precision_hash,
+                    }
+                ),
+                "candidate_hash": candidate_hash,
+                "phenotype": phenotype,
+                "output_dir": str(
+                    (destination / "greedy_build" / candidate_hash).resolve()
+                ),
+                "raw_precision_gene_hash": precision_hash,
+                "repaired_precision_gene_hash": precision_hash,
+                "smoke_frames": 10,
+                "smoke_warmup_frames": 10,
+            }
+        )
+        identities.append(identity)
+    build_results = stage2_pool.map_tasks(build_tasks) if build_tasks else []
+    built = []
+    for identity, endpoint, result in zip(
+        identities, unique.values(), build_results
+    ):
+        if str(result.get("status", "")) != "ok":
+            continue
+        metrics = dict(endpoint.get("metrics", {}) or {})
+        built.append(
+            {
+                **dict(endpoint),
+                **metrics,
+                **dict(result),
+                "candidate_source": "greedy",
+                "lineage_references": lineage[identity],
+                "R_BOPS": metrics.get(
+                    "R_BOPS", metrics.get("R_bops_vs_fp32")
+                ),
+                "R_param": 1.0
+                - float(metrics.get("R_prune", 1.0 - metrics.get("R_param", 1.0))),
+            }
+        )
+    tasks = _full_validation_tasks(
+        built,
+        destination=destination,
+        required_evaluated_frames=required_evaluated_frames,
+        required_skipped_frames=required_skipped_frames,
+    )
+    results = stage2_pool.map_tasks(tasks) if tasks else []
+    normalized, successful = _normalize_full_validation_results(
+        results,
+        required_evaluated_frames=required_evaluated_frames,
+        required_skipped_frames=required_skipped_frames,
+    )
+    summary = {
+        "unique_deployment_count": len(built),
+        "unique_endpoint_count": len(unique),
+        "budget_lineage_count": sum(len(rows) for rows in lineage.values()),
+        "build_task_count": len(build_tasks),
+        "full_validation_task_count": len(tasks),
+        "successful_count": len(successful),
+        "build_results": [dict(row) for row in build_results],
+        "results": normalized,
+        "successful_candidates": successful,
+    }
+    _write_json(destination / "greedy_full_validation.json", summary)
+    _write_csv(destination / "greedy_full_validation.csv", normalized)
     return summary

@@ -74,3 +74,16 @@ def test_pareto_writer_emits_three_fronts_and_combined_plots(tmp_path) -> None:
     assert set(result) == {"bops", "param", "latency", "combined"}
     assert (tmp_path / "pareto_combined_bops_map_latency.png").is_file()
     assert (tmp_path / "pareto_combined_param_map_latency.png").is_file()
+
+
+def test_pareto_writer_accepts_greedy_source_marker(tmp_path) -> None:
+    from search.reporting.pareto_frontier import write_official_pareto_artifacts
+
+    row = {
+        **_full("greedy", map_value=0.70, bops=0.20, params=0.8, latency=4.0),
+        "candidate_source": "greedy",
+    }
+
+    result = write_official_pareto_artifacts([row], tmp_path)
+
+    assert result["bops"]["point_count"] == 1

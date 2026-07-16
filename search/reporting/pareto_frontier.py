@@ -131,7 +131,12 @@ def _plot_combined(
 
     official = _official_rows(rows)
     front_ids = {str(row.get("candidate_id", "")) for row in front}
-    marker_by_source = {"anchor": "s", "baseline": "^", "ga": "o"}
+    marker_by_source = {
+        "anchor": "s",
+        "baseline": "^",
+        "ga": "o",
+        "greedy": "D",
+    }
     figure, axis = plt.subplots(figsize=(9.0, 6.0))
     scatter = None
     sources = sorted(

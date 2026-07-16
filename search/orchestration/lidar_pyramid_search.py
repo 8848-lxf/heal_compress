@@ -40,7 +40,7 @@ from ..ga.engine import GAConfig, GeneticSearchEngine
 from ..hashing import candidate_hash, canonical_json_hash, search_hash
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
 from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
-from ..integration.runtime_environment import require_gpu_isolation
+from ..integration.runtime_environment import query_gpus, require_gpu_isolation
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.fisher_proxy import FisherTaylorProxy
 from ..proxy.joint_taylor import JointTaylorProxy
@@ -70,11 +70,22 @@ from .budget_final import run_budget_final_evaluation
 from .generation_stage2 import deploy_generation_with_backfill, fixed_bops_admission
 from .gpu_scheduler import select_stage2_gpu_ids
 from .legal_width_joint_ga import run_legal_width_budget_sweep
-from .legal_width_greedy import run_six_budget_greedy
-from .legal_width_six_budget_ga import run_six_budget_joint_ga
+from .legal_width_greedy import load_greedy_endpoints, run_six_budget_greedy
+from .legal_width_six_budget_ga import (
+    join_full_validation_with_formal_latency,
+    run_six_budget_joint_ga,
+    select_and_write_budget_winners,
+)
 from .legal_width_stage2 import (
+    run_generation_winner_full_validation,
+    run_greedy_endpoint_full_validation,
     run_legal_width_full_validation,
     run_legal_width_stage2_screening,
+)
+from .formal_latency import (
+    query_active_deployment_process_commands,
+    run_formal_latency_replay,
+    select_formal_latency_gpu,
 )
 from .stage2_process_pool import PersistentStage2ProcessPool
 
@@ -1010,6 +1021,216 @@ class LidarPyramidTwoStageSearch:
                     )
                 finally:
                     stage2_pool.close()
+                full_cfg = dict(self.config.get("full_validation", {}) or {})
+                full_runtime_config = json.loads(json.dumps(self.config))
+                full_runtime_config["stage2"] = {
+                    **dict(full_runtime_config.get("stage2", {}) or {}),
+                    **full_cfg,
+                    "score_mode": "map_minus_latency_ratio",
+                    "latency_weight": 0.10,
+                    "latency_metric": "forward_p50_ms",
+                    "target_bops_retention": None,
+                    "num_workers": 8,
+                    "ap_iou_backend": "gpu",
+                }
+                full_pool = PersistentStage2ProcessPool(
+                    run_dir=run_dir / "joint_full_validation_execution",
+                    gpu_ids=worker_gpu_ids,
+                    worker_payload={
+                        "config": full_runtime_config,
+                        "checkpoint": str(self.checkpoint),
+                        "code_commit": context.code_commit,
+                        "controller_pid": os.getpid(),
+                        "formal_protocol_tasks": True,
+                        "allow_reference_tasks": False,
+                        "shared_stage2_reference": shared_stage2_reference,
+                    },
+                    startup_timeout_seconds=float(
+                        parallel_cfg.get("startup_timeout_seconds", 1200)
+                    ),
+                    task_timeout_seconds=float(
+                        parallel_cfg.get("task_timeout_seconds", 28800)
+                    ),
+                    poll_interval_seconds=float(
+                        parallel_cfg.get("poll_interval_seconds", 0.25)
+                    ),
+                )
+                greedy_endpoints = (
+                    list(greedy_result.get("endpoints", []))
+                    if greedy_result is not None
+                    else load_greedy_endpoints(
+                        search_cfg.get("greedy_endpoint_manifest")
+                    )
+                )
+                reference_profile_hash = "strict_fp32_reference_profile"
+                strict_reference_winner = {
+                    **dict(shared_stage2_reference or {}),
+                    "candidate_hash": "strict_fp32_reference",
+                    "candidate_source": "baseline",
+                    "deployment_identity": str(
+                        dict(shared_stage2_reference or {}).get(
+                            "deployment_hash",
+                            dict(shared_stage2_reference or {}).get(
+                                "engine_hash", "strict_fp32_reference"
+                            ),
+                        )
+                    ),
+                    "R_BOPS": 1.0,
+                    "R_param": 1.0,
+                    "raw_precision_gene_hash": reference_profile_hash,
+                    "repaired_precision_gene_hash": reference_profile_hash,
+                    "requested_precision_profile_hash": reference_profile_hash,
+                    "realized_precision_profile_hash": reference_profile_hash,
+                    "precision_identity_passed": True,
+                }
+                try:
+                    greedy_full = run_greedy_endpoint_full_validation(
+                        endpoints=greedy_endpoints,
+                        stage2_pool=full_pool,
+                        run_dir=run_dir / "greedy_full_validation",
+                        required_evaluated_frames=int(
+                            full_cfg.get("required_evaluated_frames", 1789)
+                        ),
+                        required_skipped_frames=int(
+                            full_cfg.get("required_skipped_frames", 0)
+                        ),
+                    )
+                    generation_full = run_generation_winner_full_validation(
+                        generation_winners=[
+                            strict_reference_winner,
+                            *list(joint_ga["generation_winners"]),
+                        ],
+                        stage2_pool=full_pool,
+                        run_dir=run_dir / "generation_winner_full_validation",
+                        required_evaluated_frames=int(
+                            full_cfg.get("required_evaluated_frames", 1789)
+                        ),
+                        required_skipped_frames=int(
+                            full_cfg.get("required_skipped_frames", 0)
+                        ),
+                    )
+                finally:
+                    full_pool.close()
+                full_rows = [
+                    *list(greedy_full["successful_candidates"]),
+                    *list(generation_full["successful_candidates"]),
+                ]
+                gpu_rows = query_gpus()
+                formal_cfg = dict(self.config.get("formal_latency", {}) or {})
+                requested_formal_gpu = formal_cfg.get("gpu_id", "auto")
+                formal_gpu = select_formal_latency_gpu(
+                    gpu_rows,
+                    requested_gpu_id=(
+                        None
+                        if str(requested_formal_gpu).lower() == "auto"
+                        else int(requested_formal_gpu)
+                    ),
+                    max_memory_fraction=float(
+                        formal_cfg.get("max_memory_fraction", 0.50)
+                    ),
+                    max_utilization_pct=int(
+                        formal_cfg.get("max_utilization_pct", 20)
+                    ),
+                )
+                formal_gpu_id = int(formal_gpu["index"])
+                formal_runtime_config = json.loads(
+                    json.dumps(full_runtime_config)
+                )
+                formal_runtime_config["runtime"].update(
+                    {
+                        "gpu_id": str(formal_gpu_id),
+                        "allow_foreign_gpu_processes": False,
+                        "max_gpu_utilization_pct": 20,
+                    }
+                )
+                formal_runtime_config["stage2"].update(
+                    {
+                        "num_frames": int(
+                            formal_cfg.get("measured_frames", 1789)
+                        ),
+                        "warmup_frames": int(
+                            formal_cfg.get("warmup_frames", 20)
+                        ),
+                        "required_evaluated_frames": int(
+                            formal_cfg.get("measured_frames", 1789)
+                        ),
+                        "required_skipped_frames": 0,
+                    }
+                )
+                formal_pool = PersistentStage2ProcessPool(
+                    run_dir=run_dir / "joint_formal_latency_execution",
+                    gpu_ids=[formal_gpu_id],
+                    worker_payload={
+                        "config": formal_runtime_config,
+                        "checkpoint": str(self.checkpoint),
+                        "code_commit": context.code_commit,
+                        "controller_pid": os.getpid(),
+                        "formal_protocol_tasks": True,
+                        "allow_reference_tasks": False,
+                        "shared_stage2_reference": shared_stage2_reference,
+                    },
+                    startup_timeout_seconds=float(
+                        parallel_cfg.get("startup_timeout_seconds", 1200)
+                    ),
+                    task_timeout_seconds=float(
+                        parallel_cfg.get("task_timeout_seconds", 28800)
+                    ),
+                    poll_interval_seconds=float(
+                        parallel_cfg.get("poll_interval_seconds", 0.25)
+                    ),
+                )
+                formal_candidates = [
+                    row
+                    for row in full_rows
+                    if str(row.get("candidate_hash", ""))
+                    != "strict_fp32_reference"
+                ]
+                try:
+                    formal = run_formal_latency_replay(
+                        rows=formal_candidates,
+                        strict_fp32_reference=dict(shared_stage2_reference or {}),
+                        stage2_pool=formal_pool,
+                        run_dir=run_dir / "formal_latency",
+                        selected_gpu_id=formal_gpu_id,
+                        selected_gpu_uuid=str(formal_gpu["uuid"]),
+                        active_process_commands=(
+                            query_active_deployment_process_commands()
+                        ),
+                        gpu_processes=[
+                            {**dict(process), "gpu_uuid": str(row["uuid"])}
+                            for row in gpu_rows
+                            for process in row.get("processes", [])
+                        ],
+                        required_evaluated_frames=int(
+                            formal_cfg.get("measured_frames", 1789)
+                        ),
+                        required_skipped_frames=0,
+                    )
+                finally:
+                    formal_pool.close()
+                official_rows = join_full_validation_with_formal_latency(
+                    full_rows,
+                    formal,
+                )
+                _write_json(run_dir / "official_full_validation_rows.json", official_rows)
+                budget_winners = select_and_write_budget_winners(
+                    rows=official_rows,
+                    targets=search_cfg["targets"],
+                    output_dir=run_dir / "budget_winners",
+                )
+                pareto_input = [
+                    row
+                    for row in official_rows
+                    if bool(row.get("official_pareto_ready", False))
+                ]
+                pareto = (
+                    write_official_pareto_artifacts(
+                        pareto_input,
+                        run_dir / "pareto",
+                    )
+                    if pareto_input
+                    else {"status": "no_official_points"}
+                )
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 manifest["joint_six_budget_ga"] = {
                     key: value
@@ -1019,11 +1240,33 @@ class LidarPyramidTwoStageSearch:
                 manifest["joint_six_budget_ga"]["generation_winner_count"] = len(
                     joint_ga["generation_winners"]
                 )
+                manifest["joint_six_budget_ga"].update(
+                    {
+                        "greedy_full_validation_successful": int(
+                            greedy_full["successful_count"]
+                        ),
+                        "generation_full_validation_successful": int(
+                            generation_full["successful_count"]
+                        ),
+                        "formal_latency_successful": int(
+                            formal["successful_candidate_count"]
+                        ),
+                        "budget_winner_count": int(
+                            budget_winners["winner_count"]
+                        ),
+                        "pareto": pareto,
+                    }
+                )
                 _write_json(manifest_path, manifest)
                 return {
                     "run_dir": str(run_dir),
                     "selected_gpu": context.physical_gpu_id,
                     "joint_six_budget_ga": joint_ga,
+                    "greedy_full_validation": greedy_full,
+                    "generation_full_validation": generation_full,
+                    "formal_latency": formal,
+                    "budget_winners": budget_winners,
+                    "pareto": pareto,
                     "STAGE_A_STARTED": False,
                     "STAGE_B_ALLOWED": False,
                 }

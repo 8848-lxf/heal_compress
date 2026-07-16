@@ -460,8 +460,11 @@ def assert_formal_latency_isolation(
     forbidden_tokens = (
         "candidate_worker",
         "stage2_process_pool",
+        "trt_build_worker",
+        "build_worker",
         "evaluation_worker",
         "calibration_worker",
+        "calibrat",
         "trtexec",
         "search.cli",
     )

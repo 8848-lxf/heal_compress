@@ -109,6 +109,36 @@ def _configured_anchor_rows(config: Mapping[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def load_greedy_endpoints(path: str | Path | None) -> list[dict[str, Any]]:
+    """Load terminal greedy endpoint artifacts without loading path states."""
+
+    if path is None or not str(path).strip():
+        return []
+    source = Path(path).expanduser().resolve()
+    if not source.exists():
+        raise RuntimeError(f"greedy_endpoint_manifest_missing:{source}")
+    paths = (
+        sorted(source.glob("budget_*_endpoint.json"))
+        if source.is_dir()
+        else [source]
+    )
+    endpoints = []
+    for item in paths:
+        payload = json.loads(item.read_text(encoding="utf-8"))
+        rows = (
+            list(payload.get("endpoints", []))
+            if isinstance(payload, dict) and "endpoints" in payload
+            else [payload]
+        )
+        endpoints.extend(
+            dict(row)
+            for row in rows
+            if str(row.get("status", "ok")) != "infeasible"
+            and row.get("phenotype")
+        )
+    return endpoints
+
+
 def run_six_budget_greedy(
     context: Any,
     proxy: Any,

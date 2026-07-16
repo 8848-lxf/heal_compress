@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -158,3 +159,59 @@ def test_formal_six_budget_config_contract() -> None:
     assert config["stage2"]["num_workers"] == 8
     assert config["runtime"]["stage2_gpu_ids"] == "auto"
     assert config["runtime"]["max_stage2_gpu_memory_fraction"] == 0.50
+
+
+def test_budget_winner_uses_full_map_and_formal_latency_exchange(tmp_path: Path) -> None:
+    from search.orchestration.legal_width_six_budget_ga import (
+        join_full_validation_with_formal_latency,
+        select_and_write_budget_winners,
+    )
+
+    full_rows = [
+        {
+            "candidate_hash": "accurate",
+            "deployment_identity": "accurate-id",
+            "mAP": 0.72,
+            "evaluation_protocol": "full_validation",
+            "full_validation_success": True,
+            "lineage_references": [{"budget": 0.20}],
+        },
+        {
+            "candidate_hash": "faster",
+            "deployment_identity": "faster-id",
+            "mAP": 0.71,
+            "evaluation_protocol": "full_validation",
+            "full_validation_success": True,
+            "lineage_references": [{"budget": 0.20}],
+        },
+    ]
+    formal = {
+        "strict_fp32_formal_p50_ms": 10.0,
+        "reference_result": {},
+        "results": [
+            {
+                "candidate_hash": "accurate",
+                "deployment_identity": "accurate-id",
+                "formal_latency_success": True,
+                "formal_latency_p50_ms": 10.0,
+            },
+            {
+                "candidate_hash": "faster",
+                "deployment_identity": "faster-id",
+                "formal_latency_success": True,
+                "formal_latency_p50_ms": 9.0,
+            },
+        ],
+    }
+
+    joined = join_full_validation_with_formal_latency(full_rows, formal)
+    result = select_and_write_budget_winners(
+        rows=joined,
+        targets=[0.20],
+        output_dir=tmp_path,
+    )
+
+    assert joined[0]["formal_F2"] == pytest.approx(joined[1]["formal_F2"])
+    assert result["winner_count"] == 1
+    assert result["winners"][0]["candidate_hash"] == "accurate"
+    assert (tmp_path / "budget_020_winner.json").is_file()

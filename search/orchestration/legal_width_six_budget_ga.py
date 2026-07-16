@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ..admission.bops_band import BopsBandPolicy
+from ..candidate import normalize_precision
 from ..hashing import canonical_json_hash
 from ..stage1.topk_selector import ProxyCandidateRecord
 from .generation_stage2 import run_generation_stage2
@@ -20,6 +22,25 @@ def _write_json(path: Path, payload: Any) -> None:
         json.dumps(payload, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
     )
+
+
+def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
+    fields = sorted({str(key) for row in rows for key in row})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    key: (
+                        json.dumps(value, sort_keys=True, default=str)
+                        if isinstance(value, (dict, list, tuple))
+                        else value
+                    )
+                    for key, value in row.items()
+                }
+            )
 
 
 def _budget_label(target: float) -> str:
@@ -73,13 +94,14 @@ def merge_seed_generation_records(
 
 
 def _precision_hash(record: ProxyCandidateRecord) -> str:
-    value = str(getattr(record.genotype, "precision_hash", ""))
-    if value:
-        return value
-    return str(
-        dict(getattr(record.phenotype, "metadata", {}) or {}).get(
-            "precision_hash", ""
-        )
+    profile = dict(getattr(record.phenotype, "precision_profile", {}) or {})
+    if not profile:
+        return str(getattr(record.genotype, "precision_hash", ""))
+    return canonical_json_hash(
+        {
+            str(module_path): normalize_precision(decision.requested_precision)
+            for module_path, decision in sorted(profile.items())
+        }
     )
 
 
@@ -325,3 +347,148 @@ def run_six_budget_joint_ga(
         summary,
     )
     return summary
+
+
+def join_full_validation_with_formal_latency(
+    full_validation_rows: Sequence[Mapping[str, Any]],
+    formal_latency_report: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    reference = dict(formal_latency_report.get("reference_result", {}) or {})
+    formal_rows = [
+        reference,
+        *[
+            dict(row)
+            for row in formal_latency_report.get("results", []) or []
+        ],
+    ]
+    by_candidate = {
+        str(row.get("candidate_hash", "")): row
+        for row in formal_rows
+        if str(row.get("candidate_hash", ""))
+    }
+    by_deployment = {
+        str(
+            row.get("deployment_identity")
+            or row.get("deployment_hash")
+            or row.get("engine_hash")
+        ): row
+        for row in formal_rows
+        if str(
+            row.get("deployment_identity")
+            or row.get("deployment_hash")
+            or row.get("engine_hash")
+        )
+    }
+    joined = []
+    reference_p50 = float(formal_latency_report["strict_fp32_formal_p50_ms"])
+    for source in full_validation_rows:
+        row = dict(source)
+        deployment_key = str(
+            row.get("deployment_identity")
+            or row.get("deployment_hash")
+            or row.get("engine_hash")
+        )
+        formal = by_deployment.get(deployment_key) or by_candidate.get(
+            str(row.get("candidate_hash", ""))
+        )
+        formal_ok = bool(formal and formal.get("formal_latency_success", False))
+        p50 = (
+            float(formal["formal_latency_p50_ms"])
+            if formal_ok
+            else float("nan")
+        )
+        map_value = float(row.get("mAP", float("nan")))
+        joined.append(
+            {
+                **row,
+                "formal_latency_success": formal_ok,
+                "formal_latency_p50_ms": p50,
+                "formal_latency_p95_ms": (
+                    formal.get("formal_latency_p95_ms") if formal else None
+                ),
+                "formal_latency_gpu_id": (
+                    formal.get("formal_latency_gpu_id") if formal else None
+                ),
+                "formal_latency_gpu_uuid": (
+                    formal.get("formal_latency_gpu_uuid") if formal else ""
+                ),
+                "formal_F2": (
+                    map_value - 0.10 * (p50 / reference_p50)
+                    if formal_ok and math.isfinite(map_value)
+                    else -float("inf")
+                ),
+                "official_pareto_ready": bool(
+                    row.get("full_validation_success", False) and formal_ok
+                ),
+            }
+        )
+    return joined
+
+
+def select_and_write_budget_winners(
+    *,
+    rows: Sequence[Mapping[str, Any]],
+    targets: Sequence[float],
+    output_dir: str | Path,
+) -> dict[str, Any]:
+    destination = Path(output_dir)
+    winners = []
+    reports = []
+    for target in sorted({float(value) for value in targets}):
+        eligible = []
+        for source in rows:
+            row = dict(source)
+            if not bool(row.get("official_pareto_ready", False)):
+                continue
+            references = list(row.get("lineage_references", []) or [])
+            if not references:
+                references = [row]
+            if not any(
+                math.isclose(
+                    float(reference.get("budget", reference.get("target_bops", -1.0))),
+                    target,
+                    abs_tol=1.0e-12,
+                )
+                for reference in references
+            ):
+                continue
+            eligible.append(row)
+        ordered = sorted(
+            eligible,
+            key=lambda row: (
+                -float(row["formal_F2"]),
+                -float(row["mAP"]),
+                float(row["formal_latency_p50_ms"]),
+                str(row.get("candidate_hash", "")),
+            ),
+        )
+        label = _budget_label(target)
+        if ordered:
+            winner = {**ordered[0], "budget": target, "budget_label": label}
+            winners.append(winner)
+            _write_json(destination / f"{label}_winner.json", winner)
+            status = "ok"
+        else:
+            winner = None
+            status = "no_full_validation_formal_latency_candidate"
+            _write_json(
+                destination / f"{label}_winner.json",
+                {"budget": target, "budget_label": label, "status": status},
+            )
+        reports.append(
+            {
+                "budget": target,
+                "budget_label": label,
+                "status": status,
+                "eligible_count": len(ordered),
+                "winner": winner,
+            }
+        )
+    _write_json(destination / "budget_winners.json", reports)
+    _write_csv(destination / "budget_winners.csv", winners)
+    return {
+        "target_count": len(set(float(value) for value in targets)),
+        "winner_count": len(winners),
+        "reports": reports,
+        "winners": winners,
+    }
