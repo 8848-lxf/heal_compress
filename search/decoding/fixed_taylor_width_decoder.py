@@ -425,7 +425,6 @@ class FixedTaylorWidthDecoder:
         width_hash = canonical_json_hash(genes)
         structure_payload = {
             "inventory_hash": self.inventory.width_space_hash,
-            "ranking_hash": self.ranking_hash,
             "pruned_unit_ids": sorted(pruned),
         }
         structure_hash = canonical_json_hash(structure_payload)
