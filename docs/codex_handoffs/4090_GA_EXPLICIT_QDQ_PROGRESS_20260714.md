@@ -1179,3 +1179,58 @@ Q/DQ, precision realization, AP formula, or cache signature was relaxed by
 this scheduling update.
 
 --- Round 20 completed: 2026-07-16 19:16:42 CST ---
+
+## Round 21 - approved greedy-first six-budget search specification
+
+This round finalized the design contract for the next implementation and did
+not start greedy search, GA, Stage A, Stage B, engine construction, or model
+evaluation. The approved design is recorded in
+`docs/superpowers/specs/2026-07-16-greedy-first-six-budget-joint-search-design.md`.
+
+The formal Stage-1 objective removes the underresolved exponential Taylor
+mapping and its `tau`. It will maximize the linear score
+`J1 = -0.8 * (L_joint / L_scale) + 0.2 * R_prune`, where `L_joint` contains
+weight pruning and retained-weight quantization Taylor perturbations but no
+activation Taylor or SQNR term. `L_scale` will be the deterministic positive
+nearest-rank P90 over unique accepted greedy-path states and legal anchors and
+will remain immutable throughout GA.
+
+The execution order is greedy first, followed by GA. Greedy searches the six
+BOPS targets `0.05/0.10/0.15/0.20/0.25/0.30` independently using legal-width
+and deployable precision actions. GA then uses three independent populations,
+64 individuals and offspring per population, and 20 generations per budget.
+The three populations merge their ranking each generation and deploy at most
+one global unique Top-5 set.
+
+BOPS is the only performance admission gate. The primary tolerance remains
+`+/-0.005`; only when every primary candidate is exhausted may the nearest
+legal candidate enter under an explicitly reported `+/-0.0075` tolerance, and
+it may not belong to an adjacent budget's primary interval. No mAP or AP hard
+gate is applied.
+
+Generation candidate-count semantics are now explicit. Zero deployable
+candidates fails the generation with a complete BOPS/admission funnel. One
+candidate is audited and smoke-tested, skips the 500-frame comparison, and is
+queued directly as the generation winner for common 1,789-frame validation.
+Two through five candidates all run the fixed 500-frame evaluation and select
+one winner using `F2 = mAP - 0.10 * (p50 / strict_FP32_p50)`. This score encodes
+the accepted exchange that a 10% p50 reduction can compensate an absolute
+0.01 mAP decrease.
+
+Stage-2 will dynamically use RTX 4090 devices below 50% memory occupancy,
+preferring the lowest-utilization devices. One signed strict-FP32 reference is
+shared across workers. Official latency remains a later serial replay on one
+quiet GPU, and official Pareto fronts require full-validation mAP plus that
+formal latency.
+
+Current state:
+
+- `DESIGN_APPROVED = true`;
+- `SPEC_WRITTEN = true`;
+- `IMPLEMENTATION_STARTED = false`;
+- `GREEDY_SEARCH_STARTED = false`;
+- `GA_SEARCH_STARTED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 21 completed: 2026-07-17 01:11:38 CST ---
