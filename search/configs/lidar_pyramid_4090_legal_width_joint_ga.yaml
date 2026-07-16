@@ -106,6 +106,9 @@ search:
   per_generation_stage2: false
 
 stage2:
+  ap_iou_backend: gpu
+  strict_gpu_ap_iou: true
+  num_workers: 8
   smoke_frames: 10
   smoke_warmup_frames: 10
   num_frames: 50
@@ -121,6 +124,9 @@ stage2:
   maximum_archive_attempts: 45
 
 full_validation:
+  ap_iou_backend: gpu
+  strict_gpu_ap_iou: true
+  num_workers: 8
   num_frames: 1789
   warmup_frames: 20
   required_evaluated_frames: 1789

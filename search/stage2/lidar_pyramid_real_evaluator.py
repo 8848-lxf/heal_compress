@@ -550,6 +550,8 @@ class LidarPyramidRealEvaluator:
         stage2_config: Stage2ObjectiveConfig | None = None,
         artifact_cache: ArtifactCache | None = None,
         real_cache: RealEvalCache | None = None,
+        evaluation_num_workers: int = 8,
+        ap_iou_backend: str = "gpu",
     ) -> None:
         self.context = context
         self.run_dir = Path(run_dir)
@@ -561,6 +563,12 @@ class LidarPyramidRealEvaluator:
         )
         self.bops_tolerance = float(bops_tolerance)
         self.objective_config = stage2_config or Stage2ObjectiveConfig()
+        self.evaluation_num_workers = int(evaluation_num_workers)
+        self.ap_iou_backend = str(ap_iou_backend).lower()
+        if self.evaluation_num_workers != 8:
+            raise ValueError("formal_evaluation_num_workers_must_equal_8")
+        if self.ap_iou_backend != "gpu":
+            raise ValueError("formal_evaluation_gpu_ap_iou_required")
         archives = self.run_dir / "archives"
         self.artifacts = artifact_cache or ArtifactCache(archives / "artifact_index.jsonl")
         self.real_cache = real_cache or RealEvalCache(archives / "real_eval_archive.jsonl")
@@ -581,6 +589,8 @@ class LidarPyramidRealEvaluator:
                 "num_frames": self.num_frames,
                 "warmup_frames": self.warmup_frames,
                 "latency_rounds": self.latency_rounds,
+                "evaluation_num_workers": self.evaluation_num_workers,
+                "ap_iou_backend": self.ap_iou_backend,
                 "gpu": self.context.physical_gpu_id,
                 "tensorrt": _tensorrt_cache_identity(self.context.tensorrt),
             }
@@ -622,6 +632,8 @@ class LidarPyramidRealEvaluator:
                 "num_frames": self.num_frames,
                 "warmup_frames": self.warmup_frames,
                 "latency_rounds": self.latency_rounds,
+                "evaluation_num_workers": self.evaluation_num_workers,
+                "ap_iou_backend": self.ap_iou_backend,
                 "full_validation": bool(full_validation),
                 "qdq_calibration_semantics_version": QDQ_CALIBRATION_SEMANTICS_VERSION,
                 "trusted_explicit_qdq_profile_hash": canonical_json_hash(
@@ -696,6 +708,8 @@ class LidarPyramidRealEvaluator:
                 "num_frames": self.num_frames,
                 "warmup_frames": self.warmup_frames,
                 "latency_rounds": self.latency_rounds,
+                "evaluation_num_workers": self.evaluation_num_workers,
+                "ap_iou_backend": self.ap_iou_backend,
                 "stage2_reference_policy": "strict_fp32_ap_strict_fp16_latency_v1",
                 "objective_config": asdict(self.objective_config),
                 "gpu": self.context.physical_gpu_id,
@@ -2259,6 +2273,9 @@ class LidarPyramidRealEvaluator:
             latency_rounds=self.latency_rounds,
             conda_env=self.context.tensorrt.conda_env,
             eval_manifest_path=self.context.eval_manifest_path,
+            num_workers=self.evaluation_num_workers,
+            ap_iou_backend=self.ap_iou_backend,
+            strict_gpu_ap_iou=True,
         )
         require_gpu_isolation(
             self.context.physical_gpu_id,

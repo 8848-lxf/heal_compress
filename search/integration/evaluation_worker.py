@@ -20,6 +20,31 @@ from torch.utils.data import DataLoader
 IOU_THRESHOLDS = (0.30, 0.50, 0.70)
 
 
+def _loader_worker_init(_worker_id: int) -> None:
+    torch.set_num_threads(1)
+
+
+def _validate_ap_iou_protocol(backend: str, *, strict_gpu: bool) -> str:
+    normalized = str(backend).lower()
+    if normalized != "gpu" or not bool(strict_gpu):
+        raise RuntimeError("gpu_ap_iou_backend_required")
+    return normalized
+
+
+def _smoke_gpu_ap_iou(device: torch.device) -> dict[str, Any]:
+    from opencood.pcdet_utils.iou3d_nms.iou3d_nms_utils import boxes_iou_bev
+
+    box = torch.tensor(
+        [[0.0, 0.0, 0.0, 2.0, 2.0, 1.0, 0.0]],
+        device=device,
+        dtype=torch.float32,
+    )
+    value = float(boxes_iou_bev(box, box)[0, 0].item())
+    if abs(value - 1.0) > 1.0e-6:
+        raise RuntimeError(f"gpu_ap_iou_smoke_mismatch:{value}")
+    return {"backend": "gpu", "self_iou": value, "device": str(device)}
+
+
 def _percentile(values: list[float], pct: float) -> float | None:
     if not values:
         return None
@@ -202,12 +227,29 @@ def main(argv: list[str] | None = None) -> int:
         if device.type != "cuda":
             raise RuntimeError("TensorRT evaluation requires CUDA")
         torch.cuda.set_device(device)
+        ap_iou_backend = _validate_ap_iou_protocol(
+            str(request.get("ap_iou_backend", "gpu")),
+            strict_gpu=bool(request.get("strict_gpu_ap_iou", True)),
+        )
+        gpu_ap_iou_smoke = _smoke_gpu_ap_iou(device)
+        num_workers = int(request.get("num_workers", 8))
+        if num_workers != 8:
+            raise RuntimeError(f"evaluation_num_workers_must_equal_8:{num_workers}")
         adapter = HEALLiDARAdapter(heal_repo=request["heal_root"], config={"model": {"hypes_yaml": request["model_config"]}})
         hypes = yaml_utils.load_yaml(adapter._resolve_heal_path(request["model_config"]))
         hypes = adapter._absolutize_dataset_paths(hypes)
         model = adapter.build_model(request["model_config"], request["checkpoint"]).to(device).eval()
         dataset = build_dataset(hypes, visualize=True, train=False)
-        loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=int(request.get("num_workers", 0)), collate_fn=dataset.collate_batch_test)
+        loader = DataLoader(
+            dataset,
+            batch_size=1,
+            shuffle=False,
+            num_workers=num_workers,
+            collate_fn=dataset.collate_batch_test,
+            persistent_workers=True,
+            prefetch_factor=2,
+            worker_init_fn=_loader_worker_init,
+        )
         runner = TensorRTEngineRunner(request["engine_path"], device)
         export_config = OnnxExportConfig(
             fixed_k=int(request.get("fixed_k", 29696)),
@@ -339,7 +381,15 @@ def main(argv: list[str] | None = None) -> int:
                         )
                         continue
                     for thr in IOU_THRESHOLDS:
-                        calculate_tp_fp_for_threshold(pred_box, pred_score, gt_box, result_stat, thr, "cpu", device)
+                        calculate_tp_fp_for_threshold(
+                            pred_box,
+                            pred_score,
+                            gt_box,
+                            result_stat,
+                            thr,
+                            ap_iou_backend,
+                            device,
+                        )
                     actual += 1
                     evaluated_frame_ids.append(str(frame_id))
                     forward_times.append(forward_ms)
@@ -401,6 +451,10 @@ def main(argv: list[str] | None = None) -> int:
             "skipped_frame_ids": skipped_frame_ids,
             "skipped_warmup_frame_ids": skipped_warmup_frame_ids,
             "latency_rows": rows,
+            "ap_iou_backend": ap_iou_backend,
+            "strict_gpu_ap_iou": True,
+            "gpu_ap_iou_smoke": gpu_ap_iou_smoke,
+            "dataloader_num_workers": num_workers,
         }
     except Exception as exc:  # noqa: BLE001
         result = {

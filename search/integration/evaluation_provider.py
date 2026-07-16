@@ -35,6 +35,9 @@ def evaluate_engine_modelopt(
     latency_rounds: int = 1,
     conda_env: str = "modelopt",
     eval_manifest_path: str | Path | None = None,
+    num_workers: int = 8,
+    ap_iou_backend: str = "gpu",
+    strict_gpu_ap_iou: bool = True,
 ) -> dict[str, Any]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -55,6 +58,9 @@ def evaluate_engine_modelopt(
         "latency_rounds": int(latency_rounds),
         "fixed_k": int(fixed_k),
         "eval_manifest_path": str(eval_manifest_path) if eval_manifest_path else "",
+        "num_workers": int(num_workers),
+        "ap_iou_backend": str(ap_iou_backend),
+        "strict_gpu_ap_iou": bool(strict_gpu_ap_iou),
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
     root = Path(tensorrt_root)

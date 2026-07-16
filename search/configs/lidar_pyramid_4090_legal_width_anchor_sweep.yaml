@@ -63,6 +63,9 @@ joint_taylor_anchor_sweep:
   ga_enabled: false
 
 stage2:
+  ap_iou_backend: gpu
+  strict_gpu_ap_iou: true
+  num_workers: 8
   num_frames: 1789
   warmup_frames: 20
   reset_after_warmup: true

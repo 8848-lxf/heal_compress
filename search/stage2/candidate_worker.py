@@ -247,6 +247,8 @@ def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
                 else None
             ),
         ),
+        evaluation_num_workers=int(stage2.get("num_workers", 8)),
+        ap_iou_backend=str(stage2.get("ap_iou_backend", "gpu")),
     )
     return context, evaluator
 
