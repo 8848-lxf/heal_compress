@@ -90,6 +90,15 @@ class BatchChannelResolver:
         self.fp16_bops_baseline = (macs * 16.0 * 16.0).sum()
         self.fp32_bops_baseline = (macs * 32.0 * 32.0).sum()
 
+    def clone_to(self, device: torch.device) -> "BatchChannelResolver":
+        """Clone immutable proxy tables onto another CUDA device."""
+
+        target = torch.device(device)
+        clone = object.__new__(type(self))
+        for name, value in vars(self).items():
+            setattr(clone, name, value.to(target) if torch.is_tensor(value) else value)
+        return clone
+
     def resolve(self, pruning_choice_tensor: torch.Tensor) -> dict[str, torch.Tensor]:
         out_pruned_mask = None
         in_pruned_mask = None

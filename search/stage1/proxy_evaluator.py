@@ -73,7 +73,14 @@ class Stage1ProxyEvaluator:
             return {**cached, "candidate_hash": deploy_key, "proxy_cache_key": key, "cache_hit": True}
         self.cache_miss_count += 1
         result = compute()
-        self.cache.put(key, {k: v for k, v in result.items() if k not in {"candidate_hash", "proxy_cache_key"}})
+        self.cache.put(
+            key,
+            {
+                k: v
+                for k, v in result.items()
+                if k not in {"candidate_hash", "proxy_cache_key", "phenotype"}
+            },
+        )
         return result
 
     def evaluate_batch(
@@ -146,7 +153,24 @@ class Stage1ProxyEvaluator:
                 }
                 metrics_by_key[key] = row
                 if self.cache is not None:
-                    self.cache.put(key, {k: v for k, v in row.items() if k not in {"candidate_hash", "proxy_cache_key"}})
+                    # The key already commits to the exact canonical
+                    # phenotype. Persisting thousands of atomic unit ids in
+                    # every cache row makes domain-width searches grow by
+                    # gigabytes without adding resume information. The
+                    # caller's current phenotype is restored below on hits.
+                    self.cache.put(
+                        key,
+                        {
+                            k: v
+                            for k, v in row.items()
+                            if k
+                            not in {
+                                "candidate_hash",
+                                "proxy_cache_key",
+                                "phenotype",
+                            }
+                        },
+                    )
 
         final = []
         for deploy_key, key, phenotype in zip(deploy_keys, cache_keys, phenotypes):

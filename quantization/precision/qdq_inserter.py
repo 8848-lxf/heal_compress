@@ -333,6 +333,17 @@ def _cast_is_fp16(node: Any | None) -> bool:
     )
 
 
+def _cast_is_fp32(node: Any | None) -> bool:
+    return bool(
+        node is not None
+        and str(node.op_type) == "Cast"
+        and any(
+            str(attribute.name) == "to" and int(attribute.i) == 1
+            for attribute in node.attribute
+        )
+    )
+
+
 def _insert_explicit_fp16_compute_casts(
     model: Any,
     mapping: CanonicalPrecisionMappingResult,
@@ -420,6 +431,100 @@ def _insert_explicit_fp16_compute_casts(
     missing = sorted(set(targets) - seen)
     if missing:
         raise QDQInsertionError(f"fp16_compute_targets_missing:{missing}")
+    del model.graph.node[:]
+    model.graph.node.extend(rewritten)
+    return records
+
+
+def _insert_explicit_fp32_compute_casts(
+    model: Any,
+    mapping: CanonicalPrecisionMappingResult,
+) -> list[dict[str, Any]]:
+    """Close dynamic FP32 weighted-compute inputs for strongly typed TensorRT.
+
+    Explicit FP16 casts and INT8 Q/DQ can leave a Half tensor at the input of
+    a canonical FP32 Conv/Gemm/MatMul.  Weak typing inserted an implicit
+    reformat, whereas a strongly typed network rejects the FP16 activation and
+    FP32 kernel pair.  Cast only dynamic operands to FP32; FP32 initializers
+    remain graph initializers so TensorRT can still recognize constant weights
+    and biases.
+    """
+
+    from onnx import TensorProto, helper
+
+    targets: dict[str, Any] = {}
+    for entry in mapping.entries:
+        if str(entry.realized_request_precision).lower() != "fp32":
+            continue
+        names = entry.constraint_node_names or (entry.canonical_node_name,)
+        for name in names:
+            if str(name) in targets:
+                raise QDQInsertionError(f"duplicate_fp32_compute_target:{name}")
+            targets[str(name)] = entry
+    if not targets:
+        return []
+
+    initializers = {str(value.name): int(value.data_type) for value in model.graph.initializer}
+    producers = {
+        str(output): node
+        for node in model.graph.node
+        for output in node.output
+    }
+    records: list[dict[str, Any]] = []
+    rewritten: list[Any] = []
+    seen: set[str] = set()
+    for node in model.graph.node:
+        entry = targets.get(str(node.name))
+        if entry is None:
+            rewritten.append(node)
+            continue
+        if str(node.op_type) not in {"Conv", "ConvTranspose", "Gemm", "MatMul"}:
+            raise QDQInsertionError(f"unsupported_fp32_compute_node:{node.name}:{node.op_type}")
+        seen.add(str(node.name))
+        for input_index, input_name in enumerate(list(node.input)):
+            source = str(input_name)
+            if not source:
+                continue
+            initializer_dtype = initializers.get(source)
+            if initializer_dtype is not None:
+                if initializer_dtype != int(TensorProto.FLOAT):
+                    raise QDQInsertionError(
+                        f"fp32_compute_initializer_dtype_mismatch:{node.name}:{source}:{initializer_dtype}"
+                    )
+                continue
+            if _cast_is_fp32(producers.get(source)):
+                continue
+            safe_node = str(node.name).replace("/", "_").replace(".", "_")
+            cast_name = f"{safe_node}__strong_type_input_{input_index:02d}_fp32"
+            cast_output = f"{cast_name}__output"
+            rewritten.append(
+                helper.make_node(
+                    "Cast",
+                    [source],
+                    [cast_output],
+                    name=cast_name,
+                    to=TensorProto.FLOAT,
+                )
+            )
+            node.input[input_index] = cast_output
+            records.append(
+                {
+                    "canonical_layer": str(entry.module_path),
+                    "compute_node": str(node.name),
+                    "compute_op_type": str(node.op_type),
+                    "input_index": int(input_index),
+                    "input_role": "activation" if input_index == 0 else "functional_operand",
+                    "source_tensor": source,
+                    "cast_node": cast_name,
+                    "cast_output_tensor": cast_output,
+                    "cast_dtype": "FP32",
+                    "initializer_preserved": False,
+                }
+            )
+        rewritten.append(node)
+    missing = sorted(set(targets) - seen)
+    if missing:
+        raise QDQInsertionError(f"fp32_compute_targets_missing:{missing}")
     del model.graph.node[:]
     model.graph.node.extend(rewritten)
     return records
@@ -998,6 +1103,11 @@ def insert_explicit_qdq(
         if policy.explicit_fp16_compute_casts
         else []
     )
+    fp32_compute_cast_records = (
+        _insert_explicit_fp32_compute_casts(model, mapping)
+        if policy.explicit_fp32_compute_casts
+        else []
+    )
     fp16_output_cast_records = (
         _insert_explicit_fp16_weighted_output_casts(model, mapping)
         if policy.explicit_fp16_compute_casts
@@ -1049,11 +1159,13 @@ def insert_explicit_qdq(
     metadata["merge_policy"] = policy.merge_policy
     metadata["fp16_merge_cast_records"] = merge_cast_records
     metadata["fp16_compute_cast_records"] = fp16_compute_cast_records
+    metadata["fp32_compute_cast_records"] = fp32_compute_cast_records
     metadata["fp16_output_cast_records"] = fp16_output_cast_records
     metadata["strong_type_compatibility_cast_records"] = strong_type_compatibility_cast_records
     metadata["strong_typing_graph_contract_hash"] = stable_json_hash(
         {
             "fp16_compute_cast_records": fp16_compute_cast_records,
+            "fp32_compute_cast_records": fp32_compute_cast_records,
             "fp16_output_cast_records": fp16_output_cast_records,
             "fp16_merge_cast_records": merge_cast_records,
             "strong_type_compatibility_cast_records": strong_type_compatibility_cast_records,

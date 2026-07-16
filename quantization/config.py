@@ -171,8 +171,9 @@ class QDQConfig(ConfigMixin):
     weight_granularity: str = "per_channel"
     merge_policy: str = "fp16_merge"
     explicit_fp16_compute_casts: bool = True
+    explicit_fp32_compute_casts: bool = True
     grouped_conv_int8_allowed_channels_per_group: tuple[int, ...] = (4, 8, 16, 32)
-    policy_version: str = "explicit-qdq-canonical-fp16-int8-v7-strongly-typed-semantic-boundary"
+    policy_version: str = "explicit-qdq-canonical-fp16-int8-v8-strongly-typed-compute-closure"
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "QDQConfig":

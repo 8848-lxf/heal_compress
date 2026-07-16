@@ -215,7 +215,18 @@ def test_original_baseline_reuses_existing_eval_when_cache_key_is_new(tmp_path: 
     baseline_dir = tmp_path / "baselines" / "original_strict_fp16"
     baseline_dir.mkdir(parents=True)
     (baseline_dir / "engine.plan").write_bytes(b"engine")
-    (baseline_dir / "evaluation.json").write_text(json.dumps({"status": "ok"}), encoding="utf-8")
+    (baseline_dir / "evaluation.json").write_text(
+        json.dumps(
+            {
+                "status": "ok",
+                    "evaluation_protocol_version": "fixed-manifest-gpu-postprocess-workers8-v3",
+                    "ap_iou_backend": "gpu",
+                    "dataloader_num_workers": 8,
+                    "cuda_postprocess_audit": {"passed": True},
+            }
+        ),
+        encoding="utf-8",
+    )
     (baseline_dir / "baseline_eval.json").write_text(
         json.dumps(
             {

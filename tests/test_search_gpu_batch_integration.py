@@ -112,6 +112,7 @@ def test_stage1_batch_evaluator_rejects_missing_gpu_scorer() -> None:
 
 
 def test_stage1_batch_cache_hits_use_current_generation(tmp_path) -> None:
+    import json
     from search.cache.proxy_cache import ProxyCache
     from search.candidate import CandidateGenotype
     from search.canonicalization import SearchSpaceSpec
@@ -137,6 +138,15 @@ def test_stage1_batch_cache_hits_use_current_generation(tmp_path) -> None:
 
     assert cached.metrics[0]["cache_hit"] is True
     assert cached.metrics[0]["generation"] == 4
+    cache_rows = [
+        json.loads(line)
+        for line in (tmp_path / "proxy.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    assert cache_rows
+    assert "phenotype" not in cache_rows[0]
 
 
 def test_lidar_large_population_requires_cuda_batched_backend() -> None:
@@ -446,3 +456,39 @@ def test_lidar_runner_ga_uses_proxy_backend_from_evaluator(tmp_path) -> None:
     assert proxy.batch_evaluate_call_count == 2
     assert manifest["scalar_evaluate_call_count"] == 0
     assert manifest["gpu_batch_count"] == 2
+
+
+def test_multi_device_proxy_shards_concurrently_and_preserves_candidate_order() -> None:
+    import time
+
+    from search.proxy.gpu_batch_proxy import MultiDeviceTorchBatchedProxyScorer
+    from search.stage1.proxy_evaluator import BatchProxyResult
+
+    class FakeScorer:
+        def __init__(self, device: str) -> None:
+            self.device = device
+            self.config = object()
+
+        def evaluate_batch(self, rows, *, generation, outer_round):
+            time.sleep(0.05)
+            return BatchProxyResult(
+                metrics=[{"value": row, "generation": generation} for row in rows],
+                stats={
+                    "gpu_batch_count": 1,
+                    "cuda_event_elapsed_ms": 50.0,
+                    "gpu_peak_memory_bytes": 1024,
+                },
+            )
+
+    scorer = MultiDeviceTorchBatchedProxyScorer(
+        scorers=(FakeScorer("cuda:1"), FakeScorer("cuda:3")),  # type: ignore[arg-type]
+    )
+    started = time.perf_counter()
+    result = scorer.evaluate_batch(list(range(8)), generation=4, outer_round=2)
+    elapsed = time.perf_counter() - started
+
+    assert [row["value"] for row in result.metrics] == list(range(8))
+    assert result.stats["multi_gpu_worker_count"] == 2
+    assert result.stats["gpu_batch_count"] == 2
+    assert result.stats["proxy_gpu_ids"] == ["cuda:1", "cuda:3"]
+    assert elapsed < 0.09

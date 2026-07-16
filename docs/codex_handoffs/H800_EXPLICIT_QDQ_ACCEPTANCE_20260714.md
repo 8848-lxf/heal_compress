@@ -569,3 +569,169 @@ for source synchronization; actual GA/greedy Pareto experiments remain
 Completed: 2026-07-17 02:20:03 CST
 
 ---
+
+## H800 round: formal greedy deployment, GPU evaluation protocol, and multi-GPU scheduling
+
+This round continued from the existing H800 artifacts; it did not retrace the
+old explicit-Q/DQ root cause and did not launch GA.  Formal Stage-1 and greedy
+artifacts are now real rather than planned:
+
+- formal CUDA-batched Stage-1 gate:
+  `outputs/H800_domain_width_formal_gate_20260717_030521`;
+- 7,383 traced atomic units, 6,912 safe units, 24 local domains, 21
+  non-trivial legal domain-width genes, and 69 precision genes;
+- 1,024 candidates evaluated in eight CUDA batches with
+  `scalar_evaluate_call_count=0`; measured throughput was about 7.015
+  candidates/s;
+- formal greedy run:
+  `outputs/h800_domain_width_joint_greedy_20260717_030912`;
+- 204 greedy steps and 16,915 unique marginal actions reached all six BOPS
+  targets.  The redundant phenotype copy was removed from the proxy cache,
+  reducing it from about 2.1 GB to about 21 MB without changing cache identity.
+
+Strongly-typed FP32 uncovered a real graph-typing omission: FP16 upstream
+tensors could feed an explicitly FP32 Conv.  Production Q/DQ insertion now
+adds FP32 casts only to dynamic compute operands and never casts weight
+initializers.  QDQ policy identity was advanced, the strong-typing records are
+hashed, and the strict FP32 engine now builds, deserializes, and validates.  A
+fused Concat that has no standalone EngineInspector row is accepted only when
+the strongly-typed ONNX graph proves all branches have the declared FP16 merge
+casts.  Exact engine reuse now checks Q/DQ ONNX hash, builder config, TensorRT
+root, plugin hash, engine hash, and precision/structure validation before a
+cache hit is allowed.
+
+Evaluation was moved to protocol
+`fixed-manifest-gpu-postprocess-workers8-v3`:
+
+- each formal evaluation DataLoader uses exactly eight workers;
+- `persistent_workers=true`, `prefetch_factor=2`, pinned memory, and one Torch
+  thread per loader worker are enabled;
+- rotated NMS and AP IoU matching are CUDA-backed and fail closed when the
+  HEAL CUDA extension is unavailable;
+- only range filtering after NMS and final VOC curve reduction remain on CPU;
+- the protocol version, backend audit and DataLoader settings enter the
+  request/result and evaluation cache identity, so older CPU evaluations are
+  rejected.
+
+The new protocol has been verified on GPU 6 with real 1,789-frame results:
+
+```text
+strict FP32: 1789/1789, skip=0, mAP=0.7366637934, p50=8.091868 ms
+strict FP16: 1789/1789, skip=0, mAP=0.7366280976, p50=5.423147 ms
+greedy candidate 01ad532f...:
+             1789/1789, skip=0, mAP=0.7365685220, p50=6.881644 ms
+```
+
+All three result JSON files report `dataloader_num_workers=8`, persistent
+workers, GPU AP IoU, and a passing CUDA postprocess audit.  The greedy process
+is continuing serially on GPU 6 for the remaining unique BOPS candidates; the
+completed artifacts must be reused rather than rebuilt.
+
+Future GA parallelism has also been implemented but has not yet been launched:
+
+- Stage-1 populations are split into deterministic contiguous shards across
+  idle GPUs and scored concurrently by cloned CUDA proxy tables while
+  preserving candidate order;
+- Stage-2 assigns candidates round-robin into one sequential queue per GPU;
+  queues run concurrently across GPUs, preventing simultaneous engine/eval
+  jobs on the same device;
+- duplicate candidate hashes reuse the first cross-round deployment result;
+- final round-winner latency validation remains serial to avoid contention;
+- the GA configuration currently audits candidate GPUs `[1,3,4,5,6,7]` and
+  selects only devices with at least 60,000 MiB free and at most 10% GPU
+  utilization.
+
+Focused tests after these changes:
+
+```text
+tests/test_search_evaluation_provider.py
+tests/test_search_gpu_batch_integration.py
+tests/test_search_multi_gpu_orchestration.py
+12 passed
+```
+
+New or materially changed production files in this round include:
+
+- `quantization/config.py` and `quantization/precision/qdq_inserter.py`:
+  explicit FP32 dynamic-input closure and hashed strong-typing evidence;
+- `search/baselines/original_engines.py`: strict FP32 validation with the
+  mapped parameter-free functional BMM exception;
+- `search/integration/evaluation_provider.py` and
+  `search/integration/evaluation_worker.py`: GPU postprocess protocol and the
+  eight-worker DataLoader;
+- `search/stage2/lidar_pyramid_real_evaluator.py`: protocol-safe eval cache,
+  exact engine reuse, and merge realization validation;
+- `search/proxy/{batch_channel_resolver,gpu_batch_proxy}.py` and
+  `search/orchestration/lidar_pyramid_search.py`: multi-GPU Stage-1/Stage-2
+  execution;
+- `search/configs/lidar_pyramid_h800_domain_width_joint_ga.yaml`: idle-GPU
+  pool policy;
+- focused tests including the new evaluation-provider, exact-engine-reuse and
+  multi-GPU scheduling suites.
+
+Current next gate: let the in-progress greedy full-validation process finish,
+run the complete search regression set and `git diff --check`, then create the
+required clean source commit.  GA remains paused until that gate passes.
+
+Completed checkpoint: 2026-07-17 04:13:40 +0800 CST
+
+---
+
+## H800 round completion: six-budget greedy full validation
+
+The resumed formal greedy process completed successfully on physical GPU 6.
+Every candidate used the same 1,789-frame validation manifest, 200 warmup
+frames with iterator reset, zero skipped frames, CUDA rotated NMS/AP IoU, and
+an eight-worker persistent DataLoader.  The final measured frontier is:
+
+| BOPS target | realized R_BOPS | parameter prune | mAP | AP@0.70 | forward p50 ms |
+|---:|---:|---:|---:|---:|---:|
+| 0.05 | 0.049994 | 0.385670 | 0.699808 | 0.563222 | 3.170403 |
+| 0.10 | 0.098478 | 0.220708 | 0.736742 | 0.602197 | 3.295959 |
+| 0.15 | 0.149413 | 0.210133 | 0.736825 | 0.602484 | 4.627601 |
+| 0.20 | 0.196774 | 0.210133 | 0.736688 | 0.602271 | 4.991628 |
+| 0.25 | 0.249080 | 0.210133 | 0.736569 | 0.601983 | 6.881644 |
+| 0.30 | 0.282141 | 0.210133 | 0.736558 | 0.602197 | 6.866993 |
+
+Strict references under the identical protocol were mAP 0.736664 / p50
+8.091868 ms for FP32 and mAP 0.736628 / p50 5.423147 ms for FP16.  The best
+greedy F2 candidate is BOPS target 0.10, hash
+`0a0f2015b79da78289b9a1f3e9a44473634b89f2294c75f788ffcc10ada1d1e7`,
+with F2 0.121552.  The 0.05 endpoint is valid but is not accuracy-equivalent:
+its mAP loss is about 0.03686 and should remain a low-resource Pareto point.
+
+Artifact source:
+`outputs/h800_domain_width_joint_greedy_20260717_030912`.  Existing physical,
+ONNX, calibration, Q/DQ, engine, and evaluation artifacts in that directory
+are valid and must not be rebuilt without an identity mismatch.  The source
+tree now also writes the explicit greedy best candidate into future
+`full_validation_results.json` and `best_candidate.json` outputs.
+
+To prevent duplicate strict baseline engine builds between GA 500-frame
+screening and final 1,789-frame validation, the full-validation evaluator now
+accepts proven earlier baseline engine roots.  It checks Q/DQ hash, builder
+configuration, TensorRT root, plugin hash, engine hash, and validation reports,
+then hard-links (or copies across filesystems) the exact engine build into the
+fresh evaluation directory.  It refuses to overwrite any occupied target
+artifact.
+
+Final source regression after all changes:
+
+```bash
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+PYTHONPATH=. pytest -q $(rg --files tests | \
+  rg '^tests/(test_search.*\\.py|test_two_stage_joint_search\\.py|test_formal_packages_cpu\\.py)$' | sort)
+# 231 passed, 3 dependency warnings
+git diff --check
+```
+
+GA has still not been launched in this checkpoint.  The next executable stage
+is the configured six-GPU formal GA; Stage-1 shards CUDA proxy batches across
+idle GPUs, Stage-2 runs one serial candidate queue per GPU with eight
+DataLoader workers per evaluation, and final latency validation remains
+serial.
+
+Completed checkpoint: 2026-07-17 04:42:15 +0800 CST
+
+---

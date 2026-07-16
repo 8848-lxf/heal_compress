@@ -24,6 +24,29 @@ def test_strict_fp32_validation_rejects_weighted_fp16_or_int8_layers() -> None:
     assert report["status"] == "strict_fp32_failed"
 
 
+def test_strict_fp32_allows_mapped_protected_functional_fp16_exception() -> None:
+    from search.baselines.original_engines import validate_baseline_layer_precisions
+
+    report = validate_baseline_layer_precisions(
+        "strict_fp32",
+        [
+            {"Name": "conv0", "LayerType": "Convolution", "Precision": "FP32"},
+            {"Name": "protected_affine_bmm", "LayerType": "gemm", "Precision": "FP16"},
+        ],
+        canonical_precision_realization={
+            "passed": True,
+            "realized_int8_count": 0,
+            "realized_fp16_count": 1,
+            "unresolved_layer_count": 0,
+        },
+    )
+
+    assert report["passed"] is True
+    assert report["protected_functional_fp16_count"] == 1
+    assert report["weighted_fp32_count"] == 1
+    assert report["weighted_fp16_count"] == 1
+
+
 def test_strict_fp16_validation_rejects_int8_and_weighted_fp32_fallback() -> None:
     from search.baselines.original_engines import validate_baseline_layer_precisions
 

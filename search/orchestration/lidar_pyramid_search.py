@@ -6,6 +6,7 @@ import csv
 import json
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -18,12 +19,18 @@ from ..greedy import GreedyBudgetSearch, GreedySearchConfig
 from ..hashing import candidate_hash, canonical_json_hash, search_hash
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
 from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
+from ..integration.model_provider import load_lidar_pyramid_model
+from ..integration.runtime_environment import GPUSelection
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.fisher_proxy import FisherTaylorProxy
 from ..proxy.joint_weight_taylor import JointWeightTaylorProxy
 from ..proxy.normalization import NormalizationStats, build_normalization_stats
 from ..proxy.objective import ProxyObjective, ProxyObjectiveConfig, bops_soft_penalty, bops_target_for_generation, bops_target_for_outer_round
-from ..proxy.gpu_batch_proxy import TorchBatchedProxyScorer
+from ..proxy.gpu_batch_proxy import (
+    MultiDeviceTorchBatchedProxyScorer,
+    TorchBatchedProxyScorer,
+)
+from ..integration.runtime_environment import query_gpus
 from ..proxy.parameter_slice_resolver import build_unit_parameter_slices
 from ..proxy.runtime_shape_profiler import profile_runtime_layer_shapes
 from ..proxy.size_proxy import SizeProxy
@@ -70,6 +77,41 @@ def _proxy_device_from_config(proxy_cfg: dict[str, Any], context: Any) -> str:
     if requested == "cuda":
         return str(context.runtime_device)
     return str(proxy_cfg.get("device", "cpu"))
+
+
+def _select_idle_gpu_pool(
+    runtime: dict[str, Any],
+    *,
+    role: str,
+    primary_gpu_id: int,
+) -> tuple[list[int], list[dict[str, Any]]]:
+    report = query_gpus()
+    configured = runtime.get(f"{role}_gpu_ids", runtime.get("parallel_gpu_ids"))
+    requested = (
+        [int(value) for value in configured]
+        if configured not in (None, "", "auto")
+        else [int(primary_gpu_id)]
+    )
+    minimum_free = int(runtime.get("parallel_gpu_min_free_mib", 60_000))
+    maximum_utilization = int(runtime.get("parallel_gpu_max_utilization_pct", 10))
+    by_id = {int(row["index"]): row for row in report}
+    selected = [
+        gpu_id
+        for gpu_id in requested
+        if gpu_id in by_id
+        and int(by_id[gpu_id]["memory_free_mib"]) >= minimum_free
+        and int(by_id[gpu_id]["utilization_gpu_pct"]) <= maximum_utilization
+    ]
+    if int(primary_gpu_id) in requested and int(primary_gpu_id) not in selected:
+        primary = by_id.get(int(primary_gpu_id), {})
+        # The main model itself consumes memory on the selected GPU before this
+        # audit. Retain it when no unrelated high-utilization task is present.
+        if primary and int(primary.get("utilization_gpu_pct", 100)) <= maximum_utilization:
+            selected.append(int(primary_gpu_id))
+    if not selected:
+        selected = [int(primary_gpu_id)]
+    maximum_workers = int(runtime.get(f"{role}_max_workers", len(selected)))
+    return selected[: max(1, maximum_workers)], report
 
 
 def _require_gpu_proxy_if_needed(*, proxy_cfg: dict[str, Any], search_cfg: dict[str, Any], actual_backend: str) -> None:
@@ -206,6 +248,39 @@ class LidarPyramidTwoStageSearch:
             pruning_gene_type=str(pruning_cfg.get("gene_type", pruning_cfg.get("search_variable", "legal_pruning_action"))),
         )
         _write_json(run_dir / "environment.json", {"gpu": context.gpu_selection.to_dict(), "tensorrt": context.tensorrt.to_dict()})
+        stage1_gpu_ids, stage1_gpu_report = _select_idle_gpu_pool(
+            runtime,
+            role="stage1",
+            primary_gpu_id=context.physical_gpu_id,
+        )
+        stage2_gpu_ids, stage2_gpu_report = _select_idle_gpu_pool(
+            runtime,
+            role="stage2",
+            primary_gpu_id=context.physical_gpu_id,
+        )
+        _write_json(
+            run_dir / "gpu_parallelism_manifest.json",
+            {
+                "selection_time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "selection_policy": {
+                    "minimum_free_memory_mib": int(
+                        runtime.get("parallel_gpu_min_free_mib", 60_000)
+                    ),
+                    "maximum_utilization_pct": int(
+                        runtime.get("parallel_gpu_max_utilization_pct", 10)
+                    ),
+                    "candidate_gpu_ids": runtime.get("parallel_gpu_ids", []),
+                },
+                "stage1_gpu_ids": stage1_gpu_ids,
+                "stage2_gpu_ids": stage2_gpu_ids,
+                "stage1_gpu_snapshot": stage1_gpu_report,
+                "stage2_gpu_snapshot": stage2_gpu_report,
+                "stage2_worker_policy": "one_candidate_per_gpu_sequential_queue",
+                "final_latency_policy": "serial_no_cross_gpu_concurrency",
+            },
+        )
+        self._stage2_gpu_ids = list(stage2_gpu_ids)
+        self._runtime_config = dict(runtime)
         if baseline_only:
             real_evaluator = LidarPyramidRealEvaluator(
                 context=context,
@@ -311,8 +386,9 @@ class LidarPyramidTwoStageSearch:
         proxy_batch_size = int(proxy_cfg.get("batch_size", proxy_cfg.get("proxy_batch_size", 128)))
         batch_scorer = None
         proxy_backend = "scalar_cpu"
+        proxy_gpu_ids: list[int] = []
         if str(proxy_device).startswith("cuda"):
-            batch_scorer = TorchBatchedProxyScorer.from_components(
+            primary_scorer = TorchBatchedProxyScorer.from_components(
                 model=context.model,
                 space=context.search_space,
                 unit_to_parameter_slices=unit_slices,
@@ -322,6 +398,18 @@ class LidarPyramidTwoStageSearch:
                 config=objective.config,
                 device=proxy_device,
                 batch_size=proxy_batch_size,
+            )
+            proxy_gpu_ids = list(stage1_gpu_ids)
+            scorers = tuple(
+                primary_scorer
+                if int(gpu_id) == int(context.physical_gpu_id)
+                else primary_scorer.clone_to_device(f"cuda:{gpu_id}")
+                for gpu_id in proxy_gpu_ids
+            )
+            batch_scorer = (
+                MultiDeviceTorchBatchedProxyScorer(scorers=scorers)
+                if len(scorers) > 1
+                else primary_scorer
             )
             proxy_backend = "cuda_batched"
         elif str(proxy_cfg.get("device", "cpu")).lower() != "cpu":
@@ -348,7 +436,8 @@ class LidarPyramidTwoStageSearch:
                 "proxy_backend": proxy_backend,
                 "proxy_device": proxy_device,
                 "proxy_batch_size": proxy_batch_size,
-                "proxy_gpu_ids": [context.physical_gpu_id] if str(proxy_device).startswith("cuda") else [],
+                "proxy_gpu_ids": proxy_gpu_ids,
+                "multi_gpu_proxy_worker_count": len(proxy_gpu_ids),
                 "initial_candidate_count": int(search_cfg.get("initial_population_size", search_cfg.get("population_size", 0))),
                 "unique_phenotype_count": 0,
                 "gpu_batch_count": 0,
@@ -363,7 +452,8 @@ class LidarPyramidTwoStageSearch:
                     "proxy_backend": proxy_backend,
                     "proxy_device": proxy_device,
                     "proxy_batch_size": proxy_batch_size,
-                    "proxy_gpu_ids": [context.physical_gpu_id] if str(proxy_device).startswith("cuda") else [],
+                    "proxy_gpu_ids": proxy_gpu_ids,
+                    "multi_gpu_proxy_worker_count": len(proxy_gpu_ids),
                     "initial_candidate_count": int(search_cfg.get("initial_population_size", search_cfg.get("population_size", 0))),
                 },
                 sort_keys=True,
@@ -470,7 +560,245 @@ class LidarPyramidTwoStageSearch:
                 tau_ap=stage2_cfg.get("tau_ap"),
                 max_map_drop=stage2_cfg.get("max_map_drop"),
             ),
+            engine_reuse_roots=[run_dir],
         )
+
+    def _ga_stage2_evaluator_pool(
+        self,
+        context: Any,
+        real_evaluator: LidarPyramidRealEvaluator,
+        run_dir: Path,
+    ) -> list[tuple[int, LidarPyramidRealEvaluator]]:
+        cached = getattr(self, "_ga_stage2_worker_pool", None)
+        if cached is not None:
+            return list(cached)
+        gpu_ids = list(
+            getattr(self, "_stage2_gpu_ids", [context.physical_gpu_id])
+        )
+        reference = real_evaluator._stage2_reference_baseline()
+        real_evaluator._reference_baseline_override = dict(reference)
+        workers: list[tuple[int, LidarPyramidRealEvaluator]] = []
+        worker_rows: list[dict[str, Any]] = []
+        runtime = dict(getattr(self, "_runtime_config", {}) or {})
+        gpu_report = query_gpus()
+        for gpu_id in gpu_ids:
+            if int(gpu_id) == int(context.physical_gpu_id):
+                workers.append((int(gpu_id), real_evaluator))
+                worker_rows.append(
+                    {
+                        "gpu_id": int(gpu_id),
+                        "context_source": "primary_search_context",
+                        "status": "ready",
+                    }
+                )
+                continue
+            try:
+                bundle = load_lidar_pyramid_model(
+                    checkpoint_path=context.checkpoint_path,
+                    model_config_path=context.model_config,
+                    heal_root=runtime.get(
+                        "heal_root", "/home/lixingfeng/UniAD_examine/HEAL"
+                    ),
+                    device=f"cuda:{gpu_id}",
+                    trace=False,
+                )
+                if bundle.checkpoint_hash != context.checkpoint_hash:
+                    raise RuntimeError(
+                        f"stage2_worker_checkpoint_hash_mismatch:{gpu_id}"
+                    )
+                bundle.trace_result = context.trace_result
+                report_row = next(
+                    (
+                        row
+                        for row in gpu_report
+                        if int(row["index"]) == int(gpu_id)
+                    ),
+                    {},
+                )
+                worker_context = replace(
+                    context,
+                    model=bundle.model,
+                    model_bundle=bundle,
+                    trace_example_inputs=bundle.trace_example_inputs,
+                    export_example_inputs=bundle.trace_example_inputs,
+                    physical_gpu_id=int(gpu_id),
+                    runtime_device=f"cuda:{gpu_id}",
+                    gpu_selection=GPUSelection(
+                        gpu_id_arg=str(gpu_id),
+                        physical_gpu_id=int(gpu_id),
+                        runtime_device=f"cuda:{gpu_id}",
+                        excluded_gpu_ids=[],
+                        gpu_report=gpu_report,
+                    ),
+                )
+                worker = LidarPyramidRealEvaluator(
+                    context=worker_context,
+                    run_dir=run_dir / "stage2_workers" / f"gpu_{gpu_id}",
+                    num_frames=real_evaluator.num_frames,
+                    warmup_frames=real_evaluator.warmup_frames,
+                    latency_rounds=real_evaluator.latency_rounds,
+                    stage2_config=real_evaluator.objective_config,
+                    reference_baseline=reference,
+                )
+                workers.append((int(gpu_id), worker))
+                worker_rows.append(
+                    {
+                        "gpu_id": int(gpu_id),
+                        "context_source": "checkpoint_reload_without_retrace",
+                        "status": "ready",
+                        "memory_free_mib_at_selection": report_row.get(
+                            "memory_free_mib"
+                        ),
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                worker_rows.append(
+                    {
+                        "gpu_id": int(gpu_id),
+                        "status": "rejected",
+                        "reason": f"{type(exc).__name__}:{exc}",
+                    }
+                )
+        if not workers:
+            raise RuntimeError("no_stage2_gpu_worker_available")
+        _write_json(
+            run_dir / "stage2_workers" / "worker_pool_manifest.json",
+            {
+                "workers": worker_rows,
+                "active_gpu_ids": [gpu_id for gpu_id, _worker in workers],
+                "reference_baseline": {
+                    "mAP": reference.get("mAP"),
+                    real_evaluator.objective_config.latency_metric: reference.get(
+                        real_evaluator.objective_config.latency_metric
+                    ),
+                },
+                "scheduling": "one_candidate_per_gpu_sequential_queue",
+            },
+        )
+        self._ga_stage2_worker_pool = list(workers)
+        return workers
+
+    def _evaluate_ga_stage2_selected_parallel(
+        self,
+        *,
+        context: Any,
+        real_evaluator: LidarPyramidRealEvaluator,
+        run_dir: Path,
+        round_dir: Path,
+        selected: list[Any],
+    ) -> list[dict[str, Any]]:
+        workers = self._ga_stage2_evaluator_pool(
+            context, real_evaluator, run_dir
+        )
+        result_cache: dict[str, dict[str, Any]] = getattr(
+            self, "_ga_stage2_result_cache", {}
+        )
+        self._ga_stage2_result_cache = result_cache
+        rows_by_index: dict[int, dict[str, Any]] = {}
+        pending: list[tuple[int, Any, Path]] = []
+        for index, item in enumerate(selected):
+            record = item.record
+            candidate_dir = round_dir / "stage2" / record.candidate_hash
+            _write_json(candidate_dir / "genotype.json", record.genotype.to_dict())
+            _write_json(
+                candidate_dir / "repaired_genotype.json", record.genotype.to_dict()
+            )
+            cached = result_cache.get(record.candidate_hash)
+            if cached is not None:
+                rows_by_index[index] = {
+                    "candidate_hash": record.candidate_hash,
+                    "F1": record.F1,
+                    **dict(cached),
+                    "cross_round_deployment_cache_hit": True,
+                }
+                _write_json(
+                    candidate_dir / "stage2_cache_hit.json",
+                    {
+                        "candidate_hash": record.candidate_hash,
+                        "source_artifact_dir": cached.get("artifact_dir", ""),
+                        "engine_rebuilt": False,
+                        "evaluation_rerun": False,
+                    },
+                )
+            else:
+                pending.append((index, item, candidate_dir))
+        queues: list[list[tuple[int, Any, Path]]] = [
+            [] for _worker in workers
+        ]
+        for task_index, task in enumerate(pending):
+            queues[task_index % len(workers)].append(task)
+
+        def run_queue(
+            worker_row: tuple[int, LidarPyramidRealEvaluator],
+            queue: list[tuple[int, Any, Path]],
+        ) -> list[tuple[int, dict[str, Any]]]:
+            gpu_id, evaluator = worker_row
+            torch_module = __import__("torch")
+            torch_module.cuda.set_device(int(gpu_id))
+            completed: list[tuple[int, dict[str, Any]]] = []
+            for index, item, candidate_dir in queue:
+                record = item.record
+                try:
+                    result = evaluator.evaluate_candidate(
+                        record.phenotype,
+                        output_dir=candidate_dir,
+                        candidate_hash=record.candidate_hash,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    result = {
+                        "status": "stage2_worker_failed",
+                        "failure_reason": f"{type(exc).__name__}:{exc}",
+                        "F2": float("inf"),
+                        "artifact_dir": str(candidate_dir),
+                    }
+                completed.append(
+                    (
+                        index,
+                        {
+                            "candidate_hash": record.candidate_hash,
+                            "F1": record.F1,
+                            "assigned_gpu_id": int(gpu_id),
+                            **result,
+                        },
+                    )
+                )
+            return completed
+
+        active = [
+            (worker, queue)
+            for worker, queue in zip(workers, queues)
+            if queue
+        ]
+        if active:
+            with ThreadPoolExecutor(max_workers=len(active)) as executor:
+                futures = [
+                    executor.submit(run_queue, worker, queue)
+                    for worker, queue in active
+                ]
+                for future in futures:
+                    for index, row in future.result():
+                        rows_by_index[index] = row
+                        result_cache[str(row["candidate_hash"])] = dict(row)
+        rows = [rows_by_index[index] for index in range(len(selected))]
+        _write_json(
+            round_dir / "stage2_parallel_schedule.json",
+            {
+                "worker_gpu_ids": [gpu_id for gpu_id, _worker in workers],
+                "candidate_assignments": [
+                    {
+                        "candidate_hash": row.get("candidate_hash"),
+                        "assigned_gpu_id": row.get("assigned_gpu_id"),
+                        "cross_round_deployment_cache_hit": row.get(
+                            "cross_round_deployment_cache_hit", False
+                        ),
+                    }
+                    for row in rows
+                ],
+                "per_gpu_execution": "sequential",
+                "cross_gpu_execution": "parallel",
+            },
+        )
+        return rows
 
     def _run_greedy(
         self,
@@ -589,10 +917,25 @@ class LidarPyramidTwoStageSearch:
                     **evaluated,
                 }
             )
+        successful = [
+            row for row in budget_rows if str(row.get("status", "")) == "ok"
+        ]
+        best = (
+            min(successful, key=lambda row: float(row.get("F2", float("inf"))))
+            if successful
+            else None
+        )
         _write_json(
             greedy_dir / "full_validation_results.json",
-            {"candidates": budget_rows},
+            {
+                "candidates": budget_rows,
+                "best": best,
+                "unique_candidate_count": len(by_candidate_hash),
+                "engine_build_policy": "one_unique_candidate_per_budget_identity",
+            },
         )
+        if best is not None:
+            _write_json(greedy_dir / "best_candidate.json", best)
         return budget_rows
 
     def _objective(self, context: Any, unit_slices: dict[str, Any], fisher_stats: Any, normalization: Any | None, runtime_shapes: Any | None = None) -> ProxyObjective:
@@ -1146,13 +1489,14 @@ class LidarPyramidTwoStageSearch:
             )
             _write_json(run_dir / "run_manifest.json", manifest)
             if not stage1_only:
-                for item in selected:
-                    record = item.record
-                    candidate_dir = round_dir / "stage2" / record.candidate_hash
-                    _write_json(candidate_dir / "genotype.json", record.genotype.to_dict())
-                    _write_json(candidate_dir / "repaired_genotype.json", record.genotype.to_dict())
-                    result = real_evaluator.evaluate_candidate(record.phenotype, output_dir=candidate_dir, candidate_hash=record.candidate_hash)
-                    evaluated_rows.append({"candidate_hash": record.candidate_hash, "F1": record.F1, **result})
+                round_stage2_rows = self._evaluate_ga_stage2_selected_parallel(
+                    context=context,
+                    real_evaluator=real_evaluator,
+                    run_dir=run_dir,
+                    round_dir=round_dir,
+                    selected=selected,
+                )
+                evaluated_rows.extend(round_stage2_rows)
                 write_round_stage2_results(run_dir, round_index=round_index)
             previous_elite = [record.genotype for record in records[: max(1, min(5, len(records)))]]
             previous_best = previous_elite[0] if previous_elite else None

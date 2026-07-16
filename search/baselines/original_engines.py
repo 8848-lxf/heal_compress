@@ -253,7 +253,14 @@ def validate_baseline_layer_precisions(
     issues: list[str] = []
     status = kind
     if kind == "strict_fp32":
-        if summary["weighted_fp16_count"]:
+        protected_functional_fp16 = 0
+        if canonical_precision_realization is not None and bool(
+            canonical_precision_realization.get("passed", False)
+        ):
+            protected_functional_fp16 = int(
+                canonical_precision_realization.get("realized_fp16_count", 0)
+            )
+        if summary["weighted_fp16_count"] != protected_functional_fp16:
             issues.append("ordinary_weighted_layer_realized_fp16")
         if summary["weighted_int8_count"]:
             issues.append("ordinary_weighted_layer_realized_int8")
@@ -305,6 +312,9 @@ def validate_baseline_layer_precisions(
             status = "maximal_legal_int8_failed"
     return {
         **summary,
+        "protected_functional_fp16_count": (
+            protected_functional_fp16 if kind == "strict_fp32" else 0
+        ),
         "coverage_counting_basis": coverage_counting_basis,
         "raw_engine_weighted_summary": raw_engine_summary,
         "baseline": kind,

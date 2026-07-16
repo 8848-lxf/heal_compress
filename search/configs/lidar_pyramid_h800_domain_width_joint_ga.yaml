@@ -5,6 +5,15 @@ model:
 runtime:
   gpu_id: 6
   exclude_gpu_ids: []
+  # Candidate pool is re-audited at runtime. Busy devices are excluded before
+  # any model/proxy table is copied to them.
+  parallel_gpu_ids: [1, 3, 4, 5, 6, 7]
+  stage1_gpu_ids: [1, 3, 4, 5, 6, 7]
+  stage2_gpu_ids: [1, 3, 4, 5, 6, 7]
+  parallel_gpu_min_free_mib: 60000
+  parallel_gpu_max_utilization_pct: 10
+  stage1_max_workers: 6
+  stage2_max_workers: 6
   model_env: univ2x-opt
   tensorrt_env: modelopt
   tensorrt_root: /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118

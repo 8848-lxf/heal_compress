@@ -1776,6 +1776,77 @@ def test_qdq_graph_encodes_fp16_parameterized_and_functional_compute(tmp_path: P
     assert {initializer.name for initializer in typed.graph.initializer} == {"stem.weight", "stem.bias", "epsilon"}
 
 
+def test_qdq_graph_closes_fp16_to_fp32_weighted_compute_without_casting_initializers(
+    tmp_path: Path,
+) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.api import insert_explicit_qdq
+    from quantization.config import QDQConfig
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    conv_name = "__canonical__fp32_head__Conv__call00000"
+    weight = numpy_helper.from_array(np.ones((4, 3, 1, 1), dtype=np.float32), "fp32_head.weight")
+    bias = numpy_helper.from_array(np.ones((4,), dtype=np.float32), "fp32_head.bias")
+    graph = helper.make_graph(
+        [
+            helper.make_node("Cast", ["x"], ["half_x"], name="upstream_fp16", to=TensorProto.FLOAT16),
+            helper.make_node(
+                "Conv",
+                ["half_x", "fp32_head.weight", "fp32_head.bias"],
+                ["y"],
+                name=conv_name,
+            ),
+        ],
+        "fp32-compute-closure",
+        [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 3, 4, 4])],
+        [helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4, 4, 4])],
+        [weight, bias],
+    )
+    source = tmp_path / "source.onnx"
+    output = tmp_path / "typed.onnx"
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)]), source)
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                module_path="fp32_head",
+                canonical_node_name=conv_name,
+                precision_group="fp32_head_group",
+                requested_precision="fp32",
+                realized_request_precision="fp32",
+                weight_initializer="fp32_head.weight",
+                onnx_op_type="Conv",
+            )
+        ]
+    )
+
+    result = insert_explicit_qdq(source, output, mapping, scales={}, config=QDQConfig())
+
+    typed = onnx.load(output)
+    nodes = {node.name: node for node in typed.graph.node}
+    conv = nodes[conv_name]
+    activation_cast = nodes[str(conv.input[0]).removesuffix("__output")]
+    assert activation_cast.op_type == "Cast"
+    assert next(attribute.i for attribute in activation_cast.attribute if attribute.name == "to") == TensorProto.FLOAT
+    assert list(conv.input[1:]) == ["fp32_head.weight", "fp32_head.bias"]
+    assert {initializer.name for initializer in typed.graph.initializer} == {"fp32_head.weight", "fp32_head.bias"}
+    assert result.calibration_metadata["fp32_compute_cast_records"] == [
+        {
+            "canonical_layer": "fp32_head",
+            "compute_node": conv_name,
+            "compute_op_type": "Conv",
+            "input_index": 0,
+            "input_role": "activation",
+            "source_tensor": "half_x",
+            "cast_node": f"{conv_name}__strong_type_input_00_fp32",
+            "cast_output_tensor": f"{conv_name}__strong_type_input_00_fp32__output",
+            "cast_dtype": "FP32",
+            "initializer_preserved": False,
+        }
+    ]
+
+
 def test_precision_realization_and_provenance_validation() -> None:
     from quantization.api import validate_engine_provenance, validate_precision_realization
     from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult

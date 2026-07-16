@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import shutil
 from dataclasses import asdict, is_dataclass, replace
 from pathlib import Path
@@ -27,7 +28,12 @@ from ..integration.calibration_provider import (
     save_calibration_scales,
 )
 from ..integration.data_provider import load_split_frame_ids
-from ..integration.evaluation_provider import evaluate_engine_modelopt
+from ..integration.evaluation_provider import (
+    DEFAULT_AP_IOU_BACKEND,
+    DEFAULT_DATALOADER_NUM_WORKERS,
+    EVALUATION_PROTOCOL_VERSION,
+    evaluate_engine_modelopt,
+)
 from ..integration.lidar_pyramid_context import LidarPyramidSearchContext
 from ..integration.trt_compatible_export import build_search_trt_compatible_export_module, make_pointpillar_domain_compatible
 from ..pruning_space.action_codec import selected_actions_from_genes
@@ -73,6 +79,150 @@ def _file_hash(path: str | Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _qdq_graph_policy_identity() -> dict[str, Any]:
+    try:
+        from quantization.config import QDQConfig
+    except ImportError:
+        from heal_compress.quantization.config import QDQConfig
+
+    policy = QDQConfig()
+    return {
+        "policy_version": policy.policy_version,
+        "activation_output_boundary_policy": policy.activation_output_boundary_policy,
+        "weight_granularity": policy.weight_granularity,
+        "merge_policy": policy.merge_policy,
+        "explicit_fp16_compute_casts": policy.explicit_fp16_compute_casts,
+        "explicit_fp32_compute_casts": policy.explicit_fp32_compute_casts,
+    }
+
+
+def _quantization_contract_payload(qdq: dict[str, Any]) -> dict[str, Any]:
+    qdq_result = qdq.get("qdq")
+    metadata = dict(getattr(qdq_result, "calibration_metadata", {}) or {})
+    return {
+        "groups": qdq.get("quantization_group_contracts", {}),
+        "merge_precision_realization": qdq.get("merge_precision_realization", {}),
+        "qdq_graph_policy": _qdq_graph_policy_identity(),
+        "qdq_topology_hash": metadata.get("qdq_topology_hash", ""),
+        "strong_typing_graph_contract_hash": metadata.get(
+            "strong_typing_graph_contract_hash", ""
+        ),
+        "qdq_onnx_sha256": getattr(qdq_result, "output_sha256", ""),
+    }
+
+
+def _evaluation_matches_current_protocol(evaluation: dict[str, Any]) -> bool:
+    return bool(
+        str(evaluation.get("status", "")) == "ok"
+        and str(evaluation.get("evaluation_protocol_version", ""))
+        == EVALUATION_PROTOCOL_VERSION
+        and str(evaluation.get("ap_iou_backend", "")) == DEFAULT_AP_IOU_BACKEND
+        and int(evaluation.get("dataloader_num_workers", -1))
+        == DEFAULT_DATALOADER_NUM_WORKERS
+        and bool(dict(evaluation.get("cuda_postprocess_audit") or {}).get("passed", False))
+    )
+
+
+def _load_exact_existing_engine_build(
+    output_dir: Path,
+    *,
+    qdq_onnx: str | Path,
+    build_config: Any,
+    tensorrt_root: str | Path,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    engine_path = output_dir / "engine.plan"
+    layer_info_path = output_dir / "engine_layer_info.json"
+    manifest_path = output_dir / "engine_manifest.json"
+    environment_path = output_dir / "engine_build_environment_manifest.json"
+    required = (engine_path, layer_info_path, manifest_path, environment_path)
+    missing = [path.name for path in required if not path.is_file() or path.stat().st_size <= 0]
+    if missing:
+        return None, [f"missing:{name}" for name in missing]
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        environment = json.loads(environment_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return None, [f"invalid_json:{exc}"]
+    issues: list[str] = []
+    if str(manifest.get("status", "")) != "ok":
+        issues.append(f"manifest_status:{manifest.get('status')}")
+    expected_engine_hash = str(manifest.get("engine_hash", ""))
+    actual_engine_hash = _file_hash(engine_path)
+    if not expected_engine_hash or expected_engine_hash != actual_engine_hash:
+        issues.append("engine_hash_mismatch")
+    if str(environment.get("qdq_onnx_sha256", "")) != _file_hash(qdq_onnx):
+        issues.append("qdq_onnx_hash_mismatch")
+    if canonical_json_hash(environment.get("builder_config", {})) != canonical_json_hash(
+        _plain(build_config)
+    ):
+        issues.append("builder_config_mismatch")
+    if Path(str(environment.get("TensorRT_root", ""))).resolve() != Path(
+        tensorrt_root
+    ).resolve():
+        issues.append("tensorrt_root_mismatch")
+    plugin_path = getattr(build_config, "plugin_path", None)
+    expected_plugin_hash = str(environment.get("plugin_sha256", ""))
+    if plugin_path is not None:
+        plugin = Path(plugin_path)
+        if not plugin.is_file() or _file_hash(plugin) != expected_plugin_hash:
+            issues.append("plugin_hash_mismatch")
+    for field in ("engine_structure_validation", "precision_realization_validation"):
+        if not bool(dict(manifest.get(field) or {}).get("passed", False)):
+            issues.append(f"{field}_failed")
+    if issues:
+        return None, issues
+    return {
+        **manifest,
+        "status": "ok",
+        "engine_path": str(engine_path),
+        "engine_hash": actual_engine_hash,
+        "cache_hit": True,
+        "engine_rebuilt": False,
+        "cache_source": "exact_existing_engine_build",
+    }, []
+
+
+def _materialize_exact_engine_cache_link(
+    source_dir: str | Path, destination_dir: str | Path
+) -> dict[str, Any]:
+    """Link a proven engine build into a fresh evaluation directory."""
+
+    source = Path(source_dir)
+    destination = Path(destination_dir)
+    names = (
+        "engine.plan",
+        "engine_layer_info.json",
+        "engine_manifest.json",
+        "engine_build_environment_manifest.json",
+    )
+    missing = [name for name in names if not (source / name).is_file()]
+    occupied = [name for name in names if (destination / name).exists()]
+    if missing or occupied:
+        return {
+            "status": "not_materialized",
+            "missing_source_files": missing,
+            "occupied_destination_files": occupied,
+        }
+    destination.mkdir(parents=True, exist_ok=True)
+    modes: dict[str, str] = {}
+    for name in names:
+        src = source / name
+        dst = destination / name
+        try:
+            os.link(src, dst)
+            modes[name] = "hardlink"
+        except OSError:
+            shutil.copy2(src, dst)
+            modes[name] = "copy"
+    return {
+        "status": "ok",
+        "source_dir": str(source.resolve()),
+        "destination_dir": str(destination.resolve()),
+        "file_modes": modes,
+        "engine_rebuilt": False,
+    }
 
 
 def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result: Any) -> dict[str, Any]:
@@ -160,6 +310,17 @@ def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result:
             optimization = "graph_constrained_fp16_concat_fused_with_downstream_int8_requantization"
         elif optimization == "concat_fused_with_common_downstream_quantize" and "Int8" in output_formats:
             precision = "INT8_common_scale_fused_concat"
+        elif (
+            str(merge.get("merge_op_type")) == "Concat"
+            and graph_fp16_casts
+            and not matched
+        ):
+            # ONNX Concat preserves its input dtype.  A strongly typed parser
+            # accepting explicit Half casts on every branch proves an FP16
+            # concat even when TensorRT folds the concat into the following
+            # Cast/Conv and omits an independently inspectable layer row.
+            precision = "FP16"
+            optimization = "graph_constrained_fp16_concat_fused_with_downstream"
         elif all_formats and set(all_formats) <= {"Half"}:
             precision = "FP16"
         elif "Int8" in all_formats:
@@ -501,6 +662,8 @@ class LidarPyramidRealEvaluator:
         stage2_config: Stage2ObjectiveConfig | None = None,
         artifact_cache: ArtifactCache | None = None,
         real_cache: RealEvalCache | None = None,
+        reference_baseline: dict[str, Any] | None = None,
+        engine_reuse_roots: list[str | Path] | tuple[str | Path, ...] | None = None,
     ) -> None:
         self.context = context
         self.run_dir = Path(run_dir)
@@ -513,6 +676,12 @@ class LidarPyramidRealEvaluator:
         self.real_cache = real_cache or RealEvalCache(archives / "real_eval_archive.jsonl")
         self.pruning = FormalPruningAdapter()
         self._baseline: dict[str, Any] | None = None
+        self._reference_baseline_override = (
+            dict(reference_baseline) if reference_baseline is not None else None
+        )
+        self._engine_reuse_roots = tuple(
+            Path(path) for path in (engine_reuse_roots or ())
+        )
         self._physical_memory: dict[str, dict[str, Any]] = {}
 
     def evaluate_baseline(self) -> dict[str, Any]:
@@ -526,6 +695,9 @@ class LidarPyramidRealEvaluator:
                 "num_frames": self.num_frames,
                 "warmup_frames": self.warmup_frames,
                 "latency_rounds": self.latency_rounds,
+                "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
+                "ap_iou_backend": DEFAULT_AP_IOU_BACKEND,
+                "dataloader_num_workers": DEFAULT_DATALOADER_NUM_WORKERS,
                 "gpu": self.context.physical_gpu_id,
                 "tensorrt": _tensorrt_cache_identity(self.context.tensorrt),
             }
@@ -573,6 +745,10 @@ class LidarPyramidRealEvaluator:
                     list(TRUSTED_EXPLICIT_QDQ_INT8_V1_MODULES)
                 ),
                 "explicit_qdq_boundary_policy": "weighted_output_with_engine_fusion_verification",
+                "qdq_graph_policy": _qdq_graph_policy_identity(),
+                "baseline_precision_acceptance_version": "protected-functional-fp16-and-fused-concat-v2",
+                "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
+                "ap_iou_backend": DEFAULT_AP_IOU_BACKEND,
                 "gpu": self.context.physical_gpu_id,
                 "tensorrt": _tensorrt_cache_identity(self.context.tensorrt),
             }
@@ -617,7 +793,8 @@ class LidarPyramidRealEvaluator:
                 "status": "ok",
             }
         _write_json(baseline_dir / "baseline_eval.json", result)
-        self.real_cache.put(key, result)
+        if result.get("status") == "ok":
+            self.real_cache.put(key, result)
         return result
 
     def evaluate_original_baselines(self, precisions: list[str] | tuple[str, ...]) -> dict[str, Any]:
@@ -630,6 +807,16 @@ class LidarPyramidRealEvaluator:
 
     def evaluate_candidate(self, phenotype: CandidatePhenotype, *, output_dir: str | Path, candidate_hash: str) -> dict[str, Any]:
         baseline = self._stage2_reference_baseline()
+        reference_baseline_hash = canonical_json_hash(
+            {
+                "mAP": baseline.get("mAP"),
+                self.objective_config.latency_metric: baseline.get(
+                    self.objective_config.latency_metric
+                ),
+                "accuracy_reference": baseline.get("accuracy_reference"),
+                "latency_reference": baseline.get("latency_reference"),
+            }
+        )
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
         cache_key = canonical_json_hash(
@@ -637,11 +824,16 @@ class LidarPyramidRealEvaluator:
                 "candidate_hash": candidate_hash,
                 "deployment_pipeline_version": "lidar-pyramid-stage2-bn-fold-aware-v2",
                 "qdq_calibration_semantics_version": QDQ_CALIBRATION_SEMANTICS_VERSION,
+                "qdq_graph_policy": _qdq_graph_policy_identity(),
+                "stage2_acceptance_version": "protected-functional-fp16-and-fused-concat-v2",
+                "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
+                "ap_iou_backend": DEFAULT_AP_IOU_BACKEND,
                 "eval_manifest_hash": self.context.eval_manifest_hash,
                 "num_frames": self.num_frames,
                 "warmup_frames": self.warmup_frames,
                 "latency_rounds": self.latency_rounds,
                 "stage2_reference_policy": "strict_fp32_ap_strict_fp16_latency_v1",
+                "stage2_reference_baseline_hash": reference_baseline_hash,
                 "objective_config": asdict(self.objective_config),
                 "gpu": self.context.physical_gpu_id,
                 "tensorrt": _tensorrt_cache_identity(self.context.tensorrt),
@@ -703,7 +895,8 @@ class LidarPyramidRealEvaluator:
             objective_config=self.objective_config,
             stage1_manifest_record=self._stage1_manifest_record(candidate_hash),
         )
-        self.real_cache.put(cache_key, result)
+        if result.get("status") == "ok":
+            self.real_cache.put(cache_key, result)
         return result
 
     def reevaluate_existing_candidate_engine(
@@ -818,6 +1011,9 @@ class LidarPyramidRealEvaluator:
         return result
 
     def _stage2_reference_baseline(self) -> dict[str, Any]:
+        reference_override = getattr(self, "_reference_baseline_override", None)
+        if reference_override is not None:
+            return dict(reference_override)
         accuracy = self.evaluate_original_baseline("strict_fp32", full_validation=False)
         latency = self.evaluate_original_baseline("strict_fp16", full_validation=False)
         if str(accuracy.get("status", "")) != "ok":
@@ -849,7 +1045,7 @@ class LidarPyramidRealEvaluator:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return None
-        if str(evaluation.get("status", "")) != "ok":
+        if not _evaluation_matches_current_protocol(evaluation):
             return None
         return {
             "status": "ok",
@@ -875,7 +1071,9 @@ class LidarPyramidRealEvaluator:
             evaluation = json.loads(evaluation_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return None
-        if str(result.get("status", "")) != "ok" or str(evaluation.get("status", "")) != "ok":
+        if str(result.get("status", "")) != "ok" or not _evaluation_matches_current_protocol(
+            evaluation
+        ):
             return None
         recorded_kind = str(result.get("baseline_precision", kind)).lower()
         if recorded_kind and recorded_kind != str(kind).lower():
@@ -1005,6 +1203,9 @@ class LidarPyramidRealEvaluator:
             if evaluation.get("status") != "ok":
                 return {"status": "evaluation_failed", "failure_reason": evaluation.get("failure_reason", evaluation.get("status", "")), "evaluation": evaluation}
             calibration_scale_hash = canonical_json_hash(qdq.get("calibration_scales", {}))
+            quantization_contract_hash = canonical_json_hash(
+                _quantization_contract_payload(qdq)
+            )
             deploy_hash = deployment_hash(
                 physical_hash_value=physical["physical_hash"],
                 realized_precision_profile=qdq["realized_precision_profile"],
@@ -1015,18 +1216,25 @@ class LidarPyramidRealEvaluator:
                 builder_flags=self.context.search_space.builder_flags,
                 optimization_profiles=_shape_profiles(),
                 plugin_hashes=self.context.search_space.plugin_hashes,
-                quantization_contract_hash=canonical_json_hash(
-                    {
-                        "groups": qdq.get("quantization_group_contracts", {}),
-                        "merge_precision_realization": qdq.get("merge_precision_realization", {}),
-                    }
-                ),
+                quantization_contract_hash=quantization_contract_hash,
             )
             eval_key = eval_hash(
                 deployment_hash_value=deploy_hash,
                 validation_manifest_hash=self.context.eval_manifest_hash,
-                evaluation_config_hash=canonical_json_hash({"num_frames": self.num_frames, "warmup": self.warmup_frames, "rounds": self.latency_rounds}),
-                postprocess_config={"source": "HEAL dataset.post_process"},
+                evaluation_config_hash=canonical_json_hash(
+                    {
+                        "num_frames": self.num_frames,
+                        "warmup": self.warmup_frames,
+                        "rounds": self.latency_rounds,
+                        "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
+                    }
+                ),
+                postprocess_config={
+                    "source": "HEAL dataset.post_process",
+                    "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
+                    "ap_iou_backend": DEFAULT_AP_IOU_BACKEND,
+                    "require_cuda_postprocess": True,
+                },
                 warmup=self.warmup_frames,
                 rounds=self.latency_rounds,
                 latency_metric_definition=self.objective_config.latency_metric,
@@ -1040,12 +1248,8 @@ class LidarPyramidRealEvaluator:
                     "deployment_hash": deploy_hash,
                     "eval_hash": eval_key,
                     "engine_hash": trt.get("engine_hash", ""),
-                    "quantization_contract_hash": canonical_json_hash(
-                        {
-                            "groups": qdq.get("quantization_group_contracts", {}),
-                            "merge_precision_realization": qdq.get("merge_precision_realization", {}),
-                        }
-                    ),
+                    "quantization_contract_hash": quantization_contract_hash,
+                    "quantization_contract": _quantization_contract_payload(qdq),
                 },
             )
             return {
@@ -1681,17 +1885,76 @@ class LidarPyramidRealEvaluator:
                 policy_version="search-candidate-explicit-qdq-strongly-typed-v2",
             )
         engine_path = output_dir / "engine.plan"
-        result = build_engine_modelopt(
-            qdq_onnx=qdq.get("trt_build_onnx", qdq["qdq_onnx"]),
-            engine_path=engine_path,
-            precision_mapping=qdq["precision_mapping"],
+        trt_build_onnx = qdq.get("trt_build_onnx", qdq["qdq_onnx"])
+        result, cache_rejection = _load_exact_existing_engine_build(
+            output_dir,
+            qdq_onnx=trt_build_onnx,
             build_config=build_config,
-            physical_snapshot=physical["snapshot"],
-            output_dir=output_dir,
             tensorrt_root=self.context.tensorrt.tensorrt_root,
-            conda_env=self.context.tensorrt.conda_env,
-            gpu_id=self.context.physical_gpu_id,
         )
+        external_reuse: dict[str, Any] | None = None
+        if result is None and baseline_precision:
+            for reuse_root in self._engine_reuse_roots:
+                source_dir = (
+                    reuse_root
+                    / "baselines"
+                    / f"original_{str(baseline_precision).lower()}"
+                )
+                source_result, _source_issues = _load_exact_existing_engine_build(
+                    source_dir,
+                    qdq_onnx=trt_build_onnx,
+                    build_config=build_config,
+                    tensorrt_root=self.context.tensorrt.tensorrt_root,
+                )
+                if source_result is None:
+                    continue
+                external_reuse = _materialize_exact_engine_cache_link(
+                    source_dir, output_dir
+                )
+                if external_reuse.get("status") != "ok":
+                    continue
+                result, cache_rejection = _load_exact_existing_engine_build(
+                    output_dir,
+                    qdq_onnx=trt_build_onnx,
+                    build_config=build_config,
+                    tensorrt_root=self.context.tensorrt.tensorrt_root,
+                )
+                if result is not None:
+                    result["cache_source"] = "exact_external_baseline_engine_build"
+                    result["external_cache_source_dir"] = str(source_dir)
+                    _write_json(
+                        output_dir / "external_engine_cache_link.json",
+                        external_reuse,
+                    )
+                    break
+        if result is None:
+            if cache_rejection:
+                _write_json(
+                    output_dir / "engine_cache_rejected.json",
+                    {"issues": cache_rejection, "engine_rebuilt": True},
+                )
+            result = build_engine_modelopt(
+                qdq_onnx=trt_build_onnx,
+                engine_path=engine_path,
+                precision_mapping=qdq["precision_mapping"],
+                build_config=build_config,
+                physical_snapshot=physical["snapshot"],
+                output_dir=output_dir,
+                tensorrt_root=self.context.tensorrt.tensorrt_root,
+                conda_env=self.context.tensorrt.conda_env,
+                gpu_id=self.context.physical_gpu_id,
+            )
+            result["engine_rebuilt"] = True
+        else:
+            _write_json(
+                output_dir / "engine_cache_hit.json",
+                {
+                    "cache_source": result["cache_source"],
+                    "engine_hash": result["engine_hash"],
+                    "qdq_onnx_sha256": _file_hash(trt_build_onnx),
+                    "engine_rebuilt": False,
+                },
+            )
         if engine_path.is_file():
             result["engine_path"] = str(engine_path)
             result["engine_hash"] = _file_hash(engine_path)
@@ -1762,6 +2025,7 @@ class LidarPyramidRealEvaluator:
                 for row in boundary_report.get("issues", [])
                 for issue in row.get("issues", [])
             )
+        _write_json(output_dir / "engine_manifest.json", result)
         return result
 
     def _evaluate_engine(self, engine_path: str | Path, output_dir: Path) -> dict[str, Any]:

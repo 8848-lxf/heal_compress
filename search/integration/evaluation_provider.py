@@ -10,6 +10,12 @@ from typing import Any
 from .runtime_environment import modelopt_python_command, modelopt_subprocess_env
 
 
+EVALUATION_PROTOCOL_VERSION = "fixed-manifest-gpu-postprocess-workers8-v3"
+DEFAULT_AP_IOU_BACKEND = "gpu"
+DEFAULT_TORCH_NUM_THREADS = 4
+DEFAULT_DATALOADER_NUM_WORKERS = 8
+
+
 def _cuda_visible_and_logical_device(device: str) -> tuple[str | None, str]:
     text = str(device)
     if text.startswith("cuda:"):
@@ -35,6 +41,10 @@ def evaluate_engine_modelopt(
     latency_rounds: int = 1,
     conda_env: str = "modelopt",
     eval_manifest_path: str | Path | None = None,
+    ap_iou_backend: str = DEFAULT_AP_IOU_BACKEND,
+    require_cuda_postprocess: bool = True,
+    torch_num_threads: int = DEFAULT_TORCH_NUM_THREADS,
+    dataloader_num_workers: int = DEFAULT_DATALOADER_NUM_WORKERS,
 ) -> dict[str, Any]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -55,6 +65,11 @@ def evaluate_engine_modelopt(
         "latency_rounds": int(latency_rounds),
         "fixed_k": int(fixed_k),
         "eval_manifest_path": str(eval_manifest_path) if eval_manifest_path else "",
+        "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
+        "ap_iou_backend": str(ap_iou_backend),
+        "require_cuda_postprocess": bool(require_cuda_postprocess),
+        "torch_num_threads": max(1, int(torch_num_threads)),
+        "dataloader_num_workers": max(0, int(dataloader_num_workers)),
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
     root = Path(tensorrt_root)
@@ -74,6 +89,15 @@ def evaluate_engine_modelopt(
             str(root / "lib"),
             env.get("LD_LIBRARY_PATH", ""),
         ]
+    )
+    thread_limit = str(max(1, int(torch_num_threads)))
+    env.update(
+        {
+            "OMP_NUM_THREADS": thread_limit,
+            "MKL_NUM_THREADS": thread_limit,
+            "OPENBLAS_NUM_THREADS": thread_limit,
+            "NUMEXPR_NUM_THREADS": thread_limit,
+        }
     )
     cmd = modelopt_python_command(conda_env) + [
         "-m",

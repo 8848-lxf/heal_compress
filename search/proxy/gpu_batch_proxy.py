@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import copy
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, fields
 from typing import Any
 
 import torch
@@ -170,6 +173,20 @@ class TorchBatchedProxyScorer:
     gpu_batch_count: int = 0
 
     backend: str = "cuda_batched"
+
+    def clone_to_device(self, device: str | torch.device) -> "TorchBatchedProxyScorer":
+        """Replicate read-only scoring tables without rebuilding Fisher data."""
+
+        target = torch.device(device)
+        clone = copy.copy(self)
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if torch.is_tensor(value):
+                setattr(clone, field.name, value.to(target))
+        clone.device = target
+        clone.channel_resolver = self.channel_resolver.clone_to(target)
+        clone.gpu_batch_count = 0
+        return clone
 
     @classmethod
     def from_components(
@@ -622,6 +639,7 @@ class TorchBatchedProxyScorer:
         if not phenotypes:
             return BatchProxyResult(metrics=[], stats={"gpu_batch_count": 0, "proxy_backend": self.backend})
         if self.device.type == "cuda":
+            torch.cuda.set_device(self.device)
             torch.cuda.reset_peak_memory_stats(self.device)
             start = torch.cuda.Event(enable_timing=True)
             end = torch.cuda.Event(enable_timing=True)
@@ -931,5 +949,94 @@ class TorchBatchedProxyScorer:
                 "cuda_event_elapsed_ms": elapsed_ms,
                 "gpu_peak_memory_bytes": peak_memory,
                 "candidates_per_second": float(len(phenotypes) / (elapsed_ms / 1000.0)) if elapsed_ms > 0.0 else 0.0,
+            },
+        )
+
+
+@dataclass
+class MultiDeviceTorchBatchedProxyScorer:
+    """Shard one population across identical proxy tables on multiple GPUs."""
+
+    scorers: tuple[TorchBatchedProxyScorer, ...]
+    backend: str = "cuda_batched"
+
+    @property
+    def devices(self) -> tuple[str, ...]:
+        return tuple(str(scorer.device) for scorer in self.scorers)
+
+    @property
+    def config(self) -> Any:
+        return self.scorers[0].config
+
+    @config.setter
+    def config(self, value: Any) -> None:
+        for scorer in self.scorers:
+            scorer.config = value
+
+    def evaluate_batch(
+        self,
+        phenotypes: list[CandidatePhenotype],
+        *,
+        generation: int,
+        outer_round: int,
+    ) -> BatchProxyResult:
+        if not phenotypes:
+            return BatchProxyResult(
+                metrics=[],
+                stats={
+                    "gpu_batch_count": 0,
+                    "proxy_backend": self.backend,
+                    "proxy_gpu_ids": list(self.devices),
+                },
+            )
+        if not self.scorers:
+            raise RuntimeError("multi_gpu_proxy_has_no_scorers")
+        worker_count = min(len(self.scorers), len(phenotypes))
+        base, remainder = divmod(len(phenotypes), worker_count)
+        partitions: list[tuple[int, int, TorchBatchedProxyScorer]] = []
+        start = 0
+        for worker_index in range(worker_count):
+            size = base + (1 if worker_index < remainder else 0)
+            stop = start + size
+            partitions.append((start, stop, self.scorers[worker_index]))
+            start = stop
+        started = time.perf_counter()
+
+        def score_partition(row: tuple[int, int, TorchBatchedProxyScorer]) -> tuple[int, BatchProxyResult]:
+            begin, end, scorer = row
+            return begin, scorer.evaluate_batch(
+                phenotypes[begin:end],
+                generation=generation,
+                outer_round=outer_round,
+            )
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            results = list(executor.map(score_partition, partitions))
+        results.sort(key=lambda row: row[0])
+        wall_ms = (time.perf_counter() - started) * 1000.0
+        metrics = [metric for _start, result in results for metric in result.metrics]
+        device_stats = [dict(result.stats) for _start, result in results]
+        return BatchProxyResult(
+            metrics=metrics,
+            stats={
+                "proxy_backend": self.backend,
+                "proxy_device": ",".join(self.devices[:worker_count]),
+                "proxy_gpu_ids": list(self.devices[:worker_count]),
+                "multi_gpu_worker_count": worker_count,
+                "gpu_batch_count": sum(
+                    int(row.get("gpu_batch_count", 0) or 0) for row in device_stats
+                ),
+                "cuda_event_elapsed_ms": max(
+                    (float(row.get("cuda_event_elapsed_ms", 0.0) or 0.0) for row in device_stats),
+                    default=0.0,
+                ),
+                "multi_gpu_wall_elapsed_ms": wall_ms,
+                "gpu_peak_memory_bytes": sum(
+                    int(row.get("gpu_peak_memory_bytes", 0) or 0) for row in device_stats
+                ),
+                "candidates_per_second": (
+                    float(len(phenotypes) / (wall_ms / 1000.0)) if wall_ms > 0.0 else 0.0
+                ),
+                "per_device_stats": device_stats,
             },
         )

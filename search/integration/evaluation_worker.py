@@ -20,6 +20,10 @@ from torch.utils.data import DataLoader
 IOU_THRESHOLDS = (0.30, 0.50, 0.70)
 
 
+def _dataloader_worker_init(_worker_id: int) -> None:
+    torch.set_num_threads(1)
+
+
 def _percentile(values: list[float], pct: float) -> float | None:
     if not values:
         return None
@@ -169,6 +173,43 @@ def _move(value: Any, device: torch.device) -> Any:
     return value
 
 
+def _verify_cuda_postprocess_backend(device: torch.device) -> dict[str, Any]:
+    """Fail closed when rotated NMS or AP IoU silently falls back to CPU."""
+
+    from opencood.pcdet_utils.iou3d_nms.iou3d_nms_utils import boxes_iou_bev
+    from opencood.utils import box_utils
+
+    boxes7 = torch.tensor(
+        [
+            [0.0, 0.0, 0.0, 2.0, 1.0, 1.0, 0.0],
+            [4.0, 0.0, 0.0, 2.0, 1.0, 1.0, 0.0],
+        ],
+        dtype=torch.float32,
+        device=device,
+    )
+    scores = torch.tensor([0.9, 0.8], dtype=torch.float32, device=device)
+    corners = box_utils.boxes_to_corners_3d(boxes7, order="lwh")
+    keep = box_utils.nms_rotated(corners, scores, 0.05)
+    if not torch.is_tensor(keep) or not keep.is_cuda:
+        raise RuntimeError("rotated_nms_cuda_backend_unavailable_or_cpu_fallback")
+    iou = boxes_iou_bev(boxes7, boxes7)
+    if not torch.is_tensor(iou) or not iou.is_cuda or tuple(iou.shape) != (2, 2):
+        raise RuntimeError("ap_iou_cuda_backend_unavailable_or_cpu_fallback")
+    torch.cuda.synchronize(device)
+    return {
+        "passed": True,
+        "device": str(device),
+        "rotated_nms_backend": "opencood.box_utils.nms_rotated:iou3d_nms_cuda",
+        "ap_iou_backend": "opencood.iou3d_nms_cuda.boxes_iou_bev",
+        "nms_result_device": str(keep.device),
+        "iou_result_device": str(iou.device),
+        "remaining_cpu_postprocess_ops": [
+            "mask_boxes_outside_range_numpy_after_nms",
+            "final_voc_ap_curve_reduction",
+        ],
+    }
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--request", required=True)
@@ -202,12 +243,47 @@ def main(argv: list[str] | None = None) -> int:
         if device.type != "cuda":
             raise RuntimeError("TensorRT evaluation requires CUDA")
         torch.cuda.set_device(device)
+        torch_num_threads = max(1, int(request.get("torch_num_threads", 4)))
+        torch.set_num_threads(torch_num_threads)
+        try:
+            torch.set_num_interop_threads(1)
+        except RuntimeError:
+            pass
+        ap_iou_backend = str(request.get("ap_iou_backend", "gpu")).lower()
+        if ap_iou_backend not in {"gpu", "cpu"}:
+            raise RuntimeError(f"unsupported_ap_iou_backend:{ap_iou_backend}")
+        require_cuda_postprocess = bool(request.get("require_cuda_postprocess", True))
+        cuda_postprocess_audit = (
+            _verify_cuda_postprocess_backend(device)
+            if require_cuda_postprocess
+            else {"passed": False, "status": "not_required"}
+        )
+        if require_cuda_postprocess and ap_iou_backend != "gpu":
+            raise RuntimeError("cuda_postprocess_requires_gpu_ap_iou_backend")
         adapter = HEALLiDARAdapter(heal_repo=request["heal_root"], config={"model": {"hypes_yaml": request["model_config"]}})
         hypes = yaml_utils.load_yaml(adapter._resolve_heal_path(request["model_config"]))
         hypes = adapter._absolutize_dataset_paths(hypes)
         model = adapter.build_model(request["model_config"], request["checkpoint"]).to(device).eval()
         dataset = build_dataset(hypes, visualize=True, train=False)
-        loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=int(request.get("num_workers", 0)), collate_fn=dataset.collate_batch_test)
+        dataloader_num_workers = max(
+            0, int(request.get("dataloader_num_workers", request.get("num_workers", 8)))
+        )
+        loader_kwargs: dict[str, Any] = {
+            "batch_size": 1,
+            "shuffle": False,
+            "num_workers": dataloader_num_workers,
+            "collate_fn": dataset.collate_batch_test,
+            "pin_memory": dataloader_num_workers > 0,
+        }
+        if dataloader_num_workers > 0:
+            loader_kwargs.update(
+                {
+                    "prefetch_factor": 2,
+                    "persistent_workers": True,
+                    "worker_init_fn": _dataloader_worker_init,
+                }
+            )
+        loader = DataLoader(dataset, **loader_kwargs)
         runner = TensorRTEngineRunner(request["engine_path"], device)
         export_config = OnnxExportConfig(
             fixed_k=int(request.get("fixed_k", 29696)),
@@ -339,7 +415,15 @@ def main(argv: list[str] | None = None) -> int:
                         )
                         continue
                     for thr in IOU_THRESHOLDS:
-                        calculate_tp_fp_for_threshold(pred_box, pred_score, gt_box, result_stat, thr, "cpu", device)
+                        calculate_tp_fp_for_threshold(
+                            pred_box,
+                            pred_score,
+                            gt_box,
+                            result_stat,
+                            thr,
+                            ap_iou_backend,
+                            device,
+                        )
                     actual += 1
                     evaluated_frame_ids.append(str(frame_id))
                     forward_times.append(forward_ms)
@@ -397,6 +481,17 @@ def main(argv: list[str] | None = None) -> int:
             "eval_manifest_path": str(manifest_path) if manifest_path is not None else "",
             "eval_manifest_hash": str(manifest_payload.get("manifest_hash", "")),
             "reset_after_warmup": bool(reset_after_warmup),
+            "evaluation_protocol_version": str(
+                request.get("evaluation_protocol_version", "unversioned")
+            ),
+            "ap_iou_backend": ap_iou_backend,
+            "postprocess_device": str(device),
+            "require_cuda_postprocess": require_cuda_postprocess,
+            "cuda_postprocess_audit": cuda_postprocess_audit,
+            "torch_num_threads": torch_num_threads,
+            "dataloader_num_workers": dataloader_num_workers,
+            "dataloader_persistent_workers": dataloader_num_workers > 0,
+            "dataloader_prefetch_factor": 2 if dataloader_num_workers > 0 else None,
             "evaluated_frame_ids": evaluated_frame_ids,
             "skipped_frame_ids": skipped_frame_ids,
             "skipped_warmup_frame_ids": skipped_warmup_frame_ids,
