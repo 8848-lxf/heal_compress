@@ -1293,3 +1293,50 @@ outputs/h800_domain_width_joint_ga_20260716_234248/run_manifest.json
 Completed checkpoint: 2026-07-17 15:52:20 +0800 CST
 
 ---
+
+## Separate greedy and GA full-validation latency summaries
+
+The greedy and GA runs measured their strict FP32 references independently.
+Their latency values must not be mixed: greedy speedup uses greedy FP32 p50
+`8.091868 ms`, while GA speedup uses GA FP32 p50 `8.656952 ms`.  Every row
+below is 1789/1789 frames with zero skips.  Sizes use decimal MB
+(`1 MB = 10^6 bytes`).  `physical FP32 MB` is the physically pruned parameter
+count stored at 32 bits; `mixed-weight MB` additionally applies each selected
+FP32/FP16/INT8 weight precision.  Speedup is reference p50 divided by candidate
+p50.
+
+Greedy full-validation results:
+
+| budget | actual BOPS | physical FP32 MB | canonical INT8/FP16/FP32 | parameter prune | mixed-weight MB | mixed-weight x | BOPS x | AP30/50/70 | mAP | p50/p90/p99 ms | speedup |
+|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---|---:|
+| FP32 reference | 1.000000 | 21.859 | 0/0/70 | 0.00% | 21.859 | 1.000x | 1.000x | 0.826195/0.781629/0.602167 | 0.736664 | 8.092/8.782/27.107 | 1.000x |
+| 0.30 (invalid) | 0.282141 | 17.266 | 0/28/42 | 21.01% | 10.312 | 2.120x | 3.544x | 0.826042/0.781435/0.602197 | 0.736558 | 6.867/7.347/22.830 | 1.178x |
+| 0.25 | 0.249080 | 17.266 | 0/31/39 | 21.01% | 10.077 | 2.169x | 4.015x | 0.826120/0.781603/0.601983 | 0.736569 | 6.882/7.385/22.452 | 1.176x |
+| 0.20 | 0.196774 | 17.266 | 2/31/37 | 21.01% | 9.370 | 2.333x | 5.082x | 0.826251/0.781543/0.602271 | 0.736688 | 4.992/5.422/19.424 | 1.621x |
+| 0.15 | 0.149413 | 17.266 | 3/37/30 | 21.01% | 8.745 | 2.500x | 6.693x | 0.826304/0.781686/0.602484 | 0.736825 | 4.628/5.095/18.494 | 1.749x |
+| 0.10 | 0.098478 | 17.035 | 13/50/7 | 22.07% | 6.716 | 3.255x | 10.155x | 0.826150/0.781880/0.602197 | 0.736742 | 3.296/3.402/15.095 | 2.455x |
+| 0.05 | 0.049994 | 13.429 | 33/36/1 | 38.57% | 4.005 | 5.458x | 20.002x | 0.789874/0.746329/0.563222 | 0.699808 | 3.170/3.256/15.286 | 2.552x |
+
+The greedy 0.30 row is not a valid 0.30-budget result because its absolute
+BOPS error is `0.017859 > 0.005`; it is retained only as the nearest greedy
+path snapshot.  The other five greedy rows pass the formal band.
+
+GA full-validation results:
+
+| budget | actual BOPS | physical FP32 MB | canonical INT8/FP16/FP32 | parameter prune | mixed-weight MB | mixed-weight x | BOPS x | AP30/50/70 | mAP | p50/p90/p99 ms | speedup |
+|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---|---:|
+| FP32 reference | 1.000000 | 21.859 | 0/0/70 | 0.00% | 21.859 | 1.000x | 1.000x | 0.826153/0.781525/0.602142 | 0.736607 | 8.657/9.263/28.389 | 1.000x |
+| 0.30 | 0.304223 | 17.266 | 0/26/44 | 21.01% | 10.854 | 2.014x | 3.287x | 0.826222/0.781621/0.602359 | 0.736734 | 7.115/7.555/22.639 | 1.217x |
+| 0.25 | 0.254517 | 17.339 | 1/29/40 | 20.68% | 10.499 | 2.082x | 3.929x | 0.826220/0.781713/0.602170 | 0.736701 | 5.485/5.939/21.166 | 1.578x |
+| 0.20 | 0.204300 | 17.193 | 3/29/38 | 21.35% | 9.210 | 2.373x | 4.895x | 0.826216/0.781564/0.602136 | 0.736639 | 5.030/5.499/19.641 | 1.721x |
+| 0.15 | 0.154526 | 17.193 | 10/31/29 | 21.35% | 7.977 | 2.740x | 6.471x | 0.826282/0.781627/0.602607 | 0.736839 | 4.920/5.235/18.311 | 1.760x |
+| 0.10 | 0.104957 | 17.035 | 14/47/9 | 22.07% | 6.636 | 3.294x | 9.528x | 0.826102/0.781602/0.602536 | 0.736747 | 3.465/3.626/15.546 | 2.499x |
+| 0.05 | 0.054807 | 12.212 | 32/37/1 | 44.13% | 3.780 | 5.783x | 18.246x | 0.796773/0.753495/0.572820 | 0.707696 | 3.139/3.242/14.660 | 2.758x |
+
+All six GA rows pass `abs(R_BOPS-target) <= 0.005`.  The configured GA final
+winner is the 0.10 row.  The 0.15 row has the highest measured mAP, while both
+search methods show an accuracy cliff at 0.05.
+
+Completed checkpoint: 2026-07-18 01:47:37 +0800 CST
+
+---
