@@ -550,3 +550,246 @@ physical pruning remain gated.
 Round 4 timestamp: 2026-07-18 04:05 CST (host shell: 2026-07-17 13:05 PDT) / artifact sequence `20260717_130450`
 
 ---
+
+## Round 5 — real-data V2X-ViT GA and greedy framework smoke
+
+### Acceptance boundary
+
+Both search algorithms now pass a bounded end-to-end framework smoke using the
+real checkpoint, one frozen train200 frame, real HEAL task-loss gradients,
+GPU-batched Stage-1 scoring, candidate identity/cache logic, exact domain-width
+expansion, model-family physical FFN pruning, strict state reload, and a real
+PyTorch forward.
+
+This is intentionally **not** a TensorRT deployment acceptance:
+
+- mixed precision in the Stage-2 smoke is weight fake-quant only;
+- activation Q/DQ is not inserted;
+- no TensorRT engine is built;
+- no validation AP is measured;
+- BOPS covers the 70 active module-weighted paths and does not yet include the
+  six functional HGT relation weights or parameter-free attention operations.
+
+Therefore `framework_smoke_passed=true` and
+`deployment_search_ready=false` are both correct.
+
+### Added isolated model-family implementation
+
+- `search/model_family/search_space.py`
+  - builds 768 exact FFN hidden-channel atomic units across the three
+    Transformer feed-forward blocks;
+  - each unit couples first Linear output/bias with second Linear input;
+  - builds three legal retained-width genes with widths
+    `{64,80,...,240,256}`;
+  - imports fixed pruning-only first+second-order Taylor rankings;
+  - builds canonical precision groups from the real active module paths, not
+    pruning dependency scopes.
+- `search/model_family/pruning/heal_v2xvit.py`
+  - new model-family-specific FFN Linear-pair physical materializer;
+  - slices only the exact immutable `pruned_unit_ids` selected by width genes;
+  - validates width/mask equality and parameter reduction;
+  - emits a replayable snapshot/hash;
+  - adds weight fake-quant only for real-forward framework smoke, with an
+    explicit `not activation Q/DQ` marker.
+- `search/model_family/pruning/__init__.py`
+  - public V2X-ViT physical-pruning interface.
+- `search/model_family/search_smoke.py`
+  - replays exact frozen-manifest samples with their recorded RNG seeds;
+  - collects real HEAL task-loss gradient and empirical Fisher statistics;
+  - verifies K against the manifest;
+  - runs physical materialization, strict reload, fake-quant and real forward.
+- `scripts/smoke_search_heal_v2xvit.py`
+  - complete bounded GA + greedy framework smoke entry;
+  - uses the existing formal domain-width codec, joint Taylor objective,
+    hard-band BOPS semantics, GPU batched proxy, GA and greedy engines;
+  - runs GA winner, greedy candidate and forced nonzero structural control
+    through Stage-2 PyTorch smoke;
+  - repeats the structural control to prove Stage-2 identity reuse.
+- `search/model_family/heal_v2xvit.py`
+  - the three FFN hidden-width capabilities are now production-enabled for the
+    isolated physical materializer;
+  - HGT heads, window-attention heads and SplitAttn pruning remain blocked.
+- `tests/test_search_model_family_v2xvit.py`
+  - exact FFN mask/width materialization, parameter reduction and strict reload;
+  - canonical active precision-group semantics;
+  - readiness now exposes only the validated FFN domain when all required
+    pruning evidence is supplied.
+
+No existing LiDAR-pyramid tracer, pruning planner, legalizer, materializer,
+Q/DQ exporter, TensorRT builder, or evaluation source was changed.
+
+### Real calibration and search-space evidence
+
+Authoritative ignored artifact directory:
+
+`outputs/h800_heal_v2xvit_ga_greedy_smoke_authoritative_20260717_133212/`
+
+- Checkpoint strict load: passed, 13,453,197 parameters.
+- Frozen manifest hash:
+  `03d038c0b8a4d900d247e7e06d245ce15a7614910b4254b6179d76adb1cbd000`.
+- Fisher frame: manifest ordinal 1, dataset index 24, vehicle frame `000042`,
+  two agents, K=17,740, seed=20,260,741.
+- Real task loss: 0.4698578417.
+- Gradient/Fisher parameter tensors: 187/187, all finite.
+- Fisher identity hash:
+  `d47f0ba0b013987eadb93a65c838dbe121b48688b446320eb78b14df6a63bfd8`.
+- Runtime weighted calls: 82 across 70 unique parameterized modules.
+- Runtime module MAC proxy total: 53,465,711,232.
+- Precision genes: 70.
+  - Stage-1 INT8-capable Conv/ConvTranspose genes: 24.
+  - Current FP32/FP16-only PFN/Transformer/head genes: 46.
+- Functional HGT relation weights: six, fixed FP16 and excluded from current
+  BOPS denominator until their deployment mapping is admitted.
+- FFN atomic units: 768.
+- Legal FFN domain-width genes: three.
+- Scalar/GPU parity on the FP32 baseline:
+  - joint Taylor 0.0 versus 0.0;
+  - R_BOPS 1.0 versus 1.0.
+- Formal Stage-1 backend: `cuda_batched`; scalar evaluator call count 0.
+
+### GA smoke result
+
+Configuration:
+
+```text
+population=12
+generations=2
+hard BOPS target=0.25
+absolute tolerance=0.005
+constraint-first ranking=true
+```
+
+Result:
+
+- 24 evaluated rows, 23 unique candidates, eight BOPS-feasible rows.
+- Best candidate hash:
+  `546f25dcf75d77a8cfcb351ec836ad45de8b36658eebc4b8fcc6b6756d81b750`.
+- R_BOPS versus original FP32: 0.2500018477.
+- Absolute target delta: 0.0000018477; hard-band feasible.
+- Joint weight Taylor: 0.00017468065.
+- Widths: 256/256/256; no physical pruning in the GA winner.
+- Precision count: 2 FP32 / 68 FP16 / 0 INT8.
+
+The absence of pruning in this very small two-generation winner is an observed
+search result, not a framework failure; the independent forced structural
+control below proves the physical pruning path.
+
+### Greedy smoke result
+
+- Formal target: 0.25 with absolute tolerance 0.005.
+- Termination: `minimum_target_reached`.
+- Steps: 22.
+- Evaluated neighbors: 1,601, all through the GPU batch proxy/cache path.
+- Selected budget R_BOPS: 0.2534842193.
+- Absolute target delta: 0.0034842193; hard-band feasible.
+- Joint weight Taylor: 0.00005113509.
+- Parameter retention: 1.0; widths remain 256/256/256.
+- Gene precision count: 51 FP32 / 18 FP16 / 1 INT8.
+- INT8 MAC ratio: 0.321325.
+- A second one-step target at the exact first-action BOPS value verified the
+  generic greedy budget-capture implementation without changing the formal
+  0.25 result.
+
+### Physical Stage-2 PyTorch smoke
+
+GA and greedy selected candidates both passed strict reload and real forward.
+The nonzero structural control selected width 240 in all three FFN domains:
+
+- exact pruned units: 48;
+- parameter count: 13,453,197 -> 13,428,573;
+- parameter reduction: 24,624;
+- physical snapshot hash:
+  `d6e0c416502958b4ac55bf9b5f3f0e37efe2f334af23ca7db5bc0c4277a98024`;
+- strict state reload: passed;
+- real cls/reg/dir forward: passed, all finite;
+- output cosine versus original:
+  - cls: 0.99999678;
+  - reg: 0.99994576;
+  - dir: 0.99992788.
+
+The repeated structural candidate hit the Stage-2 identity cache instead of
+being materialized again. The shared Stage-1 proxy also recorded 77 cache hits.
+
+The reported ~19–20 ms timings are three-round PyTorch smoke timings only and
+must not be used as TensorRT latency or as a speedup result.
+
+### Tests and authoritative acceptance
+
+```text
+58 passed in 5.01s
+```
+
+Covered files:
+
+```text
+tests/test_search_model_family_v2xvit.py
+tests/test_search_domain_width_genes.py
+tests/test_search_greedy_budget.py
+tests/test_search_gpu_batch_integration.py
+tests/test_search_final_contract.py
+tests/test_two_stage_joint_search.py
+```
+
+Authoritative `acceptance.json` SHA256:
+
+`15a3b3e3f6bbdc99b9fdb6e2522652fd19a78a2ae748fc001185d9c17b817aca`
+
+```text
+checkpoint_strict_load: true
+frozen_train200_manifest_verified: true
+real_task_loss_fisher_collected: true
+gpu_batched_proxy_verified: true
+scalar_gpu_proxy_parity: true
+ga_framework_smoke_passed: true
+greedy_framework_smoke_passed: true
+nonzero_physical_pruning_smoke_passed: true
+physical_checkpoint_strict_reload: true
+real_pytorch_forward: true
+proxy_cache_verified: true
+stage2_identity_cache_verified: true
+framework_smoke_passed: true
+
+explicit_qdq_complete: false
+tensorrt_engine_complete: false
+full_accuracy_evaluation_complete: false
+deployment_search_ready: false
+```
+
+### Reproduction
+
+```bash
+cd /home/lixingfeng/UniAD_examine/heal_compress
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+
+CUDA_VISIBLE_DEVICES=6 python scripts/smoke_search_heal_v2xvit.py \
+  --device cuda:0 \
+  --output-dir outputs/<new-v2xvit-ga-greedy-smoke-dir>
+
+PYTHONPATH=.:.. python -m pytest -q \
+  tests/test_search_model_family_v2xvit.py \
+  tests/test_search_domain_width_genes.py \
+  tests/test_search_greedy_budget.py \
+  tests/test_search_gpu_batch_integration.py \
+  tests/test_search_final_contract.py \
+  tests/test_two_stage_joint_search.py
+```
+
+### Next gate
+
+Do not start broad GA/greedy experiments yet. The next deployment gate remains:
+
+1. real fixedK=27904 base ONNX and scatter-plugin parity;
+2. semantic post-activation/post-merge Q/DQ boundaries for V2X-ViT;
+3. entropy train200 activation calibration;
+4. strongly typed TensorRT precision realization;
+5. small real AP gate.
+
+Only after those pass may the 24 INT8-capable genes be treated as deployable
+precision decisions rather than Stage-1 capability smoke variables.
+
+---
+
+Round 5 timestamp: 2026-07-18 04:33 CST (host shell: 2026-07-17 13:33 PDT) / authoritative artifact sequence `20260717_133212`
+
+---

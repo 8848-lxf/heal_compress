@@ -113,7 +113,16 @@ def test_v2xvit_audit_exposes_head_ffn_merge_and_plugin_gates() -> None:
     assert "transformer_ffn_hidden_width" in kinds
     assert "whole_attention_head_bundle" in kinds
     assert "whole_heterogeneous_attention_head_bundle" in kinds
-    assert all(not row.production_enabled for row in audit.pruning_domains)
+    assert all(
+        row.production_enabled
+        for row in audit.pruning_domains
+        if row.domain_kind == "transformer_ffn_hidden_width"
+    )
+    assert all(
+        not row.production_enabled
+        for row in audit.pruning_domains
+        if row.domain_kind != "transformer_ffn_hidden_width"
+    )
     assert any(row.merge_kind == "transformer_residual_add" for row in audit.merge_boundaries)
     plugin = audit.plugin_requirements[0]
     assert plugin.plugin_key == "pointpillar_scatter_trt"
@@ -251,6 +260,67 @@ def test_v2xvit_train_manifest_hash_rejects_sample_tampering() -> None:
         raise AssertionError("tampered calibration manifest must be rejected")
 
 
+def test_v2xvit_ffn_domain_width_materializes_exact_ranked_mask() -> None:
+    from search.candidate import CandidateGenotype
+    from search.canonicalization import SearchSpaceSpec, canonicalize_candidate
+    from search.model_family import get_model_family
+    from search.model_family.pruning import materialize_v2xvit_ffn_pruning
+    from search.model_family.search_space import (
+        build_ranked_v2xvit_ffn_domains,
+        build_v2xvit_ffn_atomic_units,
+    )
+
+    model = FakeV2XViT()
+    audit = get_model_family("heal_lidar_v2xvit").audit(model, _config())
+    units, _capabilities = build_v2xvit_ffn_atomic_units(model, audit)
+    assert len(units) == 256
+    scores = {row.stable_id: float(row.root_indices[0]) for row in units}
+    domains = build_ranked_v2xvit_ffn_domains(units, scores)
+    assert len(domains) == 1
+    domain = domains[0]
+    assert domain.legal_widths == (64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256)
+    space = SearchSpaceSpec(
+        pruning_unit_ids=[row.stable_id for row in units],
+        precision_layer_ids=[],
+        pruning_domains=tuple(domains),
+    )
+    phenotype = canonicalize_candidate(
+        CandidateGenotype(pruning_width_genes={domain.domain_id: 240}), space
+    )
+    result = materialize_v2xvit_ffn_pruning(model, phenotype, domains)
+    first = result.model.get_submodule("fusion_net.ff.net.0")
+    second = result.model.get_submodule("fusion_net.ff.net.3")
+    assert first.out_features == 240
+    assert second.in_features == 240
+    assert len(phenotype.pruned_unit_ids) == 16
+    assert result.parameter_count_after < result.parameter_count_before
+    replay = materialize_v2xvit_ffn_pruning(model, phenotype, domains)
+    replay.model.load_state_dict(result.model.state_dict(), strict=True)
+
+
+def test_v2xvit_precision_groups_come_from_active_canonical_capabilities() -> None:
+    from search.model_family import get_model_family
+    from search.model_family.search_space import build_v2xvit_quantization_groups
+
+    model = FakeV2XViT()
+    audit = get_model_family("heal_lidar_v2xvit").audit(model, _config())
+    active = ["backbone_m1.0", "fusion_net.ff.net.0", "cls_head"]
+    groups = build_v2xvit_quantization_groups(
+        model, audit, active_module_paths=active
+    )
+    assert len(groups) == 3
+    by_module = {row.module_paths[0]: row for row in groups}
+    assert by_module["backbone_m1.0"].allowed_precisions == (
+        "FP32",
+        "FP16",
+        "INT8",
+    )
+    assert by_module["backbone_m1.0"].metadata["production_int8_admitted"] is True
+    assert by_module["fusion_net.ff.net.0"].allowed_precisions == ("FP32", "FP16")
+    assert by_module["cls_head"].metadata["production_int8_admitted"] is False
+    assert all(row.group_id.startswith("v2xvit_qg::module::") for row in groups)
+
+
 def test_v2xvit_identity_sttf_preserves_grid_sample_and_masks_agents() -> None:
     from search.model_family.export.heal_v2xvit import _identity_sttf_and_roi
 
@@ -292,8 +362,8 @@ def test_v2xvit_search_readiness_blocks_unverified_genes() -> None:
     gated = build_model_family_search_readiness(audit, all_evidence)
     assert "module::backbone_m1.0" in gated.ready_precision_gene_ids
     assert "module::fusion_net.window.to_qkv" not in gated.ready_precision_gene_ids
-    assert gated.ready_pruning_domain_ids == ()
-    assert gated.joint_search_ready is False
+    assert gated.ready_pruning_domain_ids == ("ffn_hidden::fusion_net.ff",)
+    assert gated.joint_search_ready is True
 
 
 def test_v2xvit_onnx_mapping_resolves_functional_weight_and_inactive_type_branch(

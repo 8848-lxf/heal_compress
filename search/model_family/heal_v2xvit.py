@@ -163,12 +163,13 @@ def _pruning_domains(model: nn.Module) -> list[PruningDomainCapability]:
                         original_width=width,
                         legal_widths=_legal_aligned_widths(width),
                         ranking_unit="fixed_task_taylor_ordered_hidden_units",
-                        production_enabled=False,
-                        gate_reason="awaiting_dependency_and_physical_materialization_smoke",
+                        production_enabled=True,
+                        gate_reason="",
                         constraints={
                             "prune_first_linear_output": True,
                             "prune_second_linear_input": True,
                             "embedding_width_unchanged": True,
+                            "physical_materializer": "v2xvit_ffn_linear_pair_v1",
                         },
                     )
                 )
