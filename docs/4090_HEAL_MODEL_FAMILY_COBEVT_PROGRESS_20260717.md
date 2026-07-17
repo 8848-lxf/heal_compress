@@ -359,3 +359,104 @@ No try/catch fallback, weak typing, graph relaxation, or new plugin was used.
 - `COBEVT_REAL_GPU_INFERENCE_PENDING=true`
 
 --- ROUND 005 COMPLETE | 2026-07-18T03:25:50+08:00 ---
+
+## Round 006: Canonical Precision And Strict FP16 Strongly Typed Build
+
+### Implementation
+
+- Extended `search/model_families/lidar_cobevt/export_recipe.py` to capture all
+  weighted module calls, build a canonical ONNX origin map, rename canonical
+  nodes, and persist the complete mapping hash.
+- Added `search/model_families/lidar_cobevt/quantization_recipe.py`.
+  - Maps every captured weighted Conv/Linear call to one CoBEVT-owned precision
+    group.
+  - Removes unverified INT8 actions from the search capability instead of
+    permitting nominal INT8 with a floating fallback.
+  - Keeps raw cls/reg/dir outputs protected and the parameter-free affine-grid
+    MatMul fixed at FP16.
+  - Keeps `PointPillarScatterTRT` outside precision genes and rejects adjacent
+    Q/DQ.
+  - Adds a CoBEVT-only auxiliary dtype closure for LayerNormalization
+    parameters, attention elementwise bias, and Where branches. The shared
+    pyramid typed-graph implementation was not modified.
+- Added `search/model_families/lidar_cobevt/deployment_recipe.py`.
+  - Production builder is fixed to `--stronglyTyped --noTF32`.
+  - Weak `--fp16`, `--int8`, precision constraints, layer precision, and layer
+    output-type controls are absent.
+  - Cache identity binds model family, recipe version, fixed K, physical hash,
+    precision hash, calibration signature, and build signature.
+- Added `search/stage2/lidar_cobevt_real_evaluator.py` with a fail-closed
+  smoke10-before-fixed50 protocol, GPU AP/IoU, and exactly 8 DataLoader workers.
+
+### Real canonical and TensorRT evidence
+
+- Artifact directory (not tracked by Git):
+  `/data/lxf/heal_data/outputs/4090_lidar_cobevt_capability_20260718_032028`
+- Canonical weighted entries: 53
+- Parameter-free functional compute entries: 1
+- Canonical renamed nodes: 54
+- Canonical origin-map hash:
+  `2ea7a5e6973adbb365b2cd6778f8e74564521ad12f7840097db3a157704cf1c6`
+- Strict FP16 requested weighted entries: 53
+- Scatter boundary: FP32 / Float-to-Float
+- CoBEVT auxiliary closure:
+  - LayerNormalization nodes audited: 13
+  - LayerNormalization scale/bias Casts inserted: 14
+  - attention same-type elementwise Casts inserted: 6
+  - attention Where branch Casts inserted: 6
+  - scatter-adjacent Q/DQ count: 0
+- Typed ONNX SHA256:
+  `0ed8c1b0aa7b50903b7ea5d260eedcba3b2c2ac3b05ced6021ef2aa3b2916830`
+- Parser ONNX SHA256:
+  `a76d1822124d6ba15d171a141658204840642d2d8a301dbe54a682a68f887f45`
+- TensorRT: 10.9.0
+- GPU UUID: `GPU-a4b5f0d9-c77c-2c99-b4c3-1b3811b835e3`
+- Parser time: 0.138181 seconds
+- Engine generation time: 34.4587 seconds
+- Total build time: 34.7017 seconds
+- Engine size: 39 MiB
+- Engine SHA256:
+  `c138ce42cf59f743453280e1c269fc5c7588882e6eb1d7edd46be323a656d1c9`
+- Engine deserialization: passed
+- Engine layers: 303
+- Engine I/O tensors: 9
+- Inspector tensor dtype occurrences:
+  - Half: 424
+  - Float: 239
+  - Int32: 12
+  - Bool: 8
+- Scatter inspector boundary: Float inputs and Float output
+- Plugin SHA256:
+  `91aec743dca383151b995a60d004cd254ce115ed16152873c1f46754bb15022d`
+
+### Root-cause evidence
+
+The first strict FP16 parser attempt failed at LayerNormalization because the
+activation was Half while scale/bias remained Float. After explicit parameter
+Casts, parsing advanced to a Half/Float attention Add. After the elementwise
+closure, parsing advanced to a Float/Half Where. Closing the Where branches
+allowed the complete graph to parse and build. Each change was guarded by a
+separate RED-to-GREEN regression test; no weakly typed fallback was introduced.
+
+### Tests
+
+- New focused tests: canonical precision groups, auxiliary typed/QDQ contract,
+  strongly typed builder policy, cross-family cache isolation, and evaluator
+  protocol.
+- Focused plus existing strongly typed regression result:
+  `33 passed, 5 tracer warnings in 2.01s`.
+- The warnings are expected PyTorch static-export tracer warnings; no test,
+  parser, engine, or dtype audit warning was converted into a pass.
+
+### Status
+
+- `COBEVT_CANONICAL_PRECISION_MAPPING_PASS=true`
+- `COBEVT_STRONGLY_TYPED_FP16_ENGINE_PASS=true`
+- `COBEVT_ENGINE_DESERIALIZE_PASS=true`
+- `COBEVT_SCATTER_QDQ_COUNT=0`
+- `COBEVT_CROSS_FAMILY_CACHE_ISOLATION_PASS=true`
+- `COBEVT_MIXED_INT8_DEPLOYMENT_AVAILABLE=false`
+- `COBEVT_REAL_GPU_INFERENCE_PENDING=true`
+- `COBEVT_SMOKE10_FIXED50_PENDING=true`
+
+--- ROUND 006 COMPLETE | 2026-07-18T03:49:57+08:00 ---

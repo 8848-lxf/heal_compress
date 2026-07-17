@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
@@ -12,6 +13,12 @@ import torch
 import torch.nn as nn
 
 from quantization.export.heal_lidar_cobevt import HEALLiDARCoBEVTSignalMaxK
+from quantization.export.origin_mapping import (
+    apply_canonical_node_names,
+    build_onnx_origin_map,
+)
+from quantization.export.signal_maxk import capture_weighted_module_calls
+from quantization.types import OnnxOriginMapResult
 
 from .operator_probe import audit_onnx_operators
 
@@ -45,6 +52,41 @@ class CobevtTypedExportReport:
     op_counts: dict[str, int]
     registered_custom_ops: tuple[str, ...]
     unregistered_custom_ops: tuple[str, ...]
+    weighted_entry_count: int
+    functional_compute_count: int
+    canonical_rename_count: int
+    origin_map_hash: str
+    origin_map: dict
+
+
+def _cobevt_origin_map(origin: OnnxOriginMapResult) -> OnnxOriginMapResult:
+    functional = []
+    for ordinal, group in enumerate(origin.functional_compute_groups):
+        if "affine_grid" in group.module_path:
+            module_path = "lidar_cobevt.functional_affine_grid_matmul"
+            source_call = "quantization.export.heal_lidar_cobevt._warp_agents"
+            reason = "cobevt_grid_coordinates_require_fp16"
+        else:
+            module_path = f"lidar_cobevt.functional_matmul.{ordinal:03d}"
+            source_call = "lidar_cobevt_parameter_free_functional_matmul"
+            reason = "cobevt_functional_matmul_requires_fp16"
+        functional.append(
+            replace(
+                group,
+                module_path=module_path,
+                canonical_node_name=f"__canonical__cobevt_functional_{ordinal:03d}",
+                source_call=source_call,
+                protection_reason=reason,
+            )
+        )
+    return OnnxOriginMapResult(
+        entries=list(origin.entries),
+        source_onnx=origin.source_onnx,
+        unresolved_weighted_nodes=list(origin.unresolved_weighted_nodes),
+        functional_matmul_nodes=list(origin.functional_matmul_nodes),
+        functional_compute_groups=functional,
+        naming_policy_version=origin.naming_policy_version,
+    )
 
 
 class CobevtExportRecipe:
@@ -83,17 +125,25 @@ class CobevtExportRecipe:
         wrapper = self.build_module(model).eval()
         args = tuple(inputs[name] for name in COBEVT_INPUT_NAMES)
         with torch.no_grad():
-            torch.onnx.export(
-                wrapper,
-                args,
-                str(destination),
-                export_params=True,
-                opset_version=self.opset_version,
-                do_constant_folding=True,
-                input_names=list(COBEVT_INPUT_NAMES),
-                output_names=list(COBEVT_OUTPUT_NAMES),
-                custom_opsets={"trt": 1},
-            )
+            with capture_weighted_module_calls(wrapper) as calls:
+                torch.onnx.export(
+                    wrapper,
+                    args,
+                    str(destination),
+                    export_params=True,
+                    opset_version=self.opset_version,
+                    do_constant_folding=True,
+                    input_names=list(COBEVT_INPUT_NAMES),
+                    output_names=list(COBEVT_OUTPUT_NAMES),
+                    custom_opsets={"trt": 1},
+                )
+        origin = _cobevt_origin_map(build_onnx_origin_map(destination, calls))
+        rename = apply_canonical_node_names(
+            destination,
+            origin,
+            output_path=destination,
+            allow_custom_ops=True,
+        )
         model_proto = onnx.load(str(destination))
         onnx.checker.check_model(model_proto)
         operator_report = audit_onnx_operators(destination)
@@ -107,5 +157,10 @@ class CobevtExportRecipe:
             op_counts=operator_report.op_counts,
             registered_custom_ops=operator_report.registered_custom_ops,
             unregistered_custom_ops=operator_report.unregistered_custom_ops,
+            weighted_entry_count=len(origin.entries),
+            functional_compute_count=len(origin.functional_compute_groups),
+            canonical_rename_count=rename.renamed_node_count,
+            origin_map_hash=origin.origin_map_hash,
+            origin_map=origin.to_dict(),
         )
 

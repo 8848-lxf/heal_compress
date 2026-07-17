@@ -110,3 +110,5 @@ def test_export_recipe_writes_checked_six_input_onnx(tmp_path):
     assert report.output_names == ("cls_preds", "reg_preds", "dir_preds")
     assert report.registered_custom_ops == ("trt::PointPillarScatterTRT",)
     assert report.unregistered_custom_ops == ()
+    assert report.weighted_entry_count == 3
+    assert report.origin_map_hash
