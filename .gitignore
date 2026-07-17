@@ -58,6 +58,7 @@ dist/
 # Local
 # ==============================
 
+.worktrees/
 tests_back/
 heal_tests/
 .gitignore.bak.*
