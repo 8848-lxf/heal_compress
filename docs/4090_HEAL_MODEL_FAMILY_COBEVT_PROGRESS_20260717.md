@@ -213,3 +213,58 @@ value is claimed in this round.
 - `COBEVT_ACTUAL_MANIFEST_FIXED_K_AVAILABLE=false`
 
 --- ROUND 003 COMPLETE | 2026-07-18T03:00:57+08:00 ---
+
+## Round 004: CoBEVT Head-Aligned Legal Width And Physical Replay
+
+### Implementation
+
+- Added `search/model_families/lidar_cobevt/pruning_recipe.py`.
+- The CoBEVT fusion domain is rooted at
+  `shrinker_m1.layers.0.double_conv.2` and extends through all three window/grid
+  attention stages, FFNs, LayerNorms, relative-position bias embeddings,
+  fusion MLP head, and cls/reg/dir input channels.
+- Legal widths for the current 256-dimensional embedding and `dim_head=32` are
+  `[64, 96, 128, 160, 192, 224, 256]`, satisfying the 80% per-domain cap.
+- Width decode consumes a fixed head ranking and has no precision argument.
+- Smaller legal widths produce nested prune sets.
+- Physical replay slices QKV output as three corresponding blocks, updates
+  attention head metadata and positional-bias columns, and validates every
+  dependent module after surgery.
+- Unsupported/inconsistent fusion closures fail closed; they are not sent to
+  normal repair.
+
+### Real 256 -> 192 physical evidence
+
+- Original attention heads: 8
+- Physical attention heads: 6
+- Original embedding: 256
+- Physical embedding: 192
+- Synchronized physical operations: 54
+- Original parameters: 10,500,260
+- Predicted physical parameters: 9,286,336
+- Materialized physical parameters: 9,286,336
+- Parameter retention: 0.8843910532
+- Structure hash:
+  `44bd08fac491bc74dbe3e26c0abbe8483c518504ea2f5145936233cfa75daf7e`
+- Structure audit issues: 0
+- Precision input to decoder: none
+
+### Tests
+
+- Initial RED: 7 failures and 2 setup errors for the missing pruning recipe.
+- Additional RED: fusion-domain inventory test failed because the domain API
+  did not yet exist.
+- GREEN command covered CoBEVT widths/replay plus existing generic physical
+  replay and legal-width inventory.
+- GREEN result: `14 passed in 7.77s`.
+- Modified Python files compile successfully.
+- `git diff --check` passes.
+
+### Status
+
+- `COBEVT_FUSION_LEGAL_WIDTH_DOMAIN_PASS=true`
+- `COBEVT_MASK_DEPENDS_ON_PRECISION=false`
+- `COBEVT_PHYSICAL_PARAMETER_IDENTITY_PASS=true`
+- `COBEVT_FUSION_FORWARD_PARITY_PENDING=true`
+
+--- ROUND 004 COMPLETE | 2026-07-18T03:12:20+08:00 ---
