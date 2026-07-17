@@ -45,6 +45,41 @@ def _parity(reference: torch.Tensor, actual: torch.Tensor) -> dict[str, Any]:
     }
 
 
+def _save_engine_io(
+    root: Path,
+    inputs: dict[str, torch.Tensor],
+    output_names: tuple[str, ...],
+    outputs: tuple[torch.Tensor, ...],
+) -> dict[str, Any]:
+    root.mkdir(parents=True, exist_ok=False)
+    rows: dict[str, Any] = {"inputs": {}, "reference_outputs": {}}
+    for name, tensor in inputs.items():
+        value = tensor.detach().contiguous().cpu().numpy()
+        path = root / f"input_{name}.bin"
+        value.tofile(path)
+        rows["inputs"][name] = {
+            "path": str(path.resolve()),
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "size_bytes": path.stat().st_size,
+            "sha256": _sha256(path),
+        }
+    for name, tensor in zip(output_names, outputs):
+        value = tensor.detach().contiguous().cpu().numpy()
+        path = root / f"reference_{name}.npy"
+        import numpy as np
+
+        np.save(path, value, allow_pickle=False)
+        rows["reference_outputs"][name] = {
+            "path": str(path.resolve()),
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "size_bytes": path.stat().st_size,
+            "sha256": _sha256(path),
+        }
+    return rows
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -56,6 +91,7 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--opset", type=int, default=17)
     parser.add_argument("--skip-onnx", action="store_true")
+    parser.add_argument("--save-engine-io", action="store_true")
     args = parser.parse_args()
 
     from search.model_family import build_model_family_search_readiness, load_heal_model_family
@@ -124,6 +160,13 @@ def main() -> int:
         },
         "onnx_export": {"requested": not args.skip_onnx, "passed": None},
     }
+    if args.save_engine_io:
+        payload["engine_io"] = _save_engine_io(
+            args.output_dir / "engine_io",
+            prepared,
+            policy.output_names,
+            actual,
+        )
     if not args.skip_onnx:
         try:
             torch.onnx.export(

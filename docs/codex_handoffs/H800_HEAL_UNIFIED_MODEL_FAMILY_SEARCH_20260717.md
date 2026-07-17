@@ -179,3 +179,140 @@ CUDA_VISIBLE_DEVICES=6 python scripts/smoke_export_heal_v2xvit.py \
 Round 1 timestamp: 2026-07-17 12:35 server-local / artifact sequence `20260717_123358`
 
 ---
+
+## Round 2 — strongly typed TensorRT FP32 execution smoke
+
+### Source change
+
+`scripts/smoke_export_heal_v2xvit.py` now accepts `--save-engine-io`. It writes:
+
+- raw binary inputs with exact binding dtype/shape/hash;
+- NumPy reference outputs from the PyTorch export wrapper;
+- their provenance in `export_report.json`.
+
+This keeps engine runtime smoke reproducible without committing tensor dumps. The generated files remain below ignored `outputs/` directories.
+
+### Isolated modelopt toolchain
+
+The default interactive PATH placed `/usr/local/cuda/bin` before the Conda environment. Deployment commands must therefore prepend the environment explicitly:
+
+```bash
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate modelopt
+export PATH="$CONDA_PREFIX/bin:$PATH"
+export CUDA_HOME="$CONDA_PREFIX"
+export CC="$CONDA_PREFIX/bin/gcc"
+export CXX="$CONDA_PREFIX/bin/g++"
+export TRT_ROOT=/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+export LD_LIBRARY_PATH="$TRT_ROOT/lib:$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"
+```
+
+Verified paths/versions after this correction:
+
+- Python: `/home/lixingfeng/miniconda3/envs/modelopt/bin/python`.
+- nvcc: `/home/lixingfeng/miniconda3/envs/modelopt/bin/nvcc`, CUDA 11.8 V11.8.89.
+- gcc/g++: `/home/lixingfeng/miniconda3/envs/modelopt/bin/gcc` and `g++`, Anaconda 11.2.0.
+- TensorRT root: `/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118`.
+- TensorRT: 10.9.0.34.
+- GPU: physical GPU 6, H800, compute capability 9.0.
+- Existing plugin: `quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so`.
+- Plugin SHA256: `61d9adf44855ab2a595220718270d361c993f9ff281e986cdf8a62d5ca317ecd`.
+- `ldd` resolves `libnvinfer.so.10` and `libnvinfer_plugin.so.10` from the required TensorRT root and `libcudart.so.11.0` from `modelopt`.
+
+No plugin was rebuilt or overwritten in this round.
+
+### Strongly typed build, inspector, and runtime
+
+Input ONNX remained the Round 1 fixedK=64 synthetic-smoke graph. The first strongly typed build used TensorRT's default TF32 permission and proved parser/plugin compatibility. It built and deserialized a 74,110,876-byte engine, then ran one legal input successfully. Inspector showed Float compute with TF32 tactics, so it was not used for strict FP32 parity.
+
+The authoritative no-TF32 smoke is:
+
+`outputs/h800_heal_model_family_v2xvit_trt_no_tf32_smoke_20260717_124110/`
+
+Build flags:
+
+```text
+--stronglyTyped
+--noTF32
+--builderOptimizationLevel=0
+--profilingVerbosity=detailed
+--staticPlugins=<pointpillar scatter .so>
+```
+
+Verified results:
+
+- ONNX parse passed, including 27 Einsum, LayerNormalization, GridSample, and the exported If.
+- `PointPillarScatterTRT` plugin was found and instantiated.
+- Detected six inputs and three outputs.
+- Engine build passed; size 75,416,172 bytes; SHA256 `f5064d954a9ee08c3bc70cb98ad01dc90d7aa15679158824847e9524d6452275`.
+- Engine deserialize and execution-context creation passed.
+- Binding order: voxel features, coords, point counts, pairwise transform, valid-voxel mask, agent mask, cls, reg, dir.
+- One inference with legal saved inputs passed; evaluated as execution smoke only, not a latency benchmark.
+- Inspector: 207 layers = 106 kgen + 70 gemm + 24 convolution + 3 deconvolution + 3 no-op + 1 plugin.
+- Float is present in 205 layer rows; Int32 appears only in shape/index/plugin-support paths.
+- No TF32 tactic and no FP16 tactic were present in the no-TF32 engine.
+- Engine layer info SHA256: `9b254fc6b1c7e5b9855268a832d52affe1537a22cdcce577c48340de717791f2`.
+
+TensorRT versus PyTorch wrapper on the synthetic input:
+
+| Output | max abs | mean abs | cosine |
+|---|---:|---:|---:|
+| cls | 0.0045905 | 0.0004169 | 0.99999988 |
+| reg | 0.0010176 | 0.0000759 | 1.00000000 |
+| dir | 0.0039229 | 0.0007068 | 0.99999952 |
+
+The remaining small difference is not treated as full numerical equivalence until repeated on real frames. Runtime parity artifact SHA256: `14395e21fceb5971679d3b805866ff38dddc63a7e7e19af2934fdd6297addc45`.
+
+### Interpretation and gates
+
+- `stronglyTyped` does not choose a faster precision. It preserves the types encoded in ONNX.
+- Because this ONNX has no Cast/Q/DQ precision graph, the engine is FP32. This is expected and proves the future explicit-Q/DQ chain cannot rely on builder heuristics.
+- Strongly typed parser, plugin loading, engine deserialization, context creation, binding layout, and one synthetic forward are now proven for the active type-0 FP32 graph.
+- Production plugin compatibility remains gated because fixed-K is not yet derived from a real frozen manifest.
+- Quantization readiness remains false: canonical mapping, semantic Q/DQ boundaries, entropy calibration, and requested-versus-realized INT8 precision are still absent.
+- Physical pruning readiness remains false.
+
+```text
+v2xvit_strongly_typed_fp32_parse: true
+v2xvit_strongly_typed_fp32_engine_build: true
+v2xvit_engine_deserialize: true
+v2xvit_execution_context: true
+v2xvit_scatter_plugin_synthetic_runtime: true
+v2xvit_binding_contract_synthetic: true
+v2xvit_real_frame_tensor_parity: false
+v2xvit_real_manifest_fixed_k: false
+v2xvit_explicit_qdq: false
+v2xvit_int8_precision_realization: false
+v2xvit_quantization_search_ready: false
+v2xvit_joint_search_ready: false
+```
+
+### Runtime reproduction
+
+First generate legal input binaries in `univ2x-opt`:
+
+```bash
+CUDA_VISIBLE_DEVICES=6 python scripts/smoke_export_heal_v2xvit.py \
+  --config /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_v2xvit/config.yaml \
+  --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_v2xvit/net_epoch_bestval_at27.pth \
+  --device cuda:0 --fixed-k 64 --max-agents 2 \
+  --skip-onnx --save-engine-io \
+  --output-dir outputs/<new-engine-io-dir>
+```
+
+Then switch to the isolated `modelopt` environment shown above and build with the required TensorRT root:
+
+```bash
+CUDA_VISIBLE_DEVICES=6 "$TRT_ROOT/bin/trtexec" \
+  --onnx=outputs/<onnx-smoke-dir>/heal_lidar_v2xvit_fixedk.onnx \
+  --stronglyTyped --noTF32 \
+  --staticPlugins=quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so \
+  --saveEngine=outputs/<new-trt-dir>/v2xvit_strongly_typed_fp32.plan \
+  --skipInference --builderOptimizationLevel=0 --profilingVerbosity=detailed
+```
+
+---
+
+Round 2 timestamp: 2026-07-17 12:42 server-local / artifact sequence `20260717_124110`
+
+---
