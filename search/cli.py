@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .model_families.registry import create_family_runner
 from .orchestration.lidar_pyramid_search import LidarPyramidTwoStageSearch
 from .orchestration.two_stage_search import TwoStageSearchRunner
 
@@ -244,11 +245,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.dry_run:
         resume_path = None if args.resume in (None, "auto") else args.resume
-        runner = LidarPyramidTwoStageSearch(
+        runner = create_family_runner(
             config=config,
             checkpoint=checkpoint,
             output_root=output_root,
             resume=resume_path,
+            pyramid_runner_cls=LidarPyramidTwoStageSearch,
         )
         result = runner.run(
             stage1_only=bool(args.stage1_only),

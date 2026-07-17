@@ -105,3 +105,53 @@ The existing six-budget pyramid GA was not stopped or restarted. At the Round
 
 --- ROUND 001 COMPLETE | 2026-07-18T02:43:53+08:00 ---
 
+## Round 002: Lazy Model-Family Dispatch And Pyramid Freeze Guard
+
+### Implementation
+
+- Added `search/model_families/contracts.py` with the minimal `SearchRunner`
+  protocol and a canonical, family-specific capability manifest hash.
+- Added `search/model_families/registry.py` with fail-closed family parsing and
+  lazy runner imports.
+- Updated only the runner construction point in `search/cli.py`.
+- Preserved the existing `LidarPyramidTwoStageSearch` symbol and constructor
+  arguments so old configs and tests retain their exact default behavior.
+- CoBEVT modules are not imported when the selected/default family is
+  `lidar_pyramid`.
+
+### Tests added
+
+- `tests/test_model_family_registry.py`
+  - missing family defaults to pyramid;
+  - CoBEVT dispatch does not construct pyramid;
+  - unknown family fails closed;
+  - capability hashes are deterministic and family-specific.
+- `tests/test_pyramid_family_freeze.py`
+  - default dispatch never loads CoBEVT;
+  - explicit pyramid family passes the same resume/constructor contract.
+
+### RED and GREEN evidence
+
+- RED: `6 failed`, all caused by the intentionally missing
+  `search.model_families` package.
+- GREEN command:
+
+```bash
+conda run --no-capture-output -n univ2x-opt pytest -q \
+  tests/test_model_family_registry.py \
+  tests/test_pyramid_family_freeze.py \
+  tests/test_search_tool_adapters.py
+```
+
+- GREEN result: `17 passed in 1.66s`.
+- Modified Python files compile successfully.
+- `git diff --check` passes.
+
+### Status
+
+- `MODEL_FAMILY_DISPATCH_IMPLEMENTED=true`
+- `DEFAULT_PYRAMID_DISPATCH_PRESERVED=true`
+- `PYRAMID_QUANTIZATION_PATH_MODIFIED=false`
+- `COBEVT_MODULE_LAZY_LOAD=true`
+
+--- ROUND 002 COMPLETE | 2026-07-18T02:54:18+08:00 ---
