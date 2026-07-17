@@ -268,3 +268,94 @@ value is claimed in this round.
 - `COBEVT_FUSION_FORWARD_PARITY_PENDING=true`
 
 --- ROUND 004 COMPLETE | 2026-07-18T03:12:20+08:00 ---
+
+## Round 005: Real CoBEVT Typed ONNX And Strongly Typed FP32 Capability
+
+### Implementation
+
+- Added `quantization/export/heal_lidar_cobevt.py` as a separate six-input
+  CoBEVT export wrapper.
+  - Reuses the accepted `PointPillarScatterTRT` plugin ABI without importing or
+    modifying the pyramid export wrapper.
+  - Adds `record_len` so attention masks distinguish real and padded agents.
+  - Pads pairwise transforms to `max_cav=2` independently of pyramid routing.
+  - Lowers warp grid construction to native base-grid + MatMul + GridSample.
+- Added `search/model_families/lidar_cobevt/export_recipe.py` with actual ONNX
+  export, checker, hashing, and operator inventory.
+- Added `search/model_families/lidar_cobevt/operator_probe.py` with custom-op
+  audit, scatter parser conversion, and a strongly typed command policy that
+  omits weak precision controls and handles static graphs without shape flags.
+
+### Real ONNX evidence
+
+- Output directory:
+  `/data/lxf/heal_data/outputs/4090_lidar_cobevt_capability_20260718_032028`
+- Source ONNX SHA256:
+  `659b0015eee1d16700f67216cab2c82da1c7c8e6789bf842773220d5ab40d034`
+- Parser ONNX SHA256:
+  `c976aec0c53cfb92dc7bb95d13fb6053357fef02080ee1160891f821992133eb`
+- Inputs: six, including `record_len`
+- Outputs: cls/reg/dir
+- Nodes: 3,700
+- Relevant native operators:
+  - MatMul: 27
+  - Einsum: 12
+  - Softmax: 6
+  - LayerNormalization: 13
+  - GridSample: 1
+- Registered custom ops: `trt::PointPillarScatterTRT` only
+- Unregistered custom ops: 0
+- ONNX checker: passed
+
+### Real TensorRT evidence
+
+- TensorRT: 10.9.0
+- GPU UUID: `GPU-a4b5f0d9-c77c-2c99-b4c3-1b3811b835e3`
+- Build mode: `--stronglyTyped --noTF32`, no weak precision flags
+- ONNX parser: passed
+- Scatter plugin creation: passed
+- Detected network tensors: 6 inputs, 3 outputs
+- Build time: 15.2783 seconds
+- Engine generation time: 15.1185 seconds
+- Engine size reported by TensorRT: 62.2923 MiB
+- Engine SHA256:
+  `53416351540aca2cbdfcbf5b62f4e26bf4f642c77500b049e767832a3e90c7cd`
+- Engine deserialization: passed
+- EngineInspector layers: 135
+- Scatter input/output dtype: Float/Float
+- Inspector tensor dtypes: Bool, Int32, Float
+- New CoBEVT plugin required: false
+
+### Failure diagnosis retained
+
+1. PyTorch opset-17 export initially rejected `aten::affine_grid_generator`.
+   The root cause was isolated and replaced with the existing mathematically
+   equivalent native base-grid/MatMul representation.
+2. Direct `trtexec` initially segfaulted during plugin initialization because
+   TensorRT root libraries were absent from `LD_LIBRARY_PATH`. Reusing the
+   formal worker environment removed the segfault before ONNX parsing.
+3. The first valid parser run rejected dynamic shape flags because the graph is
+   static. Static command generation now omits those flags.
+
+No try/catch fallback, weak typing, graph relaxation, or new plugin was used.
+
+### Tests
+
+- RED: 8 missing-module failures for wrapper/probe interfaces.
+- Additional RED: unsupported `affine_grid_generator` real ONNX export.
+- Additional RED: static probe incorrectly emitted empty shape flags.
+- GREEN result: `16 passed in 2.43s` across CoBEVT export/probe and existing
+  strongly typed scatter tests.
+- Modified Python files compile successfully.
+- `git diff --check` passes.
+
+### Status
+
+- `COBEVT_TYPED_ONNX_EXPORT_PASS=true`
+- `COBEVT_TRT_PARSER_PASS=true`
+- `COBEVT_STRONGLY_TYPED_FP32_ENGINE_PASS=true`
+- `COBEVT_ENGINE_DESERIALIZE_PASS=true`
+- `COBEVT_NEW_PLUGIN_REQUIRED=false`
+- `COBEVT_REAL_GPU_INFERENCE_PENDING=true`
+
+--- ROUND 005 COMPLETE | 2026-07-18T03:25:50+08:00 ---
