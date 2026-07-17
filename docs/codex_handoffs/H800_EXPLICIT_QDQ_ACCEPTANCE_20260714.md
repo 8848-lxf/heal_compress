@@ -867,3 +867,81 @@ workers per evaluator under protocol v4.
 Completed checkpoint: 2026-07-17 05:26:00 +0800 CST
 
 ---
+
+## H800 formal GA result and GA-vs-greedy root-cause audit
+
+The resumed formal directory
+`outputs/h800_domain_width_joint_ga_20260716_141052` ultimately completed all
+six BOPS rounds, 30 Stage-2 candidate evaluations, and six deduplicated
+round-winner full validations.  Every successful evaluation used eight
+DataLoader workers, GPU NMS/AP IoU, 0 skipped frames, and the fixed shared
+manifest.  The final GA winner was not usable: full-validation mAP was
+`0.0173567420` versus strict-FP32 `0.7366637934`.
+
+Full-validation mAP by GA target/round winner:
+
+- target 0.30: `0.0033104460`;
+- target 0.25: `0.0045920567`;
+- target 0.20: `0.0040900210`;
+- target 0.15: `0.0050685185`;
+- target 0.10: `0.0173567420`;
+- target 0.05: `0.0`.
+
+These results do **not** show that GA is inherently worse than greedy.  The
+primary confirmed cause is corrupted resume/dedup semantics:
+
+- the first, interrupted round-0 Stage-1 produced safe candidates, including
+  all-keep/all-FP16 phenotype `0cfe6a69...`;
+- that phenotype completed a real 500-frame evaluation with mAP
+  `0.7269672958` and p50 `5.4917377 ms`;
+- because the round had not yet written a complete Stage-2 summary, `--resume`
+  reran Stage-1 instead of loading the existing `stage1_topk.json`;
+- `seen_raw_genotypes.jsonl` from the interrupted Stage-1 was then treated as
+  an exclusion set rather than as cache/archive evidence, so the previously
+  evaluated safe seeds could not re-enter round 0;
+- the rerun overwrote round-0 Stage-1 selection with destructive candidates,
+  and those candidates became the only warm-start elites for rounds 1--5.
+
+The same directory preserves both old and replacement round-0 config files.
+The old Top-5 structures pruned 0--256 units in 0--2 domains; the replacement
+Top-5 pruned 1,984--2,728 units in 15 domains.  The raw archive also proves the
+difference: the first round-0 search reached F1 `0.0001561564`, whereas the
+replacement Top-5 F1 range was `0.136245--0.142645`.
+
+Secondary contributors, which still need correction after resume is fixed:
+
+- 1,017 of 1,024 initial candidates are random immigrants centered near 50%
+  width in every domain with uniformly random FP32/FP16/INT8 genes;
+- five generations are insufficient for this approximately 90-gene space to
+  recover the narrow safe basin found by adjacent-action greedy search;
+- hard feasibility accepts severe BOPS undershoot, so candidates may waste
+  budget while pruning many early/grouped domains;
+- current mutation changes approximately 8% of all width and precision genes
+  per child, rather than one adjacent compression action;
+- weight-only Taylor omits activation/merge quantization sensitivity and is
+  unreliable for simultaneous large perturbations across 13--18 pruning
+  domains plus 20--33 INT8 groups.
+
+The controlled greedy run uses the same search space, joint weight-Taylor
+proxy, physical pruning, explicit-Q/DQ builder, and evaluator.  It found much
+smaller proxy losses and safe structures: at targets 0.30/0.25/0.20/0.15/0.10
+its F1 values were `1.64e-5`, `2.59e-5`, `5.64e-5`, `9.77e-5`, `1.81e-4`,
+with full mAP approximately `0.7366--0.7368`; at target 0.05, F1 was
+`0.002857` and full mAP `0.699808`.  It pruned only 2--4 domains instead of
+the GA replacement candidates' 12--18 domains.
+
+Do not run another heavy GA before implementing and testing:
+
+1. immutable round Stage-1 checkpoints loaded directly on partial resume;
+2. cache-backed reuse of seen genotypes instead of genotype exclusion;
+3. global feasible-frontier seeding for each nested BOPS target;
+4. adjacent/monotonic mutation or greedy-frontier warm starts;
+5. a pre-Stage-2 assertion that GA proxy quality is competitive with the
+   existing greedy reference at the same budget.
+
+No production source was changed during this root-cause audit.  All current
+GA/greedy artifacts remain read-only evidence.
+
+Completed checkpoint: 2026-07-17 12:27:00 +0800 CST
+
+---
