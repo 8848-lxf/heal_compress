@@ -1,0 +1,66 @@
+model:
+  family: lidar_cobevt
+  checkpoint: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_cobevt/net_epoch_bestval_at19.pth
+  config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_cobevt/config.yaml
+  heal_root: /home/lixingfeng/UniAD_examine/HEAL
+
+runtime:
+  stage1_gpu: 7
+  stage2_gpu_candidates: [4, 5, 6, 7]
+  model_env: univ2x-opt
+  tensorrt_env: modelopt
+  tensorrt_root: /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118
+  plugin_path: /home/lixingfeng/UniAD_examine/heal_compress/quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
+  maximum_gpu_memory_fraction: 0.50
+
+structure_gene:
+  type: legal_keep_width
+  decoder: fixed_prune_only_taylor
+  ranking_mode: prune_only_second_order_fisher
+  ranking_depends_on_precision: false
+
+precision_gene:
+  actions_from_deployment_capability: true
+  unavailable_actions_are_removed: true
+
+proxy:
+  mode: joint_pruning_quantization_second_order_fisher
+  fisher_calibration_batches: 1
+  fisher_micro_batch_size: 1
+  sqnr_main_objective_contribution: 0.0
+
+budget:
+  candidates: [0.10, 0.15, 0.20, 0.25, 0.30]
+  tolerance: 0.0075
+
+greedy:
+  frontier_size: 1
+  max_expansions: 4096
+
+ga:
+  population_size: 16
+  initial_population_size: 16
+  offspring_size: 16
+  generations: 3
+  independent_seeds: 1
+  seed: 4090
+  topk_per_generation: 2
+
+deployment:
+  strongly_typed: true
+  no_tf32: true
+  plugin_boundary_dtype: fp32
+  weak_precision_fallback: false
+
+evaluation:
+  smoke_frames: 10
+  screening_frames: 50
+  warmup_frames: 20
+  num_workers: 8
+  ap_iou_backend: gpu
+  required_skipped_frames: 0
+
+cache:
+  fresh_run: true
+  reuse_external_cache: false
+  resume: false

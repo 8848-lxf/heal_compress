@@ -460,3 +460,139 @@ separate RED-to-GREEN regression test; no weakly typed fallback was introduced.
 - `COBEVT_SMOKE10_FIXED50_PENDING=true`
 
 --- ROUND 006 COMPLETE | 2026-07-18T03:49:57+08:00 ---
+
+## Round 007: Real CoBEVT Legal-Width Greedy And GA Stage-1 Smoke
+
+### Implementation
+
+- Added `search/model_families/lidar_cobevt/stage1_capability.py`.
+  - Represents the 256-channel fusion embedding as one legal-width domain of
+    eight complete 32-channel attention heads.
+  - Enumerates legal retained head counts `[2, 3, 4, 5, 6, 7, 8]`, equivalent
+    to physical embedding widths `[64, 96, 128, 160, 192, 224, 256]`.
+  - Builds one full parameter dependency closure per head across shrink output,
+    all QKV and output projections, FFNs, LayerNorms, relative-position bias,
+    fusion MLP, and cls/reg/dir input channels.
+  - Collects empirical Fisher as `mean(g^2)` and mean gradient as `mean(g)`.
+  - Produces immutable first- and second-order prune-only rankings independent
+    of precision genes.
+  - Exposes 53 independent FP32/FP16 precision groups. INT8 is removed because
+    CoBEVT mixed INT8 deployment has not yet passed realization.
+  - Uses exact CoBEVT physical closure parameter counting; the predicted count
+    is regression-tested against a materialized 6-head model.
+- Added `search/orchestration/lidar_cobevt_smoke.py`.
+  - Probes reachable budgets before running search.
+  - Reuses the existing `run_six_budget_greedy` and
+    `run_legal_width_stage1_seeds` implementations.
+  - Freezes one BOPS band, one greedy endpoint, GA population 16, three
+    generations, one seed, and Top-2 intent for later Stage-2.
+  - Does not invoke normal candidate repair.
+- Added `search/configs/lidar_cobevt_4090_model_family_smoke.yaml` with a fresh
+  output/cache policy and the accepted strongly typed Stage-2 protocol.
+- CoBEVT greedy uses frontier size 1. This preserves the exact per-step
+  `delta-L/delta-BOPS` action ordering while avoiding combinatorial beam
+  expansion across 53 binary precision groups.
+
+### Real Fisher and search capability
+
+- Successful output directory:
+  `/data/lxf/heal_data/outputs/4090_lidar_cobevt_stage1_smoke_20260717_131405`
+- Checkpoint SHA256:
+  `67b0f2f00d74fea4912b4fdb902c1150146c733201e5dc36d3358f5ba605cfd4`
+- Config SHA256:
+  `a0ee9d64fd1b01af95b1c997937ab07e0e810440236accfb598d5462ba086c33`
+- Device: GPU7
+- Fisher sample count: 1
+- Fisher micro-batch size: 1
+- Fisher manifest hash:
+  `066569cb5c5f1dbb30947c97f1b048add27a55d5c3b34ea3dc12f79e78bc7dbf`
+- Weighted runtime calls: 53
+- Precision groups: 53
+- Frozen Stage-1 joint-loss scale: `12.092770715175625`
+- Stage-1 objective:
+  `J1 = -0.8 * (L_joint/L_scale) + 0.2 * R_prune`
+- SQNR contribution to the main objective: 0
+- Width-space hash:
+  `37b4fd2b89d6fbfba83e612dc28ade9782800bbb97aeed26e56a77ad2a6084f8`
+- Fixed second-order decoder ranking hash:
+  `55865b333d42326880d324355c7c64753b2ca42f9b507d33a3075fd71952a1d6`
+
+### Reachable-budget evidence
+
+- Probe candidates: 378
+- BOPS range: `[0.2328965473, 0.4910058553]`
+- Candidate counts within `target +/- 0.0075`:
+  - 0.10: 0
+  - 0.15: 0
+  - 0.20: 0
+  - 0.25: 156
+  - 0.30: 2
+- Selected smoke budget: 0.25
+- Legal interval: `[0.2425, 0.2575]`
+
+### Real greedy result
+
+- Unique proxy evaluations: 990
+- BOPS primary candidates: 1
+- Endpoint BOPS: `0.2543881352`
+- Endpoint candidate hash:
+  `8ca730ecab81a5a327f55f8636519dfb8cd968963872d769070818e65daa605d`
+- Endpoint structure: all eight fusion heads retained
+- Endpoint `R_prune`: 0
+- Endpoint requested precision: mixed FP32/FP16, with no INT8
+- Endpoint requested and Stage-1 legalized precision profiles: identical
+- Normal repair invocation count: 0
+
+The first real attempt used a generic beam width of 8 and exhausted 4,096
+states before reaching the 0.25 band; its nearest BOPS was 0.47468255. The
+reachable probe had already proven 156 feasible candidates, so this was
+classified as greedy branch expansion exhaustion, not budget infeasibility.
+The CoBEVT-only frontier-size correction was verified by a RED-to-GREEN test
+and the fresh run above.
+
+### Real GA result
+
+- Seeds: 1 (`4090`)
+- Population: 16
+- Generations: 3
+- Total proxy evaluations: 48
+- Per-generation candidate counts: 16, 16, 16
+- Unique genotypes: 48
+- Unique phenotypes: 48
+- Unique structures observed: 6
+- BOPS-feasible phenotype archive: 9
+- Archive unique structures: 2
+- Archive unique precision profiles: 8
+- Overall BOPS range: `[0.2471485387, 0.7140382998]`
+- Normal candidate count: 48
+- Repair invocation count/rate: 0 / 0.0
+- Repair changed structure/precision: 0 / 0
+- Generation 0 BOPS-feasible: 9
+- Generation 1 BOPS-feasible: 0
+- Generation 2 BOPS-feasible: 0
+
+The later-generation supply exhausted because fresh legal mutations in this
+small FP32/FP16 space moved outside the narrow 0.25 band. These candidates are
+retained as explicit BOPS failures and are not promoted to Stage-2. The nine
+archive candidates remain available for deduplicated physical deployment.
+
+### Tests
+
+- Added tests for exact smoke scale/config, reachable-band selection, generic
+  greedy/GA delegation, fresh-run enforcement, head parameter closures,
+  precision/structure orthogonality, and physical parameter identity.
+- Focused model-family/runner regression result: `16 passed`.
+- Normal search candidate repair invocation rate remains exactly zero.
+
+### Status
+
+- `COBEVT_LEGAL_WIDTH_STAGE1_SPACE_PASS=true`
+- `COBEVT_REAL_FISHER_COLLECTION_PASS=true`
+- `COBEVT_GREEDY_STAGE1_PASS=true`
+- `COBEVT_GA_16X3X1_STAGE1_PASS=true`
+- `COBEVT_STAGE1_FEASIBLE_PHENOTYPES=9`
+- `COBEVT_MIXED_INT8_DEPLOYMENT_AVAILABLE=false`
+- `COBEVT_STAGE2_STARTED=false`
+- `COBEVT_REAL_GPU_INFERENCE_PENDING=true`
+
+--- ROUND 007 COMPLETE | 2026-07-18T04:15:54+08:00 ---
