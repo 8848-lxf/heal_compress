@@ -11,6 +11,8 @@ class Stage2ObjectiveConfig:
     eta_map: float = 1.0
     eta_latency: float = 1.0
     latency_metric: str = "forward_mean_ms"
+    accuracy_reference: str = "original_strict_fp32"
+    latency_reference: str = "original_strict_fp32"
     tau_ap: float | None = None
     max_map_drop: float | None = None
     failure_score: float = float("inf")

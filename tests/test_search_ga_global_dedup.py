@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
-def test_ga_skips_seen_raw_genotypes() -> None:
+def test_ga_treats_seen_raw_genotypes_as_cache_evidence_not_exclusion() -> None:
     from search.candidate import CandidateGenotype
     from search.canonicalization import SearchSpaceSpec
     from search.ga.engine import GAConfig, GeneticSearchEngine
@@ -37,7 +37,7 @@ def test_ga_skips_seen_raw_genotypes() -> None:
     )
     engine.run(evaluator, previous_best=seen, seen_candidate_keys={seen_key}, candidate_key_fn=key_fn)
 
-    assert seen_key not in evaluated
+    assert seen_key in evaluated
 
 
 def test_domain_ga_can_preserve_seen_elite_for_cache_backed_reevaluation() -> None:

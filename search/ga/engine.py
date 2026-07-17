@@ -14,6 +14,7 @@ from .immigrants import immigrant_ratio_for_generation, make_immigrants
 from .initialization import initialize_population
 from .mutation import adapt_mutation_rate, mutate_candidate
 from .population import dedupe_population
+from .ranking import rank_constraint_first
 from .selection import tournament_select
 
 
@@ -31,6 +32,14 @@ class GAConfig:
     stagnation_generations: int = 8
     stagnation_immigrant_ratio: float = 0.25
     preserve_evaluated_elites: bool = False
+    mutation_action_min: int = 1
+    mutation_action_max: int = 2
+    early_stop_patience: int = 0
+    minimum_generations: int = 1
+    constraint_first_ranking: bool = False
+    taylor_relative_epsilon: float = 0.05
+    taylor_absolute_epsilon: float = 1.0e-8
+    seeded_initial_population_ratio: float = 0.90
     random_seed: int = 42
 
 
@@ -49,22 +58,46 @@ class GeneticSearchEngine:
         batch_evaluator: Callable[[list[CandidateGenotype], int], Any] | None = None,
         previous_elite: list[CandidateGenotype] | None = None,
         previous_best: CandidateGenotype | None = None,
+        seed_candidates: list[CandidateGenotype] | None = None,
         seen_candidate_keys: Iterable[str] | None = None,
         candidate_key_fn: Callable[[CandidateGenotype], str] | None = None,
     ) -> list[tuple[CandidateGenotype, float, dict[str, Any]]]:
-        seen_keys = {str(key) for key in (seen_candidate_keys or [])}
+        # Seen hashes are cache/archive evidence, not an exclusion set.  The
+        # evaluator owns cache reuse; GA population construction only removes
+        # duplicates inside the current population.
+        _seen_cache_evidence = {str(key) for key in (seen_candidate_keys or [])}
+        immigrant_seeds = list(seed_candidates or previous_elite or [])
+        immigrant_generation_counter = [0]
+
+        def generate_immigrants(count: int) -> list[CandidateGenotype]:
+            if not immigrant_seeds:
+                return make_immigrants(self.space, count, self.rng)
+            rows: list[CandidateGenotype] = []
+            for _index in range(max(0, int(count))):
+                index = immigrant_generation_counter[0]
+                immigrant_generation_counter[0] += 1
+                base = self.rng.choice(immigrant_seeds)
+                rows.append(
+                    mutate_candidate(
+                        base,
+                        self.space,
+                        self.rng,
+                        prune_mutation_rate=1.0,
+                        precision_mutation_rate=1.0,
+                        action_count=1 + (index % 4),
+                        adjacent_precision=True,
+                    )
+                )
+            return rows
 
         def fresh_population(
             candidates: list[CandidateGenotype],
             target_size: int,
-            *,
-            allowed_seen_keys: set[str] | None = None,
         ) -> list[CandidateGenotype]:
             if candidate_key_fn is None:
                 return candidates[:target_size]
             fresh: list[CandidateGenotype] = []
             local_keys: set[str] = set()
-            allowed = set(allowed_seen_keys or ())
 
             def try_add(candidate: CandidateGenotype) -> None:
                 if len(fresh) >= target_size:
@@ -72,10 +105,7 @@ class GeneticSearchEngine:
                 key = str(candidate_key_fn(candidate))
                 if key in local_keys:
                     return
-                if key in seen_keys and key not in allowed:
-                    return
                 local_keys.add(key)
-                seen_keys.add(key)
                 fresh.append(candidate)
 
             for candidate in candidates:
@@ -84,7 +114,7 @@ class GeneticSearchEngine:
             max_attempts = max(100, target_size * 100)
             while len(fresh) < target_size and attempts < max_attempts:
                 attempts += 1
-                for candidate in make_immigrants(self.space, 1, self.rng):
+                for candidate in generate_immigrants(1):
                     try_add(candidate)
                     if len(fresh) >= target_size:
                         break
@@ -98,20 +128,14 @@ class GeneticSearchEngine:
             self.rng,
             previous_elite=previous_elite,
             previous_best=previous_best,
+            seed_candidates=seed_candidates,
+            seeded_population_ratio=self.config.seeded_initial_population_ratio,
         )
-        initial_allowed = set()
-        if self.config.preserve_evaluated_elites and candidate_key_fn is not None:
-            initial_allowed.update(
-                str(candidate_key_fn(candidate)) for candidate in (previous_elite or [])
-            )
-            if previous_best is not None:
-                initial_allowed.add(str(candidate_key_fn(previous_best)))
         population = fresh_population(
             list(population),
             max(self.config.population_size, self.config.initial_population_size),
-            allowed_seen_keys=initial_allowed,
         )
-        best = float("inf")
+        best_key: tuple[Any, ...] | None = None
         stagnant = 0
         all_scored: list[tuple[CandidateGenotype, float, dict[str, Any]]] = []
         elite_count = max(1, int(round(self.config.population_size * self.config.elite_ratio)))
@@ -135,9 +159,30 @@ class GeneticSearchEngine:
                     score = float(metrics.get("F1", metrics.get("score", float("inf"))))
                     scored.append((candidate, score, metrics))
                     all_scored.append((candidate, score, metrics))
-            scored.sort(key=lambda row: row[1])
-            if scored and scored[0][1] < best:
-                best = scored[0][1]
+            if self.config.constraint_first_ranking:
+                scored = rank_constraint_first(
+                    scored,
+                    taylor_relative_epsilon=self.config.taylor_relative_epsilon,
+                    taylor_absolute_epsilon=self.config.taylor_absolute_epsilon,
+                )
+            else:
+                scored.sort(key=lambda row: row[1])
+            for rank, (_candidate, _score, metrics) in enumerate(scored):
+                metrics["ga_selection_rank"] = int(rank)
+            current_key = None
+            if scored:
+                current_key = (
+                    not bool(scored[0][2].get("bops_feasible", True)),
+                    float(scored[0][2].get("bops_violation", 0.0)),
+                    float(
+                        scored[0][2].get(
+                            "L_joint_weight_taylor", scored[0][1]
+                        )
+                    ),
+                    float(scored[0][2].get("R_parameter_retention", 1.0)),
+                )
+            if current_key is not None and (best_key is None or current_key < best_key):
+                best_key = current_key
                 stagnant = 0
             else:
                 stagnant += 1
@@ -163,25 +208,36 @@ class GeneticSearchEngine:
                     self.rng,
                     prune_mutation_rate=prune_rate,
                     precision_mutation_rate=precision_rate,
+                    action_count=self.rng.randint(
+                        max(1, int(self.config.mutation_action_min)),
+                        max(
+                            max(1, int(self.config.mutation_action_min)),
+                            int(self.config.mutation_action_max),
+                        ),
+                    ),
+                    adjacent_precision=True,
                 )
                 next_population.append(child)
-            next_population.extend(make_immigrants(self.space, immigrant_count, self.rng))
+            next_population.extend(generate_immigrants(immigrant_count))
             population = dedupe_population(next_population)
             while len(population) < self.config.population_size:
-                population.extend(make_immigrants(self.space, 1, self.rng))
-            elite_keys = (
-                {
-                    str(candidate_key_fn(candidate))
-                    for candidate in next_population[:elite_count]
-                }
-                if self.config.preserve_evaluated_elites
-                and candidate_key_fn is not None
-                else set()
-            )
+                population.extend(generate_immigrants(1))
             population = fresh_population(
                 population,
                 self.config.population_size,
-                allowed_seen_keys=elite_keys,
             )
-        all_scored.sort(key=lambda row: row[1])
+            if (
+                int(self.config.early_stop_patience) > 0
+                and generation + 1 >= int(self.config.minimum_generations)
+                and stagnant >= int(self.config.early_stop_patience)
+            ):
+                break
+        if self.config.constraint_first_ranking:
+            all_scored = rank_constraint_first(
+                all_scored,
+                taylor_relative_epsilon=self.config.taylor_relative_epsilon,
+                taylor_absolute_epsilon=self.config.taylor_absolute_epsilon,
+            )
+        else:
+            all_scored.sort(key=lambda row: row[1])
         return all_scored

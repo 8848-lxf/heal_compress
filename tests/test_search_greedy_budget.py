@@ -74,10 +74,10 @@ def test_greedy_search_recomputes_neighbors_and_captures_each_budget_once() -> N
         config=GreedySearchConfig(bops_targets=(0.50, 0.25, 0.125)),
     ).run(evaluate)
 
-    assert result.unreachable_targets == ()
-    assert set(result.budget_candidates) == {0.50, 0.25, 0.125}
+    assert result.unreachable_targets == (0.125, 0.50)
+    assert set(result.budget_candidates) == {0.25}
     assert all(
-        result.budget_metrics[target]["R_bops_vs_fp32"] <= target
+        abs(result.budget_metrics[target]["R_bops_vs_fp32"] - target) <= 0.005
         for target in result.budget_candidates
     )
     assert result.termination_reason == "minimum_target_reached"
@@ -90,6 +90,7 @@ def test_greedy_search_recomputes_neighbors_and_captures_each_budget_once() -> N
         for candidate in result.budget_candidates.values()
     }) <= len(result.budget_candidates)
     assert any(count > 1 for _step, count in calls)
+    assert set(result.nearest_budget_candidates) == {0.50, 0.25, 0.125}
 
 
 def test_greedy_search_respects_protected_precision_group() -> None:

@@ -869,8 +869,19 @@ class TorchBatchedProxyScorer:
             r_bops_fp32 = bops / fp32_bops.clamp_min(1.0)
             r_bops = r_bops_fp32
             target = getattr(self.config, "bops_threshold", None)
+            constraint_mode = str(
+                getattr(self.config, "bops_constraint_mode", "weighted_penalty")
+            )
+            tolerance_abs = max(
+                0.0, float(getattr(self.config, "bops_tolerance_abs", 0.0))
+            )
             if target is None:
                 bops_violation = torch.zeros_like(r_bops)
+            elif constraint_mode == "hard_band_feasibility":
+                bops_violation = torch.clamp(
+                    torch.abs(r_bops - float(target)) - tolerance_abs,
+                    min=0.0,
+                )
             elif str(getattr(self.config, "bops_penalty_formula", "")) == "squared_relative_excess":
                 bops_violation = torch.clamp(r_bops / max(float(target), 1.0e-12) - 1.0, min=0.0)
             else:
@@ -979,6 +990,17 @@ class TorchBatchedProxyScorer:
                     "bops_fp32_baseline": fp32_bops_value,
                     "constraint_penalty": 0.0,
                     "bops_violation": float(metrics_cpu["bops_violation"][idx]),
+                    "bops_abs_delta": (
+                        abs(r_bops - float(getattr(self.config, "bops_threshold")))
+                        if getattr(self.config, "bops_threshold", None) is not None
+                        else 0.0
+                    ),
+                    "bops_tolerance_abs": float(
+                        getattr(self.config, "bops_tolerance_abs", 0.0)
+                    ),
+                    "bops_feasible": bool(
+                        float(metrics_cpu["bops_violation"][idx]) <= 0.0
+                    ),
                     "proxy_score_raw": float(
                         metrics_cpu["L_joint_weight_taylor"][idx]
                         if str(getattr(self.config, "objective_mode", ""))

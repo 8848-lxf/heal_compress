@@ -1014,3 +1014,110 @@ and tests; candidates outside the band must never enter Stage-2.
 Completed checkpoint: 2026-07-17 13:10:56 +0800 CST
 
 ---
+
+## GA hard-band, resume, local-search, and FP32-reference production repair
+
+The user accepted the proposed GA repair package with two explicit exclusions:
+
+- no GA-vs-greedy anti-regression gate (G13), because their search quality is
+  intentionally being compared;
+- no per-GPU baseline remeasurement/fairness policy (G15).  One original FP32
+  reference is measured and shared; different GPUs still build/evaluate
+  candidates in parallel, while each GPU's assigned queue remains strictly
+  sequential (`build candidate -> evaluate candidate -> next candidate`).
+
+F1/parameter retention uses the selected B policy, not direct 0.8/0.2 scalar
+addition.  Joint Taylor is the primary objective.  Only candidates within 5%
+of the best feasible Taylor value (plus absolute epsilon `1e-8`) use lower
+physical parameter retention as a secondary key.  This avoids a raw
+`0.2*R_parameter_retention` term overwhelming Taylor values around
+`1e-5--1e-3` while still encouraging modest physical pruning among
+accuracy-proxy-equivalent candidates.
+
+Production changes:
+
+- `search/proxy/objective.py` and `search/proxy/gpu_batch_proxy.py` add
+  `hard_band_feasibility` with
+  `abs(R_BOPS_vs_original_FP32-target) <= bops_tolerance_abs` and expose
+  absolute delta, tolerance, violation, and feasibility.  Formal tolerance is
+  `0.005`.  F1 remains raw joint Taylor; constraint-first selection is separate.
+- `search/ga/ranking.py` adds Taylor-primary epsilon-lexicographic ranking.
+  Infeasible candidates are ranked only by distance to the BOPS band so they
+  can evolve toward feasibility, but they are never admitted to Stage-2.
+- `search/ga/{engine,initialization,mutation,selection}.py` now treats seen
+  hashes as cache evidence rather than an exclusion list, accepts budget seed
+  candidates, builds 90% of the initial population around greedy-frontier
+  seeds, mutates only 1--2 genes per child, uses adjacent precision changes
+  (`FP32 <-> FP16 <-> INT8`), preserves semantic block crossover, uses
+  budget-seeded immigrants, and supports 15 generations with five-generation
+  early stopping after a five-generation minimum.
+- the six BOPS targets now use independent GA populations, while sharing the
+  expensive proxy/artifact caches.  A proxy-only greedy frontier is generated
+  once and its exact/nearest candidate seeds each budget; previous-round bad
+  elites cannot contaminate subsequent budgets.
+- `search/greedy/engine.py` now captures a budget only inside the same
+  two-sided `+/-0.005` band.  Discrete targets skipped by the greedy action path
+  are explicitly unreachable; nearest candidates are retained only as GA
+  seeds, not accepted as greedy budget winners.
+- `search/stage1/repair_selection.py` re-scores repaired phenotypes, re-applies
+  band eligibility, rejects a round rather than backfilling fewer than five
+  feasible candidates, and selects three exploitation plus two genotype-
+  diverse candidates.  Selection roles are recorded.
+- resume now uses atomic JSON writes and `round_state.json` phases.  A
+  `stage1_complete` checkpoint reloads immutable Top-5 rather than rerunning
+  Stage-1.  Objective/hash mismatch fails closed.  Completed raw genotypes may
+  re-enter population and hit proxy cache.  Partial Stage-2 resumes through
+  the existing layered artifact/evaluation caches.
+- `Stage2ObjectiveConfig` now records both accuracy and latency references.
+  The H800 formal configs use original strict FP32 for both.  When both
+  references are FP32 the evaluator builds/evaluates that baseline once and
+  shares it with all Stage-2 GPU workers; strict FP16 is auxiliary only.
+- round and full-validation artifacts now report actual physical parameter
+  reduction/compression, mixed-weight storage compression versus FP32,
+  theoretical BOPS compression versus W32A32, and measured p50 speedup versus
+  the original strict FP32 engine.  Theoretical BOPS compression remains
+  explicitly distinct from measured speedup.
+
+Formal configuration changes:
+
+- `search/configs/lidar_pyramid_h800_domain_width_joint_ga.yaml`:
+  `hard_band_feasibility`, tolerance 0.005, 15 generations, 1--2 local mutation
+  actions, five-generation early stopping, independent budgets, greedy-frontier
+  warm start, 90% seeded initialization, 3+2 Stage-2 selection, FP32 latency
+  reference;
+- `search/configs/lidar_pyramid_h800_domain_width_joint_greedy.yaml`:
+  identical BOPS band and FP32 latency reference.
+
+Validation completed in `univ2x-opt`:
+
+```bash
+PYTHONPATH=.:.. pytest -q tests/test_search*.py tests/test_two_stage_joint_search.py
+# 169 passed, 2 dependency deprecation warnings
+
+python -m compileall -q search
+
+PYTHONPATH=.:.. python -m search.cli \
+  --config search/configs/lidar_pyramid_h800_domain_width_joint_ga.yaml \
+  --output-root /tmp/heal_compress_ga_dryrun --dry-run
+# successful; evaluated=0
+```
+
+No new formal GA, Stage-2 engine build, or validation evaluation was launched
+in this checkpoint.  Existing GA results remain read-only historical evidence
+and are invalid for the new budget contract (`invalid_bops_admission_semantics`);
+they must not be resumed into the repaired run because their objective manifest
+lacks the new hard-band contract.
+
+The next heavy command, after syncing this commit, is:
+
+```bash
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+PYTHONPATH=.:.. python -m search.cli \
+  --config search/configs/lidar_pyramid_h800_domain_width_joint_ga.yaml \
+  --output-root outputs
+```
+
+Completed checkpoint: 2026-07-17 14:28:33 +0800 CST
+
+---

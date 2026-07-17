@@ -274,6 +274,46 @@ def test_joint_objective_uses_hard_bops_and_parameter_retention_is_report_only()
     assert metrics["parameter_retention_role"] == "report_only"
 
 
+@pytest.mark.parametrize(
+    ("r_bops", "feasible"),
+    [(0.0951, True), (0.1049, True), (0.0948, False), (0.1052, False)],
+)
+def test_joint_objective_uses_two_sided_absolute_bops_band(
+    r_bops: float, feasible: bool
+) -> None:
+    from search.candidate import CandidatePhenotype
+    from search.proxy.objective import ProxyObjective, ProxyObjectiveConfig
+
+    class Joint:
+        def evaluate_breakdown(self, _phenotype):
+            return {"L_joint_weight_taylor": 0.25}
+
+    class Breakdown:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def evaluate_breakdown(self, _phenotype):
+            return dict(self.payload)
+
+    objective = ProxyObjective(
+        joint_weight_taylor=Joint(),
+        size=Breakdown({"R_parameter_retention": 0.8}),
+        bops=Breakdown({"R_bops_vs_fp32": r_bops}),
+        config=ProxyObjectiveConfig(
+            objective_mode="joint_weight_taylor_hard_bops",
+            bops_threshold=0.10,
+            bops_constraint_mode="hard_band_feasibility",
+            bops_tolerance_abs=0.005,
+        ),
+    )
+
+    metrics = objective.evaluate(CandidatePhenotype())
+
+    assert metrics["bops_feasible"] is feasible
+    assert (metrics["bops_violation"] == 0.0) is feasible
+    assert metrics["F1"] == pytest.approx(0.25)
+
+
 def test_domain_width_torch_batch_matches_scalar_joint_taylor() -> None:
     import torch
 
@@ -349,8 +389,9 @@ def test_domain_width_torch_batch_matches_scalar_joint_taylor() -> None:
     ]
     config = ProxyObjectiveConfig(
         objective_mode="joint_weight_taylor_hard_bops",
-        bops_threshold=None,
-        bops_constraint_mode="hard_feasibility",
+        bops_threshold=0.10,
+        bops_constraint_mode="hard_band_feasibility",
+        bops_tolerance_abs=0.005,
     )
     scalar = ProxyObjective(
         joint_weight_taylor=JointWeightTaylorProxy(
@@ -406,11 +447,14 @@ def test_domain_width_torch_batch_matches_scalar_joint_taylor() -> None:
             "R_size_vs_fp32",
             "R_parameter_retention",
             "R_bops_vs_fp32",
+            "bops_violation",
+            "bops_abs_delta",
             "F1",
         ):
             assert batch_row[key] == pytest.approx(
                 scalar_row[key], rel=1.0e-5, abs=1.0e-7
             )
+        assert batch_row["bops_feasible"] is scalar_row["bops_feasible"]
         assert batch_row["parameter_count_base"] == pytest.approx(19.0)
         assert batch_row["constant_untracked_parameter_count"] == pytest.approx(3.0)
         assert scalar_row["constant_untracked_parameter_count"] == pytest.approx(3.0)

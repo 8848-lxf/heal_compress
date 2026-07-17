@@ -52,7 +52,8 @@ proxy:
   size_reference: original_strict_fp32
   bops_reference: original_strict_fp32
   bops_definition: weight_bits_times_activation_bits
-  bops_constraint_mode: hard_feasibility
+  bops_constraint_mode: hard_band_feasibility
+  bops_tolerance_abs: 0.005
   bops_targets: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
 
 search:
@@ -72,7 +73,7 @@ stage2:
   latency_rounds: 3
   latency_metric: forward_p50_ms
   accuracy_reference: original_strict_fp32
-  latency_reference: original_strict_fp16
+  latency_reference: original_strict_fp32
   tau_ap: 0.02
   eta_ap: 0.80
   eta_latency: 0.20

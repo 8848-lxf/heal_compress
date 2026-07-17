@@ -25,6 +25,7 @@ class ProxyObjectiveConfig:
     size_threshold: float | None = None
     bops_threshold: float | None = 0.40
     bops_constraint_mode: str = "weighted_penalty"
+    bops_tolerance_abs: float = 0.0
     bops_penalty_formula: str = "absolute_excess_squared"
     lambda_bops: float = 1.0
     parameter_retention_tiebreak_epsilon: float = 0.0
@@ -51,23 +52,44 @@ def bops_target_for_outer_round(round_index: int, outer_rounds: int, schedule: d
     return start - (start - end) * ratio
 
 
-def bops_soft_penalty(r_bops: float, target: float | None, *, formula: str = "absolute_excess_squared") -> tuple[float, float]:
+def bops_soft_penalty(
+    r_bops: float,
+    target: float | None,
+    *,
+    formula: str = "absolute_excess_squared",
+    constraint_mode: str = "weighted_penalty",
+    tolerance_abs: float = 0.0,
+) -> tuple[float, float]:
     if target is None:
         return 0.0, 0.0
     value = float(r_bops)
     threshold = float(target)
-    if str(formula) == "squared_relative_excess":
+    if str(constraint_mode) == "hard_band_feasibility":
+        violation = max(0.0, abs(value - threshold) - max(0.0, float(tolerance_abs)))
+    elif str(formula) == "squared_relative_excess":
         violation = max(0.0, value / max(threshold, 1.0e-12) - 1.0)
     else:
         violation = max(0.0, value - threshold)
     return float(violation), float(violation * violation)
 
 
-def feasibility_first_key(metrics: dict[str, Any], *, bops_target: float | None) -> tuple[int, float, float]:
+def feasibility_first_key(
+    metrics: dict[str, Any],
+    *,
+    bops_target: float | None,
+    constraint_mode: str = "hard_feasibility",
+    tolerance_abs: float = 0.0,
+) -> tuple[int, float, float]:
     if bops_target is None:
         return (0, 0.0, float(metrics.get("F1", metrics.get("score", float("inf")))))
     bops = float(metrics.get("R_bops_vs_fp32", metrics.get("R_bops", float("inf"))))
-    violation = max(0.0, bops - float(bops_target))
+    if str(constraint_mode) == "hard_band_feasibility":
+        violation = max(
+            0.0,
+            abs(bops - float(bops_target)) - max(0.0, float(tolerance_abs)),
+        )
+    else:
+        violation = max(0.0, bops - float(bops_target))
     return (1 if violation > 0.0 else 0, violation, float(metrics.get("F1", metrics.get("score", float("inf")))))
 
 
@@ -127,6 +149,8 @@ class ProxyObjective:
             bops,
             self.config.bops_threshold,
             formula=self.config.bops_penalty_formula,
+            constraint_mode=self.config.bops_constraint_mode,
+            tolerance_abs=self.config.bops_tolerance_abs,
         )
         if self.config.bops_threshold is not None:
             penalty += float(self.config.lambda_bops) * bops_penalty
@@ -144,7 +168,11 @@ class ProxyObjective:
                 + self.config.delta_bops * bops_penalty
                 + (penalty - float(self.config.lambda_bops) * bops_penalty)
             )
-        if self.config.bops_constraint_mode in {"feasibility_first", "hard_feasibility"} and bops_violation > 0.0:
+        hard_one_sided = self.config.bops_constraint_mode in {
+            "feasibility_first",
+            "hard_feasibility",
+        }
+        if hard_one_sided and bops_violation > 0.0:
             score = 1.0e6 + bops_violation * 1.0e3 + raw_score
         else:
             score = raw_score
@@ -178,6 +206,13 @@ class ProxyObjective:
             "bops_fp32_baseline": float(bops_metrics.get("bops_fp32_baseline", 0.0)),
             "constraint_penalty": float(penalty),
             "bops_violation": float(bops_violation),
+            "bops_abs_delta": (
+                abs(float(bops) - float(self.config.bops_threshold))
+                if self.config.bops_threshold is not None
+                else 0.0
+            ),
+            "bops_tolerance_abs": float(self.config.bops_tolerance_abs),
+            "bops_feasible": bool(bops_violation <= 0.0),
             "proxy_score_raw": float(raw_score),
             "F1": float(score),
             "legal": True,

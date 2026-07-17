@@ -45,6 +45,7 @@ class GreedySearchConfig:
     maximum_steps: int = 10000
     precision_order: tuple[str, ...] = ("FP32", "FP16", "INT8")
     parameter_retention_tiebreak: bool = True
+    bops_tolerance_abs: float = 0.005
 
     def __post_init__(self) -> None:
         targets = tuple(sorted({float(value) for value in self.bops_targets}))
@@ -101,6 +102,8 @@ class GreedySearchResult:
     steps: tuple[GreedyStep, ...]
     budget_candidates: dict[float, CandidateGenotype]
     budget_metrics: dict[float, dict[str, Any]]
+    nearest_budget_candidates: dict[float, CandidateGenotype]
+    nearest_budget_metrics: dict[float, dict[str, Any]]
     unreachable_targets: tuple[float, ...]
     termination_reason: str
     evaluated_neighbor_count: int
@@ -118,6 +121,14 @@ class GreedySearchResult:
                 f"{target:.6f}": dict(metrics)
                 for target, metrics in sorted(self.budget_metrics.items())
             },
+            "nearest_budget_candidates": {
+                f"{target:.6f}": candidate.to_dict()
+                for target, candidate in sorted(self.nearest_budget_candidates.items())
+            },
+            "nearest_budget_metrics": {
+                f"{target:.6f}": dict(metrics)
+                for target, metrics in sorted(self.nearest_budget_metrics.items())
+            },
             "unreachable_targets": list(self.unreachable_targets),
             "termination_reason": self.termination_reason,
             "evaluated_neighbor_count": self.evaluated_neighbor_count,
@@ -126,6 +137,8 @@ class GreedySearchResult:
                 "selection": "minimum_incremental_joint_taylor_loss_per_positive_BOPS_reduction",
                 "neighbor_costs_recomputed_after_every_step": True,
                 "activation_taylor_included": False,
+                "budget_capture": "abs(R_BOPS-target)<=bops_tolerance_abs",
+                "bops_tolerance_abs": float(self.config.bops_tolerance_abs),
                 "stage2_policy": "only_unique_final_candidate_per_budget_full_validation",
             },
         }
@@ -271,8 +284,16 @@ class GreedyBudgetSearch:
         targets_desc = tuple(sorted(self.config.bops_targets, reverse=True))
         budget_candidates: dict[float, CandidateGenotype] = {}
         budget_metrics: dict[float, dict[str, Any]] = {}
+        nearest_budget_candidates = {
+            target: current for target in targets_desc
+        }
+        nearest_budget_metrics = {
+            target: dict(current_metrics) for target in targets_desc
+        }
         for target in targets_desc:
-            if _bops(current_metrics) <= target:
+            if abs(_bops(current_metrics) - target) <= float(
+                self.config.bops_tolerance_abs
+            ):
                 budget_candidates[target] = current
                 budget_metrics[target] = dict(current_metrics)
         steps: list[GreedyStep] = []
@@ -357,7 +378,14 @@ class GreedyBudgetSearch:
             current = selected_candidate
             current_metrics = dict(selected_metrics)
             for target in targets_desc:
-                if target not in budget_candidates and _bops(current_metrics) <= target:
+                if abs(_bops(current_metrics) - target) < abs(
+                    _bops(nearest_budget_metrics[target]) - target
+                ):
+                    nearest_budget_candidates[target] = current
+                    nearest_budget_metrics[target] = dict(current_metrics)
+                if target not in budget_candidates and abs(
+                    _bops(current_metrics) - target
+                ) <= float(self.config.bops_tolerance_abs):
                     budget_candidates[target] = current
                     budget_metrics[target] = dict(current_metrics)
             if _bops(current_metrics) <= min(targets_desc):
@@ -373,6 +401,8 @@ class GreedyBudgetSearch:
             steps=tuple(steps),
             budget_candidates=budget_candidates,
             budget_metrics=budget_metrics,
+            nearest_budget_candidates=nearest_budget_candidates,
+            nearest_budget_metrics=nearest_budget_metrics,
             unreachable_targets=unreachable,
             termination_reason=termination,
             evaluated_neighbor_count=evaluated_neighbors,

@@ -17,6 +17,21 @@ METRIC_FIELDS = {
     "R_Size": ("R_Size", "R_size"),
     "R_BOPS": ("R_BOPS", "R_bops"),
     "P_BOPS": ("P_BOPS", "P_bops"),
+    "BOPS_Target": ("BOPS_Target", "BOPS_target"),
+    "BOPS_Abs_Delta": ("BOPS_Abs_Delta", "bops_abs_delta"),
+    "R_Parameter_Retention": (
+        "R_Parameter_Retention",
+        "R_parameter_retention",
+    ),
+    "Parameter_Pruning_Rate": (
+        "Parameter_Pruning_Rate",
+        "parameter_pruning_rate",
+    ),
+    "Parameter_Count_Base": ("Parameter_Count_Base", "parameter_count_base"),
+    "Parameter_Count_After": (
+        "Parameter_Count_After",
+        "parameter_count_after",
+    ),
 }
 
 

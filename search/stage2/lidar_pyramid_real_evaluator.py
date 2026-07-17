@@ -836,7 +836,10 @@ class LidarPyramidRealEvaluator:
                 "num_frames": self.num_frames,
                 "warmup_frames": self.warmup_frames,
                 "latency_rounds": self.latency_rounds,
-                "stage2_reference_policy": "strict_fp32_ap_strict_fp16_latency_v1",
+                "stage2_reference_policy": (
+                    f"{self.objective_config.accuracy_reference}_ap_"
+                    f"{self.objective_config.latency_reference}_latency_v2"
+                ),
                 "stage2_reference_baseline_hash": reference_baseline_hash,
                 "objective_config": asdict(self.objective_config),
                 "gpu": self.context.physical_gpu_id,
@@ -1018,21 +1021,33 @@ class LidarPyramidRealEvaluator:
         reference_override = getattr(self, "_reference_baseline_override", None)
         if reference_override is not None:
             return dict(reference_override)
-        accuracy = self.evaluate_original_baseline("strict_fp32", full_validation=False)
-        latency = self.evaluate_original_baseline("strict_fp16", full_validation=False)
+        accuracy_kind = str(self.objective_config.accuracy_reference).replace(
+            "original_", ""
+        )
+        latency_kind = str(self.objective_config.latency_reference).replace(
+            "original_", ""
+        )
+        accuracy = self.evaluate_original_baseline(
+            accuracy_kind, full_validation=False
+        )
+        latency = (
+            accuracy
+            if latency_kind == accuracy_kind
+            else self.evaluate_original_baseline(latency_kind, full_validation=False)
+        )
         if str(accuracy.get("status", "")) != "ok":
-            raise RuntimeError(f"strict_fp32_accuracy_baseline_failed:{accuracy.get('failure_reason', accuracy.get('status'))}")
+            raise RuntimeError(f"{accuracy_kind}_accuracy_baseline_failed:{accuracy.get('failure_reason', accuracy.get('status'))}")
         if str(latency.get("status", "")) != "ok":
-            raise RuntimeError(f"strict_fp16_latency_baseline_failed:{latency.get('failure_reason', latency.get('status'))}")
+            raise RuntimeError(f"{latency_kind}_latency_baseline_failed:{latency.get('failure_reason', latency.get('status'))}")
         metric = self.objective_config.latency_metric
         combined = {
             "status": "ok",
             "mAP": float(accuracy.get("mAP", accuracy.get("map", 0.0)) or 0.0),
             metric: float(latency.get(metric, 0.0) or 0.0),
-            "accuracy_reference": "original_strict_fp32",
-            "latency_reference": "original_strict_fp16",
-            "strict_fp32": accuracy,
-            "strict_fp16": latency,
+            "accuracy_reference": str(self.objective_config.accuracy_reference),
+            "latency_reference": str(self.objective_config.latency_reference),
+            accuracy_kind: accuracy,
+            latency_kind: latency,
         }
         _write_json(self.run_dir / "stage2_reference_baseline.json", combined)
         return combined

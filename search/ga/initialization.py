@@ -8,6 +8,7 @@ from ..candidate import CandidateGenotype
 from ..canonicalization import SearchSpaceSpec, repair_genotype
 from ..quantization_space.codec import forced_int8_group_genotype
 from .immigrants import random_immigrant
+from .mutation import mutate_candidate
 
 
 def baseline_candidate(space: SearchSpaceSpec) -> CandidateGenotype:
@@ -59,6 +60,8 @@ def initialize_population(
     *,
     previous_elite: list[CandidateGenotype] | None = None,
     previous_best: CandidateGenotype | None = None,
+    seed_candidates: list[CandidateGenotype] | None = None,
+    seeded_population_ratio: float = 0.90,
 ) -> list[CandidateGenotype]:
     population: list[CandidateGenotype] = [repair_genotype(baseline_candidate(space), space)]
     population.append(
@@ -92,8 +95,33 @@ def initialize_population(
         ]
     )
     population.extend(repair_genotype(row, space) for row in (previous_elite or []))
+    seeds = [repair_genotype(row, space) for row in (seed_candidates or [])]
+    population.extend(seeds)
     if previous_best is not None:
         population.append(repair_genotype(previous_best, space))
+    seeded_index = 0
+    seeded_target = min(
+        population_size,
+        max(
+            len(population),
+            int(round(population_size * float(seeded_population_ratio))),
+        ),
+    )
+    while seeds and len(population) < seeded_target:
+        base = seeds[seeded_index % len(seeds)]
+        action_count = 1 + ((seeded_index // max(len(seeds), 1)) % 4)
+        population.append(
+            mutate_candidate(
+                base,
+                space,
+                rng,
+                prune_mutation_rate=1.0,
+                precision_mutation_rate=1.0,
+                action_count=action_count,
+                adjacent_precision=True,
+            )
+        )
+        seeded_index += 1
     while len(population) < population_size:
         population.append(random_immigrant(space, rng))
     return population[:population_size]

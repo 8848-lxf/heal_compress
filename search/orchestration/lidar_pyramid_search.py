@@ -50,7 +50,14 @@ from ..stage2.round_results import write_round_stage2_results
 def _write_json(path: str | Path, payload: Any) -> None:
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str), encoding="utf-8")
+    temporary = destination.with_name(
+        f".{destination.name}.{time.time_ns()}.tmp"
+    )
+    temporary.write_text(
+        json.dumps(payload, indent=2, sort_keys=True, default=str),
+        encoding="utf-8",
+    )
+    temporary.replace(destination)
 
 
 def _append_jsonl(path: str | Path, rows: list[dict[str, Any]]) -> None:
@@ -292,6 +299,8 @@ class LidarPyramidTwoStageSearch:
                     eta_map=float(stage2_cfg.get("eta_ap", stage2_cfg.get("eta_map", 1.0))),
                     eta_latency=float(stage2_cfg.get("eta_latency", 1.0)),
                     latency_metric=str(stage2_cfg.get("latency_metric", "forward_mean_ms")),
+                    accuracy_reference=str(stage2_cfg.get("accuracy_reference", "original_strict_fp32")),
+                    latency_reference=str(stage2_cfg.get("latency_reference", "original_strict_fp32")),
                     tau_ap=stage2_cfg.get("tau_ap"),
                     max_map_drop=stage2_cfg.get("max_map_drop"),
                 ),
@@ -470,6 +479,8 @@ class LidarPyramidTwoStageSearch:
                 eta_map=float(stage2_cfg.get("eta_ap", stage2_cfg.get("eta_map", 1.0))),
                 eta_latency=float(stage2_cfg.get("eta_latency", 1.0)),
                 latency_metric=str(stage2_cfg.get("latency_metric", "forward_mean_ms")),
+                accuracy_reference=str(stage2_cfg.get("accuracy_reference", "original_strict_fp32")),
+                latency_reference=str(stage2_cfg.get("latency_reference", "original_strict_fp32")),
                 tau_ap=stage2_cfg.get("tau_ap"),
                 max_map_drop=stage2_cfg.get("max_map_drop"),
             ),
@@ -557,6 +568,8 @@ class LidarPyramidTwoStageSearch:
                 eta_map=float(stage2_cfg.get("eta_ap", stage2_cfg.get("eta_map", 1.0))),
                 eta_latency=float(stage2_cfg.get("eta_latency", 1.0)),
                 latency_metric=str(stage2_cfg.get("latency_metric", "forward_p50_ms")),
+                accuracy_reference=str(stage2_cfg.get("accuracy_reference", "original_strict_fp32")),
+                latency_reference=str(stage2_cfg.get("latency_reference", "original_strict_fp32")),
                 tau_ap=stage2_cfg.get("tau_ap"),
                 max_map_drop=stage2_cfg.get("max_map_drop"),
             ),
@@ -824,7 +837,7 @@ class LidarPyramidTwoStageSearch:
             proxy.objective.config = replace(
                 proxy.objective.config,
                 bops_threshold=None,
-                bops_constraint_mode="hard_feasibility",
+                bops_constraint_mode="hard_band_feasibility",
             )
             if getattr(proxy, "batch_scorer", None) is not None:
                 proxy.batch_scorer.config = proxy.objective.config
@@ -858,6 +871,9 @@ class LidarPyramidTwoStageSearch:
                 maximum_steps=int(search_cfg.get("maximum_steps", 10000)),
                 parameter_retention_tiebreak=bool(
                     search_cfg.get("parameter_retention_tiebreak", True)
+                ),
+                bops_tolerance_abs=float(
+                    proxy_cfg.get("bops_tolerance_abs", 0.005)
                 ),
             ),
         )
@@ -911,11 +927,32 @@ class LidarPyramidTwoStageSearch:
                 output_dir=candidate_dir,
                 candidate_hash=identity,
             )
+            metrics = dict(row["metrics"])
+            r_bops = float(metrics.get("R_bops_vs_fp32", 0.0) or 0.0)
+            r_size = float(metrics.get("R_size_vs_fp32", 0.0) or 0.0)
+            parameter_base = float(metrics.get("parameter_count_base", 0.0) or 0.0)
+            parameter_after = float(metrics.get("parameter_count_after", 0.0) or 0.0)
+            latency_ratio = float(evaluated.get("R_latency_real", 0.0) or 0.0)
             budget_rows.append(
                 {
                     "candidate_hash": identity,
                     "budgets": sorted(row["budgets"]),
-                    "proxy_metrics": dict(row["metrics"]),
+                    "proxy_metrics": metrics,
+                    "BOPS_compression_x": 1.0 / r_bops if r_bops > 0.0 else None,
+                    "mixed_weight_compression_x": 1.0 / r_size if r_size > 0.0 else None,
+                    "parameter_pruning_rate": (
+                        1.0 - parameter_after / parameter_base
+                        if parameter_base > 0.0
+                        else None
+                    ),
+                    "parameter_compression_x": (
+                        parameter_base / parameter_after
+                        if parameter_base > 0.0 and parameter_after > 0.0
+                        else None
+                    ),
+                    "measured_speedup_vs_FP32": (
+                        1.0 / latency_ratio if latency_ratio > 0.0 else None
+                    ),
                     **evaluated,
                 }
             )
@@ -969,6 +1006,7 @@ class LidarPyramidTwoStageSearch:
                 size_threshold=proxy_cfg.get("size_threshold"),
                 bops_threshold=proxy_cfg.get("bops_threshold", None),
                 bops_constraint_mode=str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")),
+                bops_tolerance_abs=float(proxy_cfg.get("bops_tolerance_abs", 0.0)),
                 bops_penalty_formula=str(
                     dict(proxy_cfg.get("bops_soft_constraint", {}) or {}).get(
                         "formula",
@@ -1204,17 +1242,77 @@ class LidarPyramidTwoStageSearch:
         soft_schedule = dict(proxy_cfg.get("bops_soft_constraint", {}) or {})
         if not soft_schedule:
             soft_schedule = dict(proxy_cfg.get("bops_target_schedule", {}) or {})
+        budget_seed_candidates: dict[float, list[CandidateGenotype]] = {}
+        greedy_seed_path = run_dir / "ga_seed_greedy_path.json"
+        use_greedy_seeds = bool(search_cfg.get("greedy_frontier_warm_start", True))
+        if use_greedy_seeds and configured_bops_targets:
+            if self.resume is not None and greedy_seed_path.is_file():
+                seed_payload = json.loads(greedy_seed_path.read_text(encoding="utf-8"))
+                nearest_payload = dict(
+                    seed_payload.get("nearest_budget_candidates", {}) or {}
+                )
+                exact_payload = dict(seed_payload.get("budget_candidates", {}) or {})
+                for target in configured_bops_targets:
+                    rows = []
+                    for source in (exact_payload, nearest_payload):
+                        payload = source.get(f"{target:.6f}")
+                        if payload:
+                            rows.append(CandidateGenotype.from_dict(payload))
+                    budget_seed_candidates[target] = rows
+            else:
+                proxy_objective = getattr(proxy, "objective", None)
+                if proxy_objective is not None:
+                    proxy.objective.config = replace(
+                        proxy.objective.config,
+                        bops_threshold=None,
+                    )
+                    if getattr(proxy, "batch_scorer", None) is not None:
+                        proxy.batch_scorer.config = proxy.objective.config
+
+                def evaluate_greedy_seed_batch(
+                    candidates: list[CandidateGenotype], step: int
+                ) -> list[dict[str, Any]]:
+                    batch = proxy.evaluate_batch(
+                        candidates,
+                        generation=int(step),
+                        outer_round=-2,
+                    )
+                    return list(batch.metrics)
+
+                greedy_seed_search = GreedyBudgetSearch(
+                    context.search_space,
+                    config=GreedySearchConfig(
+                        bops_targets=tuple(configured_bops_targets),
+                        minimum_bops_reduction=float(
+                            search_cfg.get("minimum_bops_reduction", 1.0e-12)
+                        ),
+                        maximum_steps=int(
+                            search_cfg.get("greedy_seed_maximum_steps", 10000)
+                        ),
+                        parameter_retention_tiebreak=True,
+                        bops_tolerance_abs=float(
+                            proxy_cfg.get("bops_tolerance_abs", 0.005)
+                        ),
+                    ),
+                )
+                greedy_seed_result = greedy_seed_search.run(
+                    evaluate_greedy_seed_batch
+                )
+                _write_json(greedy_seed_path, greedy_seed_result.to_dict())
+                for target in configured_bops_targets:
+                    rows = []
+                    exact = greedy_seed_result.budget_candidates.get(target)
+                    nearest = greedy_seed_result.nearest_budget_candidates.get(target)
+                    if exact is not None:
+                        rows.append(exact)
+                    if nearest is not None and nearest not in rows:
+                        rows.append(nearest)
+                    budget_seed_candidates[target] = rows
         global_seen_raw_hashes = self._load_seen_raw_hashes(run_dir)
         for round_index in range(outer_rounds):
             round_dir = run_dir / f"round_{round_index:03d}"
             round_dir.mkdir(parents=True, exist_ok=True)
             topk_stage2 = int(search_cfg.get("topk_stage2", search_cfg.get("topk_real", 1)))
-            if self.resume is not None and not stage1_only and self._round_stage2_complete(round_dir, topk_stage2):
-                round_results = json.loads((round_dir / "stage2_top5_results.json").read_text(encoding="utf-8"))
-                evaluated_rows.extend(round_results.get("candidates", []) or [])
-                previous_elite = self._round_topk_as_genotypes(round_dir, context)
-                previous_best = previous_elite[0] if previous_elite else previous_best
-                continue
             round_bops_target = (
                 configured_bops_targets[round_index]
                 if configured_bops_targets
@@ -1228,6 +1326,7 @@ class LidarPyramidTwoStageSearch:
                     proxy.objective.config,
                     bops_threshold=float(round_bops_target),
                     bops_constraint_mode=str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")),
+                    bops_tolerance_abs=float(proxy_cfg.get("bops_tolerance_abs", 0.0)),
                 )
                 if getattr(proxy, "batch_scorer", None) is not None:
                     proxy.batch_scorer.config = proxy.objective.config
@@ -1247,8 +1346,10 @@ class LidarPyramidTwoStageSearch:
                 },
                 "T_BOPS": round_bops_target,
                 "bops_penalty_formula": objective_config.bops_penalty_formula,
+                "bops_constraint_mode": objective_config.bops_constraint_mode,
+                "bops_tolerance_abs": objective_config.bops_tolerance_abs,
                 "objective": (
-                    "min normalized_joint_weight_taylor subject_to R_BOPS_vs_original_FP32<=target"
+                    "min normalized_joint_weight_taylor subject_to abs(R_BOPS_vs_original_FP32-target)<=tolerance"
                     if joint_mode
                     else "alpha*R_Fisher + beta*L_SQNR + gamma*R_Size_vs_FP32 + delta*P_BOPS"
                 ),
@@ -1265,8 +1366,97 @@ class LidarPyramidTwoStageSearch:
                     if joint_mode
                     else "legacy_weighted_term"
                 ),
+                "ga_selection": {
+                    "primary": "L_joint_weight_taylor",
+                    "secondary_within_taylor_epsilon": "R_parameter_retention",
+                    "taylor_relative_epsilon": float(
+                        search_cfg.get("taylor_relative_epsilon", 0.05)
+                    ),
+                    "taylor_absolute_epsilon": float(
+                        search_cfg.get("taylor_absolute_epsilon", 1.0e-8)
+                    ),
+                },
             }
-            _write_json(round_dir / "stage1_objective_config.json", objective_manifest)
+            objective_path = round_dir / "stage1_objective_config.json"
+            round_state_path = round_dir / "round_state.json"
+            round_state = (
+                json.loads(round_state_path.read_text(encoding="utf-8"))
+                if round_state_path.is_file()
+                else {}
+            )
+            resume_stage1_complete = bool(
+                self.resume is not None
+                and str(round_state.get("phase", ""))
+                in {"stage1_complete", "stage2_running", "round_complete"}
+                and (round_dir / "stage1_topk.json").is_file()
+                and (round_dir / "repaired_top5_manifest.json").is_file()
+            )
+            if resume_stage1_complete:
+                if not objective_path.is_file():
+                    raise RuntimeError(
+                        f"resume_stage1_objective_missing:{objective_path}"
+                    )
+                existing_objective = json.loads(
+                    objective_path.read_text(encoding="utf-8")
+                )
+                if canonical_json_hash(existing_objective) != canonical_json_hash(
+                    objective_manifest
+                ):
+                    raise RuntimeError(
+                        f"resume_stage1_contract_mismatch:{round_dir}"
+                    )
+                resumed_selected = self._load_round_stage1_selections(
+                    round_dir, context
+                )
+                if len(resumed_selected) != topk_stage2:
+                    raise RuntimeError(
+                        "resume_stage1_topk_incomplete:"
+                        f"{len(resumed_selected)}!={topk_stage2}"
+                    )
+                _write_json(
+                    round_dir / "round_state.json",
+                    {
+                        "phase": "stage1_complete",
+                        "round_index": round_index,
+                        "stage1_reused": True,
+                        "objective_hash": canonical_json_hash(objective_manifest),
+                    },
+                )
+                if not stage1_only:
+                    _write_json(
+                        round_dir / "round_state.json",
+                        {
+                            "phase": "stage2_running",
+                            "round_index": round_index,
+                            "stage1_reused": True,
+                            "objective_hash": canonical_json_hash(
+                                objective_manifest
+                            ),
+                        },
+                    )
+                    resumed_rows = self._evaluate_ga_stage2_selected_parallel(
+                        context=context,
+                        real_evaluator=real_evaluator,
+                        run_dir=run_dir,
+                        round_dir=round_dir,
+                        selected=resumed_selected,
+                    )
+                    evaluated_rows.extend(resumed_rows)
+                    write_round_stage2_results(run_dir, round_index=round_index)
+                    _write_json(
+                        round_dir / "round_state.json",
+                        {
+                            "phase": "round_complete",
+                            "round_index": round_index,
+                            "stage1_reused": True,
+                            "evaluated": len(resumed_rows),
+                            "objective_hash": canonical_json_hash(
+                                objective_manifest
+                            ),
+                        },
+                    )
+                continue
+            _write_json(objective_path, objective_manifest)
             objective_hash = canonical_json_hash(objective_manifest)
             proxy_semantics_manifest = dict(objective_manifest)
             if joint_mode:
@@ -1314,6 +1504,23 @@ class LidarPyramidTwoStageSearch:
                             bool(context.search_space.pruning_domains),
                         )
                     ),
+                    mutation_action_min=int(search_cfg.get("mutation_action_min", 1)),
+                    mutation_action_max=int(search_cfg.get("mutation_action_max", 2)),
+                    early_stop_patience=int(search_cfg.get("early_stop_patience", 0)),
+                    minimum_generations=int(search_cfg.get("minimum_generations", 1)),
+                    constraint_first_ranking=str(
+                        proxy_cfg.get("bops_constraint_mode", "")
+                    )
+                    == "hard_band_feasibility",
+                    taylor_relative_epsilon=float(
+                        search_cfg.get("taylor_relative_epsilon", 0.05)
+                    ),
+                    taylor_absolute_epsilon=float(
+                        search_cfg.get("taylor_absolute_epsilon", 1.0e-8)
+                    ),
+                    seeded_initial_population_ratio=float(
+                        search_cfg.get("seeded_initial_population_ratio", 0.90)
+                    ),
                     random_seed=int(search_cfg.get("seed", 42)) + round_index,
                 ),
             )
@@ -1342,9 +1549,19 @@ class LidarPyramidTwoStageSearch:
                         bops_value,
                         float(target),
                         formula=getattr(getattr(proxy, "objective", None), "config", ProxyObjectiveConfig()).bops_penalty_formula,
+                        constraint_mode=str(
+                            proxy_cfg.get("bops_constraint_mode", "weighted_penalty")
+                        ),
+                        tolerance_abs=float(
+                            proxy_cfg.get("bops_tolerance_abs", 0.0)
+                        ),
                     )
                     metrics["BOPS_target"] = float(target)
                     metrics["bops_violation"] = float(violation)
+                    metrics["bops_abs_delta"] = abs(bops_value - float(target))
+                    metrics["bops_tolerance_abs"] = float(
+                        proxy_cfg.get("bops_tolerance_abs", 0.0)
+                    )
                     metrics["P_bops"] = float(p_bops)
                     metrics["bops_feasible"] = violation <= 0.0
                     if str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")) in {
@@ -1373,8 +1590,21 @@ class LidarPyramidTwoStageSearch:
             scored = ga.run(
                 evaluate_genotype if proxy_backend == "scalar_cpu" else None,
                 batch_evaluator=evaluate_genotypes_batch if proxy_backend != "scalar_cpu" else None,
-                previous_elite=previous_elite,
-                previous_best=previous_best,
+                previous_elite=(
+                    []
+                    if bool(search_cfg.get("independent_budget_rounds", True))
+                    else previous_elite
+                ),
+                previous_best=(
+                    None
+                    if bool(search_cfg.get("independent_budget_rounds", True))
+                    else previous_best
+                ),
+                seed_candidates=(
+                    budget_seed_candidates.get(float(round_bops_target), [])
+                    if round_bops_target is not None
+                    else []
+                ),
                 seen_candidate_keys=global_seen_raw_hashes,
                 candidate_key_fn=lambda genotype: self._raw_genotype_hash(genotype, context),
             )
@@ -1428,6 +1658,7 @@ class LidarPyramidTwoStageSearch:
                 if str(proxy_cfg.get("bops_constraint_mode", "weighted_penalty")) in {
                     "hard_feasibility",
                     "feasibility_first",
+                    "hard_band_feasibility",
                 }:
                     stage2_pool = [
                         row for row in scored if bool(row[2].get("bops_feasible", False))
@@ -1440,8 +1671,51 @@ class LidarPyramidTwoStageSearch:
                     batch_rescore_fn=rescore_batch,
                     topk=topk_stage2,
                     repair_pool_size=int(search_cfg.get("repair_pool_size", max(50, topk_stage2 * 10))),
+                    selection_policy=str(
+                        search_cfg.get(
+                            "stage2_topk_selection_policy",
+                            "three_plus_two_diversity",
+                        )
+                    ),
+                    exploitation_count=int(
+                        search_cfg.get("stage2_exploitation_count", 3)
+                    ),
+                    diversity_count=int(
+                        search_cfg.get("stage2_diversity_count", 2)
+                    ),
+                    taylor_relative_epsilon=float(
+                        search_cfg.get("taylor_relative_epsilon", 0.05)
+                    ),
+                    taylor_absolute_epsilon=float(
+                        search_cfg.get("taylor_absolute_epsilon", 1.0e-8)
+                    ),
+                    eligibility_fn=(
+                        lambda metrics: bool(metrics.get("bops_feasible", False))
+                    )
+                    if str(proxy_cfg.get("bops_constraint_mode", ""))
+                    == "hard_band_feasibility"
+                    else None,
                 )
-                selected = [type("Selection", (), {"role": "repaired", "record": record}) for record in repaired_records]
+                if len(repaired_records) < topk_stage2:
+                    raise RuntimeError(
+                        "insufficient_bops_band_candidates_for_stage2:"
+                        f"{len(repaired_records)}<{topk_stage2}:"
+                        f"target={round_bops_target}:"
+                        f"tolerance={proxy_cfg.get('bops_tolerance_abs', 0.0)}"
+                    )
+                selected = [
+                    type(
+                        "Selection",
+                        (),
+                        {
+                            "role": record.metrics.get(
+                                "stage2_selection_role", "repaired"
+                            ),
+                            "record": record,
+                        },
+                    )
+                    for record in repaired_records
+                ]
                 _write_json(round_dir / "repair_report.json", repair_report)
             else:
                 selected = select_stage1_topk(
@@ -1490,7 +1764,27 @@ class LidarPyramidTwoStageSearch:
                 }
             )
             _write_json(run_dir / "run_manifest.json", manifest)
+            _write_json(
+                round_dir / "round_state.json",
+                {
+                    "phase": "stage1_complete",
+                    "round_index": round_index,
+                    "stage1_reused": False,
+                    "objective_hash": objective_hash,
+                    "selected": len(selected),
+                },
+            )
             if not stage1_only:
+                _write_json(
+                    round_dir / "round_state.json",
+                    {
+                        "phase": "stage2_running",
+                        "round_index": round_index,
+                        "stage1_reused": False,
+                        "objective_hash": objective_hash,
+                        "selected": len(selected),
+                    },
+                )
                 round_stage2_rows = self._evaluate_ga_stage2_selected_parallel(
                     context=context,
                     real_evaluator=real_evaluator,
@@ -1500,17 +1794,26 @@ class LidarPyramidTwoStageSearch:
                 )
                 evaluated_rows.extend(round_stage2_rows)
                 write_round_stage2_results(run_dir, round_index=round_index)
-            previous_elite = [record.genotype for record in records[: max(1, min(5, len(records)))]]
-            previous_best = previous_elite[0] if previous_elite else None
+            if not bool(search_cfg.get("independent_budget_rounds", True)):
+                previous_elite = [
+                    record.genotype
+                    for record in records[: max(1, min(5, len(records)))]
+                ]
+                previous_best = previous_elite[0] if previous_elite else None
             _write_json(round_dir / "round_summary.json", {"best_F1": records[0].F1 if records else None, "selected": len(selected), "evaluated": len(evaluated_rows)})
             if records:
                 _write_json(round_dir / "best_candidate.json", {"candidate_hash": records[0].candidate_hash, "F1": records[0].F1, "phenotype": records[0].phenotype.to_dict()})
-            if evaluated_rows:
-                round_rows = [row for row in evaluated_rows if row.get("candidate_hash") in {item.record.candidate_hash for item in selected}]
-                if round_rows:
-                    winner = min(round_rows, key=lambda row: float(row.get("F2", float("inf"))))
-                    _write_json(round_dir / "round_best_candidate.json", winner)
-                    _write_json(round_dir / "round_best_F1_F2.json", {"candidate_hash": winner.get("candidate_hash"), "F1": winner.get("F1"), "F2": winner.get("F2")})
+            if not stage1_only:
+                _write_json(
+                    round_dir / "round_state.json",
+                    {
+                        "phase": "round_complete",
+                        "round_index": round_index,
+                        "stage1_reused": False,
+                        "objective_hash": objective_hash,
+                        "selected": len(selected),
+                    },
+                )
         self._write_global(run_dir, evaluated_rows)
         final_cfg = dict(self.config.get("final_selection", {}) or {})
         if (
@@ -1547,6 +1850,21 @@ class LidarPyramidTwoStageSearch:
                     "phenotype": CandidatePhenotype.from_dict(
                         json.loads(phenotype_path.read_text(encoding="utf-8"))
                     ),
+                    "compression_metrics": {
+                        key: row.get(key)
+                        for key in (
+                            "BOPS_target",
+                            "R_BOPS_vs_FP32",
+                            "BOPS_abs_delta",
+                            "BOPS_compression_x",
+                            "R_Size_vs_FP32",
+                            "mixed_weight_compression_x",
+                            "parameter_count_base",
+                            "parameter_count_after",
+                            "parameter_pruning_rate",
+                            "parameter_compression_x",
+                        )
+                    },
                     "rounds": [],
                 },
             )
@@ -1562,7 +1880,17 @@ class LidarPyramidTwoStageSearch:
                 output_dir=run_dir / "full_validation" / "candidates" / candidate_id,
                 candidate_hash=candidate_id,
             )
-            rows.append({"rounds": sorted(entry["rounds"]), **result})
+            latency_ratio = float(result.get("R_latency_real", 0.0) or 0.0)
+            rows.append(
+                {
+                    "rounds": sorted(entry["rounds"]),
+                    **dict(entry["compression_metrics"]),
+                    "measured_speedup_vs_FP32": (
+                        1.0 / latency_ratio if latency_ratio > 0.0 else None
+                    ),
+                    **result,
+                }
+            )
         successful = [row for row in rows if str(row.get("status", "")) == "ok"]
         winner = (
             min(successful, key=lambda row: float(row.get("F2", float("inf"))))
@@ -1639,30 +1967,83 @@ class LidarPyramidTwoStageSearch:
         for row in rows:
             phenotype_payload = row.get("phenotype") or {}
             phenotype = CandidatePhenotype.from_dict(phenotype_payload)
-            pruned = set(phenotype.pruned_unit_ids)
-            metadata = dict(phenotype.metadata or {})
-            requested_groups = dict(metadata.get("requested_group_profile") or metadata.get("stage1_legalized_group_profile") or {})
             genotypes.append(
-                CandidateGenotype(
-                    pruning_genes=(
-                        {unit_id: 1 for unit_id in context.search_space.pruning_unit_ids}
-                        if context.search_space.pruning_domains
-                        else {
-                            unit_id: (0 if unit_id in pruned else 1)
-                            for unit_id in context.search_space.pruning_unit_ids
-                        }
-                    ),
-                    precision_genes={
-                        group_id: requested_groups.get(group_id, context.search_space.default_precision)
-                        for group_id in context.search_space.precision_gene_ids
-                    },
-                    pruning_width_genes={
-                        str(key): int(value)
-                        for key, value in dict(metadata.get("domain_width_profile") or {}).items()
-                    },
+                LidarPyramidTwoStageSearch._genotype_from_phenotype(
+                    phenotype, context
                 )
             )
         return genotypes
+
+    @staticmethod
+    def _genotype_from_phenotype(
+        phenotype: CandidatePhenotype, context: Any
+    ) -> CandidateGenotype:
+        pruned = set(phenotype.pruned_unit_ids)
+        metadata = dict(phenotype.metadata or {})
+        requested_groups = dict(
+            metadata.get("requested_group_profile")
+            or metadata.get("stage1_legalized_group_profile")
+            or {}
+        )
+        requested_layers = phenotype.requested_precision_profile
+        return CandidateGenotype(
+            pruning_genes=(
+                {}
+                if context.search_space.pruning_domains
+                else {
+                    unit_id: (0 if unit_id in pruned else 1)
+                    for unit_id in context.search_space.pruning_unit_ids
+                }
+            ),
+            precision_genes={
+                group_id: requested_groups.get(
+                    group_id,
+                    requested_layers.get(
+                        group_id, context.search_space.default_precision
+                    ),
+                )
+                for group_id in context.search_space.precision_gene_ids
+            },
+            pruning_width_genes={
+                str(key): int(value)
+                for key, value in dict(
+                    metadata.get("domain_width_profile") or {}
+                ).items()
+            },
+            meta={"created_by": "resume_stage1_topk"},
+        )
+
+    @staticmethod
+    def _load_round_stage1_selections(
+        round_dir: Path, context: Any
+    ) -> list[Any]:
+        path = round_dir / "stage1_topk.json"
+        if not path.is_file():
+            return []
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        selections = []
+        for row in rows:
+            phenotype = CandidatePhenotype.from_dict(row.get("phenotype") or {})
+            record = ProxyCandidateRecord(
+                candidate_hash=str(row.get("candidate_hash", "")),
+                genotype=LidarPyramidTwoStageSearch._genotype_from_phenotype(
+                    phenotype, context
+                ),
+                phenotype=phenotype,
+                F1=float(row.get("F1", float("inf"))),
+                metrics={"resume_source": str(path)},
+            )
+            selections.append(
+                type(
+                    "ResumeSelection",
+                    (),
+                    {
+                        "role": str(row.get("role", "repaired")),
+                        "record": record,
+                    },
+                )
+            )
+        return selections
 
     @staticmethod
     def _records_from_scored(scored: list[tuple[CandidateGenotype, float, dict[str, Any]]], context: Any) -> list[ProxyCandidateRecord]:
@@ -1677,7 +2058,7 @@ class LidarPyramidTwoStageSearch:
     def _write_generation(path: Path, rows: list[tuple[CandidateGenotype, float, dict[str, Any]]], context: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["candidate_hash", "F1", "L_fisher", "L_sqnr", "R_size", "R_size_vs_fp32", "R_size_vs_fp16_deploy", "R_bops", "R_bops_vs_fp32", "R_bops_vs_fp16_deploy", "BOPS_target", "P_bops", "bops_feasible", "bops_violation", "int8_macs_ratio", "grouped_action_count", "pruned_units", "int8_layers", "cache_hit"])
+            writer = csv.DictWriter(handle, fieldnames=["candidate_hash", "F1", "L_fisher", "L_sqnr", "R_size", "R_size_vs_fp32", "R_size_vs_fp16_deploy", "R_parameter_retention", "parameter_pruning_rate", "parameter_count_base", "parameter_count_after", "R_bops", "R_bops_vs_fp32", "R_bops_vs_fp16_deploy", "BOPS_target", "bops_abs_delta", "P_bops", "bops_feasible", "bops_violation", "int8_macs_ratio", "grouped_action_count", "pruned_units", "int8_layers", "cache_hit"])
             writer.writeheader()
             for genotype, score, metrics in rows:
                 phenotype = canonicalize_candidate(genotype, context.search_space)
@@ -1690,10 +2071,15 @@ class LidarPyramidTwoStageSearch:
                         "R_size": metrics.get("R_size"),
                         "R_size_vs_fp32": metrics.get("R_size_vs_fp32"),
                         "R_size_vs_fp16_deploy": metrics.get("R_size_vs_fp16_deploy"),
+                        "R_parameter_retention": metrics.get("R_parameter_retention"),
+                        "parameter_pruning_rate": metrics.get("parameter_pruning_rate"),
+                        "parameter_count_base": metrics.get("parameter_count_base"),
+                        "parameter_count_after": metrics.get("parameter_count_after"),
                         "R_bops": metrics.get("R_bops"),
                         "R_bops_vs_fp32": metrics.get("R_bops_vs_fp32"),
                         "R_bops_vs_fp16_deploy": metrics.get("R_bops_vs_fp16_deploy"),
                         "BOPS_target": metrics.get("BOPS_target"),
+                        "bops_abs_delta": metrics.get("bops_abs_delta"),
                         "P_bops": metrics.get("P_bops"),
                         "bops_feasible": metrics.get("bops_feasible"),
                         "bops_violation": metrics.get("bops_violation"),
@@ -1708,7 +2094,7 @@ class LidarPyramidTwoStageSearch:
     @staticmethod
     def _write_stage1(path: Path, records: list[ProxyCandidateRecord]) -> None:
         with path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["candidate_hash", "F1", "L_fisher", "L_sqnr", "R_size", "R_size_vs_fp32", "R_size_vs_fp16_deploy", "R_bops", "R_bops_vs_fp32", "R_bops_vs_fp16_deploy", "BOPS_target", "P_bops", "bops_feasible", "bops_violation", "int8_macs_ratio", "grouped_action_count", "pruned_units", "int8_layers"])
+            writer = csv.DictWriter(handle, fieldnames=["candidate_hash", "F1", "L_fisher", "L_sqnr", "R_size", "R_size_vs_fp32", "R_size_vs_fp16_deploy", "R_parameter_retention", "parameter_pruning_rate", "parameter_count_base", "parameter_count_after", "R_bops", "R_bops_vs_fp32", "R_bops_vs_fp16_deploy", "BOPS_target", "bops_abs_delta", "P_bops", "bops_feasible", "bops_violation", "int8_macs_ratio", "grouped_action_count", "pruned_units", "int8_layers"])
             writer.writeheader()
             for record in records:
                 writer.writerow(
@@ -1720,10 +2106,15 @@ class LidarPyramidTwoStageSearch:
                         "R_size": record.metrics.get("R_size"),
                         "R_size_vs_fp32": record.metrics.get("R_size_vs_fp32"),
                         "R_size_vs_fp16_deploy": record.metrics.get("R_size_vs_fp16_deploy"),
+                        "R_parameter_retention": record.metrics.get("R_parameter_retention"),
+                        "parameter_pruning_rate": record.metrics.get("parameter_pruning_rate"),
+                        "parameter_count_base": record.metrics.get("parameter_count_base"),
+                        "parameter_count_after": record.metrics.get("parameter_count_after"),
                         "R_bops": record.metrics.get("R_bops"),
                         "R_bops_vs_fp32": record.metrics.get("R_bops_vs_fp32"),
                         "R_bops_vs_fp16_deploy": record.metrics.get("R_bops_vs_fp16_deploy"),
                         "BOPS_target": record.metrics.get("BOPS_target"),
+                        "bops_abs_delta": record.metrics.get("bops_abs_delta"),
                         "P_bops": record.metrics.get("P_bops"),
                         "bops_feasible": record.metrics.get("bops_feasible"),
                         "bops_violation": record.metrics.get("bops_violation"),

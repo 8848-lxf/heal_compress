@@ -111,8 +111,8 @@ def write_candidate_summary_artifacts(
         "R_latency": stage2_score.get("R_latency_real"),
         "F2": stage2_score.get("F2"),
         "status": stage2_score.get("status"),
-        "accuracy_reference": "original_strict_fp32_required_by_contract",
-        "latency_reference": "original_strict_fp16_required_by_contract",
+        "accuracy_reference": objective_config.accuracy_reference,
+        "latency_reference": objective_config.latency_reference,
     }
     _write_json(root / "stage2_objective_report.json", objective, overwrite=overwrite)
     _write_json(root / "artifact_hashes.json", artifact_hashes(root), overwrite=overwrite)

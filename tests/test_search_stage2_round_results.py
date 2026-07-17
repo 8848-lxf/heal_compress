@@ -16,7 +16,15 @@ def test_round_stage2_results_selects_lowest_f2_and_copies_winner_artifacts(tmp_
     manifest = {
         "candidates": [
             {"candidate_rank": 0, "repaired_phenotype_hash": "slow", "repaired_F1": 0.1},
-            {"candidate_rank": 1, "repaired_phenotype_hash": "fast", "repaired_F1": 0.2},
+            {
+                "candidate_rank": 1,
+                "repaired_phenotype_hash": "fast",
+                "repaired_F1": 0.2,
+                "BOPS_Target": 0.10,
+                "BOPS_Abs_Delta": 0.001,
+                "R_BOPS": 0.099,
+                "R_Size": 0.25,
+            },
         ]
     }
     (round_dir / "repaired_top5_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -24,7 +32,13 @@ def test_round_stage2_results_selects_lowest_f2_and_copies_winner_artifacts(tmp_
         candidate_dir = round_dir / "stage2" / candidate_hash
         candidate_dir.mkdir(parents=True)
         (candidate_dir / "stage2_score.json").write_text(
-            json.dumps({"status": "ok", "F2": f2, "mAP": 0.7, "forward_p50_ms": 3.0}),
+            json.dumps({"status": "ok", "F2": f2, "mAP": 0.7, "forward_p50_ms": 3.0, "R_latency_real": 0.5}),
+            encoding="utf-8",
+        )
+        (candidate_dir / "physical_hash.json").write_text(
+            json.dumps(
+                {"parameter_count_base": 100, "parameter_count_pruned": 80}
+            ),
             encoding="utf-8",
         )
         (candidate_dir / "pruned_checkpoint.pth").write_bytes(f"model-{candidate_hash}".encode())
@@ -40,6 +54,10 @@ def test_round_stage2_results_selects_lowest_f2_and_copies_winner_artifacts(tmp_
     assert (round_dir / "stage2_top5_results.json").is_file()
     assert (round_dir / "stage2_top5_results.md").is_file()
     assert json.loads((round_dir / "round_best_candidate.json").read_text())["candidate_hash"] == "fast"
+    assert round(result["winner"]["parameter_pruning_rate"], 6) == 0.2
+    assert result["winner"]["parameter_compression_x"] == 1.25
+    assert result["winner"]["mixed_weight_compression_x"] == 4.0
+    assert result["winner"]["measured_speedup_vs_FP32"] == 2.0
     assert (round_dir / "round_best_pruned_model.pth").read_bytes() == b"model-fast"
     assert (round_dir / "round_best_pruned.onnx").read_bytes() == b"onnx-fast"
     assert (round_dir / "round_best_qdq.onnx").read_bytes() == b"qdq-fast"

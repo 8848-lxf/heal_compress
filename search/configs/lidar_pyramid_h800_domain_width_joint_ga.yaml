@@ -63,7 +63,8 @@ proxy:
   size_reference: original_strict_fp32
   bops_reference: original_strict_fp32
   bops_definition: weight_bits_times_activation_bits
-  bops_constraint_mode: hard_feasibility
+  bops_constraint_mode: hard_band_feasibility
+  bops_tolerance_abs: 0.005
   bops_targets: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
 
 search:
@@ -73,17 +74,29 @@ search:
   initial_population_size: 1024
   population_size: 512
   offspring_size: 512
-  generations_per_round: 5
+  generations_per_round: 15
   elite_ratio: 0.05
   crossover_rate: 0.80
   prune_mutation_rate: 0.08
   precision_group_mutation_rate: 0.08
   immigrant_ratio: 0.08
-  stagnation_generations: 3
-  stagnation_immigrant_ratio: 0.25
+  stagnation_generations: 5
+  stagnation_immigrant_ratio: 0.15
+  mutation_action_min: 1
+  mutation_action_max: 2
+  minimum_generations: 5
+  early_stop_patience: 5
+  independent_budget_rounds: true
+  greedy_frontier_warm_start: true
+  seeded_initial_population_ratio: 0.90
+  taylor_relative_epsilon: 0.05
+  taylor_absolute_epsilon: 1.0e-8
   preserve_evaluated_elites: true
   repair_pool_size: 50
   topk_stage2: 5
+  stage2_topk_selection_policy: three_plus_two_diversity
+  stage2_exploitation_count: 3
+  stage2_diversity_count: 2
   global_cross_round_dedup: true
 
 stage2:
@@ -93,7 +106,7 @@ stage2:
   latency_rounds: 3
   latency_metric: forward_p50_ms
   accuracy_reference: original_strict_fp32
-  latency_reference: original_strict_fp16
+  latency_reference: original_strict_fp32
   tau_ap: 0.02
   eta_ap: 0.80
   eta_latency: 0.20
