@@ -41,8 +41,14 @@ class LidarCobevtRealEvaluator:
         common_request: Mapping[str, Any],
         num_frames: int,
         warmup_frames: int,
+        phase: str,
     ) -> dict[str, Any]:
         request = dict(common_request)
+        smoke_manifest = request.pop("smoke_eval_manifest_path", None)
+        screening_manifest = request.pop("screening_eval_manifest_path", None)
+        manifest = smoke_manifest if phase == "smoke" else screening_manifest
+        if manifest is not None:
+            request["eval_manifest_path"] = manifest
         request.update(
             {
                 "ap_iou_backend": self.ap_iou_backend,
@@ -73,6 +79,7 @@ class LidarCobevtRealEvaluator:
             common_request=common_request,
             num_frames=int(smoke_frames),
             warmup_frames=int(warmup_frames),
+            phase="smoke",
         )
         if not self._complete(smoke, int(smoke_frames)):
             return {"status": "smoke_failed", "smoke": smoke}
@@ -82,6 +89,7 @@ class LidarCobevtRealEvaluator:
             common_request=common_request,
             num_frames=int(screening_frames),
             warmup_frames=int(warmup_frames),
+            phase="screening",
         )
         if not self._complete(screening, int(screening_frames)):
             return {

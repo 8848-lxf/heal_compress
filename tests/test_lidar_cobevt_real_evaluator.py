@@ -27,7 +27,11 @@ def test_cobevt_evaluator_runs_smoke_before_fixed_screening(tmp_path: Path) -> N
     result = evaluator.evaluate(
         engine_path=tmp_path / "engine.plan",
         output_dir=tmp_path / "evaluation",
-        common_request={"device": "cuda:7"},
+        common_request={
+            "device": "cuda:7",
+            "smoke_eval_manifest_path": tmp_path / "smoke10.json",
+            "screening_eval_manifest_path": tmp_path / "fixed50.json",
+        },
         smoke_frames=10,
         screening_frames=50,
         warmup_frames=20,
@@ -35,6 +39,12 @@ def test_cobevt_evaluator_runs_smoke_before_fixed_screening(tmp_path: Path) -> N
 
     assert result["status"] == "ok"
     assert [row["num_frames"] for row in calls] == [10, 50]
+    assert [Path(row["eval_manifest_path"]).name for row in calls] == [
+        "smoke10.json",
+        "fixed50.json",
+    ]
+    assert all("smoke_eval_manifest_path" not in row for row in calls)
+    assert all("screening_eval_manifest_path" not in row for row in calls)
     assert all(row["num_workers"] == 8 for row in calls)
     assert all(row["ap_iou_backend"] == "gpu" for row in calls)
 
@@ -76,4 +86,3 @@ def test_cobevt_evaluator_requires_gpu_protocol(workers: int, backend: str) -> N
             evaluation_num_workers=workers,
             ap_iou_backend=backend,
         )
-

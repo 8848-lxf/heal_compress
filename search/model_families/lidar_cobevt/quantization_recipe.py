@@ -97,7 +97,7 @@ def apply_cobevt_auxiliary_typed_contract(
     """Close CoBEVT-only auxiliary dtype gaps after canonical graph typing."""
 
     import onnx
-    from onnx import helper
+    from onnx import TensorProto, helper
 
     model = onnx.load(str(input_onnx))
     try:
@@ -114,11 +114,14 @@ def apply_cobevt_auxiliary_typed_contract(
     layernorm_records = []
     elementwise_records = []
     where_records = []
+    concat_records = []
     layernorm_count = 0
+    concat_count = 0
     for node in model.graph.node:
         op_type = str(node.op_type)
         cast_inputs: tuple[int, ...] = ()
         target_input_index = 0
+        forced_activation_type: int | None = None
         cast_records = layernorm_records
         if op_type == "LayerNormalization":
             layernorm_count += 1
@@ -130,14 +133,38 @@ def apply_cobevt_auxiliary_typed_contract(
             target_input_index = 2
             cast_inputs = (1,)
             cast_records = where_records
+        elif op_type == "Concat":
+            concat_count += 1
+            input_types = [types.get(str(value)) for value in node.input]
+            floating = {int(TensorProto.FLOAT), int(TensorProto.FLOAT16)}
+            if (
+                input_types
+                and all(value in floating for value in input_types)
+                and len(set(input_types)) > 1
+            ):
+                forced_activation_type = (
+                    int(TensorProto.FLOAT16)
+                    if int(TensorProto.FLOAT16) in input_types
+                    else int(TensorProto.FLOAT)
+                )
+                cast_inputs = tuple(
+                    index
+                    for index, value in enumerate(input_types)
+                    if int(value) != forced_activation_type
+                )
+                cast_records = concat_records
         if not cast_inputs:
             rewritten.append(node)
             continue
-        if str(node.input[target_input_index]) not in types:
+        if forced_activation_type is None and str(node.input[target_input_index]) not in types:
             raise RuntimeError(
                 f"cobevt_{op_type.lower()}_activation_dtype_unresolved:{node.name}"
             )
-        activation_type = int(types[str(node.input[target_input_index])])
+        activation_type = int(
+            forced_activation_type
+            if forced_activation_type is not None
+            else types[str(node.input[target_input_index])]
+        )
         for input_index in cast_inputs:
             if input_index >= len(node.input) or not str(node.input[input_index]):
                 continue
@@ -180,6 +207,8 @@ def apply_cobevt_auxiliary_typed_contract(
                 }
             )
         rewritten.append(node)
+        for output in node.output:
+            types[str(output)] = activation_type
     del model.graph.node[:]
     model.graph.node.extend(rewritten)
     scatter_qdq_count = _scatter_qdq_count(model)
@@ -198,6 +227,10 @@ def apply_cobevt_auxiliary_typed_contract(
         "elementwise_input_cast_records": elementwise_records,
         "where_input_cast_count": len(where_records),
         "where_input_cast_records": where_records,
+        "concat_node_count": concat_count,
+        "concat_input_cast_count": len(concat_records),
+        "concat_input_cast_records": concat_records,
+        "concat_contract_dtype": "FP16" if concat_records else "",
         "scatter_qdq_count": scatter_qdq_count,
         "policy_version": "lidar-cobevt-auxiliary-typed-contract-v1",
     }
