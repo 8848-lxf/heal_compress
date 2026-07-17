@@ -1160,3 +1160,136 @@ create a new independent output directory.
 Completed checkpoint: 2026-07-17 14:42:02 +0800 CST
 
 ---
+
+## Completed repaired domain-width GA search and full validation
+
+The repaired formal search completed successfully from production commit
+`d767626c3b566d27db2aeb53de6a1e9dbc64869c`:
+
+```bash
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+PYTHONPATH=.:.. python -m search.cli \
+  --config search/configs/lidar_pyramid_h800_domain_width_joint_ga.yaml \
+  --output-root outputs
+```
+
+The complete result directory is:
+
+```text
+outputs/h800_domain_width_joint_ga_20260716_234248
+```
+
+The run returned code 0.  It completed six independent hard-band GA rounds,
+30 unique Stage-2 candidate deployments/evaluations (five per budget), six
+round-winner full validations, and final-winner selection.  The original FP32
+full-validation reference is 1789/1789 frames with zero skips, mAP
+`0.7366065145`, AP@0.70 `0.6021423571`, and forward p50 `8.656952 ms`.
+
+Stage-1 execution evidence:
+
+- backend `cuda_batched`, batch size 128, GPU workers `[1,3,4,5,6,7]`;
+- 48,316 proxy cache misses/unique evaluated phenotypes and 2,102 cache hits;
+- 282 batch evaluator calls, 1,687 GPU batches, and exactly zero scalar
+  evaluator calls;
+- measured aggregate throughput `319.56 candidates/s`;
+- actual generations before convergence/early stop were 8, 15, 14, 9, 6,
+  and 6 for targets 0.30 through 0.05, respectively;
+- every round admitted exactly five repaired unique candidates inside the
+  two-sided `abs(R_BOPS-target) <= 0.005` gate and selected three exploitation
+  plus two diversity candidates.
+
+Full-validation frontier (all rows are 1789/1789, zero skips):
+
+| target | actual R_BOPS | abs delta | winner hash | canonical INT8/FP16/FP32 | parameter prune | parameter x | mixed-weight x | BOPS x | mAP | AP@0.70 | p50 ms | speedup vs FP32 | F2 |
+|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.30 | 0.304223 | 0.004223 | `cb7b234ae178` | 0/26/44 | 21.01% | 1.266x | 2.014x | 3.287x | 0.736734 | 0.602359 | 7.115 | 1.217x | 0.164368 |
+| 0.25 | 0.254517 | 0.004517 | `9a41b6c0bac0` | 1/29/40 | 20.68% | 1.261x | 2.082x | 3.929x | 0.736701 | 0.602170 | 5.485 | 1.578x | 0.126711 |
+| 0.20 | 0.204300 | 0.004300 | `386f5ec9f802` | 3/29/38 | 21.35% | 1.271x | 2.373x | 4.895x | 0.736639 | 0.602136 | 5.030 | 1.721x | 0.116206 |
+| 0.15 | 0.154526 | 0.004526 | `f7d76246679b` | 10/31/29 | 21.35% | 1.271x | 2.740x | 6.471x | 0.736839 | 0.602607 | 4.920 | 1.760x | 0.113657 |
+| 0.10 | 0.104957 | 0.004957 | `702e8db80f45` | 14/47/9 | 22.07% | 1.283x | 3.294x | 9.528x | 0.736747 | 0.602536 | 3.465 | 2.499x | 0.080044 |
+| 0.05 | 0.054807 | 0.004807 | `abfefc9d324d` | 32/37/1 | 44.13% | 1.790x | 5.783x | 18.246x | 0.707696 | 0.572820 | 3.139 | 2.758x | 1.228937 |
+
+Here `parameter x` is original FP32 parameter count divided by the physically
+materialized parameter count, `mixed-weight x` includes both physical pruning
+and selected weight precision, `BOPS x` is W32A32 theoretical BOPS compression,
+and `speedup` is measured forward p50 speedup against the same-run strict FP32
+engine.  These quantities must not be interchanged.
+
+The configured final F2 winner is the 0.10-budget candidate
+`702e8db80f4561f01db09e66e9d8cd3cecd85636b3cdee3348f8a7fc157012e3`.
+It preserves full-validation mAP within `+0.000140` of FP32 while providing
+9.528x theoretical BOPS compression, 3.294x mixed-weight storage compression,
+22.07% physical parameter pruning, and 2.499x measured forward speedup.  Its
+identity is:
+
+```text
+physical_hash   002a622fa4ce22494012a32d23f379e6050af8ef46ec43b1a162296c154d0eb6
+engine_hash     444f64eb6e10496a62a770fea05a926b2ca0add9aa4bf8ebd8795c3a3772b51b
+deployment_hash 6d19ad68ae92fd9ad174cbbc1ff7a99b7d367780a4035a4f903d6213e3b1a339
+```
+
+Its compact pruning genotype changes exactly three of the 24 legal domain
+width genes and performs no late alignment repair:
+
+```text
+pyramid_backbone.resnet.layer2.0.conv3::out       256 -> 252
+shrink_conv.layers.0.double_conv.0::out            256 -> 68
+shrink_conv.layers.0.double_conv.2::out            256 -> 124
+```
+
+This expands deterministically to 324 pruned atomic units.  The materializer
+ledger contains 33 applied dependency-closed entries, zero repaired entries,
+zero merged entries, and zero skipped entries.  Repaired phenotype -> request
+-> physical plan equality, grouped keep/prune-map freezing, physical structure,
+real forward, and engine structure checks all passed.
+
+Deployment acceptance for every round winner:
+
+- TensorRT 10.9 production command contains `--stronglyTyped`, `--noTF32`, the
+  fixedK29696 profiles, and the project PointPillarScatter static plugin;
+- requested INT8 weighted-layer count equals realized INT8 count for every
+  winner; all canonical engine checks match 70/70 layers with zero unresolved
+  mappings;
+- precision realization, merge realization (20 merge boundaries), and engine
+  structure checks pass without mismatch;
+- semantic Q/DQ boundary audit passes with zero raw weighted/Conv-output Q/DQ
+  boundaries; all INT8 weights are layout-aware per-channel;
+- the final 0.10 candidate realizes 14 INT8, 47 FP16, and 9 FP32 canonical
+  weighted layers.  This consists of 69 searched precision genes plus the
+  mapped/protected functional MatMul FP16 entry, not an unmapped layer;
+- final validation reused the already verified round deployment artifacts:
+  six deduplicated winners and `candidate_engine_rebuild_count=0` (also zero
+  physical, ONNX, calibration, Q/DQ, and engine rebuild flags per row).
+
+Measured Pareto interpretation:
+
+- 0.15 is the highest-mAP accuracy-safe point (`0.736839`, 6.471x BOPS,
+  1.760x speedup);
+- 0.10 is the configured balanced winner and the fastest accuracy-safe point;
+- 0.05 is the maximum-compression point but loses `0.028911` mAP and should not
+  be labeled accuracy-safe;
+- on measured mAP/latency, the 0.20, 0.25, and 0.30 points are dominated by the
+  0.15 point.  They remain valid budget-specific search results, not failures.
+
+Relative to the prior greedy full-validation frontier, the repaired GA is no
+longer generally worse.  Its 0.30 result is valid while the greedy 0.30 result
+missed the hard band (`R_BOPS=0.282141`).  At 0.05 the GA improves mAP from
+`0.699808` to `0.707696`; at 0.25 it improves mAP from `0.736569` to `0.736701`
+and normalized speedup from about 1.176x to 1.578x.  The 0.10--0.20 accuracy
+differences are below 0.00005, while the repaired GA has equal or better
+same-run-normalized speedup.  Absolute cross-run latency should still be read
+with the corresponding run-specific FP32 reference.
+
+Primary machine-readable results:
+
+```text
+outputs/h800_domain_width_joint_ga_20260716_234248/final_full_validation_results.json
+outputs/h800_domain_width_joint_ga_20260716_234248/final_winner.json
+outputs/h800_domain_width_joint_ga_20260716_234248/global_summary.json
+outputs/h800_domain_width_joint_ga_20260716_234248/run_manifest.json
+```
+
+Completed checkpoint: 2026-07-17 15:52:20 +0800 CST
+
+---
