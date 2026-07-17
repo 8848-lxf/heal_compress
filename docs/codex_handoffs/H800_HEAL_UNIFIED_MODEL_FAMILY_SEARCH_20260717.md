@@ -316,3 +316,73 @@ CUDA_VISIBLE_DEVICES=6 "$TRT_ROOT/bin/trtexec" \
 Round 2 timestamp: 2026-07-17 12:42 server-local / artifact sequence `20260717_124110`
 
 ---
+
+## Round 3 — topology-aware V2X-ViT canonical weight mapping
+
+### New implementation
+
+- Added `search/model_family/onnx_mapping.py`.
+- Export smoke now captures all weighted module calls during the real ONNX trace, invokes the existing formal module origin mapper, and layers V2X-ViT-only mapping on top.
+- The accepted LiDAR-pyramid origin mapper under `quantization/**` remains unchanged.
+- `scripts/smoke_export_heal_v2xvit.py` now emits `canonical_weight_mapping.json` and feeds realized-graph mapping evidence into the readiness report.
+
+The enhanced mapper distinguishes:
+
+1. active module weights, including repeated calls that share one HGT type-0 projection;
+2. active functional `relation_att`/`relation_msg` initializers traced through Gather/Concat/Transpose into the exact Einsum node;
+3. parameter-free grid-generation MatMul nodes, which are protected compute islands rather than precision genes;
+4. activation-only attention Einsum nodes;
+5. model capabilities inactive because of the frozen type-0 export contract;
+6. truly unresolved active weighted paths, which fail the readiness gate.
+
+### Real-model result
+
+Authoritative ignored artifact directory:
+
+`outputs/h800_heal_model_family_v2xvit_mapping_smoke_20260717_124907/`
+
+Results:
+
+- Static weighted capabilities: 89.
+- Active weighted capabilities: 76.
+  - active parameterized modules: 70;
+  - active functional HGT relation parameters: 6.
+- Active weighted compute nodes/calls: 88.
+  - the extra 12 calls are the same HGT type-0 Q/K/V/A projection reused for both agents across three encoder layers;
+  - every repeated call retains a distinct graph index and canonical call identity.
+- Inactive weighted capabilities: 13.
+  - twelve HGT type-1 Q/K/V/A projections, inactive because the current LiDAR-only wrapper supplies zero type encoding;
+  - `fusion_net.fusion_net.encoder.prior_feed`, defined by HEAL but not called by `V2XTEncoder.forward`.
+- Functional relation mapping: six initializer-to-Einsum paths, all resolved.
+- Parameter-free affine/grid MatMul: three nodes grouped under a non-gene deployment identity.
+- Activation-only attention/window Einsum: 21.
+- Unresolved active weighted path: 0.
+- `realized_graph_mapping_complete=true`.
+- `full_static_branch_coverage=false`, intentionally, until a real manifest proves whether any nonzero agent type can occur.
+- Mapping hash: `8c80fc412ba6dec5fdf01deb19acb411063a7f7a671b5cbf4c5febb8421ddf7d`.
+- Mapping artifact SHA256: `93e226716c08af90c805a3b86b6515a4e00f3f8fa0762e02d6bdde7f27ce769a`.
+
+### Tests and readiness
+
+The new test builds a minimal ONNX graph with a normal Linear MatMul, a functional relation initializer consumed through Gather -> Einsum, and an inactive type-1 branch. It proves the three mapping states are disjoint and unresolved remains empty.
+
+```text
+v2xvit_realized_graph_canonical_weight_mapping: true
+v2xvit_functional_relation_weight_mapping: true
+v2xvit_parameter_free_grid_matmul_classified: true
+v2xvit_activation_only_einsum_classified: true
+v2xvit_unresolved_active_weighted_count: 0
+v2xvit_full_static_branch_coverage: false
+v2xvit_real_manifest_agent_type_policy_verified: false
+v2xvit_semantic_qdq_boundaries: false
+v2xvit_quantization_search_ready: false
+v2xvit_joint_search_ready: false
+```
+
+The next quantization step must consume the 76 active weighted capability entries, not assume the 89 static entries are all present in the specialized graph and not create genes for the three grid MatMul or 21 activation-only Einsum nodes.
+
+---
+
+Round 3 timestamp: 2026-07-17 12:50 server-local / artifact sequence `20260717_124907`
+
+---

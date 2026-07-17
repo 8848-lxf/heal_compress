@@ -94,7 +94,12 @@ def main() -> int:
     parser.add_argument("--save-engine-io", action="store_true")
     args = parser.parse_args()
 
-    from search.model_family import build_model_family_search_readiness, load_heal_model_family
+    from search.model_family import (
+        build_model_family_search_readiness,
+        build_v2xvit_onnx_mapping,
+        load_heal_model_family,
+    )
+    from quantization.export.signal_maxk import capture_weighted_module_calls
     from search.model_family.export import (
         HealV2XViTExportPolicy,
         build_heal_v2xvit_export_module,
@@ -169,17 +174,18 @@ def main() -> int:
         )
     if not args.skip_onnx:
         try:
-            torch.onnx.export(
-                wrapper,
-                inputs,
-                str(onnx_path),
-                export_params=True,
-                opset_version=args.opset,
-                do_constant_folding=True,
-                input_names=list(input_names),
-                output_names=list(policy.output_names),
-                custom_opsets={"trt": 1},
-            )
+            with capture_weighted_module_calls(wrapper) as module_calls:
+                torch.onnx.export(
+                    wrapper,
+                    inputs,
+                    str(onnx_path),
+                    export_params=True,
+                    opset_version=args.opset,
+                    do_constant_folding=True,
+                    input_names=list(input_names),
+                    output_names=list(policy.output_names),
+                    custom_opsets={"trt": 1},
+                )
             import onnx
 
             graph = onnx.load(str(onnx_path), load_external_data=False)
@@ -207,6 +213,23 @@ def main() -> int:
                     for node in graph.graph.node
                 ),
             }
+            canonical_mapping = build_v2xvit_onnx_mapping(
+                onnx_path,
+                bundle.audit,
+                module_calls,
+            ).to_dict()
+            mapping_path = args.output_dir / "canonical_weight_mapping.json"
+            mapping_path.write_text(
+                json.dumps(canonical_mapping, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+            payload["canonical_weight_mapping"] = {
+                "path": str(mapping_path.resolve()),
+                "sha256": _sha256(mapping_path),
+                "mapping_hash": canonical_mapping["mapping_hash"],
+                "metadata": canonical_mapping["metadata"],
+                "unresolved": canonical_mapping["unresolved"],
+            }
         except Exception as error:  # preserve the exact first unsupported operator
             payload["onnx_export"] = {
                 "requested": True,
@@ -222,6 +245,11 @@ def main() -> int:
             "strict_state_dict_load": True,
             "onnx_export": bool(payload["onnx_export"].get("passed")),
             "onnx_checker": bool(payload["onnx_export"].get("checker_passed")),
+            "canonical_weight_mapping": bool(
+                payload.get("canonical_weight_mapping", {})
+                .get("metadata", {})
+                .get("realized_graph_mapping_complete", False)
+            ),
             "tensor_parity": parity_gate,
         },
     ).to_dict()

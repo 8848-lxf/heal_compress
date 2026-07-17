@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 
@@ -177,3 +179,106 @@ def test_v2xvit_search_readiness_blocks_unverified_genes() -> None:
     assert "module::fusion_net.window.to_qkv" not in gated.ready_precision_gene_ids
     assert gated.ready_pruning_domain_ids == ()
     assert gated.joint_search_ready is False
+
+
+def test_v2xvit_onnx_mapping_resolves_functional_weight_and_inactive_type_branch(
+    tmp_path: Path,
+) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+    import numpy as np
+
+    from search.model_family.contracts import ModelFamilyAudit, WeightedOpCapability
+    from search.model_family.onnx_mapping import build_v2xvit_onnx_mapping
+
+    def capability(
+        canonical_id: str,
+        module_path: str,
+        source_kind: str,
+        *,
+        parameter_name: str = "",
+    ) -> WeightedOpCapability:
+        return WeightedOpCapability(
+            canonical_id=canonical_id,
+            module_path=module_path,
+            op_type="Linear" if source_kind == "module" else "FunctionalEinsumWeight",
+            source_kind=source_kind,
+            weight_shape=(4, 4),
+            allowed_precisions=("FP32", "FP16"),
+            potential_precisions=("FP32", "FP16", "INT8"),
+            default_precision="FP16",
+            weight_granularity="per_output_channel",
+            weight_axis=0,
+            input_scale_owner="input",
+            output_boundary="output",
+            production_enabled=False,
+            metadata={"parameter_name": parameter_name} if parameter_name else {},
+        )
+
+    graph = helper.make_graph(
+        [
+            helper.make_node("MatMul", ["x", "linear.weight"], ["linear_y"], name="linear/MatMul"),
+            helper.make_node(
+                "Gather", ["model.block.relation_att", "relation_index"], ["selected_relation"], name="relation/Gather", axis=0
+            ),
+            helper.make_node(
+                "Einsum", ["linear_y", "selected_relation"], ["z"], name="attention/Einsum", equation="ij,jk->ik"
+            ),
+        ],
+        "v2xvit_mapping",
+        [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4])],
+        [helper.make_tensor_value_info("z", TensorProto.FLOAT, [1, 4])],
+        initializer=[
+            numpy_helper.from_array(np.ones((4, 4), dtype=np.float32), name="linear.weight"),
+            numpy_helper.from_array(
+                np.ones((1, 4, 4), dtype=np.float32), name="model.block.relation_att"
+            ),
+            numpy_helper.from_array(np.asarray([0], dtype=np.int64), name="relation_index"),
+        ],
+    )
+    path = tmp_path / "model.onnx"
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)]), path)
+    audit = ModelFamilyAudit(
+        schema_version="test",
+        family_id="heal_lidar_v2xvit",
+        model_type="Fake",
+        parameter_count=1,
+        weighted_ops=(
+            capability("module::linear", "linear", "module"),
+            capability(
+                "functional::block.relation_att",
+                "block",
+                "functional_parameter",
+                parameter_name="block.relation_att",
+            ),
+            capability("module::block.q_linears.1", "block.q_linears.1", "module"),
+        ),
+        pruning_domains=(),
+        merge_boundaries=(),
+        deployment_operators=(),
+        plugin_requirements=(),
+        input_contract={},
+        blockers=(),
+    )
+    mapping = build_v2xvit_onnx_mapping(
+        path,
+        audit,
+        [
+            {
+                "module_path": "linear",
+                "module_type": "Linear",
+                "call_index": 0,
+                "mapped_onnx_op_type": "MatMul",
+                "weight_shape": [4, 4],
+                "groups": 1,
+            }
+        ],
+    )
+    by_id = {row.canonical_id: row for row in mapping.weighted_entries}
+    assert by_id["module::linear"].mapping_status == "active_mapped"
+    assert by_id["functional::block.relation_att"].mapping_status == "active_functional_weight_mapped"
+    assert by_id["module::block.q_linears.1"].mapping_status == "inactive_by_export_specialization"
+    assert mapping.unresolved == ()
+    assert mapping.metadata["active_weighted_capability_count"] == 2
+    assert mapping.metadata["inactive_weighted_capability_count"] == 1
+    assert mapping.metadata["realized_graph_mapping_complete"] is True
