@@ -1758,3 +1758,60 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 30 completed: 2026-07-17 05:30:21 CST ---
+
+## Round 31 - lossless completed-generation compaction and data-volume routing
+
+The accepted fresh GA run is
+`outputs/4090_joint_six_budget_ga_20260716_143201`, with entry commit
+`81680b4`. At this checkpoint, budget 0.05 completed all 20 Stage-2
+generations and budget 0.10 completed 14. Budget 0.05 produced 11 generation
+winners; the other nine generations correctly recorded no winner instead of
+duplicating candidates. Budget 0.10 had produced 14 winners. The search,
+workers, and real evaluations remained active during this maintenance work.
+
+The first retention layer removed 918 reproducible ONNX/PTH files totaling
+18.965 GiB across 34 completed generations while retaining 102 serialized
+engines. A second disk audit found that the deployment exporter intentionally
+writes several compatibility aliases with byte-identical content:
+
+- `physical_pruning_plan.json`, `physical_plan.json`, and
+  `legalized_plan.json`;
+- `pruning_request.json` and `sampling_pruning_request.json`;
+- `materialization_report.json` and `materialization_ledger.json`.
+
+`search/orchestration/stage2_artifact_compaction.py` now provides a lossless
+maintenance command. It scans only generations carrying the completed
+`stage2_artifact_retention.json` marker, checks file size and SHA256, and then
+atomically replaces only the known aliases with hardlinks to their canonical
+copy. Incomplete generations, symlinks, missing files, and any size/hash
+mismatch are skipped. All paths and bytes remain readable exactly as before.
+The first real compaction linked 408 aliases across 34 completed generations,
+reported zero mismatches, and reclaimed 13.864 GiB. Its evidence is stored at
+`joint_six_budget_ga/stage2_hardlink_compaction.json`.
+
+The separate `/data` volume was audited as writable with approximately 140
+GiB free. To preserve the already running experiment, the active generation
+was not moved. Instead, budget 0.10 generations 16-20 and complete future
+budget directories 0.15/0.20/0.25/0.30 were created under
+`/data/lxf/heal_data/outputs/4090_joint_six_budget_ga_20260716_143201/` and
+linked from their original `/home/.../outputs/...` paths. Consequently all
+runner-visible absolute paths and engine lineage remain unchanged while
+future ONNX/PTH/engine/plan writes use the data volume.
+
+The new compaction tests passed RED-to-GREEN 2/2. The combined regression gate
+passed 166/166 in 4.49 seconds, and the new module passed `py_compile` plus
+`git diff --check`.
+
+Current state:
+
+- `FORMAL_GA_RUN_ACTIVE = true`;
+- `FORMAL_GA_ENTRY_COMMIT = 81680b4`;
+- `COMPLETED_STAGE2_GENERATIONS = 34`;
+- `LOSSLESS_HARDLINK_ALIAS_COUNT = 408`;
+- `LOSSLESS_HARDLINK_MISMATCH_COUNT = 0`;
+- `LOSSLESS_HARDLINK_RECLAIMED_GIB = 13.864`;
+- `FUTURE_LARGE_ARTIFACT_VOLUME = /data/lxf/heal_data`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 31 completed: 2026-07-17 12:11:43 CST ---
