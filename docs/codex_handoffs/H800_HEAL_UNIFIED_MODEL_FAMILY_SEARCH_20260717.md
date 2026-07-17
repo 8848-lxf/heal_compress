@@ -386,3 +386,167 @@ The next quantization step must consume the 76 active weighted capability entrie
 Round 3 timestamp: 2026-07-17 12:50 server-local / artifact sequence `20260717_124907`
 
 ---
+
+## Round 4 — freeze the V2X-ViT train200 manifest and fixed-K contract
+
+### Scope and selection contract
+
+This round established a V2X-ViT-only calibration manifest. It did not reuse
+the LiDAR-pyramid train200 list or `fixedK29696`, and it did not generate NPZ,
+ONNX, Q/DQ, engine, evaluation, GA, or greedy-search artifacts.
+
+- Dataset: real HEAL DAIR-V2X train split in train mode, `visualize=false`.
+- Raw/valid train count: 4,811/4,811 for the synchronized dataset.
+- Selection policy: `evenly_spaced_valid_train_indices_v1`.
+- Selection order: 200 ascending indices spanning `[0, 4810]`; no shuffle.
+- RNG contract: Python, NumPy, and PyTorch reset before each sample with
+  `uint32(20260717 + dataset_index)`.
+- Stable identity: DAIR vehicle frame ID, infrastructure frame ID, dataset
+  index, and source-pair ID are recorded for every sample.
+- Realized agent distribution: 19 one-agent frames and 181 two-agent frames.
+- All realized modalities are `m1`, consistent with the current LiDAR-only
+  mapping and active type-0 V2X-ViT export specialization.
+- Direct indexed loading with zero workers is deliberate for manifest
+  construction determinism; it does not change the previously requested
+  eight-worker evaluation-loader policy.
+
+### K statistics and frozen value
+
+`K` is the total unpadded `inputs_m1.voxel_features.shape[0]` after HEAL's real
+per-agent preprocessing and single-frame collate.
+
+| Statistic | K |
+|---|---:|
+| min | 5,793 |
+| p50 | 20,525.50 |
+| p90 | 25,243.10 |
+| p95 | 25,984.35 |
+| p99 | 27,242.87 |
+| max | 27,666 |
+| mean | 19,793.995 |
+
+The maximum is dataset index 4,496, vehicle frame `015547`, infrastructure
+frame `001261`, with per-agent K `[14711, 12955]`.
+
+The formal derivation is:
+
+```text
+fixed_K = ceil(max_observed_train200_K / 256) * 256
+        = ceil(27666 / 256) * 256
+        = 27904
+```
+
+- Alignment margin over the maximum sample: 238 voxels.
+- Frozen-manifest truncation count: 0/200.
+- Mean padding ratio: 0.2906395.
+- The contract fails closed when a future input exceeds 27,904; it never
+  silently truncates.
+- This is only a zero-truncation guarantee for the exact frozen train200
+  manifest. It is not claimed to upper-bound the remaining 4,611 train
+  samples, the validation split, or a different preprocessing contract.
+
+### Source and frozen artifact changes
+
+- `search/model_family/calibration_manifest.py`
+  - stable 200-frame selection;
+  - per-sample RNG ownership;
+  - K distribution and 256-aligned fixed-K derivation;
+  - canonical manifest identity hashing;
+  - fail-closed validation and frozen-manifest loading.
+- `scripts/build_heal_v2xvit_train200_manifest.py`
+  - builds the real HEAL train dataset without loading large calibration NPZ;
+  - records frame provenance, per-agent K, dtypes, preprocessing and source
+    hashes;
+  - replays samples 0/100/199 and refuses to overwrite existing evidence;
+  - only accepts exactly 200 samples for this schema.
+- `search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json`
+  - committed 160-KiB frozen manifest containing the ordered 200-frame list
+    and all observed K evidence.
+- `search/model_family/export/heal_v2xvit.py`
+  - `HealV2XViTExportPolicy.from_frozen_train_manifest(...)` validates the
+    manifest and imports fixed-K/max-agents/modality plus manifest hash.
+- `scripts/smoke_export_heal_v2xvit.py`
+  - supports mutually exclusive `--fixed-k` (synthetic diagnostic only) and
+    `--fixed-k-manifest` (formal real-manifest path);
+  - records manifest path/hash in export provenance.
+- `tests/test_search_model_family_v2xvit.py`
+  - deterministic selection, fixed-K formula, tamper detection, and export
+    policy manifest-consumption tests.
+
+Frozen identities:
+
+- Manifest identity hash:
+  `03d038c0b8a4d900d247e7e06d245ce15a7614910b4254b6179d76adb1cbd000`.
+- Frozen JSON file SHA256:
+  `5d5ce47fc333f027b09a23225ac1068a6b5ac15242a9db091e10db88e3453b55`.
+- Config SHA256:
+  `801729a29db46b634646ab0db450671c13ab3cc65c1e7224ec372274a8448d5a`.
+- Checkpoint SHA256:
+  `890f7f4db7b92142c29789b4ee4649494004021eb521f94c345fbe439ca6e3ab`.
+- Train split SHA256:
+  `865e0ff2c788a67bede72a93984cc6b5f3e506fcb99c95571803322356f79051`.
+- Cooperative data-info SHA256:
+  `30aa21051f56082cfb714bf8ad93bab8c018ae2ba1211b7873852c125f3e2659`.
+
+Ignored evidence directories:
+
+- `outputs/h800_heal_model_family_v2xvit_train200_manifest_20260717_130221/`
+- `outputs/h800_heal_model_family_v2xvit_train200_manifest_replay_20260717_130450/`
+
+The second independent build produced the same manifest identity and reported
+`frozen_status=already_identical`; it did not rewrite the frozen file.
+
+### Validation and reproduction
+
+```text
+tests/test_search_model_family_v2xvit.py: 10 passed
+model-family + legacy domain-width + greedy regression: 25 passed
+git diff --check: passed
+```
+
+```bash
+cd /home/lixingfeng/UniAD_examine/heal_compress
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+
+python scripts/build_heal_v2xvit_train200_manifest.py \
+  --output-dir outputs/<new-v2xvit-train200-audit-dir> \
+  --frozen-manifest \
+    search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json
+
+# Formal exporter use after the next real-frame export round:
+CUDA_VISIBLE_DEVICES=6 python scripts/smoke_export_heal_v2xvit.py \
+  --config /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_v2xvit/config.yaml \
+  --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_v2xvit/net_epoch_bestval_at27.pth \
+  --device cuda:0 \
+  --fixed-k-manifest search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json \
+  --output-dir outputs/<new-real-fixedk-export-dir>
+```
+
+### Readiness after this round
+
+```text
+v2xvit_train200_manifest_frozen: true
+v2xvit_train200_manifest_replay_deterministic: true
+v2xvit_fixed_k_27904_frozen: true
+v2xvit_fixed_k_zero_truncation_on_train200: true
+v2xvit_fixed_k_full_train_upper_bound_verified: false
+v2xvit_real_manifest_agent_type_policy_verified: true
+v2xvit_real_fixedk_onnx_export: false
+v2xvit_real_fixedk_scatter_plugin_runtime: false
+v2xvit_semantic_qdq_boundaries: false
+v2xvit_quantization_search_ready: false
+v2xvit_pruning_search_ready: false
+v2xvit_joint_search_ready: false
+v2xvit_ga_or_greedy_started: false
+```
+
+The next bounded task is one real train200 frame through the fixedK=27904
+PyTorch wrapper/ONNX/plugin path, followed by real-frame FP16 parity. Q/DQ and
+physical pruning remain gated.
+
+---
+
+Round 4 timestamp: 2026-07-18 04:05 CST (host shell: 2026-07-17 13:05 PDT) / artifact sequence `20260717_130450`
+
+---

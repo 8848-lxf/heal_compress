@@ -136,6 +136,121 @@ def test_v2xvit_export_policy_requires_explicit_fixed_k() -> None:
         raise AssertionError("zero fixed_k must be rejected")
 
 
+def test_v2xvit_export_policy_loads_only_valid_frozen_manifest(tmp_path: Path) -> None:
+    import json
+
+    from search.model_family.calibration_manifest import (
+        V2XVIT_TRAIN200_SCHEMA,
+        finalize_v2xvit_train_manifest,
+    )
+    from search.model_family.export import HealV2XViTExportPolicy
+
+    manifest = finalize_v2xvit_train_manifest(
+        {
+            "schema_version": V2XVIT_TRAIN200_SCHEMA,
+            "family_id": "heal_lidar_v2xvit",
+            "split": "train",
+            "fixed_k_contract": {"alignment": 256},
+            "input_contract": {"max_agents": 2, "modality": "m1"},
+            "samples": [
+                {
+                    "dataset_index": index,
+                    "vehicle_frame_id": f"frame-{index}",
+                    "record_len": 2,
+                    "voxel_count": 1000 + index,
+                }
+                for index in range(200)
+            ],
+        }
+    )
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    policy = HealV2XViTExportPolicy.from_frozen_train_manifest(path)
+    assert policy.fixed_k == 1280
+    assert policy.max_agents == 2
+    assert policy.modality == "m1"
+    assert policy.calibration_manifest_hash == manifest["manifest_hash"]
+
+
+def test_v2xvit_train_manifest_selection_and_fixed_k_are_deterministic() -> None:
+    from search.model_family.calibration_manifest import (
+        V2XVIT_TRAIN200_SCHEMA,
+        evenly_spaced_indices,
+        finalize_v2xvit_train_manifest,
+        sample_seed,
+        validate_v2xvit_train_manifest,
+    )
+
+    assert evenly_spaced_indices(4811, 200)[:5] == [0, 24, 48, 73, 97]
+    assert evenly_spaced_indices(4811, 200)[-5:] == [4713, 4737, 4762, 4786, 4810]
+    assert sample_seed(20260717, 4496) == 20265213
+    manifest = finalize_v2xvit_train_manifest(
+        {
+            "schema_version": V2XVIT_TRAIN200_SCHEMA,
+            "family_id": "heal_lidar_v2xvit",
+            "split": "train",
+            "fixed_k_contract": {"alignment": 256},
+            "input_contract": {"max_points_per_voxel": 32, "max_agents": 2},
+            "samples": [
+                {
+                    "dataset_index": 0,
+                    "vehicle_frame_id": "000010",
+                    "record_len": 1,
+                    "voxel_count": 5793,
+                },
+                {
+                    "dataset_index": 4496,
+                    "vehicle_frame_id": "015547",
+                    "record_len": 2,
+                    "voxel_count": 27666,
+                },
+            ],
+        },
+        expected_sample_count=2,
+    )
+    assert manifest["fixed_k_contract"]["value"] == 27904
+    assert manifest["fixed_k_contract"]["alignment_margin_voxels"] == 238
+    assert manifest["fixed_k_contract"]["truncated_sample_count"] == 0
+    assert manifest["fixed_k_contract"]["full_train_split_upper_bound_claimed"] is False
+    validate_v2xvit_train_manifest(manifest, expected_sample_count=2)
+
+
+def test_v2xvit_train_manifest_hash_rejects_sample_tampering() -> None:
+    import copy
+
+    from search.model_family.calibration_manifest import (
+        V2XVIT_TRAIN200_SCHEMA,
+        finalize_v2xvit_train_manifest,
+        validate_v2xvit_train_manifest,
+    )
+
+    manifest = finalize_v2xvit_train_manifest(
+        {
+            "schema_version": V2XVIT_TRAIN200_SCHEMA,
+            "family_id": "heal_lidar_v2xvit",
+            "split": "train",
+            "fixed_k_contract": {"alignment": 256},
+            "samples": [
+                {
+                    "dataset_index": 3,
+                    "vehicle_frame_id": "frame-3",
+                    "record_len": 2,
+                    "voxel_count": 1000,
+                }
+            ],
+        },
+        expected_sample_count=1,
+    )
+    tampered = copy.deepcopy(manifest)
+    tampered["samples"][0]["voxel_count"] = 999
+    try:
+        validate_v2xvit_train_manifest(tampered, expected_sample_count=1)
+    except ValueError as error:
+        assert str(error) == "v2xvit_train_manifest_hash_mismatch"
+    else:
+        raise AssertionError("tampered calibration manifest must be rejected")
+
+
 def test_v2xvit_identity_sttf_preserves_grid_sample_and_masks_agents() -> None:
     from search.model_family.export.heal_v2xvit import _identity_sttf_and_roi
 
