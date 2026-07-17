@@ -596,3 +596,99 @@ archive candidates remain available for deduplicated physical deployment.
 - `COBEVT_REAL_GPU_INFERENCE_PENDING=true`
 
 --- ROUND 007 COMPLETE | 2026-07-18T04:15:54+08:00 ---
+
+## Round 008: Separate GPU Evaluation, Mixed-Concat Closure, And Real Stage-2
+
+### Code changes
+
+- Added `search/integration/lidar_cobevt_evaluation_provider.py`.
+  - Pins a selected physical GPU through `CUDA_VISIBLE_DEVICES` while the
+    subprocess uses logical `cuda:0`.
+  - Requires GPU AP/IoU, strict mode, and exactly 8 DataLoader workers.
+  - Dispatches only to the separate CoBEVT evaluation worker.
+- Added `search/integration/lidar_cobevt_evaluation_worker.py`.
+  - Uses `prepare_cobevt_maxk_inputs`, never the pyramid input preparer.
+  - Loads one target TensorRT engine without constructing a per-GPU FP32
+    reference model.
+  - Executes GPU post-processing/AP, warmup reset, exact manifest admission,
+    nonfinite/empty output checks, and p50/p90/p95 latency collection.
+- Updated `search/stage2/lidar_cobevt_real_evaluator.py` so smoke10 and fixed50
+  receive distinct count-matched manifests.
+- Updated `search/model_families/lidar_cobevt/quantization_recipe.py` with a
+  CoBEVT-only mixed floating Concat contract. If any branch is FP16, the merge
+  inputs are explicitly closed to FP16; integer shape Concat nodes are not
+  changed.
+- Added/updated four test modules for provider/worker protocol, phase-specific
+  manifests, and the mixed backbone Concat contract.
+- Implementation commit: `55a1886d200f5cb5352d1c9bc5264879abb8851f`.
+
+### Manifest and fixed-K evidence
+
+- Artifact root:
+  `/data/lxf/heal_data/outputs/4090_lidar_cobevt_model_family_smoke_20260718_042721`
+- train200 plus validation70 scanned records: 270.
+- Source maximum voxel count: 25412.
+- CoBEVT fixed K: 25600 (alignment 256), overflow count 0.
+- fixed50 manifest hash:
+  `14e70f4974c7aec17fa9579b58a4282ebaeb188e59f4dde44a018482eaa63127`.
+- GPU AP/IoU backend and 8 DataLoader workers were used for every evaluation.
+
+### Failure reproduction and fix
+
+The first real greedy mixed build failed closed at
+`/backbone_m1/Concat`: deblock0 produced Float while deblock1/2 produced Half.
+Strict FP16 had already built, isolating the problem to a missing mixed merge
+contract rather than fixed K, plugin, or TensorRT environment. A one-node RED
+test reproduced the mismatch. Adding one explicit Float-to-Half Cast allowed
+the same graph to parse/build with `--stronglyTyped --noTF32`; weak precision
+flags and precision fallback remained forbidden.
+
+### Real engine and fixed50 evidence
+
+All five engines passed deserialize, canonical requested/realized precision,
+Float-to-Float scatter, smoke10 `10/10, 0 skip`, and fixed50 `50/50, 0 skip`.
+
+| candidate | R_BOPS | R_param | weighted FP32/FP16 | mAP | AP07 | screening p50 ms |
+|---|---:|---:|---:|---:|---:|---:|
+| strict FP32 | 1.000000 | 1.000000 | 53/0 | 0.591499 | 0.410487 | 8.324 |
+| strict FP16 | 0.250000 | 1.000000 | 0/53 | 0.192366 | 0.113453 | 4.622 |
+| greedy endpoint | 0.254388 | 1.000000 | 30/23 | 0.590689 | 0.410128 | 6.630 |
+| GA generation-0 rank1 | 0.250001 | 1.000000 | 1/52 | 0.193831 | 0.115006 | 4.592 |
+| GA generation-0 pruned | 0.247149 | 0.938587 | 0/53 | 0.175288 | 0.114382 | 4.443 |
+
+The pruned GA candidate deterministically removes fixed-ranking head 7,
+changes fusion width 256 to 224, and matches predicted/physical parameters at
+9,855,410. The greedy endpoint is the accuracy-preserving result: relative to
+same-GPU strict FP32 it changes mAP by -0.000810 and screening p50 by
+8.324 to 6.630 ms (1.255x).
+
+### Search supply and limitations
+
+- GA generation 0 supplied 9 feasible phenotypes.
+- Generations 1 and 2 supplied zero candidates in `[0.2425, 0.2575]`; no
+  out-of-band candidate was promoted or duplicated.
+- Mixed INT8 remains deployment-unavailable and absent from genes.
+- Latency is parallel screening latency, not isolated formal latency.
+- No full validation was run; fixed50 results are not final model claims.
+
+### Verification
+
+- Complete focused regression: `89 passed, 26 warnings`.
+- Modified Python files: `py_compile` passed.
+- `git diff --check` passed.
+- H800 ancestor retained; pyramid worktree/controller remained untouched.
+- Large ONNX/PLAN/log outputs remain under `/data` and outside Git.
+
+### Status
+
+- `COBEVT_STRONGLY_TYPED_MODEL_FAMILY_PASS=true`
+- `COBEVT_MIXED_FP32_FP16_REALIZATION_PASS=true`
+- `COBEVT_GREEDY_REAL_STAGE2_PASS=true`
+- `COBEVT_GA_REAL_STAGE2_PASS=true`
+- `COBEVT_REAL_GPU_INFERENCE_PASS=true`
+- `COBEVT_SMOKE10_FIXED50_PASS=true`
+- `COBEVT_FULL_VALIDATION_EXECUTED=false`
+- `COBEVT_MIXED_INT8_DEPLOYMENT_AVAILABLE=false`
+- `PYRAMID_PRODUCTION_PATH_MODIFIED=false`
+
+--- ROUND 008 COMPLETE | 2026-07-18T05:01:09+08:00 ---
