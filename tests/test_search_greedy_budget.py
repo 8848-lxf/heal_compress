@@ -91,6 +91,7 @@ def test_greedy_search_recomputes_neighbors_and_captures_each_budget_once() -> N
     }) <= len(result.budget_candidates)
     assert any(count > 1 for _step, count in calls)
     assert set(result.nearest_budget_candidates) == {0.50, 0.25, 0.125}
+    assert result.to_dict()["search_semantics"]["bops_tolerance_abs"] == 0.005
 
 
 def test_greedy_search_respects_protected_precision_group() -> None:

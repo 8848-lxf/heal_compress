@@ -107,6 +107,7 @@ class GreedySearchResult:
     unreachable_targets: tuple[float, ...]
     termination_reason: str
     evaluated_neighbor_count: int
+    bops_tolerance_abs: float
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -138,7 +139,7 @@ class GreedySearchResult:
                 "neighbor_costs_recomputed_after_every_step": True,
                 "activation_taylor_included": False,
                 "budget_capture": "abs(R_BOPS-target)<=bops_tolerance_abs",
-                "bops_tolerance_abs": float(self.config.bops_tolerance_abs),
+                "bops_tolerance_abs": float(self.bops_tolerance_abs),
                 "stage2_policy": "only_unique_final_candidate_per_budget_full_validation",
             },
         }
@@ -406,4 +407,5 @@ class GreedyBudgetSearch:
             unreachable_targets=unreachable,
             termination_reason=termination,
             evaluated_neighbor_count=evaluated_neighbors,
+            bops_tolerance_abs=float(self.config.bops_tolerance_abs),
         )

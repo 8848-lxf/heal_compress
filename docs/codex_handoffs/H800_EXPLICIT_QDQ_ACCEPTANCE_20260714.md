@@ -1121,3 +1121,42 @@ PYTHONPATH=.:.. python -m search.cli \
 Completed checkpoint: 2026-07-17 14:28:33 +0800 CST
 
 ---
+
+## Formal GA runtime serialization fix
+
+The repaired formal search was launched into the new, read-only-preserved run
+directory `outputs/h800_domain_width_joint_ga_20260716_233739`.  It completed
+real model/Fisher initialization and evaluated about 15,000 CUDA-batched proxy
+candidates while constructing the shared greedy frontier, then stopped before
+the first GA generation or any Stage-2 build.
+
+The stop exposed a production serialization defect rather than an experiment
+failure: `GreedySearchResult.to_dict()` attempted to read
+`self.config.bops_tolerance_abs`, although result objects do not own the search
+config.  `search/greedy/engine.py` now carries the effective absolute BOPS
+tolerance as immutable result provenance and serializes that value directly.
+`tests/test_search_greedy_budget.py` exercises the full result serialization so
+this path cannot regress unnoticed.
+
+Validation in the explicitly activated `univ2x-opt` environment:
+
+```bash
+PYTHONPATH=.:.. pytest -q \
+  tests/test_search_greedy_budget.py tests/test_search_ga_band_contract.py
+# 6 passed
+
+PYTHONPATH=.:.. pytest -q tests/test_search*.py \
+  tests/test_two_stage_joint_search.py
+# 169 passed, 2 dependency deprecation warnings
+
+git diff --check
+# clean
+```
+
+The failed run directory was not deleted or overwritten and is not eligible for
+formal result reporting because no GA round completed.  The next launch must
+create a new independent output directory.
+
+Completed checkpoint: 2026-07-17 14:42:02 +0800 CST
+
+---
