@@ -945,3 +945,72 @@ GA/greedy artifacts remain read-only evidence.
 Completed checkpoint: 2026-07-17 12:27:00 +0800 CST
 
 ---
+
+## BOPS band-feasibility correction and subnet compression audit
+
+The intended Stage-2 admission rule was reconfirmed as a two-sided hard band:
+`abs(R_BOPS_vs_original_FP32 - target) <= 0.005`.  Static inspection found
+that the current production implementation does **not** implement that rule.
+`search/proxy/objective.py`, `search/proxy/gpu_batch_proxy.py`, and the GA
+orchestrator all compute only `max(0, R_BOPS - target)`.  Consequently, the
+current `hard_feasibility` mode rejects over-budget candidates but accepts
+arbitrarily severe undershoot.
+
+Applying the intended band retrospectively changes the formal-run status:
+
+- GA round winners at targets 0.30/0.25/0.20/0.15/0.10 have R_BOPS
+  0.201438/0.144210/0.162514/0.127768/0.068686 and must all be rejected;
+- the GA target-0.05 winner has R_BOPS 0.049122 and is the only admitted GA
+  round winner;
+- greedy targets 0.05/0.10/0.15/0.20/0.25 are inside the band;
+- greedy target 0.30 has R_BOPS 0.282141 and must be rejected.
+
+Therefore the existing formal GA result is not a budget-matched Pareto run;
+five of six round winners are inadmissible under the requested contract.
+
+The current joint objective was also verified exactly.  In
+`joint_weight_taylor_hard_bops` mode, feasible-candidate F1 is only normalized
+joint weight perturbation Taylor loss:
+
+`sum(|g * delta_w| + 0.5 * E[g^2] * delta_w^2) / full-searchable-removal-mass`,
+
+where pruned elements use `delta_w=-w` and retained quantized elements use
+`delta_w=Q_p(w)-w`.  `parameter_retention_tiebreak_epsilon=0.0`, so physical
+parameter retention/pruning rate is report-only and contributes no additive
+F1 term.  BOPS is intended as the hard resource constraint rather than a
+weighted F1 term.  Greedy uses parameter retention only as a late
+lexicographic tie-break, not as part of F1.
+
+Full-validation compression audit (parameter baseline 5,464,791; latency
+speedup uses each run's strict-FP16 baseline):
+
+| search | target | R_BOPS | band | parameter reduction | parameter x | mixed-weight x | BOPS x | mAP | p50 ms | speedup vs FP16 |
+|---|---:|---:|:---:|---:|---:|---:|---:|---:|---:|---:|
+| GA | 0.30 | 0.201438 | reject | 43.78% | 1.779x | 3.187x | 4.964x | 0.003310 | 5.398 | 1.009x |
+| GA | 0.25 | 0.144210 | reject | 60.55% | 2.535x | 5.010x | 6.934x | 0.004592 | 4.255 | 1.280x |
+| GA | 0.20 | 0.162514 | reject | 55.10% | 2.227x | 3.812x | 6.153x | 0.004090 | 4.874 | 1.118x |
+| GA | 0.15 | 0.127768 | reject | 39.94% | 1.665x | 3.236x | 7.827x | 0.005069 | 4.357 | 1.250x |
+| GA | 0.10 | 0.068686 | reject | 59.98% | 2.499x | 5.659x | 14.559x | 0.017357 | 3.625 | 1.503x |
+| GA | 0.05 | 0.049122 | admit | 63.36% | 2.729x | 6.358x | 20.358x | 0.000000 | 3.479 | 1.566x |
+| greedy | 0.05 | 0.049994 | admit | 38.57% | 1.628x | 5.458x | 20.002x | 0.699808 | 3.170 | 1.711x |
+| greedy | 0.10 | 0.098478 | admit | 22.07% | 1.283x | 3.255x | 10.155x | 0.736742 | 3.296 | 1.645x |
+| greedy | 0.15 | 0.149413 | admit | 21.01% | 1.266x | 2.500x | 6.693x | 0.736825 | 4.628 | 1.172x |
+| greedy | 0.20 | 0.196774 | admit | 21.01% | 1.266x | 2.333x | 5.082x | 0.736688 | 4.992 | 1.086x |
+| greedy | 0.25 | 0.249080 | admit | 21.01% | 1.266x | 2.169x | 4.015x | 0.736569 | 6.882 | 0.788x |
+| greedy | 0.30 | 0.282141 | reject | 21.01% | 1.266x | 2.120x | 3.544x | 0.736558 | 6.867 | 0.790x |
+
+`mixed-weight x` is `1/R_Size_vs_original_FP32`; it includes both physical
+pruning and mixed weight bit-width.  `BOPS x` is theoretical and must not be
+reported as measured latency speedup.  GA full-validation strict-FP16/FP32
+p50 references are 5.447545/8.911942 ms; greedy references are
+5.423147/8.091868 ms.  Relative to strict FP32, the measured speedup ranges
+are 1.651--2.562x for the listed GA winners and 1.176--2.552x for greedy.
+
+No production code was changed in this audit.  Before another heavy search,
+the BOPS band must be represented explicitly in CPU scoring, CUDA batched
+scoring, selection/repair, greedy budget capture, Stage-2 admission, configs,
+and tests; candidates outside the band must never enter Stage-2.
+
+Completed checkpoint: 2026-07-17 13:10:56 +0800 CST
+
+---
