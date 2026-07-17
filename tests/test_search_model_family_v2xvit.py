@@ -91,6 +91,58 @@ def test_v2xvit_registry_detects_without_touching_lidar_pyramid() -> None:
     assert detect_model_family(_config()).family_id == "heal_lidar_v2xvit"
 
 
+def test_v2xvit_deployment_replays_exact_ga_archive_identity(tmp_path: Path) -> None:
+    import json
+
+    from search.model_family.deployment import load_searched_candidate_profile
+
+    genotype = {
+        "pruning_genes": {},
+        "pruning_width_genes": {"fusion.ff.net.0::out": 192},
+        "precision_genes": {
+            "v2xvit_qg::module::backbone": "INT8",
+            "v2xvit_qg::module::fusion.ff.net.0": "FP16",
+        },
+        "meta": {"created_by": "unit_test"},
+    }
+    path = tmp_path / "ga.json"
+    path.write_text(
+        json.dumps(
+            {
+                "candidates": [
+                    {
+                        "candidate_hash": "exact-ga-hash",
+                        "R_bops_vs_fp32": 0.25,
+                        "pruned_unit_count": 64,
+                        "genotype": genotype,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    candidate = load_searched_candidate_profile(
+        path, candidate_hash="exact-ga-hash"
+    )
+    assert candidate["candidate_identity"] == "exact-ga-hash"
+    assert candidate["search_algorithm"] == "ga"
+    assert candidate["domain_width_profile"] == {"fusion.ff.net.0::out": 192}
+    assert candidate["module_precision_profile"] == {
+        "backbone": "INT8",
+        "fusion.ff.net.0": "FP16",
+    }
+
+
+def test_v2xvit_physical_snapshot_v2_tracks_real_weight_shapes() -> None:
+    from search.model_family.deployment import build_physical_structure_snapshot_v2
+
+    model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 2))
+    snapshot = build_physical_structure_snapshot_v2(model)
+    assert snapshot["snapshot_schema_version"] == "physical-structure-snapshot-v2"
+    assert [row["weight_shape"] for row in snapshot["modules"]] == [[3, 4], [2, 3]]
+    assert snapshot["snapshot_hash"]
+
+
 def test_v2xvit_audit_tracks_module_and_functional_weighted_ops() -> None:
     from search.model_family import get_model_family
 
@@ -128,7 +180,15 @@ def test_v2xvit_audit_exposes_head_ffn_merge_and_plugin_gates() -> None:
     assert plugin.plugin_key == "pointpillar_scatter_trt"
     assert plugin.required is True
     assert audit.input_contract["grid_size_xyz"] == [512, 256, 1]
-    assert "canonical_onnx_export_not_yet_smoked" in audit.blockers
+    assert plugin.compatibility_status == "validated_v2xvit_fixedk27904_h800_trt10_9"
+    assert "canonical_onnx_export_not_yet_smoked" not in audit.blockers
+    assert "hgt_functional_einsum_weights_not_yet_quantizable" in audit.blockers
+    assert all(row.production_enabled for row in audit.merge_boundaries)
+    enabled_operators = {
+        row.capability_id for row in audit.deployment_operators if row.production_enabled
+    }
+    assert "pointpillar_scatter" in enabled_operators
+    assert "transformer_attention_einsum" in enabled_operators
 
 
 def test_v2xvit_export_policy_requires_explicit_fixed_k() -> None:

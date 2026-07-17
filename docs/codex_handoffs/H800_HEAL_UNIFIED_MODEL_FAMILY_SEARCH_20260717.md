@@ -793,3 +793,237 @@ precision decisions rather than Stage-1 capability smoke variables.
 Round 5 timestamp: 2026-07-18 04:33 CST (host shell: 2026-07-17 13:33 PDT) / authoritative artifact sequence `20260717_133212`
 
 ---
+
+## Round 6: real searched subnet deployment and TensorRT evaluation
+
+This round supersedes the Round 5 deployment gate.  The V2X-ViT production
+path has now built and evaluated both a genuinely searched explicit-Q/DQ
+candidate and a genuinely searched, nonzero physically pruned candidate.  No
+lidar_pyramid search/export implementation was replaced.
+
+### Production implementation
+
+New production files:
+
+- `search/model_family/deployment.py`
+  - loads an immutable greedy budget winner or an exact GA archive hash;
+  - replays the serialized legal domain-width/Taylor ranking rather than
+    selecting new channel indices;
+  - snapshots physical weighted shapes and parameter count;
+  - canonicalizes every realized parameterized ONNX call;
+  - expands 70 module precision genes to 82 realized weighted calls;
+  - owns semantic FP16 boundaries for the BEV Concat, Transformer residual
+    Adds and SplitAttn sums;
+  - performs frozen train200 two-pass streaming entropy/KL calibration;
+  - derives layout-aware per-channel weight scales from the final physical
+    ONNX initializer;
+  - inserts input-owned requantization and does not insert activation-output
+    Q/DQ directly on raw Conv/ConvTranspose outputs.
+- `scripts/deploy_searched_heal_v2xvit.py`
+  - one production entry for candidate identity -> exact physical FFN
+    materialization -> checkpoint strict reload -> real wrapper parity ->
+    fixedK=27904 ONNX -> explicit Q/DQ/FP16 typed graph -> strongly typed TRT
+    build -> structure/precision validation -> real AP/latency evaluation;
+  - writes every run to a new directory and refuses artifact overwrite.
+- `search/model_family/evaluation.py` and
+  `search/model_family/evaluation_worker.py`
+  - isolate TensorRT inference in `modelopt`;
+  - fixed manifest frame IDs/order, warmup then iterator reset;
+  - dataloader workers=8 and CUDA NMS/AP backend;
+  - zero skipped frames is mandatory.
+
+Updated production files:
+
+- `quantization/precision/qdq_inserter.py`
+  - closes TensorRT strongly typed input types for LayerNormalization and
+    Einsum; this fixed the real Transformer parser failures that weak typing
+    had hidden.
+- `search/model_family/heal_v2xvit.py`
+  - records the now-validated fixedK scatter, FP16 merge, fixed-shape warp,
+    multi-window and Transformer FP16-island contracts;
+  - retains explicit blockers for unobserved agent-type branches, functional
+    HGT INT8 weights, attention pruning materializers and protected
+    Transformer parameter INT8.
+- `search/model_family/search_space.py`
+  - marks only the 24 admitted backbone/deblock genes as production strongly
+    typed Q/DQ; PFN/Transformer/head genes remain mapped FP16/FP32 and
+    protected from INT8.
+
+The strongly typed builder uses no `--fp16`, `--int8` or layer-precision weak
+hints.  Types come from explicit Q/DQ and Cast nodes.  The successful build
+manifest records:
+
+```text
+TensorRT: 10.9.0.34
+GPU: NVIDIA H800, compute capability 9.0
+modelopt python: /home/lixingfeng/miniconda3/envs/modelopt/bin/python
+modelopt nvcc: /home/lixingfeng/miniconda3/envs/modelopt/bin/nvcc (CUDA 11.8)
+modelopt gcc/g++: Anaconda 11.2.0
+plugin SHA256: 61d9adf44855ab2a595220718270d361c993f9ff281e986cdf8a62d5ca317ecd
+system_toolchain_used: false
+```
+
+Use `search.integration.runtime_environment.modelopt_subprocess_env()` for
+reproduction.  A bare interactive `conda activate modelopt` on this host can
+retain `/usr/local/cuda/bin` ahead of the environment compiler; the production
+launcher deliberately reconstructs and records the isolated PATH.
+
+### Real searched greedy explicit-Q/DQ candidate
+
+Artifact (ignored by Git, do not copy through the source remote):
+
+`outputs/h800_heal_v2xvit_searched_deployment_20260717_1450/`
+
+```text
+algorithm: greedy
+candidate: 0058614e876270c7e7e3d02ca906c436be5e972238ed307d4efae5fdabeacd53
+target BOPS retention: 0.25
+actual BOPS retention: 0.25348421931266785 (within +/-0.005)
+physical structure: all keep, 13,453,197 parameters
+precision genes: 1 INT8 / 18 FP16 / 51 FP32
+requested and realized INT8 weighted calls: 1 / 1
+canonical mapped weighted calls: 82; unresolved: 0
+train200 entropy: 200 frames, two streaming passes
+Q/DQ: per-channel weight, semantic input-owned activation boundary
+engine structure validation: passed
+precision realization validation: passed
+engine SHA256: a3132aa4c4c58469cd5c796970ec043d68b84896031e4b5d004bf607a8d782a6
+engine size: 52,040,628 bytes
+evaluated/skipped: 20/0
+AP@0.30 / AP@0.50 / AP@0.70: 0.642339 / 0.527196 / 0.408982
+mAP: 0.526172
+forward p50/p90/p99 ms: 14.6756 / 14.7948 / 14.8677
+```
+
+This is a genuine searched mixed-precision deployment, but it is all-keep and
+therefore is not the physical-pruning proof.
+
+### Real searched GA nonzero physical subnet
+
+Artifact:
+
+`outputs/h800_heal_v2xvit_ga_pruned_deployment_20260717_1530/`
+
+```text
+algorithm: GA exact archive member
+candidate: 9412a9a23d093d5e2dfcb7e866a15a03cad34df57f436d2a945f6885184708a4
+target BOPS retention: 0.25
+actual BOPS retention: 0.249999538064003 (within +/-0.005)
+three FFN hidden domains: 256 -> 192
+exact fixed-ranked pruned units: 192
+parameters: 13,453,197 -> 13,354,701 (reduction 98,496)
+precision genes: 0 INT8 / 70 FP16 / 0 FP32
+canonical mapped weighted calls: 82; unresolved: 0
+requested and realized FP16 weighted calls: 82 / 82
+physical checkpoint strict reload: exact
+real wrapper parity: passed
+engine structure validation: passed, including changed physical shapes
+precision realization validation: passed
+engine SHA256: f05784ad380c24f914057772b69f755e2c58ea365f1508d529508a3406737e19
+engine size: 57,108,228 bytes
+evaluated/skipped: 20/0
+AP@0.30 / AP@0.50 / AP@0.70: 0.650478 / 0.535488 / 0.356677
+mAP: 0.514214
+forward p50/p90/p99 ms: 9.7172 / 9.8409 / 9.8897
+```
+
+This is the required real searched subnet proof: its model shapes and
+parameter count changed, the fixed GA mask was replayed exactly, and the
+engine was built from that physical ONNX rather than from the original model.
+
+The 23-member bounded GA archive contains ten candidates with both nonzero
+pruning and INT8 genes, but none is inside the formal 0.25 +/-0.005 BOPS band.
+They were not promoted merely to manufacture a combined proof.  The closest
+is at 0.24158135 and is correctly rejected by the hard admission rule.  The
+single production orchestrator has nevertheless exercised both its physical
+pruning branch and its entropy/QDQ branch on immutable searched candidates.
+
+### Root causes encountered and fixed
+
+1. Strongly typed LayerNormalization rejected FP16 activation with FP32
+   scale/bias.  The compatibility closure now casts all normalization inputs
+   to the declared activation type.
+2. Strongly typed Einsum requires all operands to share one floating type.
+   The same closure now types its constant/activation operands consistently.
+3. Parameter-free affine-grid MatMul nodes were initially treated as one
+   ambiguous weighted precision entry.  They remain in the canonical operator
+   audit but are excluded from the parameterized structure/precision checker.
+4. The production acceptance schema now reports entropy/per-channel Q/DQ as
+   `not_applicable_no_int8` for an FP16-only candidate rather than claiming a
+   quantization step that did not run.
+
+Failed intermediate directories (`..._1425`, `..._1430`, `..._1440`, and
+`..._1520`) are retained as read-only debugging evidence.  The two directories
+above are the accepted results.
+
+### Tests
+
+```text
+93 passed, 1 warning:
+  tests/test_search_model_family_v2xvit.py
+  tests/test_formal_packages_cpu.py
+  tests/test_search_strongly_typed_merge_realization.py
+
+46 passed:
+  tests/test_search_domain_width_genes.py
+  tests/test_search_greedy_budget.py
+  tests/test_search_gpu_batch_integration.py
+  tests/test_search_final_contract.py
+  tests/test_two_stage_joint_search.py
+```
+
+New tests cover exact GA archive identity replay, physical weighted-shape
+snapshotting, validated provider status, and LayerNorm/Einsum strongly typed
+closure.  Use `python -m pytest`; invoking a stale standalone pytest entry can
+lose the repository import root.
+
+### Reproduction commands
+
+```bash
+cd /home/lixingfeng/UniAD_examine/heal_compress
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+
+# Greedy searched explicit-Q/DQ candidate (new output directory required).
+CUDA_VISIBLE_DEVICES=6 python scripts/deploy_searched_heal_v2xvit.py \
+  --device cuda:0 --physical-gpu 6 \
+  --output-dir outputs/<new-greedy-v2xvit-deployment-dir>
+
+# Exact GA nonzero physical candidate.
+CUDA_VISIBLE_DEVICES=6 python scripts/deploy_searched_heal_v2xvit.py \
+  --device cuda:0 --physical-gpu 6 \
+  --search-artifact \
+    outputs/h800_heal_v2xvit_ga_greedy_smoke_authoritative_20260717_133212/ga_smoke.json \
+  --candidate-hash \
+    9412a9a23d093d5e2dfcb7e866a15a03cad34df57f436d2a945f6885184708a4 \
+  --output-dir outputs/<new-ga-pruned-v2xvit-deployment-dir>
+```
+
+### Acceptance boundary
+
+```text
+real_searched_mixed_precision_engine_complete: true
+real_searched_nonzero_physical_subnet_engine_complete: true
+physical_checkpoint_strict_reload_complete: true
+physical_onnx_structure_validation_complete: true
+strongly_typed_tensorrt_complete: true
+precision_realization_complete: true
+real_fixed_manifest_smoke_evaluation_complete: true
+unresolved_weighted_calls: 0
+
+full_validation_complete: false
+broad_budget_pareto_search_complete: false
+transformer_int8_enabled: false
+attention_head_pruning_enabled: false
+```
+
+The 20-frame runs are real AP/latency smoke evaluations, not full-validation
+accuracy claims.  They are sufficient to close the requested end-to-end smoke
+gate and permit later bounded GA/greedy expansion; they do not establish a
+final Pareto frontier.
+
+---
+
+Round 6 timestamp: 2026-07-18 05:38 CST / accepted artifact sequences `20260717_1450`, `20260717_1530`
+
+---

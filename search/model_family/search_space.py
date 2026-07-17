@@ -132,8 +132,9 @@ def build_v2xvit_quantization_groups(
     A single-member group is still a real canonical quantization contract; its
     identity comes from the model-family audit, not a pruning dependency scope.
     Transformer/PFN/head entries currently allow only FP32/FP16.  The 24
-    audited backbone/deblock/shrink entries also allow INT8 at Stage 1, while
-    deployment remains gated by semantic Q/DQ evidence.
+    audited backbone/deblock/shrink entries also allow INT8; their Stage-2
+    implementation uses the family-scoped semantic-boundary entropy/QDQ path
+    and a strongly typed TensorRT realization check.
     """
 
     modules = dict(model.named_modules())
@@ -176,7 +177,11 @@ def build_v2xvit_quantization_groups(
                     "input_scale_owner": capability.input_scale_owner,
                     "output_boundary": capability.output_boundary,
                     "merge_policy": "model_family_declared_fp16_merge_contract",
-                    "stage2_qdq_status": "gated_not_claimed_by_framework_smoke",
+                    "stage2_qdq_status": (
+                        "production_strongly_typed_qdq_validated"
+                        if capability.production_enabled and "INT8" in allowed
+                        else "mapped_fp16_fp32_protected_from_int8"
+                    ),
                 },
             )
         )

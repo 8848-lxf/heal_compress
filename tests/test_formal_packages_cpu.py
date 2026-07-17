@@ -1776,6 +1776,83 @@ def test_qdq_graph_encodes_fp16_parameterized_and_functional_compute(tmp_path: P
     assert {initializer.name for initializer in typed.graph.initializer} == {"stem.weight", "stem.bias", "epsilon"}
 
 
+def test_strong_type_closure_aligns_layernorm_and_einsum_inputs(tmp_path: Path) -> None:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.api import insert_explicit_qdq
+    from quantization.config import QDQConfig
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    name = "__canonical__transformer_projection__MatMul__call00000"
+    graph = helper.make_graph(
+        [
+            helper.make_node("MatMul", ["x", "weight"], ["projected"], name=name),
+            helper.make_node(
+                "LayerNormalization",
+                ["projected", "scale", "bias"],
+                ["normalized"],
+                name="transformer_norm",
+                axis=-1,
+                epsilon=1.0e-5,
+            ),
+            helper.make_node(
+                "Einsum",
+                ["normalized", "peer"],
+                ["output"],
+                name="transformer_einsum",
+                equation="ij,jk->ik",
+            ),
+        ],
+        "transformer-strong-type-closure",
+        [
+            helper.make_tensor_value_info("x", TensorProto.FLOAT, [2, 4]),
+            helper.make_tensor_value_info("peer", TensorProto.FLOAT, [4, 3]),
+        ],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT16, [2, 3])],
+        [
+            numpy_helper.from_array(np.ones((4, 4), dtype=np.float32), "weight"),
+            numpy_helper.from_array(np.ones((4,), dtype=np.float32), "scale"),
+            numpy_helper.from_array(np.zeros((4,), dtype=np.float32), "bias"),
+        ],
+    )
+    source = tmp_path / "source.onnx"
+    destination = tmp_path / "typed.onnx"
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)]), source)
+    result = insert_explicit_qdq(
+        source,
+        destination,
+        CanonicalPrecisionMappingResult(
+            entries=[
+                CanonicalPrecisionEntry(
+                    module_path="transformer_projection",
+                    canonical_node_name=name,
+                    precision_group="transformer_projection",
+                    requested_precision="fp16",
+                    realized_request_precision="fp16",
+                    realized_output_precision="fp16",
+                    weight_initializer="weight",
+                    onnx_op_type="MatMul",
+                )
+            ]
+        ),
+        scales={},
+        config=QDQConfig(),
+    )
+    records = result.calibration_metadata["strong_type_compatibility_cast_records"]
+    by_consumer = {}
+    for row in records:
+        by_consumer.setdefault(row["consumer_node"], []).append(row)
+    assert {row["source_tensor"] for row in by_consumer["transformer_norm"]} == {
+        "scale",
+        "bias",
+    }
+    assert {row["source_tensor"] for row in by_consumer["transformer_einsum"]} == {
+        "peer"
+    }
+    onnx.checker.check_model(onnx.load(destination))
+
+
 def test_qdq_graph_closes_fp16_to_fp32_weighted_compute_without_casting_initializers(
     tmp_path: Path,
 ) -> None:

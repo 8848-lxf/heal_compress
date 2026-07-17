@@ -623,6 +623,12 @@ def _insert_strong_type_compatibility_casts(model: Any) -> list[dict[str, Any]]:
         "Mean": "all",
         "Concat": "all",
         "BatchNormalization": "all",
+        # TensorRT strongly typed INormalizationLayer requires the activation,
+        # scale and bias tensors to have one identical floating type.  Weak
+        # typing silently inserted reformats here, which hid the issue for
+        # Transformer model families with FP16 residual-merge contracts.
+        "LayerNormalization": "all",
+        "Einsum": "all",
         "PRelu": "all",
         "GridSample": (0, 1),
         "Where": (1, 2),
@@ -650,6 +656,8 @@ def _insert_strong_type_compatibility_casts(model: Any) -> list[dict[str, Any]]:
         "HardSigmoid",
         "Identity",
         "LeakyRelu",
+        "LayerNormalization",
+        "Einsum",
         "Log",
         "LogSoftmax",
         "MaxPool",
