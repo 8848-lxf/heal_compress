@@ -427,3 +427,53 @@ success alone will not make a width eligible for future search.
 ------------------------------------------------------------
 Round completed: 2026-07-19 02:28 CST
 ------------------------------------------------------------
+
+## Round 14: Single-Engine Fixed-K Contract and Final Attention Evidence
+
+The production CoBEVT experiment is now explicitly constrained to one engine
+per candidate with `fixedK=29696`. The fixed-K record carries the following
+fail-closed policy fields:
+
+- `deployment_topology=single_engine_fixed_k`;
+- `bucketed_engines=false`;
+- `overlimit_chunking=false`;
+- `overflow_policy=fail_closed`.
+
+The full 1789-frame voxel scan observed max K=29,164, so this single-engine
+contract has zero overflows. No bucketed engine, runtime engine routing,
+over-limit slicing or silent clipping was added.
+
+Added `search/reporting/cobevt_attention_report.py` to derive kernel-friendly
+widths only from successful uniform candidates that fuse MHA in the real
+CoBEVT mask/RPE graph. The corresponding RED-to-GREEN test rejects pure-graph
+fusion and non-fused widths. Real mask/RPE results select FP16 widths 16/24/32
+and explicit-QDQ INT8 widths 16/32 at the Attention-subgraph level.
+
+Generated the final lightweight evidence files without committing large model
+artifacts:
+
+- `parameter_audit.csv`;
+- `full_engine_latency.csv`;
+- `onnx_parity.csv`;
+- `trt_parity.csv`;
+- `report_artifact_manifest.json`;
+- `cobevt_attention_dim_pruning_report.md`;
+- `reproduction_commands.sh`.
+
+The repository report is
+`docs/codex_handoffs/4090-cobevt-attention-dim-pruning-report.md`. It records all
+six PyTorch FP32 and accuracy-safe mixed TensorRT fixed500 results, the strict
+FP16 accuracy failure, 40/40 Attention microbenchmark builds/executions, legal
+width recommendations, and all unresolved evidence boundaries.
+
+Formal isolated latency remains unavailable because the Pyramid controller and
+persistent workers are active. Full 1789-frame AP and full-model INT8 were not
+run. All reported full-engine latency remains explicitly classified as
+`screening_shared_gpu`.
+
+Validation: all 100 `tests/test_lidar_cobevt_*.py` tests passed. Modified Python
+files passed `py_compile`; `git diff --check` passed.
+
+------------------------------------------------------------
+Round completed: 2026-07-19 02:27 CST
+------------------------------------------------------------

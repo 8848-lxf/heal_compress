@@ -224,6 +224,10 @@ def fixed_k_selection_record(
         "overflow_count": int(full_contract.overflow_count),
         "validated_scope": "full_validation",
         "validated_for_warmup_and_evaluation": True,
+        "deployment_topology": "single_engine_fixed_k",
+        "bucketed_engines": False,
+        "overlimit_chunking": False,
+        "overflow_policy": "fail_closed",
     }
 
 

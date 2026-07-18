@@ -247,6 +247,10 @@ def test_fixed_k_selection_is_validated_against_full_validation_rows():
     assert record["pyramid_fixed_k_floor"] == 29696
     assert record["validated_scope"] == "full_validation"
     assert record["overflow_count"] == 0
+    assert record["deployment_topology"] == "single_engine_fixed_k"
+    assert record["bucketed_engines"] is False
+    assert record["overlimit_chunking"] is False
+    assert record["overflow_policy"] == "fail_closed"
 
 
 def test_engine_directory_and_profile_are_precision_specific(tmp_path: Path):

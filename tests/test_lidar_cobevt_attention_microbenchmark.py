@@ -120,3 +120,53 @@ def test_engine_audit_recognizes_mha_fusion_and_metadata_nodes(tmp_path: Path):
     assert audit["softmax_precision_layer_count"] == 1
     assert audit["av_matmul_precision_layer_count"] == 1
     assert audit["qk_matmul_precision"] == ["Int8"]
+
+
+def test_kernel_friendly_widths_require_real_mask_rpe_mha_fusion():
+    from search.reporting.cobevt_attention_report import (
+        derive_kernel_friendly_widths,
+    )
+
+    rows = [
+        {
+            "status": "ok",
+            "variant": "uniform",
+            "graph_kind": "cobevt_mask_rpe",
+            "requested_precision": "FP16",
+            "d_qk": 16,
+            "d_v": 16,
+            "mha_fused": True,
+        },
+        {
+            "status": "ok",
+            "variant": "uniform",
+            "graph_kind": "cobevt_mask_rpe",
+            "requested_precision": "FP16",
+            "d_qk": 20,
+            "d_v": 20,
+            "mha_fused": False,
+        },
+        {
+            "status": "ok",
+            "variant": "uniform",
+            "graph_kind": "cobevt_mask_rpe",
+            "requested_precision": "INT8",
+            "d_qk": 32,
+            "d_v": 32,
+            "mha_fused": True,
+        },
+        {
+            "status": "ok",
+            "variant": "uniform",
+            "graph_kind": "pure_attention",
+            "requested_precision": "INT8",
+            "d_qk": 24,
+            "d_v": 24,
+            "mha_fused": True,
+        },
+    ]
+
+    assert derive_kernel_friendly_widths(rows) == {
+        "FP16": [16],
+        "INT8": [32],
+    }
