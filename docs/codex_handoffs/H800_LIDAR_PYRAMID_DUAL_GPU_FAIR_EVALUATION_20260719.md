@@ -126,3 +126,20 @@ their original GA, greedy, and ablation artifact directories.
 Completed checkpoint: 2026-07-19 07:17:50 +0800 CST
 
 ---
+
+## Git delivery
+
+Implementation, tests, small machine-readable reports, and this handoff were
+committed on `feature/heal-unified-search-h800`:
+
+```text
+f445476 feat(search): add dual-GPU fair engine evaluation
+```
+
+The branch is locally four commits ahead of the remote immediately after this
+implementation commit. A push is attempted separately; if authentication is
+still unavailable, `f445476` is the commit that must be fetched or transferred.
+
+Completed checkpoint: 2026-07-19 07:21:25 +0800 CST
+
+---

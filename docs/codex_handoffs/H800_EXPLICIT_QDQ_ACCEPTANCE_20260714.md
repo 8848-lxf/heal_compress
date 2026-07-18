@@ -1420,3 +1420,13 @@ docs/codex_handoffs/H800_LIDAR_PYRAMID_DUAL_GPU_FAIR_EVALUATION_20260719.md
 Completed checkpoint: 2026-07-19 07:17:50 +0800 CST
 
 ---
+
+Dual-GPU fairness implementation/results commit:
+
+```text
+f445476 feat(search): add dual-GPU fair engine evaluation
+```
+
+Completed checkpoint: 2026-07-19 07:21:25 +0800 CST
+
+---
