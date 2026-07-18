@@ -96,3 +96,46 @@ Validation:
 ------------------------------------------------------------
 Round completed: 2026-07-18 08:35 CST
 ------------------------------------------------------------
+
+## Round 4: Resumable Runner and Preliminary Fixed-500 Validation
+
+Implemented:
+
+- resumable experiment phases for prepare, structure, PyTorch fixed-500,
+  strongly typed FP16 export/build and TensorRT fixed-500 evaluation;
+- streaming Attention-only mean-gradient collection on real HEAL task loss;
+- fixed 20-frame warmup plus 500-frame validation manifest;
+- GPU AP/IoU postprocessing with eight DataLoader workers;
+- production GPU TP/FP helper independent of test-module import paths;
+- per-candidate result upsert and preserved failed-protocol records.
+
+Debug evidence:
+
+- fixed GPU-weight/CPU-gradient Taylor scoring with an explicit cross-device
+  regression test;
+- fixed independent-worktree AP helper import failure;
+- fixed malformed `OrderedDict` postprocess mapping before any frame was scored;
+- all failed attempts remain in the output `failure_records/` directory.
+
+Preliminary real run:
+
+- output: `/data/lxf/heal_data/outputs/cobevt_attention_dim_pruning_20260718_082508`;
+- Taylor calibration: 50 real train samples, micro-batch 1;
+- all six candidates passed full-model physical forward;
+- all six completed the same fixed validation set at 500/500, zero skip;
+- preliminary FP32 PyTorch mAP: baseline `0.649178`, QK24 `0.647130`,
+  QK16 `0.640181`, B1-24 `0.645439`, B1-16 `0.640215`, B2-24
+  `0.485090`.
+
+The B2 structure is legal but its zero-shot accuracy collapses by `0.164088`
+absolute mAP. It is not accepted as a future legal search action from this
+evidence. These measurements are marked preliminary because the runner changes
+were not yet committed when they ran; they will be repeated from the clean
+committed code before TensorRT construction.
+
+Validation after implementation: 92 related tests passed; `py_compile` and
+`git diff --check` passed.
+
+------------------------------------------------------------
+Round completed: 2026-07-18 09:00 CST
+------------------------------------------------------------

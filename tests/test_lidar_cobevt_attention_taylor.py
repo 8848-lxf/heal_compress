@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
+import pytest
 
 
 class _TinyExplicitAttention(nn.Module):
@@ -111,3 +112,21 @@ def test_model_taylor_masks_are_module_local_and_deterministic():
     assert masks["second"].qk_keep_by_head[0] == (1,)
     assert audit["first"]["qk_ranking_by_head"][0][0] == 1
     assert audit["second"]["qk_ranking_by_head"][0][0] == 0
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_taylor_scoring_accepts_gpu_weights_and_cpu_mean_gradients():
+    from search.model_families.lidar_cobevt.attention_taylor import (
+        first_order_attention_scores,
+    )
+
+    module = _TinyExplicitAttention().cuda()
+    gradients = {
+        name: torch.ones_like(parameter, device="cpu")
+        for name, parameter in module.named_parameters()
+    }
+
+    scores = first_order_attention_scores(module, gradients)
+
+    assert len(scores.qk_by_head) == 2
+    assert len(scores.vo_by_head) == 2
