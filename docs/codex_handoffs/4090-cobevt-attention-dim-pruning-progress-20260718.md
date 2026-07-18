@@ -269,3 +269,25 @@ Validation: 28 CoBEVT Attention tests passed; modified Python files passed
 ------------------------------------------------------------
 Round completed: 2026-07-19 00:42 CST
 ------------------------------------------------------------
+
+## Round 9: Strict-FP32 Control Gate for TensorRT Accuracy Diagnosis
+
+All six K=29,696 strongly typed FP16 engines built successfully, with exact
+requested/realized FP16 precision audits. The baseline passed smoke10 and then
+completed fixed500 at 500/500 with zero skip, but its TensorRT FP16 mAP was
+`0.402059` versus `0.648880` for the same physical baseline in PyTorch FP32 on
+the identical manifest. Remaining candidate evaluations were stopped rather
+than treating this unexplained deployment delta as valid Attention-pruning
+evidence.
+
+The experiment runner now supports precision-specific FP32/FP16 control engine
+directories and an optional candidate filter. This permits one exact baseline
+FP32 control build/evaluation without rebuilding every candidate or mixing
+engine identities. FP16 remains the default protocol.
+
+Validation: 29 CoBEVT Attention tests passed; modified Python passed
+`py_compile`; `git diff --check` passed.
+
+------------------------------------------------------------
+Round completed: 2026-07-19 01:02 CST
+------------------------------------------------------------

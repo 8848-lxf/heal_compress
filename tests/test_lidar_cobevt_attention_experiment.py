@@ -247,3 +247,25 @@ def test_fixed_k_selection_is_validated_against_full_validation_rows():
     assert record["pyramid_fixed_k_floor"] == 29696
     assert record["validated_scope"] == "full_validation"
     assert record["overflow_count"] == 0
+
+
+def test_engine_directory_and_profile_are_precision_specific(tmp_path: Path):
+    from search.orchestration.lidar_cobevt_attention_pruning import (
+        candidate_engine_directory,
+        requested_uniform_precision,
+    )
+
+    class Entry:
+        def __init__(self, module_path: str) -> None:
+            self.module_path = module_path
+
+    class Capability:
+        weighted_entries = (Entry("q_proj"), Entry("k_proj"))
+
+    assert candidate_engine_directory(
+        tmp_path, "baseline", 29696, precision="FP32"
+    ).name == "fp32_engine_k29696"
+    assert requested_uniform_precision(Capability(), "FP32") == {
+        "q_proj": "FP32",
+        "k_proj": "FP32",
+    }

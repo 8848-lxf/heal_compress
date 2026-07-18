@@ -221,14 +221,30 @@ def fixed_k_selection_record(
 
 
 def candidate_engine_directory(
-    output_dir: Path, candidate_id: str, fixed_k: int
+    output_dir: Path,
+    candidate_id: str,
+    fixed_k: int,
+    *,
+    precision: str = "FP16",
 ) -> Path:
+    normalized = str(precision).strip().upper()
+    if normalized not in {"FP32", "FP16"}:
+        raise ValueError(f"unsupported_control_engine_precision:{precision}")
     return (
         output_dir
         / "candidates"
         / str(candidate_id)
-        / f"fp16_engine_k{int(fixed_k)}"
+        / f"{normalized.lower()}_engine_k{int(fixed_k)}"
     )
+
+
+def requested_uniform_precision(capability: Any, precision: str) -> dict[str, str]:
+    normalized = str(precision).strip().upper()
+    if normalized not in {"FP32", "FP16"}:
+        raise ValueError(f"unsupported_control_engine_precision:{precision}")
+    return {
+        str(row.module_path): normalized for row in capability.weighted_entries
+    }
 
 
 def _sha256(path: str | Path) -> str:
@@ -932,6 +948,8 @@ def run_export_build(
     physical_gpu: int,
     trt_root: Path,
     plugin_path: Path,
+    engine_precision: str = "FP16",
+    candidate_ids: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     from search.integration.runtime_environment import discover_trt_environment
     from search.model_families.lidar_cobevt.deployment_recipe import CobevtDeploymentRecipe
@@ -946,11 +964,18 @@ def run_export_build(
     if not bool(experiment.get("fixed_k_validated", False)):
         raise RuntimeError("fixed_k_not_validated_for_fixed500_manifest")
     fixed_k = int(experiment["fixed_k"])
+    normalized_precision = str(engine_precision).strip().upper()
+    selected_ids = {str(value) for value in (candidate_ids or ())}
     rows = []
     for record in experiment["candidates"]:
         spec = _spec_from_record(record)
+        if selected_ids and spec.candidate_id not in selected_ids:
+            continue
         destination = candidate_engine_directory(
-            output_dir, spec.candidate_id, fixed_k
+            output_dir,
+            spec.candidate_id,
+            fixed_k,
+            precision=normalized_precision,
         )
         report_path = destination / "build_report.json"
         if report_path.is_file():
@@ -983,11 +1008,15 @@ def run_export_build(
             origin = _origin_map_from_dict(export.origin_map)
             quant = CobevtQuantizationRecipe()
             capability = quant.build_capability(origin)
-            requested = {
-                row.module_path: "FP16" for row in capability.weighted_entries
-            }
+            requested = requested_uniform_precision(
+                capability, normalized_precision
+            )
             profile = quant.build_profile(
-                capability, requested, profile_id=f"{spec.candidate_id}_strict_fp16"
+                capability,
+                requested,
+                profile_id=(
+                    f"{spec.candidate_id}_strict_{normalized_precision.lower()}"
+                ),
             )
             mapping = quant.build_mapping(origin, profile)
             typed = destination / "typed.onnx"
@@ -1048,6 +1077,7 @@ def run_export_build(
                 **spec.to_dict(),
                 "status": "ok",
                 "code_commit": _git_commit(),
+                "engine_precision": normalized_precision,
                 "fixed_k": fixed_k,
                 "build_elapsed_seconds": time.monotonic() - started,
                 "builder_command": record_to_dict(command),
@@ -1071,14 +1101,16 @@ def run_export_build(
             result = {
                 **spec.to_dict(),
                 "status": "failed",
+                "engine_precision": normalized_precision,
                 "failure_reason": f"{type(exc).__name__}: {exc}",
             }
         _write_json(report_path, result)
         rows.append(result)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-    _write_json(output_dir / "full_engine_build_results.json", rows)
-    _write_csv(output_dir / "full_engine_build_results.csv", rows)
+    suffix = "" if normalized_precision == "FP16" else "_fp32"
+    _write_json(output_dir / f"full_engine_build_results{suffix}.json", rows)
+    _write_csv(output_dir / f"full_engine_build_results{suffix}.csv", rows)
     return {
         "candidate_count": len(rows),
         "successful_count": sum(row.get("status") == "ok" for row in rows),
@@ -1094,6 +1126,8 @@ def run_trt500(
     physical_gpu: int,
     trt_root: Path,
     plugin_path: Path,
+    engine_precision: str = "FP16",
+    candidate_ids: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     from search.integration.lidar_cobevt_evaluation_provider import (
         evaluate_cobevt_engine_modelopt,
@@ -1103,9 +1137,12 @@ def run_trt500(
     if not bool(experiment.get("fixed_k_validated", False)):
         raise RuntimeError("fixed_k_not_validated_for_fixed500_manifest")
     fixed_k = int(experiment["fixed_k"])
+    normalized_precision = str(engine_precision).strip().upper()
+    selected_ids = {str(value) for value in (candidate_ids or ())}
     smoke_manifest = Path(experiment["manifests"]["smoke10"]["path"])
     manifest = Path(experiment["manifests"]["fixed500"]["path"])
-    results_path = output_dir / "trt_ap500_results.json"
+    suffix = "" if normalized_precision == "FP16" else "_fp32"
+    results_path = output_dir / f"trt_ap500_results{suffix}.json"
     rows = (
         json.loads(results_path.read_text(encoding="utf-8"))
         if results_path.is_file()
@@ -1118,10 +1155,15 @@ def run_trt500(
     }
     for record in experiment["candidates"]:
         spec = _spec_from_record(record)
+        if selected_ids and spec.candidate_id not in selected_ids:
+            continue
         if spec.candidate_id in completed_ids:
             continue
         candidate = candidate_engine_directory(
-            output_dir, spec.candidate_id, fixed_k
+            output_dir,
+            spec.candidate_id,
+            fixed_k,
+            precision=normalized_precision,
         )
         build_report = candidate / "build_report.json"
         if not build_report.is_file():
@@ -1167,7 +1209,7 @@ def run_trt500(
             }
             rows = upsert_candidate_result(rows, row)
             _write_json(results_path, rows)
-            _write_csv(output_dir / "trt_ap500_results.csv", rows)
+            _write_csv(output_dir / f"trt_ap500_results{suffix}.csv", rows)
             continue
         evaluation_dir = candidate / "evaluation_fixed500"
         result_path = evaluation_dir / "evaluation.json"
@@ -1202,7 +1244,7 @@ def run_trt500(
         }
         rows = upsert_candidate_result(rows, row)
         _write_json(results_path, rows)
-        _write_csv(output_dir / "trt_ap500_results.csv", rows)
+        _write_csv(output_dir / f"trt_ap500_results{suffix}.csv", rows)
     return {
         "candidate_count": len(rows),
         "successful_count": sum(row.get("status") == "ok" for row in rows),
@@ -1242,6 +1284,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--physical-gpu", type=int, default=2)
     parser.add_argument("--gradient-samples", type=int, default=50)
+    parser.add_argument(
+        "--engine-precision", choices=("FP32", "FP16"), default="FP16"
+    )
+    parser.add_argument("--candidate-id", action="append", default=[])
     return parser
 
 
@@ -1273,6 +1319,8 @@ def main(argv: list[str] | None = None) -> int:
             physical_gpu=int(args.physical_gpu),
             trt_root=Path(args.trt_root).expanduser().resolve(),
             plugin_path=Path(args.plugin).expanduser().resolve(),
+            engine_precision=str(args.engine_precision),
+            candidate_ids=tuple(args.candidate_id),
         )
     else:
         result = run_trt500(
@@ -1280,6 +1328,8 @@ def main(argv: list[str] | None = None) -> int:
             physical_gpu=int(args.physical_gpu),
             trt_root=Path(args.trt_root).expanduser().resolve(),
             plugin_path=Path(args.plugin).expanduser().resolve(),
+            engine_precision=str(args.engine_precision),
+            candidate_ids=tuple(args.candidate_id),
         )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
