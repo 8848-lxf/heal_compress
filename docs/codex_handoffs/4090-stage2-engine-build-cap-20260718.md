@@ -8,7 +8,7 @@
 - Required H800 ancestor: `b862b3d8ad061bd12580776226c75f564918298d`
 - H800 ancestor check: passed
 - Old run active: false
-- Corrected fresh run started: false at this documentation checkpoint
+- Corrected fresh run started: true
 
 ## Direct Finding
 
@@ -136,9 +136,68 @@ ZERO_CANDIDATE_GENERATION_SKIPPED=true
 SINGLE_CANDIDATE_500FRAME_SKIPPED=true
 TWO_TO_FIVE_CANDIDATES_EVALUATE_500=true
 OLD_RUN_ACCEPTED=false
-CORRECTED_RUN_STARTED=false
+CORRECTED_RUN_STARTED=true
 STAGE_A_STARTED=false
 STAGE_B_ALLOWED=false
 ```
 
 --- Round completed: 2026-07-18 21:57:18 CST ---
+
+## Fresh Runtime Verification
+
+The corrected search started from budget 0.05, generation 0 under commit
+`9f89c4e78331f00db34f30b8cd3857e198c1b529`. Large artifacts are isolated at:
+
+```text
+/var/tmp/lxf/heal_data/outputs/4090_joint_six_budget_ga_20260718_070044
+```
+
+All three Stage-1 populations completed 20 generations before merged
+per-generation Stage-2 began. Budget 0.05 generation 1 provided the first real
+runtime proof of the corrected contract:
+
+```text
+physical_preflight_attempt_count=5
+physical_preflight_admitted_count=5
+engine_build_attempt_count=5
+build_success_count=5
+evaluated_500_count=5
+selected_count=5
+generation_skipped=false
+failure_stage_histogram={}
+failure_reason_histogram={}
+```
+
+Worker task IDs 1-5 were exactly five `physical_preflight` tasks. Task IDs
+6-10 were exactly five `build_smoke` tasks. The candidate directory count
+remained five throughout calibration and strongly typed TensorRT build. Tasks
+11-15 evaluated those same five engines for 500 frames; no candidate 6 and no
+post-build replacement were created.
+
+The five physical preflight BOPS retentions were in
+`[0.0547185, 0.0549570]`, inside the 0.05 primary interval `[0.045, 0.055]`.
+Every build command used `--stronglyTyped --noTF32`. Generation 1's winner was:
+
+```text
+candidate_hash=b9611adf690c6dfbb564ca76e15985e21b33c7fc3e78a993ed9026ed18750c5d
+physical_hash=c184d7fb6b503d5e24f9780857d1bc3ec3639503668d347af09590815c6688ef
+deployment_hash=588af84870e4d29b3cf9b3770262adfbd7ef088812797b00749f6d90bfdff9c8
+engine_hash=73917b60b86f961d6eed0c222bfd68cefd9c02d60b99701b7f6e037dce356688
+BOPS_physical=0.054743387259575595
+BOPS_realized=0.054743387259575595
+AP03=0.8044561424157831
+AP05=0.7533605468730864
+AP07=0.5693577155183848
+mAP=0.7090581349357513
+forward_p50_ms=3.99215891957283
+forward_p90_ms=10.355411842465404
+forward_p95_ms=15.771772619336836
+evaluated=500
+skipped=0
+```
+
+At this checkpoint generation 2 physical preflight had started. The controller
+and eight persistent workers remained active. The run occupied 3.6 GiB and
+the selected filesystem retained approximately 302 GiB free.
+
+--- Runtime verification completed: 2026-07-18 22:19:51 CST ---

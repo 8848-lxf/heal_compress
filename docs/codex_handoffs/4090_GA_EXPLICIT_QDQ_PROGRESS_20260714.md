@@ -1869,3 +1869,41 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 32 completed: 2026-07-18 21:57:18 CST ---
+
+## Round 33 - verify the capped contract in fresh real Stage-2
+
+The corrected six-budget search started fresh from budget 0.05 generation 0
+under remote commit `9f89c4e`. The run is isolated at
+`/var/tmp/lxf/heal_data/outputs/4090_joint_six_budget_ga_20260718_070044`
+because `/data` had only approximately 14 GiB free; no historical output was
+deleted or overwritten.
+
+All three independent Stage-1 populations completed their 20 generations.
+They were merged by generation before Stage-2, so the three seeds did not
+multiply engine slots. The first real generation then produced exactly five
+physical-preflight tasks, exactly five strongly typed build/smoke tasks, and
+exactly five 500-frame evaluation tasks. Candidate directories never exceeded
+five. All five preflights and builds passed, so the generation decision reports
+`engine_build_attempt_count=5`, `build_success_count=5`,
+`evaluated_500_count=5`, empty failure histograms, and no skip.
+
+Generation 1 winner `b9611adf690c...` achieved BOPS retention `0.0547434`,
+500/500 evaluated with zero skip, mAP `0.709058`, AP@0.7 `0.569358`, and
+forward p50 `3.992 ms`. Its physical and realized BOPS were identical, and the
+build command carried `--stronglyTyped --noTF32`.
+
+The fresh search remains active and has entered generation 2. Full runtime
+evidence, hashes, and paths are appended to
+`docs/codex_handoffs/4090-stage2-engine-build-cap-20260718.md`.
+
+Current state:
+
+- `CORRECTED_SIX_BUDGET_RUN_ACTIVE = true`;
+- `CORRECTED_RUN_ENTRY_COMMIT = 9f89c4e`;
+- `BUDGET_005_GENERATION_001_COMPLETE = true`;
+- `GENERATION_001_ENGINE_BUILD_ATTEMPTS = 5`;
+- `POST_BUILD_BACKFILL_OBSERVED = false`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 33 completed: 2026-07-18 22:19:51 CST ---
