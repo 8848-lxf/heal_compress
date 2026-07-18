@@ -349,3 +349,43 @@ precision and will not be reported as strict FP16.
 ------------------------------------------------------------
 Round completed: 2026-07-19 01:35 CST
 ------------------------------------------------------------
+
+## Round 12: Accuracy-Safe Mixed Engines and Attention INT8 Harness
+
+The explicit `attention_fp32_rest_fp16` contract realizes 24 Attention
+projection groups in FP32 and the remaining 42 weighted groups in FP16. All six
+candidate engines built and passed the exact requested/realized audit. All six
+also completed fixed500 at 500/500 with zero skip:
+
+| candidate | AP30 | AP50 | AP70 | mAP | screening p50 ms |
+|---|---:|---:|---:|---:|---:|
+| baseline d32 | 0.779746 | 0.683858 | 0.483353 | 0.648986 | 6.388 |
+| QK-only d24 | 0.779693 | 0.682241 | 0.477297 | 0.646411 | 6.409 |
+| QK-only d16 | 0.776816 | 0.674873 | 0.466569 | 0.639419 | 6.151 |
+| B1 uniform d24 | 0.778779 | 0.680786 | 0.477258 | 0.645608 | 5.948 |
+| B1 uniform d16 | 0.774184 | 0.672532 | 0.470640 | 0.639119 | 5.506 |
+| B2 global d24 | 0.752141 | 0.562050 | 0.141914 | 0.485368 | 6.056 |
+
+These latency values remain screening measurements because Pyramid workers are
+still resident on the server. B1 d24/d16 provide the best observed structural
+latency tradeoff. B2 global d24 remains accuracy-invalid without recovery
+training.
+
+Added a real-activation Attention microbenchmark harness:
+
+- uniform d_h scan: 8, 12, 16, 20, 24, 28 and 32;
+- QK-only controls: (24,32), (16,32), and V-only (32,16);
+- pure Attention and CoBEVT mask/RPE graph variants;
+- typed FP16 and explicit-QDQ INT8 builds;
+- symmetric per-output-channel linear weight Q/DQ;
+- per-tensor activation Q/DQ;
+- strongly typed TensorRT builds and EngineInspector realization records;
+- actual captured CoBEVT activation/mask parity and 100-iteration screening
+  latency.
+
+The harness does not claim INT8 realization from build success alone; it records
+projection, QK MatMul, Softmax, AV MatMul and out projection tensor formats.
+
+------------------------------------------------------------
+Round completed: 2026-07-19 02:08 CST
+------------------------------------------------------------
