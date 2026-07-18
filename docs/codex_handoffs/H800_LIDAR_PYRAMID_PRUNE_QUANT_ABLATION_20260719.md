@@ -127,6 +127,14 @@ ablation_report.md
 - no historical engine, ONNX, checkpoint, or experiment directory was
   overwritten.
 
+Git delivery:
+
+- implementation/results commit: `a811ce8` (`feat(search): add lidar pyramid prune quant ablation`);
+- branch: `feature/heal-unified-search-h800`;
+- HTTPS push was attempted but the server's VS Code Git credential socket was
+  stale and GitHub rejected anonymous write access; no credential, remote URL,
+  or system configuration was changed.
+
 Completed: 2026-07-19 05:47:26 CST
 
 ---

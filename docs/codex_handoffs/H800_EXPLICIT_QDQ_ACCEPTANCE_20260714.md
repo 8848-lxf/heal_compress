@@ -1380,6 +1380,11 @@ p50/p90/p99, precision coverage, parameter pruning, speedup, contribution, and
 interaction tables. Outputs, checkpoints, ONNX files, Q/DQ files, calibration
 caches, and engines remain excluded from Git.
 
+Implementation/results commit: `a811ce8`. Push to the current H800 branch was
+attempted, but GitHub authentication was unavailable because the VS Code Git
+credential socket on this server was stale; the local branch remains the
+authoritative source until credentials are refreshed.
+
 Completed checkpoint: 2026-07-19 05:47:26 +0800 CST
 
 ---
