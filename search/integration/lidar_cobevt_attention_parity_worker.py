@@ -15,6 +15,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from search.model_families.lidar_cobevt.attention_tensor_parity import (
+    metric_accumulation_spec,
     qk_metrics,
     residual_metrics,
     select_failure_frames,
@@ -248,6 +249,10 @@ def main(argv: list[str] | None = None) -> int:
             "skip_reason_counts": dict(skip_reasons),
             "status": "ok" if complete else "parity_failed",
             "summary_rows": _aggregate(detailed),
+            "tensor_metrics_backend": device.type,
+            "tensor_metrics_dtype": str(
+                metric_accumulation_spec(device.type)["dtype"]
+            ),
         }
     except Exception as exc:  # noqa: BLE001
         result = {

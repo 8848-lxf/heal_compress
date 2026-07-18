@@ -173,8 +173,16 @@ def attention_diagnostic_output_specs(
     return specs
 
 
-def _float64(value: torch.Tensor) -> torch.Tensor:
-    return value.detach().to(device="cpu", dtype=torch.float64)
+def metric_accumulation_spec(device_type: str) -> dict[str, Any]:
+    return {
+        "device_policy": "preserve",
+        "dtype": torch.float32 if str(device_type) == "cuda" else torch.float64,
+    }
+
+
+def _metric_tensor(value: torch.Tensor) -> torch.Tensor:
+    spec = metric_accumulation_spec(value.device.type)
+    return value.detach().to(device=value.device, dtype=spec["dtype"])
 
 
 def _finite_stats(value: torch.Tensor) -> dict[str, float]:
@@ -197,8 +205,8 @@ def tensor_error_metrics(
         raise ValueError(
             f"attention_parity_shape_mismatch:{tuple(reference.shape)}:{tuple(candidate.shape)}"
         )
-    ref = _float64(reference)
-    cand = _float64(candidate)
+    ref = _metric_tensor(reference)
+    cand = _metric_tensor(candidate)
     ref_finite = torch.isfinite(ref)
     cand_finite = torch.isfinite(cand)
     common = ref_finite & cand_finite
@@ -275,7 +283,7 @@ def _topk_overlap(
             ref_indices.unsqueeze(-1) == cand_indices.unsqueeze(-2)
         ).any(dim=-1).sum(dim=-1)
         result[f"topk_overlap_{requested}"] = float(
-            (overlap.to(torch.float64) / float(k)).mean()
+            (overlap.to(dtype=rows.dtype) / float(k)).mean()
         )
     return result
 
@@ -286,15 +294,19 @@ def qk_metrics(
     *,
     topk_values: Sequence[int] = (1, 4, 8),
 ) -> dict[str, Any]:
-    ref = _float64(reference)
-    cand = _float64(candidate)
+    ref = _metric_tensor(reference)
+    cand = _metric_tensor(candidate)
     if ref.shape != cand.shape or ref.ndim < 1:
         raise ValueError("qk_parity_shape_mismatch")
     width = int(ref.shape[-1])
     ref_rows = ref.reshape(-1, width)
     cand_rows = cand.reshape(-1, width)
-    ref_ranks = torch.argsort(torch.argsort(ref_rows, dim=-1), dim=-1).to(torch.float64)
-    cand_ranks = torch.argsort(torch.argsort(cand_rows, dim=-1), dim=-1).to(torch.float64)
+    ref_ranks = torch.argsort(torch.argsort(ref_rows, dim=-1), dim=-1).to(
+        dtype=ref.dtype
+    )
+    cand_ranks = torch.argsort(torch.argsort(cand_rows, dim=-1), dim=-1).to(
+        dtype=ref.dtype
+    )
     ref_centered = ref_ranks - ref_ranks.mean(dim=-1, keepdim=True)
     cand_centered = cand_ranks - cand_ranks.mean(dim=-1, keepdim=True)
     numerator = (ref_centered * cand_centered).sum(dim=-1)
@@ -312,10 +324,12 @@ def qk_metrics(
             .mean()
         ),
         "row_rank_correlation": float((numerator / denominator).mean()),
-        "sign_flip_ratio": float(((ref < 0) != (cand < 0)).to(torch.float64).mean()),
+        "sign_flip_ratio": float(
+            ((ref < 0) != (cand < 0)).to(dtype=ref.dtype).mean()
+        ),
         "top1_index_agreement": float(
             (ref_rows.argmax(dim=-1) == cand_rows.argmax(dim=-1))
-            .to(torch.float64)
+            .to(dtype=ref.dtype)
             .mean()
         ),
     }
@@ -331,8 +345,8 @@ def softmax_metrics(
     epsilon: float = 1e-12,
     tiny_threshold: float = 1e-7,
 ) -> dict[str, Any]:
-    ref = _float64(reference)
-    cand = _float64(candidate)
+    ref = _metric_tensor(reference)
+    cand = _metric_tensor(candidate)
     if ref.shape != cand.shape or ref.ndim < 1:
         raise ValueError("softmax_parity_shape_mismatch")
     ref_safe = ref.clamp_min(float(epsilon))
@@ -340,20 +354,20 @@ def softmax_metrics(
     midpoint = ((ref_safe + cand_safe) * 0.5).clamp_min(float(epsilon))
     ref_entropy = -(ref_safe * ref_safe.log()).sum(dim=-1)
     cand_entropy = -(cand_safe * cand_safe.log()).sum(dim=-1)
-    indices = torch.arange(ref.shape[-1], dtype=torch.float64)
+    indices = torch.arange(ref.shape[-1], dtype=ref.dtype, device=ref.device)
     ref_centroid = (ref * indices).sum(dim=-1) / ref.sum(dim=-1).clamp_min(epsilon)
     cand_centroid = (cand * indices).sum(dim=-1) / cand.sum(dim=-1).clamp_min(epsilon)
     result = {
         "attention_argmax_agreement": float(
-            (ref.argmax(dim=-1) == cand.argmax(dim=-1)).to(torch.float64).mean()
+            (ref.argmax(dim=-1) == cand.argmax(dim=-1)).to(dtype=ref.dtype).mean()
         ),
         "candidate_entropy": float(cand_entropy.mean()),
-        "candidate_exact_zero_ratio": float((cand == 0).to(torch.float64).mean()),
+        "candidate_exact_zero_ratio": float((cand == 0).to(dtype=ref.dtype).mean()),
         "candidate_row_sum_max_deviation": float(
             (cand.sum(dim=-1) - 1.0).abs().max()
         ),
         "candidate_tiny_value_ratio": float(
-            (cand < float(tiny_threshold)).to(torch.float64).mean()
+            (cand < float(tiny_threshold)).to(dtype=ref.dtype).mean()
         ),
         "entropy_delta": float((cand_entropy - ref_entropy).mean()),
         "js_divergence": float(
@@ -367,12 +381,12 @@ def softmax_metrics(
             (ref_safe * (ref_safe / cand_safe).log()).sum(dim=-1).mean()
         ),
         "reference_entropy": float(ref_entropy.mean()),
-        "reference_exact_zero_ratio": float((ref == 0).to(torch.float64).mean()),
+        "reference_exact_zero_ratio": float((ref == 0).to(dtype=ref.dtype).mean()),
         "reference_row_sum_max_deviation": float(
             (ref.sum(dim=-1) - 1.0).abs().max()
         ),
         "reference_tiny_value_ratio": float(
-            (ref < float(tiny_threshold)).to(torch.float64).mean()
+            (ref < float(tiny_threshold)).to(dtype=ref.dtype).mean()
         ),
         "spatial_attention_centroid_shift": float(
             (cand_centroid - ref_centroid).abs().mean()
@@ -388,10 +402,10 @@ def residual_metrics(
     fp32_output: torch.Tensor,
     candidate_output: torch.Tensor,
 ) -> dict[str, float]:
-    residual = _float64(residual_input)
-    update = _float64(fp32_attention_update)
-    reference = _float64(fp32_output)
-    candidate = _float64(candidate_output)
+    residual = _metric_tensor(residual_input)
+    update = _metric_tensor(fp32_attention_update)
+    reference = _metric_tensor(fp32_output)
+    candidate = _metric_tensor(candidate_output)
     if not (residual.shape == update.shape == reference.shape == candidate.shape):
         raise ValueError("residual_parity_shape_mismatch")
     candidate_update = candidate - residual
@@ -400,7 +414,7 @@ def residual_metrics(
     return {
         "attention_to_residual_l2_ratio": update_norm / max(residual_norm, 1e-30),
         "candidate_output_equals_residual_ratio": float(
-            (candidate == residual).to(torch.float64).mean()
+            (candidate == residual).to(dtype=residual.dtype).mean()
         ),
         "candidate_update_retention_ratio": float(
             torch.linalg.vector_norm(candidate_update)

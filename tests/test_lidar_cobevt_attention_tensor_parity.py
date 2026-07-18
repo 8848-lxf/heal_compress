@@ -222,6 +222,18 @@ def test_tensor_error_metrics_are_exact_for_identical_and_shifted_values():
     assert shifted["candidate_dtype"] == "torch.float32"
 
 
+def test_metric_accumulation_stays_on_cuda_and_uses_float32():
+    from search.model_families.lidar_cobevt.attention_tensor_parity import (
+        metric_accumulation_spec,
+    )
+
+    cuda_spec = metric_accumulation_spec("cuda")
+    cpu_spec = metric_accumulation_spec("cpu")
+
+    assert cuda_spec == {"device_policy": "preserve", "dtype": torch.float32}
+    assert cpu_spec == {"device_policy": "preserve", "dtype": torch.float64}
+
+
 def test_tensor_error_metrics_count_nonfinite_values_without_hiding_them():
     from search.model_families.lidar_cobevt.attention_tensor_parity import (
         tensor_error_metrics,
