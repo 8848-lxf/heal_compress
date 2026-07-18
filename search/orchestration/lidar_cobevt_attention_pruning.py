@@ -34,6 +34,15 @@ from search.model_families.lidar_cobevt.attention_dim_pruning import (
     stratified_embedding_keep_indices,
     uniform_attention_masks,
 )
+from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+    ATTENTION_BOUNDARY_PROFILE_NAMES,
+    apply_attention_boundary_contract,
+    requested_weighted_precision,
+)
+from search.reporting.cobevt_attention_precision_inventory import (
+    build_attention_precision_inventory,
+    write_attention_precision_inventory,
+)
 
 
 DEFAULT_CHECKPOINT = Path(
@@ -58,6 +67,9 @@ DIAGNOSTIC_PRECISION_PROFILES = (
     "attention_fp16",
     "ffn_heads_fp16",
     "attention_fp32_rest_fp16",
+)
+ATTENTION_BOUNDARY_PROFILE_DIRECTORY_NAMES = tuple(
+    name.lower() for name in ATTENTION_BOUNDARY_PROFILE_NAMES
 )
 
 
@@ -243,7 +255,10 @@ def candidate_engine_directory(
     if normalized not in {"FP32", "FP16"}:
         raise ValueError(f"unsupported_control_engine_precision:{precision}")
     profile = str(profile_name).strip().lower()
-    if profile and profile not in DIAGNOSTIC_PRECISION_PROFILES:
+    if profile and profile not in (
+        *DIAGNOSTIC_PRECISION_PROFILES,
+        *ATTENTION_BOUNDARY_PROFILE_DIRECTORY_NAMES,
+    ):
         raise ValueError(f"unsupported_diagnostic_precision_profile:{profile_name}")
     directory_tag = profile or normalized.lower()
     return (
@@ -289,6 +304,15 @@ def requested_diagnostic_precision_profile(
         str(row.module_path): ("FP16" if use_fp16(str(row.module_path)) else "FP32")
         for row in capability.weighted_entries
     }
+
+
+def requested_attention_boundary_precision_profile(
+    capability: Any, profile_name: str
+) -> dict[str, str]:
+    return requested_weighted_precision(
+        (str(row.module_path) for row in capability.weighted_entries),
+        str(profile_name),
+    )
 
 
 def _precision_result_suffix(
@@ -1004,6 +1028,7 @@ def run_export_build(
     engine_precision: str = "FP16",
     candidate_ids: Iterable[str] | None = None,
     diagnostic_profile: str = "",
+    attention_boundary_profile_name: str = "",
 ) -> dict[str, Any]:
     from search.integration.runtime_environment import discover_trt_environment
     from search.model_families.lidar_cobevt.deployment_recipe import CobevtDeploymentRecipe
@@ -1020,6 +1045,10 @@ def run_export_build(
     fixed_k = int(experiment["fixed_k"])
     normalized_precision = str(engine_precision).strip().upper()
     profile_name = str(diagnostic_profile).strip().lower()
+    boundary_profile_name = str(attention_boundary_profile_name).strip()
+    if profile_name and boundary_profile_name:
+        raise ValueError("diagnostic_and_attention_boundary_profiles_are_mutually_exclusive")
+    effective_profile_name = boundary_profile_name or profile_name
     selected_ids = {str(value) for value in (candidate_ids or ())}
     rows = []
     for record in experiment["candidates"]:
@@ -1031,7 +1060,7 @@ def run_export_build(
             spec.candidate_id,
             fixed_k,
             precision=normalized_precision,
-            profile_name=profile_name,
+            profile_name=effective_profile_name,
         )
         report_path = destination / "build_report.json"
         if report_path.is_file():
@@ -1064,23 +1093,52 @@ def run_export_build(
             origin = _origin_map_from_dict(export.origin_map)
             quant = CobevtQuantizationRecipe()
             capability = quant.build_capability(origin)
-            requested = (
-                requested_diagnostic_precision_profile(capability, profile_name)
-                if profile_name
-                else requested_uniform_precision(capability, normalized_precision)
-            )
+            if boundary_profile_name:
+                requested = requested_attention_boundary_precision_profile(
+                    capability, boundary_profile_name
+                )
+            elif profile_name:
+                requested = requested_diagnostic_precision_profile(
+                    capability, profile_name
+                )
+            else:
+                requested = requested_uniform_precision(
+                    capability, normalized_precision
+                )
             profile = quant.build_profile(
                 capability,
                 requested,
                 profile_id=(
-                    f"{spec.candidate_id}_{profile_name or ('strict_' + normalized_precision.lower())}"
+                    f"{spec.candidate_id}_{effective_profile_name or ('strict_' + normalized_precision.lower())}"
                 ),
             )
             mapping = quant.build_mapping(origin, profile)
-            typed = destination / "typed.onnx"
-            typed_report = apply_strongly_typed_precision_contract(
-                source, typed, mapping, plugin_boundary="FP32"
-            )
+            attention_boundary_report: dict[str, Any] = {}
+            base_profile_record: dict[str, Any] = {}
+            if boundary_profile_name:
+                base_profile = quant.build_profile(
+                    capability,
+                    requested_uniform_precision(capability, "FP32"),
+                    profile_id=f"{spec.candidate_id}_attention_boundary_base_fp32",
+                )
+                base_mapping = quant.build_mapping(origin, base_profile)
+                typed_base = destination / "typed_base.onnx"
+                typed_report = apply_strongly_typed_precision_contract(
+                    source, typed_base, base_mapping, plugin_boundary="FP32"
+                )
+                typed = destination / "typed.onnx"
+                attention_boundary_report = apply_attention_boundary_contract(
+                    typed_base,
+                    typed,
+                    mapping.entries,
+                    boundary_profile_name,
+                )
+                base_profile_record = record_to_dict(base_profile)
+            else:
+                typed = destination / "typed.onnx"
+                typed_report = apply_strongly_typed_precision_contract(
+                    source, typed, mapping, plugin_boundary="FP32"
+                )
             typed_aux = destination / "typed_aux.onnx"
             auxiliary = apply_cobevt_auxiliary_typed_contract(typed, typed_aux)
             parser = destination / "typed_parser.onnx"
@@ -1131,12 +1189,34 @@ def run_export_build(
             realization = validate_precision_realization(layer_info, mapping)
             if not realization.passed:
                 raise RuntimeError(f"precision_realization_failed:{realization.mismatches}")
+            attention_inventory: list[dict[str, Any]] = []
+            attention_inventory_summary: dict[str, Any] = {}
+            if boundary_profile_name:
+                attention_inventory = build_attention_precision_inventory(
+                    typed_aux, attention_boundary_report, layer_info
+                )
+                attention_inventory_summary = write_attention_precision_inventory(
+                    attention_inventory,
+                    destination / "attention_precision_inventory.json",
+                    destination / "attention_precision_inventory.md",
+                )
+                if attention_inventory_summary["unresolved_count"]:
+                    raise RuntimeError(
+                        "attention_precision_realization_unresolved:"
+                        f"{attention_inventory_summary['unresolved_count']}"
+                    )
+                if attention_inventory_summary["mismatch_count"]:
+                    raise RuntimeError(
+                        "attention_precision_realization_mismatch:"
+                        f"{attention_inventory_summary['mismatch_count']}"
+                    )
             result = {
                 **spec.to_dict(),
                 "status": "ok",
                 "code_commit": _git_commit(),
                 "engine_precision": normalized_precision,
                 "diagnostic_precision_profile": profile_name,
+                "attention_boundary_profile": boundary_profile_name,
                 "fixed_k": fixed_k,
                 "build_elapsed_seconds": time.monotonic() - started,
                 "builder_command": record_to_dict(command),
@@ -1151,9 +1231,13 @@ def run_export_build(
                 "physical_parameter_count": int(physical.physical_parameter_count),
                 "precision_realization": record_to_dict(realization),
                 "profile": record_to_dict(profile),
+                "base_fp32_profile": base_profile_record,
                 "structure_hash": str(physical.structure_hash),
                 "typed_report": typed_report,
                 "auxiliary_typed_report": auxiliary,
+                "attention_boundary_report": attention_boundary_report,
+                "attention_precision_inventory": attention_inventory,
+                "attention_precision_inventory_summary": attention_inventory_summary,
                 "parser_report": parser_report,
             }
         except Exception as exc:  # noqa: BLE001
@@ -1162,6 +1246,7 @@ def run_export_build(
                 "status": "failed",
                 "engine_precision": normalized_precision,
                 "diagnostic_precision_profile": profile_name,
+                "attention_boundary_profile": boundary_profile_name,
                 "failure_reason": f"{type(exc).__name__}: {exc}",
             }
         _write_json(report_path, result)
@@ -1170,7 +1255,7 @@ def run_export_build(
             torch.cuda.empty_cache()
     suffix = _precision_result_suffix(
         engine_precision=normalized_precision,
-        diagnostic_profile=profile_name,
+        diagnostic_profile=effective_profile_name,
     )
     _write_json(output_dir / f"full_engine_build_results{suffix}.json", rows)
     _write_csv(output_dir / f"full_engine_build_results{suffix}.csv", rows)
@@ -1377,6 +1462,11 @@ def _parser() -> argparse.ArgumentParser:
         choices=DIAGNOSTIC_PRECISION_PROFILES,
         default="",
     )
+    parser.add_argument(
+        "--attention-boundary-profile",
+        choices=ATTENTION_BOUNDARY_PROFILE_NAMES,
+        default="",
+    )
     parser.add_argument("--smoke-only", action="store_true")
     return parser
 
@@ -1412,6 +1502,7 @@ def main(argv: list[str] | None = None) -> int:
             engine_precision=str(args.engine_precision),
             candidate_ids=tuple(args.candidate_id),
             diagnostic_profile=str(args.diagnostic_profile),
+            attention_boundary_profile_name=str(args.attention_boundary_profile),
         )
     else:
         result = run_trt500(

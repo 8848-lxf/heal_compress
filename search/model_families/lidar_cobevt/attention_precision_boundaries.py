@@ -517,6 +517,114 @@ def apply_attention_boundary_contract(
     }
 
 
+def describe_existing_attention_boundaries(
+    input_onnx: str | Path,
+    entries_or_mapping: Any,
+    *,
+    profile_name: str,
+    expected_block_count: int = 6,
+) -> dict[str, Any]:
+    """Describe existing Attention dtypes without modifying the graph."""
+
+    import onnx
+    from onnx import TensorProto
+
+    source = Path(input_onnx)
+    model = onnx.load(str(source))
+    try:
+        model = onnx.shape_inference.infer_shapes(
+            model, strict_mode=False, data_prop=True
+        )
+    except Exception:
+        pass
+    blocks = discover_attention_nodes(
+        model, entries_or_mapping, expected_block_count=expected_block_count
+    )
+    types = _tensor_types(model)
+    nodes = {str(node.name): node for node in model.graph.node if str(node.name)}
+    producers = {
+        str(output): node for node in model.graph.node for output in node.output
+    }
+    consumers: dict[str, list[Any]] = {}
+    for node in model.graph.node:
+        for input_name in node.input:
+            consumers.setdefault(str(input_name), []).append(node)
+
+    def precision_name(values: Iterable[int | None]) -> str:
+        floating = {
+            int(value)
+            for value in values
+            if value in {int(TensorProto.FLOAT), int(TensorProto.FLOAT16)}
+        }
+        if floating == {int(TensorProto.FLOAT)}:
+            return "FP32"
+        if floating == {int(TensorProto.FLOAT16)}:
+            return "FP16"
+        if floating:
+            return "MIXED"
+        return "UNRESOLVED"
+
+    records = []
+    for block in blocks:
+        for role in ATTENTION_ROLES:
+            node = nodes[block.role_nodes[role]]
+            input_casts = [
+                str(producer.name)
+                for value in node.input
+                if (producer := producers.get(str(value))) is not None
+                and str(producer.op_type) == "Cast"
+            ]
+            output_casts = [
+                str(consumer.name)
+                for value in node.output
+                for consumer in consumers.get(str(value), [])
+                if str(consumer.op_type) == "Cast"
+            ]
+            compute_dtype = precision_name(types.get(str(value)) for value in node.input)
+            output_dtype = precision_name(types.get(str(value)) for value in node.output)
+            records.append(
+                {
+                    "attention_kind": block.attention_kind,
+                    "block_id": block.block_id,
+                    "compute_dtype": compute_dtype,
+                    "input_cast_count": len(input_casts),
+                    "input_cast_nodes": input_casts,
+                    "input_tensors_after": list(node.input),
+                    "input_tensors_before": list(node.input),
+                    "node_name": str(node.name),
+                    "op_type": str(node.op_type),
+                    "output_cast_count": len(output_casts),
+                    "output_cast_nodes": output_casts,
+                    "output_dtype": output_dtype,
+                    "output_tensors_after": list(node.output),
+                    "output_tensors_before": list(node.output),
+                    "role": role,
+                }
+            )
+    profile_hash = hashlib.sha256(
+        json.dumps(
+            {
+                "input_onnx_sha256": _file_sha256(source),
+                "profile_name": str(profile_name),
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    return {
+        "blocks": [block.to_dict() for block in blocks],
+        "graph_rewritten": False,
+        "input_onnx": str(source),
+        "input_onnx_sha256": _file_sha256(source),
+        "missing_role_count": 0,
+        "node_records": records,
+        "profile": {
+            "profile_hash": profile_hash,
+            "profile_name": str(profile_name),
+        },
+        "schema_version": "cobevt-existing-attention-boundaries-v1",
+    }
+
+
 __all__ = [
     "ATTENTION_BOUNDARY_PROFILE_NAMES",
     "ATTENTION_ROLES",
@@ -524,6 +632,7 @@ __all__ = [
     "AttentionBoundaryProfile",
     "apply_attention_boundary_contract",
     "attention_boundary_profile",
+    "describe_existing_attention_boundaries",
     "discover_attention_nodes",
     "requested_weighted_precision",
 ]

@@ -275,6 +275,39 @@ def test_engine_directory_and_profile_are_precision_specific(tmp_path: Path):
     }
 
 
+def test_attention_boundary_profile_has_isolated_engine_identity(tmp_path: Path):
+    from search.orchestration.lidar_cobevt_attention_pruning import (
+        candidate_engine_directory,
+        requested_attention_boundary_precision_profile,
+    )
+
+    class Entry:
+        def __init__(self, module_path: str) -> None:
+            self.module_path = module_path
+
+    class Capability:
+        weighted_entries = (
+            Entry("backbone_m1.blocks.0.1"),
+            Entry("fusion_net.layers.0.window_attention.fn.q_proj"),
+            Entry("fusion_net.layers.0.window_attention.fn.out_proj"),
+        )
+
+    profile_name = "A1_qkv_projection_fp16_core_fp32"
+    assert candidate_engine_directory(
+        tmp_path,
+        "baseline_d32",
+        29696,
+        profile_name=profile_name,
+    ).name == "a1_qkv_projection_fp16_core_fp32_engine_k29696"
+    assert requested_attention_boundary_precision_profile(
+        Capability(), profile_name
+    ) == {
+        "backbone_m1.blocks.0.1": "FP32",
+        "fusion_net.layers.0.window_attention.fn.q_proj": "FP16",
+        "fusion_net.layers.0.window_attention.fn.out_proj": "FP32",
+    }
+
+
 def test_attention_fp16_diagnostic_profile_only_changes_attention_projections():
     from search.orchestration.lidar_cobevt_attention_pruning import (
         requested_diagnostic_precision_profile,

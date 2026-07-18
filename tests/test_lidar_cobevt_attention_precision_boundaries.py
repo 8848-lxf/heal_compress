@@ -295,3 +295,26 @@ def test_a0_keeps_entire_attention_and_external_graph_fp32(tmp_path: Path):
         row["compute_dtype"] == "FP32" and row["output_dtype"] == "FP32"
         for row in report["node_records"]
     )
+
+
+def test_existing_graph_description_reads_types_without_rewriting(tmp_path: Path):
+    from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+        describe_existing_attention_boundaries,
+    )
+
+    source = tmp_path / "source.onnx"
+    entries = _minimal_attention_onnx(source)
+    source_hash = source.read_bytes()
+
+    report = describe_existing_attention_boundaries(
+        source,
+        entries,
+        profile_name="legacy_strict_fp32",
+        expected_block_count=1,
+    )
+
+    assert source.read_bytes() == source_hash
+    assert len(report["node_records"]) == 10
+    assert all(row["compute_dtype"] == "FP32" for row in report["node_records"])
+    assert all(row["output_dtype"] == "FP32" for row in report["node_records"])
+    assert report["graph_rewritten"] is False
