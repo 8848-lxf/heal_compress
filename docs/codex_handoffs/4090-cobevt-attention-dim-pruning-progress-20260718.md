@@ -197,3 +197,34 @@ an engine must complete exactly 10/10 with zero skip before the 500-frame phase.
 ------------------------------------------------------------
 Round completed: 2026-07-18 09:30 CST
 ------------------------------------------------------------
+
+## Round 7: Fixed-K Coverage Failure and Manifest-Bound Contract
+
+The K=25,600 baseline engine passed smoke10 but failed the fixed-500 run at
+216 evaluated frames because the next frame contained 26,931 real voxels.
+This classified all K=25,600 engines as input-contract failures, not Attention
+structure failures.
+
+Added:
+
+- an exact scan of all 20 warmup plus 500 evaluation frames;
+- a 256-aligned fixed-K derivation bound to the evaluation manifest hash;
+- `fixed_k_validated` fail-closed admission before export and evaluation;
+- fixed-K-specific engine directories so incompatible input profiles cannot be
+  reused.
+
+The full 520-frame scan found:
+
+- maximum real voxel count: `28,949`;
+- aligned production fixed K: `29,184`;
+- overflow count: `0`;
+- fixed-500 manifest hash:
+  `5a2a81c05e635f71f277e9bd151dbb6d5dd0a8f9b08475d60511f67399824c19`.
+
+K=25,600 build reports, layer-info and failure logs remain as evidence; their
+large ONNX/engine files are not eligible for reuse and will be removed before
+the K=29,184 fresh build.
+
+------------------------------------------------------------
+Round completed: 2026-07-18 09:45 CST
+------------------------------------------------------------

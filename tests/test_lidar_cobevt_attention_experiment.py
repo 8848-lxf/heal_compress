@@ -183,3 +183,23 @@ def test_engine_evaluation_completion_requires_exact_frames_and_zero_skip():
         {"status": "ok", "num_evaluated_frames": 10, "num_skipped_frames": 1},
         expected_frames=10,
     )
+
+
+def test_fixed_k_contract_and_engine_directory_are_manifest_specific(tmp_path: Path):
+    from search.orchestration.lidar_cobevt_attention_pruning import (
+        candidate_engine_directory,
+        fixed_k_contract_from_rows,
+    )
+
+    contract = fixed_k_contract_from_rows(
+        [
+            {"frame_id": "a", "voxel_count": 25600},
+            {"frame_id": "b", "voxel_count": 26931},
+        ]
+    )
+
+    assert contract.fixed_k == 27136
+    assert contract.source_max_k == 26931
+    assert candidate_engine_directory(tmp_path, "qk24", contract.fixed_k).name == (
+        "fp16_engine_k27136"
+    )

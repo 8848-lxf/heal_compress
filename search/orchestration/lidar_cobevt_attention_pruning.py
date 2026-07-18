@@ -180,6 +180,24 @@ def build_report_is_complete(report: Mapping[str, Any]) -> bool:
     return str(report.get("status", "")) == "ok"
 
 
+def fixed_k_contract_from_rows(rows: Iterable[Mapping[str, Any]]) -> Any:
+    from search.model_families.lidar_cobevt.input_contract import derive_fixed_k
+
+    counts = [int(row["voxel_count"]) for row in rows]
+    return derive_fixed_k(counts, alignment=256)
+
+
+def candidate_engine_directory(
+    output_dir: Path, candidate_id: str, fixed_k: int
+) -> Path:
+    return (
+        output_dir
+        / "candidates"
+        / str(candidate_id)
+        / f"fp16_engine_k{int(fixed_k)}"
+    )
+
+
 def _sha256(path: str | Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as handle:
@@ -368,6 +386,98 @@ def run_prepare(
 
 def _read_config(output_dir: Path) -> dict[str, Any]:
     return json.loads((output_dir / "experiment_config.json").read_text(encoding="utf-8"))
+
+
+def scan_manifest_voxel_counts(
+    *, adapter: Any, config: Path, manifest_path: Path
+) -> tuple[list[dict[str, Any]], Any]:
+    from torch.utils.data import DataLoader
+    from opencood.data_utils.datasets import build_dataset
+    from opencood.hypes_yaml import yaml_utils
+
+    hypes = yaml_utils.load_yaml(str(config))
+    hypes = adapter._absolutize_dataset_paths(hypes)
+    dataset = build_dataset(hypes, visualize=False, train=False)
+    loader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=8,
+        collate_fn=dataset.collate_batch_test,
+        persistent_workers=True,
+        prefetch_factor=2,
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    warmup = {str(value) for value in manifest["warmup_frame_ids"]}
+    evaluation = {str(value) for value in manifest["evaluation_frame_ids"]}
+    selected = warmup | evaluation
+    split_ids = [
+        str(value) for value in json.loads(Path(hypes["validate_dir"]).read_text())
+    ]
+    rows: list[dict[str, Any]] = []
+    for index, batch in enumerate(loader):
+        if index >= len(split_ids):
+            break
+        frame_id = split_ids[index]
+        if frame_id not in selected:
+            continue
+        if batch is None:
+            raise RuntimeError(f"fixed_k_scan_empty_batch:{frame_id}")
+        ego = batch["ego"] if isinstance(batch, Mapping) and "ego" in batch else batch
+        inputs = ego.get("inputs_m1", ego) if isinstance(ego, Mapping) else ego
+        if not isinstance(inputs, Mapping) or "voxel_features" not in inputs:
+            raise RuntimeError(f"fixed_k_scan_voxel_features_missing:{frame_id}")
+        rows.append(
+            {
+                "frame_id": frame_id,
+                "role": "warmup" if frame_id in warmup else "evaluation",
+                "voxel_count": int(inputs["voxel_features"].shape[0]),
+            }
+        )
+        if len(rows) == len(selected):
+            break
+    found = {row["frame_id"] for row in rows}
+    missing = sorted(selected - found)
+    if missing:
+        raise RuntimeError(f"fixed_k_scan_manifest_frames_missing:{missing[:8]}")
+    return rows, fixed_k_contract_from_rows(rows)
+
+
+def run_fixed_k_scan(
+    *,
+    output_dir: Path,
+    checkpoint: Path,
+    config: Path,
+    heal_root: Path,
+) -> dict[str, Any]:
+    experiment = _read_config(output_dir)
+    bundle = _load_bundle(
+        checkpoint=checkpoint,
+        config=config,
+        heal_root=heal_root,
+        device=torch.device("cpu"),
+    )
+    manifest = Path(experiment["manifests"]["fixed500"]["path"])
+    rows, contract = scan_manifest_voxel_counts(
+        adapter=bundle.adapter, config=config, manifest_path=manifest
+    )
+    _write_json(output_dir / "fixed500_voxel_counts.json", rows)
+    _write_csv(output_dir / "fixed500_voxel_counts.csv", rows)
+    contract_record = asdict(contract)
+    contract_record.update(
+        {
+            "manifest_hash": experiment["manifests"]["fixed500"][
+                "manifest_hash"
+            ],
+            "validated_for_warmup_and_evaluation": True,
+        }
+    )
+    _write_json(output_dir / "fixed_k_contract.json", contract_record)
+    experiment["fixed_k"] = int(contract.fixed_k)
+    experiment["fixed_k_contract"] = contract_record
+    experiment["fixed_k_validated"] = True
+    _write_json(output_dir / "experiment_config.json", experiment)
+    return contract_record
 
 
 def _spec_from_record(record: Mapping[str, Any]) -> AttentionCandidateSpec:
@@ -741,7 +851,9 @@ def _origin_map_from_dict(payload: Mapping[str, Any]) -> OnnxOriginMapResult:
     )
 
 
-def _export_inputs(bundle: Any, config: Path, device: torch.device) -> dict[str, torch.Tensor]:
+def _export_inputs(
+    bundle: Any, config: Path, device: torch.device, *, fixed_k: int
+) -> dict[str, torch.Tensor]:
     from quantization.export.heal_lidar_cobevt import prepare_cobevt_maxk_inputs
     from search.integration.data_provider import build_dataset_and_loader, move_batch_to_device
 
@@ -751,7 +863,7 @@ def _export_inputs(bundle: Any, config: Path, device: torch.device) -> dict[str,
     batch = move_batch_to_device(next(iter(loader)), device)
     ego = batch["ego"] if isinstance(batch, Mapping) and "ego" in batch else batch
     return prepare_cobevt_maxk_inputs(
-        ego, fixed_k=DEFAULT_FIXED_K, max_cav=2
+        ego, fixed_k=int(fixed_k), max_cav=2
     )
 
 
@@ -776,10 +888,15 @@ def run_export_build(
     )
 
     experiment = _read_config(output_dir)
+    if not bool(experiment.get("fixed_k_validated", False)):
+        raise RuntimeError("fixed_k_not_validated_for_fixed500_manifest")
+    fixed_k = int(experiment["fixed_k"])
     rows = []
     for record in experiment["candidates"]:
         spec = _spec_from_record(record)
-        destination = output_dir / "candidates" / spec.candidate_id / "fp16_engine"
+        destination = candidate_engine_directory(
+            output_dir, spec.candidate_id, fixed_k
+        )
         report_path = destination / "build_report.json"
         if report_path.is_file():
             previous = json.loads(report_path.read_text(encoding="utf-8"))
@@ -803,10 +920,10 @@ def run_export_build(
                 heal_root=heal_root,
                 device=device,
             )
-            inputs = _export_inputs(bundle, config, device)
+            inputs = _export_inputs(bundle, config, device, fixed_k=fixed_k)
             source = destination / "source.onnx"
             export = CobevtExportRecipe(
-                fixed_k=DEFAULT_FIXED_K, max_cav=2
+                fixed_k=fixed_k, max_cav=2
             ).export(bundle.model, inputs, source)
             origin = _origin_map_from_dict(export.origin_map)
             quant = CobevtQuantizationRecipe()
@@ -835,7 +952,7 @@ def run_export_build(
                 tensorrt_root=trt_root,
                 trtexec_path=environment.trtexec_path,
                 plugin_path=plugin_path,
-                fixed_k=DEFAULT_FIXED_K,
+                fixed_k=fixed_k,
             )
             command = deployment.builder_command(
                 onnx_path=parser,
@@ -876,6 +993,7 @@ def run_export_build(
                 **spec.to_dict(),
                 "status": "ok",
                 "code_commit": _git_commit(),
+                "fixed_k": fixed_k,
                 "build_elapsed_seconds": time.monotonic() - started,
                 "builder_command": record_to_dict(command),
                 "builder_reused_existing_engine": reused_existing_engine,
@@ -927,6 +1045,9 @@ def run_trt500(
     )
 
     experiment = _read_config(output_dir)
+    if not bool(experiment.get("fixed_k_validated", False)):
+        raise RuntimeError("fixed_k_not_validated_for_fixed500_manifest")
+    fixed_k = int(experiment["fixed_k"])
     smoke_manifest = Path(experiment["manifests"]["smoke10"]["path"])
     manifest = Path(experiment["manifests"]["fixed500"]["path"])
     results_path = output_dir / "trt_ap500_results.json"
@@ -944,7 +1065,9 @@ def run_trt500(
         spec = _spec_from_record(record)
         if spec.candidate_id in completed_ids:
             continue
-        candidate = output_dir / "candidates" / spec.candidate_id / "fp16_engine"
+        candidate = candidate_engine_directory(
+            output_dir, spec.candidate_id, fixed_k
+        )
         build_report = candidate / "build_report.json"
         if not build_report.is_file():
             continue
@@ -972,7 +1095,7 @@ def run_trt500(
                 output_dir=smoke_dir,
                 tensorrt_root=trt_root,
                 plugin_path=plugin_path,
-                fixed_k=DEFAULT_FIXED_K,
+                fixed_k=fixed_k,
                 num_frames=10,
                 warmup_frames=20,
                 eval_manifest_path=smoke_manifest,
@@ -1005,7 +1128,7 @@ def run_trt500(
                 output_dir=evaluation_dir,
                 tensorrt_root=trt_root,
                 plugin_path=plugin_path,
-                fixed_k=DEFAULT_FIXED_K,
+                fixed_k=fixed_k,
                 num_frames=500,
                 warmup_frames=20,
                 eval_manifest_path=manifest,
@@ -1045,7 +1168,14 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--phase",
-        choices=("prepare", "structure", "pytorch500", "export-build", "trt500"),
+        choices=(
+            "prepare",
+            "fixed-k-scan",
+            "structure",
+            "pytorch500",
+            "export-build",
+            "trt500",
+        ),
         required=True,
     )
     parser.add_argument("--output-dir", required=True)
@@ -1075,6 +1205,8 @@ def main(argv: list[str] | None = None) -> int:
             device=device,
             gradient_samples=int(args.gradient_samples),
         )
+    elif args.phase == "fixed-k-scan":
+        result = run_fixed_k_scan(**common)
     elif args.phase == "structure":
         result = run_structure_smoke(**common, device=device)
     elif args.phase == "pytorch500":
