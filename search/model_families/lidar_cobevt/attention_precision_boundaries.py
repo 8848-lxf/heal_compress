@@ -40,11 +40,18 @@ COMBINATION_PROFILE_NAMES = (
     "M2_projection_qk_av_fp16_softmax_fp32",
     "M3_projection_av_fp16_qk_softmax_fp32",
     "M4_projection_boundary_qk_av_fp16",
+    "M5_projection_softmax_av_add_fp16_qk_fp32",
+)
+
+FINAL_PROFILE_NAMES = (
+    "F1_rest_fp16_projection_fp16_core_fp32",
+    "F2_rest_fp16_projection_av_fp16_qk_core_fp32",
 )
 
 ATTENTION_BOUNDARY_PROFILE_NAMES = (
     *SINGLE_BOUNDARY_PROFILE_NAMES,
     *COMBINATION_PROFILE_NAMES,
+    *FINAL_PROFILE_NAMES,
 )
 
 
@@ -53,6 +60,7 @@ class AttentionBoundaryProfile:
     profile_name: str
     role_dtypes: Mapping[str, str]
     output_recovery_roles: tuple[str, ...]
+    external_weighted_dtype: str = "FP32"
 
     def __post_init__(self) -> None:
         normalized = {str(key): str(value).upper() for key, value in self.role_dtypes.items()}
@@ -66,6 +74,11 @@ class AttentionBoundaryProfile:
                 f"attention_profile_precision_invalid:{self.profile_name}:{invalid}"
             )
         recovery = tuple(str(role) for role in self.output_recovery_roles)
+        external = str(self.external_weighted_dtype).upper()
+        if external not in {"FP32", "FP16"}:
+            raise ValueError(
+                f"attention_profile_external_precision_invalid:{self.profile_name}"
+            )
         if not set(recovery) <= set(ATTENTION_ROLES):
             raise ValueError(f"attention_profile_recovery_role_invalid:{self.profile_name}")
         if not set(recovery) <= {
@@ -76,6 +89,7 @@ class AttentionBoundaryProfile:
             )
         object.__setattr__(self, "role_dtypes", MappingProxyType(normalized))
         object.__setattr__(self, "output_recovery_roles", recovery)
+        object.__setattr__(self, "external_weighted_dtype", external)
 
     @property
     def profile_hash(self) -> str:
@@ -85,12 +99,16 @@ class AttentionBoundaryProfile:
             "role_dtypes": dict(sorted(self.role_dtypes.items())),
             "schema_version": "cobevt-attention-boundary-profile-v1",
         }
+        if self.external_weighted_dtype != "FP32":
+            payload["external_weighted_dtype"] = self.external_weighted_dtype
+            payload["schema_version"] = "cobevt-attention-boundary-profile-v2"
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "external_weighted_dtype": self.external_weighted_dtype,
             "output_recovery_roles": list(self.output_recovery_roles),
             "profile_hash": self.profile_hash,
             "profile_name": self.profile_name,
@@ -117,6 +135,7 @@ def _combination_profile(
     *,
     fp16_roles: Iterable[str],
     output_recovery_roles: Iterable[str],
+    external_weighted_dtype: str = "FP32",
 ) -> AttentionBoundaryProfile:
     selected = {str(role) for role in fp16_roles}
     return AttentionBoundaryProfile(
@@ -126,6 +145,7 @@ def _combination_profile(
             for role in ATTENTION_ROLES
         },
         output_recovery_roles=tuple(str(role) for role in output_recovery_roles),
+        external_weighted_dtype=external_weighted_dtype,
     )
 
 
@@ -208,6 +228,55 @@ _PROFILES.update(
                 "output_projection",
             ),
         ),
+        "M5_projection_softmax_av_add_fp16_qk_fp32": _combination_profile(
+            "M5_projection_softmax_av_add_fp16_qk_fp32",
+            fp16_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "softmax",
+                "av_matmul",
+                "output_projection",
+                "residual_add",
+            ),
+            output_recovery_roles=(
+                "q_projection",
+                "k_projection",
+                "residual_add",
+            ),
+        ),
+        "F1_rest_fp16_projection_fp16_core_fp32": _combination_profile(
+            "F1_rest_fp16_projection_fp16_core_fp32",
+            fp16_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "output_projection",
+            ),
+            output_recovery_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "output_projection",
+            ),
+            external_weighted_dtype="FP16",
+        ),
+        "F2_rest_fp16_projection_av_fp16_qk_core_fp32": _combination_profile(
+            "F2_rest_fp16_projection_av_fp16_qk_core_fp32",
+            fp16_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "av_matmul",
+                "output_projection",
+            ),
+            output_recovery_roles=(
+                "q_projection",
+                "k_projection",
+                "output_projection",
+            ),
+            external_weighted_dtype="FP16",
+        ),
     }
 )
 
@@ -218,6 +287,10 @@ def attention_boundary_profile(profile_name: str) -> AttentionBoundaryProfile:
         return _PROFILES[name]
     except KeyError as exc:
         raise ValueError(f"unknown_attention_boundary_profile:{profile_name}") from exc
+
+
+def attention_boundary_base_precision(profile_name: str) -> str:
+    return attention_boundary_profile(profile_name).external_weighted_dtype
 
 
 _PROJECTION_SUFFIX_TO_ROLE = {
@@ -243,7 +316,9 @@ def requested_weighted_precision(
             ),
             None,
         )
-        result[module_path] = profile.role_dtypes[role] if role else "FP32"
+        result[module_path] = (
+            profile.role_dtypes[role] if role else profile.external_weighted_dtype
+        )
     return result
 
 
@@ -728,7 +803,9 @@ def describe_existing_attention_boundaries(
 __all__ = [
     "ATTENTION_BOUNDARY_PROFILE_NAMES",
     "COMBINATION_PROFILE_NAMES",
+    "FINAL_PROFILE_NAMES",
     "SINGLE_BOUNDARY_PROFILE_NAMES",
+    "attention_boundary_base_precision",
     "ATTENTION_ROLES",
     "AttentionBlockNodes",
     "AttentionBoundaryProfile",

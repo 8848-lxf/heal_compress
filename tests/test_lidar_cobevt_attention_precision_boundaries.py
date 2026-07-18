@@ -128,6 +128,19 @@ def test_single_boundary_profiles_change_only_the_named_roles(
                 "output_projection",
             },
         ),
+        (
+            "M5_projection_softmax_av_add_fp16_qk_fp32",
+            {
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "softmax",
+                "av_matmul",
+                "output_projection",
+                "residual_add",
+            },
+            {"q_projection", "k_projection", "residual_add"},
+        ),
     ],
 )
 def test_evidence_supported_combination_profiles_define_explicit_recovery_boundaries(
@@ -181,6 +194,70 @@ def test_profile_weighted_precision_changes_attention_projections_only():
         "fusion_net.layers.0.window_attention.fn.out_proj": "FP32",
         "fusion_net.layers.0.window_ffd.fn.net.0": "FP32",
         "cls_head": "FP32",
+    }
+
+
+@pytest.mark.parametrize(
+    ("profile_name", "fp16_roles", "recovery_roles"),
+    [
+        (
+            "F1_rest_fp16_projection_fp16_core_fp32",
+            {"q_projection", "k_projection", "v_projection", "output_projection"},
+            {"q_projection", "k_projection", "v_projection", "output_projection"},
+        ),
+        (
+            "F2_rest_fp16_projection_av_fp16_qk_core_fp32",
+            {
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "av_matmul",
+                "output_projection",
+            },
+            {"q_projection", "k_projection", "output_projection"},
+        ),
+    ],
+)
+def test_final_profiles_use_rest_fp16_with_explicit_attention_islands(
+    profile_name: str, fp16_roles: set[str], recovery_roles: set[str]
+):
+    from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+        attention_boundary_base_precision,
+        attention_boundary_profile,
+    )
+
+    profile = attention_boundary_profile(profile_name)
+
+    assert attention_boundary_base_precision(profile_name) == "FP16"
+    assert profile.external_weighted_dtype == "FP16"
+    assert {
+        role for role, precision in profile.role_dtypes.items() if precision == "FP16"
+    } == fp16_roles
+    assert set(profile.output_recovery_roles) == recovery_roles
+
+
+def test_final_profile_keeps_nonattention_weighted_groups_fp16():
+    from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+        requested_weighted_precision,
+    )
+
+    modules = (
+        "backbone_m1.blocks.0.1",
+        "fusion_net.layers.0.window_attention.fn.q_proj",
+        "fusion_net.layers.0.window_attention.fn.qk_not_weighted",
+        "fusion_net.layers.0.window_ffd.fn.net.0",
+        "cls_head",
+    )
+    requested = requested_weighted_precision(
+        modules, "F1_rest_fp16_projection_fp16_core_fp32"
+    )
+
+    assert requested == {
+        "backbone_m1.blocks.0.1": "FP16",
+        "fusion_net.layers.0.window_attention.fn.q_proj": "FP16",
+        "fusion_net.layers.0.window_attention.fn.qk_not_weighted": "FP16",
+        "fusion_net.layers.0.window_ffd.fn.net.0": "FP16",
+        "cls_head": "FP16",
     }
 
 

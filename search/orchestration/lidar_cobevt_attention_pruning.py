@@ -37,6 +37,7 @@ from search.model_families.lidar_cobevt.attention_dim_pruning import (
 from search.model_families.lidar_cobevt.attention_precision_boundaries import (
     ATTENTION_BOUNDARY_PROFILE_NAMES,
     apply_attention_boundary_contract,
+    attention_boundary_base_precision,
     requested_weighted_precision,
 )
 from search.reporting.cobevt_attention_precision_inventory import (
@@ -1115,11 +1116,20 @@ def run_export_build(
             mapping = quant.build_mapping(origin, profile)
             attention_boundary_report: dict[str, Any] = {}
             base_profile_record: dict[str, Any] = {}
+            boundary_base_precision = "FP32"
             if boundary_profile_name:
+                boundary_base_precision = attention_boundary_base_precision(
+                    boundary_profile_name
+                )
                 base_profile = quant.build_profile(
                     capability,
-                    requested_uniform_precision(capability, "FP32"),
-                    profile_id=f"{spec.candidate_id}_attention_boundary_base_fp32",
+                    requested_uniform_precision(
+                        capability, boundary_base_precision
+                    ),
+                    profile_id=(
+                        f"{spec.candidate_id}_attention_boundary_base_"
+                        f"{boundary_base_precision.lower()}"
+                    ),
                 )
                 base_mapping = quant.build_mapping(origin, base_profile)
                 typed_base = destination / "typed_base.onnx"
@@ -1231,7 +1241,11 @@ def run_export_build(
                 "physical_parameter_count": int(physical.physical_parameter_count),
                 "precision_realization": record_to_dict(realization),
                 "profile": record_to_dict(profile),
-                "base_fp32_profile": base_profile_record,
+                "attention_boundary_base_precision": boundary_base_precision,
+                "base_fp32_profile": (
+                    base_profile_record if boundary_base_precision == "FP32" else {}
+                ),
+                "base_precision_profile": base_profile_record,
                 "structure_hash": str(physical.structure_hash),
                 "typed_report": typed_report,
                 "auxiliary_typed_report": auxiliary,
