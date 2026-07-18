@@ -241,13 +241,15 @@ def test_build_attention_diagnostic_engine_records_parity_only_provenance(
     diagnostic_onnx = tmp_path / "diagnostic.onnx"
     diagnostic_onnx.write_bytes(b"diagnostic-onnx")
     production = tmp_path / "production_build.json"
+    trt_root = tmp_path / "TensorRT-10.9"
+    trtexec = trt_root / "targets/x86_64-linux-gnu/bin/trtexec"
     _write_json(
         production,
         {
             "status": "ok",
             "builder_command": {
                 "command": [
-                    "/trt/bin/trtexec",
+                    str(trtexec),
                     "--onnx=/run/typed_parser.onnx",
                     "--saveEngine=/run/engine.plan",
                     "--exportLayerInfo=/run/engine_layer_info.json",
@@ -261,10 +263,19 @@ def test_build_attention_diagnostic_engine_records_parity_only_provenance(
     )
 
     calls = []
+    diagnostic_engine_dir = tmp_path / "diagnostic_engine"
+    diagnostic_engine_dir.mkdir()
+    _write_json(
+        diagnostic_engine_dir / "diagnostic_engine_build_report.json",
+        {"status": "failed", "failure_reason": "old_runtime_mismatch"},
+    )
 
     def fake_run(command, **kwargs):
         calls.append(list(command))
         assert kwargs["env"]["CUDA_VISIBLE_DEVICES"] == "2"
+        library_paths = kwargs["env"]["LD_LIBRARY_PATH"].split(":")
+        assert str(trt_root / "targets/x86_64-linux-gnu/lib") in library_paths
+        assert str(trt_root / "lib") in library_paths
         engine = Path(next(value.split("=", 1)[1] for value in command if value.startswith("--saveEngine=")))
         layers = Path(next(value.split("=", 1)[1] for value in command if value.startswith("--exportLayerInfo=")))
         engine.write_bytes(b"diagnostic-engine")
@@ -276,22 +287,24 @@ def test_build_attention_diagnostic_engine_records_parity_only_provenance(
     report = build_attention_diagnostic_engine(
         production_build_report=production,
         diagnostic_onnx=diagnostic_onnx,
-        output_dir=tmp_path / "diagnostic_engine",
+        output_dir=diagnostic_engine_dir,
         physical_gpu=2,
     )
 
     assert report["status"] == "ok"
     assert report["diagnostic_latency_invalid"] is True
     assert report["strongly_typed"] is True
+    assert report["tensorrt_root"] == str(trt_root)
     assert report["engine_sha256"]
     assert report["onnx_sha256"]
     assert Path(report["engine_path"]).is_file()
     assert (tmp_path / "diagnostic_engine/diagnostic_engine_build_report.json").is_file()
+    assert len(list(diagnostic_engine_dir.glob("diagnostic_engine_build_report.failed-*.json"))) == 1
 
     reused = build_attention_diagnostic_engine(
         production_build_report=production,
         diagnostic_onnx=diagnostic_onnx,
-        output_dir=tmp_path / "diagnostic_engine",
+        output_dir=diagnostic_engine_dir,
         physical_gpu=2,
     )
 

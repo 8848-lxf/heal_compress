@@ -194,15 +194,36 @@ def build_attention_diagnostic_engine(
         )
         if exact:
             return {**previous, "reused_existing_diagnostic_engine": True}
-        raise RuntimeError("diagnostic_engine_cache_signature_mismatch")
+        if str(previous.get("status", "")) != "failed":
+            raise RuntimeError("diagnostic_engine_cache_signature_mismatch")
+        archive_path = report_path.with_name(
+            f"{report_path.stem}.failed-{_sha256(report_path)[:12]}.json"
+        )
+        if not archive_path.exists():
+            shutil.copy2(report_path, archive_path)
+        report_path.unlink()
     command = diagnostic_builder_command(
         base_command,
         onnx_path=onnx_path,
         engine_path=engine_path,
         layer_info_path=layer_info_path,
     )
+    trtexec_path = Path(command[0]).expanduser().resolve()
+    if (
+        trtexec_path.parent.name != "bin"
+        or trtexec_path.parent.parent.parent.name != "targets"
+    ):
+        raise RuntimeError(f"diagnostic_builder_trt_root_unresolved:{trtexec_path}")
+    tensorrt_root = trtexec_path.parents[3]
+    tensorrt_library_paths = (
+        tensorrt_root / "targets/x86_64-linux-gnu/lib",
+        tensorrt_root / "lib",
+    )
     env = dict(os.environ)
     env["CUDA_VISIBLE_DEVICES"] = str(int(physical_gpu))
+    env["LD_LIBRARY_PATH"] = ":".join(
+        [*(str(path) for path in tensorrt_library_paths), env.get("LD_LIBRARY_PATH", "")]
+    )
     completed = subprocess.run(
         command,
         text=True,
@@ -237,6 +258,8 @@ def build_attention_diagnostic_engine(
         "reused_existing_diagnostic_engine": False,
         "status": status,
         "strongly_typed": "--stronglyTyped" in command,
+        "tensorrt_library_paths": [str(path) for path in tensorrt_library_paths],
+        "tensorrt_root": str(tensorrt_root),
     }
     _write_json(report_path, report)
     if status != "ok":
