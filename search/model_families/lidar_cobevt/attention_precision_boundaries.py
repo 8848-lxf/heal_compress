@@ -46,6 +46,7 @@ COMBINATION_PROFILE_NAMES = (
 FINAL_PROFILE_NAMES = (
     "F1_rest_fp16_projection_fp16_core_fp32",
     "F2_rest_fp16_projection_av_fp16_qk_core_fp32",
+    "F3_rest_fp16_qk_fp32_minimal_island",
 )
 
 ATTENTION_BOUNDARY_PROFILE_NAMES = (
@@ -274,6 +275,24 @@ _PROFILES.update(
                 "q_projection",
                 "k_projection",
                 "output_projection",
+            ),
+            external_weighted_dtype="FP16",
+        ),
+        "F3_rest_fp16_qk_fp32_minimal_island": _combination_profile(
+            "F3_rest_fp16_qk_fp32_minimal_island",
+            fp16_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "softmax",
+                "av_matmul",
+                "output_projection",
+                "residual_add",
+            ),
+            output_recovery_roles=(
+                "q_projection",
+                "k_projection",
+                "residual_add",
             ),
             external_weighted_dtype="FP16",
         ),

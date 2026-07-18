@@ -216,6 +216,19 @@ def test_profile_weighted_precision_changes_attention_projections_only():
             },
             {"q_projection", "k_projection", "output_projection"},
         ),
+        (
+            "F3_rest_fp16_qk_fp32_minimal_island",
+            {
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "softmax",
+                "av_matmul",
+                "output_projection",
+                "residual_add",
+            },
+            {"q_projection", "k_projection", "residual_add"},
+        ),
     ],
 )
 def test_final_profiles_use_rest_fp16_with_explicit_attention_islands(
