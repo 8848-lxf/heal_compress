@@ -604,11 +604,12 @@ def apply_attention_boundary_contract(
                     f"attention_boundary_input_dtype_unresolved:"
                     f"{block.block_id}:{role}:{input_index}:{source}"
                 )
-            if int(source_type) == compute_type:
-                continue
             producer = producers.get(source)
             if producer is not None and _cast_target(producer) == compute_type:
                 types[source] = compute_type
+                continue
+            force_explicit_boundary = role == "softmax" and precision == "FP16"
+            if int(source_type) == compute_type and not force_explicit_boundary:
                 continue
             cast_name = _unique_cast_name(
                 profile_name=profile.profile_name,

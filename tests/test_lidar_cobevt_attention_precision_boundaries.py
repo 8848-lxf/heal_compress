@@ -443,6 +443,59 @@ def test_a1_projection_outputs_are_explicitly_restored_before_attention_core(
     assert records["residual_add"]["compute_dtype"] == "FP32"
 
 
+def test_fp16_softmax_requires_an_explicit_input_cast_even_when_value_info_is_fp16(
+    tmp_path: Path,
+):
+    from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+        apply_attention_boundary_contract,
+    )
+
+    source = tmp_path / "softmax_metadata_source.onnx"
+    destination = tmp_path / "softmax_metadata_typed.onnx"
+    entries = _minimal_attention_onnx(source)
+    model = onnx.load(str(source))
+    mask_fill = next(value for value in model.graph.initializer if value.name == "mask_fill")
+    mask_fill.CopyFrom(
+        numpy_helper.from_array(np.zeros((1, 1), dtype=np.float16), name="mask_fill")
+    )
+    where_index = next(
+        index for index, node in enumerate(model.graph.node) if node.op_type == "Where"
+    )
+    where = model.graph.node[where_index]
+    model.graph.node.insert(
+        where_index,
+        helper.make_node(
+            "Cast",
+            ["biased"],
+            ["biased_fp16"],
+            name="upstream_auxiliary_to_fp16",
+            to=TensorProto.FLOAT16,
+        ),
+    )
+    where.input[2] = "biased_fp16"
+    model.graph.value_info.append(
+        helper.make_tensor_value_info("masked", TensorProto.FLOAT16, [1, 4])
+    )
+    onnx.save(model, str(source))
+
+    report = apply_attention_boundary_contract(
+        source,
+        destination,
+        entries,
+        "F3_rest_fp16_qk_fp32_minimal_island",
+        expected_block_count=1,
+    )
+    softmax = _records_by_role(report)["softmax"]
+    rewritten = onnx.load(str(destination))
+    producers = {
+        output: node for node in rewritten.graph.node for output in node.output
+    }
+
+    assert softmax["input_cast_count"] == 1
+    assert producers[softmax["input_tensors_after"][0]].op_type == "Cast"
+    assert producers[softmax["input_tensors_after"][0]].attribute[0].i == TensorProto.FLOAT16
+
+
 def test_a0_keeps_entire_attention_and_external_graph_fp32(tmp_path: Path):
     _model, report = _apply_minimal_profile(tmp_path, "A0_strict_fp32_reference")
 
