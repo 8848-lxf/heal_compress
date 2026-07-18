@@ -51,7 +51,18 @@ def validate_request(request: Mapping[str, Any]) -> dict[str, Any]:
     names = [str(row.get("tensor_name", "")) for row in specs]
     if any(not name for name in names) or len(names) != len(set(names)):
         raise RuntimeError("cobevt_parity_output_specs_invalid")
+    reference_only = list(validated.get("reference_only_specs", []))
+    reference_names = [str(row.get("tensor_name", "")) for row in reference_only]
+    reference_roles = {str(row.get("role", "")) for row in reference_only}
+    if (
+        any(not name for name in reference_names)
+        or len(reference_names) != len(set(reference_names))
+        or bool(set(names) & set(reference_names))
+        or not reference_roles <= {"residual_attention_update", "residual_input"}
+    ):
+        raise RuntimeError("cobevt_parity_reference_only_invalid")
     validated["output_specs"] = specs
+    validated["reference_only_specs"] = reference_only
     return validated
 
 
@@ -159,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
             str(request["candidate_engine_path"]), device
         )
         specs = list(request["output_specs"])
+        reference_only_specs = list(request.get("reference_only_specs", []))
         selected_ids = set(evaluation_ids)
         detailed: list[dict[str, Any]] = []
         frame_rows: list[dict[str, Any]] = []
@@ -199,6 +211,15 @@ def main(argv: list[str] | None = None) -> int:
                         **metrics,
                     }
                     frame_metrics.append(row)
+                    by_block[block_id][role] = name
+                for spec in reference_only_specs:
+                    block_id = str(spec["block_id"])
+                    role = str(spec["role"])
+                    name = str(spec["tensor_name"])
+                    if name not in reference:
+                        raise RuntimeError(
+                            f"cobevt_parity_reference_output_missing:{name}"
+                        )
                     by_block[block_id][role] = name
                 for block_id, roles in by_block.items():
                     required = {
@@ -246,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
             "num_skipped_frames": int(sum(skip_reasons.values())),
             "profile_name": str(request.get("profile_name", "")),
             "reference_engine_path": str(request["reference_engine_path"]),
+            "reference_only_specs": reference_only_specs,
             "skip_reason_counts": dict(skip_reasons),
             "status": "ok" if complete else "parity_failed",
             "summary_rows": _aggregate(detailed),

@@ -204,6 +204,50 @@ def test_attention_diagnostic_output_specs_fail_closed_for_incomplete_role_recor
         )
 
 
+def test_attention_diagnostic_shards_cover_candidate_outputs_once_and_keep_residual_aux_reference_only():
+    from search.model_families.lidar_cobevt.attention_tensor_parity import (
+        attention_diagnostic_output_shards,
+    )
+
+    roles = (
+        "layernorm",
+        "q_projection",
+        "k_projection",
+        "v_projection",
+        "qk_matmul",
+        "scaled_qk_logits",
+        "softmax",
+        "av_matmul",
+        "output_projection",
+        "residual_attention_update",
+        "residual_input",
+        "residual_add",
+        "fused_bev",
+        "head_input",
+    )
+    specs = [
+        {"block_id": "layers.0.window_attention", "role": role, "tensor_name": role}
+        for role in roles
+    ]
+
+    shards = attention_diagnostic_output_shards(specs)
+    candidate_roles = [
+        row["role"] for shard in shards for row in shard["output_specs"]
+    ]
+    reference_only_roles = [
+        row["role"] for shard in shards for row in shard["reference_only_specs"]
+    ]
+
+    assert [shard["shard_id"] for shard in shards] == ["pre", "qk", "post"]
+    assert len(candidate_roles) == len(set(candidate_roles)) == 12
+    assert set(reference_only_roles) == {
+        "residual_attention_update",
+        "residual_input",
+    }
+    assert "residual_add" in candidate_roles
+    assert not (set(candidate_roles) & set(reference_only_roles))
+
+
 def test_tensor_error_metrics_are_exact_for_identical_and_shifted_values():
     from search.model_families.lidar_cobevt.attention_tensor_parity import (
         tensor_error_metrics,

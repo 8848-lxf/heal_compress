@@ -35,6 +35,46 @@ def test_attention_parity_worker_requires_fixed_diagnostic_protocol():
     assert validated["diagnostic_latency_invalid"] is True
 
 
+def test_attention_parity_worker_allows_reference_only_residual_inputs():
+    from search.integration.lidar_cobevt_attention_parity_worker import (
+        validate_request,
+    )
+
+    request = _request()
+    request["reference_only_specs"] = [
+        {
+            "block_id": "layers.0.window_attention",
+            "role": "residual_input",
+            "tensor_name": "residual_input",
+        },
+        {
+            "block_id": "layers.0.window_attention",
+            "role": "residual_attention_update",
+            "tensor_name": "residual_update",
+        },
+    ]
+
+    validated = validate_request(request)
+
+    assert len(validated["reference_only_specs"]) == 2
+    assert not (
+        {row["tensor_name"] for row in validated["output_specs"]}
+        & {row["tensor_name"] for row in validated["reference_only_specs"]}
+    )
+
+
+def test_attention_parity_worker_rejects_candidate_reference_only_overlap():
+    from search.integration.lidar_cobevt_attention_parity_worker import (
+        validate_request,
+    )
+
+    request = _request()
+    request["reference_only_specs"] = list(request["output_specs"])
+
+    with pytest.raises(RuntimeError, match="cobevt_parity_reference_only_invalid"):
+        validate_request(request)
+
+
 @pytest.mark.parametrize(
     ("field", "value", "message"),
     [

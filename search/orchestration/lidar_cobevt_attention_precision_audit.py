@@ -24,7 +24,9 @@ from search.model_families.lidar_cobevt.attention_precision_boundaries import (
 )
 from search.model_families.lidar_cobevt.attention_tensor_parity import (
     append_attention_diagnostic_outputs,
+    attention_diagnostic_output_shards,
     attention_diagnostic_output_specs,
+    select_failure_frames,
 )
 from search.reporting.cobevt_attention_precision_inventory import (
     build_attention_precision_inventory,
@@ -279,6 +281,7 @@ def build_attention_parity_request(
     eval_manifest_path: str | Path,
     output_path: str | Path,
     output_specs: Iterable[Mapping[str, Any]],
+    reference_only_specs: Iterable[Mapping[str, Any]] = (),
     physical_gpu: int,
     profile_name: str,
 ) -> dict[str, Any]:
@@ -297,6 +300,7 @@ def build_attention_parity_request(
         "num_workers": 8,
         "output_path": str(output_path),
         "output_specs": [dict(row) for row in output_specs],
+        "reference_only_specs": [dict(row) for row in reference_only_specs],
         "physical_device": f"cuda:{int(physical_gpu)}",
         "plugin_path": str(plugin_path),
         "profile_name": str(profile_name),
@@ -770,6 +774,67 @@ def _prepare_diagnostic_profile_engine(
     }
 
 
+def _prepare_diagnostic_profile_shards(
+    *, output_dir: Path, profile_name: str, physical_gpu: int
+) -> dict[str, Any]:
+    from search.orchestration.lidar_cobevt_attention_pruning import (
+        candidate_engine_directory,
+    )
+
+    engine_dir = candidate_engine_directory(
+        output_dir,
+        "baseline_d32",
+        29696,
+        precision="FP32",
+        profile_name=profile_name,
+    )
+    production_report_path = engine_dir / "build_report.json"
+    production = json.loads(production_report_path.read_text(encoding="utf-8"))
+    if str(production.get("status", "")) != "ok":
+        raise RuntimeError(f"parity_production_profile_not_ready:{profile_name}")
+    specs = attention_diagnostic_output_specs(
+        production.get("attention_boundary_report", {})
+    )
+    parity_dir = _profile_directory(output_dir, profile_name) / "tensor_parity"
+    prepared = []
+    for shard in attention_diagnostic_output_shards(specs):
+        shard_id = str(shard["shard_id"])
+        shard_dir = parity_dir / "shards" / shard_id
+        diagnostic_onnx = shard_dir / "diagnostic.onnx"
+        output_specs = list(shard["output_specs"])
+        onnx_report = append_attention_diagnostic_outputs(
+            engine_dir / "typed_parser.onnx",
+            diagnostic_onnx,
+            output_specs,
+        )
+        _write_json(shard_dir / "diagnostic_output_specs.json", output_specs)
+        _write_json(
+            shard_dir / "reference_only_specs.json",
+            shard["reference_only_specs"],
+        )
+        engine_report = build_attention_diagnostic_engine(
+            production_build_report=production_report_path,
+            diagnostic_onnx=diagnostic_onnx,
+            output_dir=shard_dir / "diagnostic_engine",
+            physical_gpu=physical_gpu,
+        )
+        prepared.append(
+            {
+                "diagnostic_engine": engine_report,
+                "diagnostic_onnx": onnx_report,
+                "output_specs": output_specs,
+                "reference_only_specs": list(shard["reference_only_specs"]),
+                "shard_id": shard_id,
+            }
+        )
+    return {
+        "diagnostic_mode": "sharded",
+        "output_specs": specs,
+        "profile_name": profile_name,
+        "shards": prepared,
+    }
+
+
 def run_attention_tensor_parity(
     *,
     output_dir: str | Path,
@@ -791,35 +856,59 @@ def run_attention_tensor_parity(
         profile_name="A0_strict_fp32_reference",
         physical_gpu=physical_gpu,
     )
-    candidate = _prepare_diagnostic_profile_engine(
-        output_dir=destination,
-        profile_name=profile_name,
-        physical_gpu=physical_gpu,
-    )
     reference_specs = reference["output_specs"]
-    candidate_specs = candidate["output_specs"]
-    if reference_specs != candidate_specs:
-        raise RuntimeError(f"parity_output_specs_differ:{profile_name}")
+    full_diagnostic_failure = ""
+    try:
+        candidate = _prepare_diagnostic_profile_engine(
+            output_dir=destination,
+            profile_name=profile_name,
+            physical_gpu=physical_gpu,
+        )
+        candidate_shards = [
+            {
+                "diagnostic_engine": candidate["diagnostic_engine"],
+                "output_specs": candidate["output_specs"],
+                "reference_only_specs": [],
+                "shard_id": "full",
+            }
+        ]
+        diagnostic_mode = "full"
+    except RuntimeError as exc:
+        if "attention_diagnostic_engine_build_failed" not in str(exc):
+            raise
+        full_diagnostic_failure = f"{type(exc).__name__}: {exc}"
+        candidate = _prepare_diagnostic_profile_shards(
+            output_dir=destination,
+            profile_name=profile_name,
+            physical_gpu=physical_gpu,
+        )
+        candidate_shards = list(candidate["shards"])
+        diagnostic_mode = "sharded"
+    reference_spec_keys = {
+        (
+            str(row.get("block_id", "")),
+            str(row.get("role", "")),
+            str(row.get("tensor_name", "")),
+        )
+        for row in reference_specs
+    }
+    for shard in candidate_shards:
+        candidate_keys = {
+            (
+                str(row.get("block_id", "")),
+                str(row.get("role", "")),
+                str(row.get("tensor_name", "")),
+            )
+            for row in (
+                list(shard["output_specs"])
+                + list(shard.get("reference_only_specs", []))
+            )
+        }
+        if not candidate_keys <= reference_spec_keys:
+            raise RuntimeError(
+                f"parity_output_specs_differ:{profile_name}:{shard['shard_id']}"
+            )
     profile_dir = _profile_directory(destination, profile_name) / "tensor_parity"
-    output_path = profile_dir / "parity_result.json"
-    request = build_attention_parity_request(
-        reference_engine_path=reference["diagnostic_engine"]["engine_path"],
-        candidate_engine_path=candidate["diagnostic_engine"]["engine_path"],
-        model_config=config,
-        heal_root=heal_root,
-        plugin_path=plugin_path,
-        eval_manifest_path=destination / "manifests/smoke10_manifest.json",
-        output_path=output_path,
-        output_specs=reference_specs,
-        physical_gpu=physical_gpu,
-        profile_name=profile_name,
-    )
-    smoke_manifest = json.loads(
-        Path(request["eval_manifest_path"]).read_text(encoding="utf-8")
-    )
-    request["warmup_frames"] = len(smoke_manifest.get("warmup_frame_ids", []))
-    request_path = profile_dir / "parity_request.json"
-    _write_json(request_path, request)
     root = Path(trt_root).expanduser().resolve()
     repo_root = Path(__file__).resolve().parents[2]
     env = modelopt_subprocess_env(
@@ -835,27 +924,136 @@ def run_attention_tensor_parity(
             env.get("LD_LIBRARY_PATH", ""),
         )
     )
-    command = modelopt_python_command("modelopt") + [
-        "-m",
-        "search.integration.lidar_cobevt_attention_parity_worker",
-        "--request",
-        str(request_path),
-    ]
-    completed = subprocess.run(
-        command,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        env=env,
-        check=False,
-    )
-    log_path = profile_dir / "parity_worker.log"
-    log_path.write_text(completed.stdout or "", encoding="utf-8")
-    if not output_path.is_file():
-        raise RuntimeError(f"parity_worker_no_output_rc_{completed.returncode}")
-    result = json.loads(output_path.read_text(encoding="utf-8"))
-    result["worker_returncode"] = int(completed.returncode)
-    result["worker_log_path"] = str(log_path)
+    shard_results = []
+    for shard in candidate_shards:
+        shard_id = str(shard["shard_id"])
+        suffix = "" if diagnostic_mode == "full" else f"_{shard_id}"
+        shard_output_path = profile_dir / f"parity_result{suffix}.json"
+        request = build_attention_parity_request(
+            reference_engine_path=reference["diagnostic_engine"]["engine_path"],
+            candidate_engine_path=shard["diagnostic_engine"]["engine_path"],
+            model_config=config,
+            heal_root=heal_root,
+            plugin_path=plugin_path,
+            eval_manifest_path=destination / "manifests/smoke10_manifest.json",
+            output_path=shard_output_path,
+            output_specs=shard["output_specs"],
+            reference_only_specs=shard.get("reference_only_specs", []),
+            physical_gpu=physical_gpu,
+            profile_name=profile_name,
+        )
+        smoke_manifest = json.loads(
+            Path(request["eval_manifest_path"]).read_text(encoding="utf-8")
+        )
+        request["warmup_frames"] = len(
+            smoke_manifest.get("warmup_frame_ids", [])
+        )
+        request_path = profile_dir / f"parity_request{suffix}.json"
+        _write_json(request_path, request)
+        command = modelopt_python_command("modelopt") + [
+            "-m",
+            "search.integration.lidar_cobevt_attention_parity_worker",
+            "--request",
+            str(request_path),
+        ]
+        completed = subprocess.run(
+            command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=env,
+            check=False,
+        )
+        log_path = profile_dir / f"parity_worker{suffix}.log"
+        log_path.write_text(completed.stdout or "", encoding="utf-8")
+        if not shard_output_path.is_file():
+            raise RuntimeError(
+                f"parity_worker_no_output_rc_{completed.returncode}:{shard_id}"
+            )
+        shard_result = json.loads(shard_output_path.read_text(encoding="utf-8"))
+        shard_result["shard_id"] = shard_id
+        shard_result["worker_returncode"] = int(completed.returncode)
+        shard_result["worker_log_path"] = str(log_path)
+        _write_json(shard_output_path, shard_result)
+        shard_results.append(shard_result)
+    if diagnostic_mode == "full":
+        result = dict(shard_results[0])
+    else:
+        evaluated_sets = {
+            tuple(row.get("evaluated_frame_ids", [])) for row in shard_results
+        }
+        manifest_hashes = {
+            str(row.get("eval_manifest_hash", "")) for row in shard_results
+        }
+        detailed = [
+            item
+            for shard_result in shard_results
+            for item in shard_result.get("detailed_rows", [])
+        ]
+        per_frame: dict[str, float] = {}
+        for row in detailed:
+            frame_id = str(row.get("frame_id", ""))
+            per_frame[frame_id] = max(
+                per_frame.get(frame_id, 0.0),
+                float(row.get("maximum_absolute_error", 0.0)),
+            )
+        complete = (
+            len(evaluated_sets) == 1
+            and len(manifest_hashes) == 1
+            and all(str(row.get("status", "")) == "ok" for row in shard_results)
+            and all(int(row.get("num_skipped_frames", 0)) == 0 for row in shard_results)
+        )
+        result = {
+            "attention_failure_frames": select_failure_frames(
+                [
+                    {"frame_id": frame_id, "maximum_absolute_error": error}
+                    for frame_id, error in per_frame.items()
+                ],
+                count=3,
+            ),
+            "candidate_engine_paths": [
+                str(row.get("candidate_engine_path", "")) for row in shard_results
+            ],
+            "dataloader_num_workers": 8,
+            "detailed_rows": detailed,
+            "diagnostic_latency_invalid": True,
+            "evaluated_frame_ids": list(next(iter(evaluated_sets), ())),
+            "eval_manifest_hash": next(iter(manifest_hashes), ""),
+            "fixed_k": 29696,
+            "full_diagnostic_failure": full_diagnostic_failure,
+            "num_evaluated_frames": len(next(iter(evaluated_sets), ())),
+            "num_skipped_frames": sum(
+                int(row.get("num_skipped_frames", 0)) for row in shard_results
+            ),
+            "profile_name": profile_name,
+            "reference_engine_path": reference["diagnostic_engine"]["engine_path"],
+            "shard_results": [
+                {
+                    "candidate_engine_path": row.get("candidate_engine_path", ""),
+                    "shard_id": row.get("shard_id", ""),
+                    "status": row.get("status", ""),
+                    "worker_log_path": row.get("worker_log_path", ""),
+                    "worker_returncode": row.get("worker_returncode", -1),
+                }
+                for row in shard_results
+            ],
+            "status": "ok" if complete else "parity_failed",
+            "summary_rows": sorted(
+                [
+                    item
+                    for shard_result in shard_results
+                    for item in shard_result.get("summary_rows", [])
+                ],
+                key=lambda row: (
+                    str(row.get("block_id", "")),
+                    str(row.get("role", "")),
+                ),
+            ),
+            "tensor_metrics_backend": "cuda",
+            "tensor_metrics_dtype": "torch.float32",
+        }
+    result["diagnostic_mode"] = diagnostic_mode
+    output_path = profile_dir / "parity_result.json"
     _write_json(output_path, result)
     return result
 

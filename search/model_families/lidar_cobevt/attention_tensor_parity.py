@@ -173,6 +173,60 @@ def attention_diagnostic_output_specs(
     return specs
 
 
+def attention_diagnostic_output_shards(
+    outputs: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    role_shards = {
+        "pre": {"layernorm", "q_projection", "k_projection", "v_projection"},
+        "qk": {"qk_matmul", "scaled_qk_logits", "softmax"},
+        "post": {
+            "av_matmul",
+            "output_projection",
+            "residual_add",
+            "fused_bev",
+            "head_input",
+        },
+    }
+    reference_only_roles = {"residual_attention_update", "residual_input"}
+    known_roles = set().union(*role_shards.values(), reference_only_roles)
+    unknown = sorted(
+        {str(row.get("role", "")) for row in outputs} - known_roles
+    )
+    if unknown:
+        raise ValueError(f"attention_diagnostic_shard_role_unknown:{unknown}")
+    tensor_names = [str(row.get("tensor_name", "")) for row in outputs]
+    if any(not name for name in tensor_names) or len(tensor_names) != len(
+        set(tensor_names)
+    ):
+        raise ValueError("attention_diagnostic_shard_tensor_invalid")
+    shards = []
+    for shard_id in ("pre", "qk", "post"):
+        output_specs = [
+            dict(row)
+            for row in outputs
+            if str(row.get("role", "")) in role_shards[shard_id]
+        ]
+        reference_only_specs = (
+            [
+                dict(row)
+                for row in outputs
+                if str(row.get("role", "")) in reference_only_roles
+            ]
+            if shard_id == "post"
+            else []
+        )
+        if not output_specs:
+            raise ValueError(f"attention_diagnostic_shard_empty:{shard_id}")
+        shards.append(
+            {
+                "output_specs": output_specs,
+                "reference_only_specs": reference_only_specs,
+                "shard_id": shard_id,
+            }
+        )
+    return shards
+
+
 def metric_accumulation_spec(device_type: str) -> dict[str, Any]:
     return {
         "device_policy": "preserve",
