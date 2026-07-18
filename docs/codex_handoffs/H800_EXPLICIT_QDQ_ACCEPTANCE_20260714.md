@@ -1340,3 +1340,46 @@ search methods show an accuracy cliff at 0.05.
 Completed checkpoint: 2026-07-18 01:47:37 +0800 CST
 
 ---
+
+## Formal pruning / mixed-quantization contribution ablation
+
+Completed a fresh same-GPU full-validation ablation for all six accepted GA
+winners and all six greedy winners. Every searched configuration was evaluated
+as P+Q, exact-mask strict-FP32 P-only, and original-all-keep Q-only. The run
+uses H800 GPU 7, fixedK29696, train200 entropy calibration, warmup/reset,
+DataLoader workers=8, CUDA postprocess, and 1789 evaluated / 0 skipped frames.
+
+The FP32 reference was rebuilt and remeasured in this run: `mAP=0.736616873`,
+`p50=7.031603 ms`. The invalid old greedy 0.30 snapshot (`0.282141`) was
+replaced by exact replay of path step 104 (`R_BOPS=0.301922`, delta `0.001922`),
+which passed full validation with `mAP=0.736713448`, `p50=6.582260 ms`.
+
+Main conclusion: at BOPS 0.10--0.30, P-only, Q-only, and P+Q all retain FP32
+accuracy. At BOPS 0.05, P-only remains near `0.736` mAP while Q-only and P+Q
+fall to `0.699--0.708`; the accuracy cliff is primarily caused by the
+aggressive quantization profile rather than physical structured pruning. The
+largest absolute pruning/quantization interaction is only `0.001323` mAP.
+
+Production additions:
+
+```text
+search/ablation/lidar_pyramid_prune_quant.py
+scripts/run_lidar_pyramid_prune_quant_ablation.py
+tests/test_search_lidar_pyramid_prune_quant_ablation.py
+docs/codex_handoffs/H800_LIDAR_PYRAMID_PRUNE_QUANT_ABLATION_20260719.md
+```
+
+Machine-readable evidence root:
+
+```text
+outputs/h800_lidar_pyramid_prune_quant_ablation_20260718_124729/
+```
+
+See the dedicated handoff and `ablation_report.md` for all AP30/AP50/AP70/mAP,
+p50/p90/p99, precision coverage, parameter pruning, speedup, contribution, and
+interaction tables. Outputs, checkpoints, ONNX files, Q/DQ files, calibration
+caches, and engines remain excluded from Git.
+
+Completed checkpoint: 2026-07-19 05:47:26 +0800 CST
+
+---
