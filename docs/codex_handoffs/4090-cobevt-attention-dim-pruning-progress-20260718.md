@@ -291,3 +291,37 @@ Validation: 29 CoBEVT Attention tests passed; modified Python passed
 ------------------------------------------------------------
 Round completed: 2026-07-19 01:02 CST
 ------------------------------------------------------------
+
+## Round 10: FP32 Parity and FP16 Localization Harness
+
+The strict FP32 K=29,696 baseline completed 500/500 with zero skip:
+
+- AP30: `0.779501`;
+- AP50: `0.683628`;
+- AP70: `0.483247`;
+- mAP: `0.648792`;
+- screening forward p50: `7.901 ms`.
+
+The same-manifest PyTorch FP32 mAP is `0.648880`, a delta of only `-0.000088`.
+This proves the fixed-K wrapper, ONNX export semantics, scatter plugin, engine
+output mapping and GPU postprocess are aligned. The strict FP16 mAP collapse is
+therefore a precision-stability problem rather than a K/profile problem.
+
+Added baseline-only mixed-precision diagnostic profiles and a smoke-only runner:
+
+- `frontend_fp16`;
+- `fusion_fp16`;
+- `attention_fp16`;
+- `ffn_heads_fp16`.
+
+Each profile has an isolated engine identity and is explicitly marked
+diagnostic. It cannot be confused with the formal strict-FP16 result. Smoke10 is
+sufficient for localization because the strict FP32/FP16 smoke mAP values are
+`0.521809` and `0.115378`, respectively.
+
+Validation: all 16 orchestration tests passed; modified Python passed
+`py_compile`; `git diff --check` passed.
+
+------------------------------------------------------------
+Round completed: 2026-07-19 01:18 CST
+------------------------------------------------------------

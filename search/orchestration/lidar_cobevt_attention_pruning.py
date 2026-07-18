@@ -52,6 +52,12 @@ DEFAULT_PLUGIN = Path(
 )
 DEFAULT_FIXED_K = 25600
 PYRAMID_FULL_VALIDATION_FIXED_K = 29696
+DIAGNOSTIC_PRECISION_PROFILES = (
+    "frontend_fp16",
+    "fusion_fp16",
+    "attention_fp16",
+    "ffn_heads_fp16",
+)
 
 
 @dataclass(frozen=True)
@@ -226,15 +232,20 @@ def candidate_engine_directory(
     fixed_k: int,
     *,
     precision: str = "FP16",
+    profile_name: str = "",
 ) -> Path:
     normalized = str(precision).strip().upper()
     if normalized not in {"FP32", "FP16"}:
         raise ValueError(f"unsupported_control_engine_precision:{precision}")
+    profile = str(profile_name).strip().lower()
+    if profile and profile not in DIAGNOSTIC_PRECISION_PROFILES:
+        raise ValueError(f"unsupported_diagnostic_precision_profile:{profile_name}")
+    directory_tag = profile or normalized.lower()
     return (
         output_dir
         / "candidates"
         / str(candidate_id)
-        / f"{normalized.lower()}_engine_k{int(fixed_k)}"
+        / f"{directory_tag}_engine_k{int(fixed_k)}"
     )
 
 
@@ -245,6 +256,41 @@ def requested_uniform_precision(capability: Any, precision: str) -> dict[str, st
     return {
         str(row.module_path): normalized for row in capability.weighted_entries
     }
+
+
+def requested_diagnostic_precision_profile(
+    capability: Any, profile_name: str
+) -> dict[str, str]:
+    profile = str(profile_name).strip().lower()
+    if profile not in DIAGNOSTIC_PRECISION_PROFILES:
+        raise ValueError(f"unsupported_diagnostic_precision_profile:{profile_name}")
+
+    def use_fp16(module_path: str) -> bool:
+        if profile == "frontend_fp16":
+            return module_path.startswith(("encoder_m1.", "backbone_m1.", "shrinker_m1."))
+        if profile == "fusion_fp16":
+            return module_path.startswith("fusion_net.")
+        if profile == "attention_fp16":
+            return "_attention.fn." in module_path
+        return (
+            "_ffd.fn." in module_path
+            or module_path.startswith("fusion_net.mlp_head.")
+            or module_path in {"cls_head", "reg_head", "dir_head"}
+        )
+
+    return {
+        str(row.module_path): ("FP16" if use_fp16(str(row.module_path)) else "FP32")
+        for row in capability.weighted_entries
+    }
+
+
+def _precision_result_suffix(
+    *, engine_precision: str, diagnostic_profile: str = ""
+) -> str:
+    profile = str(diagnostic_profile).strip().lower()
+    if profile:
+        return f"_{profile}"
+    return "" if str(engine_precision).strip().upper() == "FP16" else "_fp32"
 
 
 def _sha256(path: str | Path) -> str:
@@ -950,6 +996,7 @@ def run_export_build(
     plugin_path: Path,
     engine_precision: str = "FP16",
     candidate_ids: Iterable[str] | None = None,
+    diagnostic_profile: str = "",
 ) -> dict[str, Any]:
     from search.integration.runtime_environment import discover_trt_environment
     from search.model_families.lidar_cobevt.deployment_recipe import CobevtDeploymentRecipe
@@ -965,6 +1012,7 @@ def run_export_build(
         raise RuntimeError("fixed_k_not_validated_for_fixed500_manifest")
     fixed_k = int(experiment["fixed_k"])
     normalized_precision = str(engine_precision).strip().upper()
+    profile_name = str(diagnostic_profile).strip().lower()
     selected_ids = {str(value) for value in (candidate_ids or ())}
     rows = []
     for record in experiment["candidates"]:
@@ -976,6 +1024,7 @@ def run_export_build(
             spec.candidate_id,
             fixed_k,
             precision=normalized_precision,
+            profile_name=profile_name,
         )
         report_path = destination / "build_report.json"
         if report_path.is_file():
@@ -1008,14 +1057,16 @@ def run_export_build(
             origin = _origin_map_from_dict(export.origin_map)
             quant = CobevtQuantizationRecipe()
             capability = quant.build_capability(origin)
-            requested = requested_uniform_precision(
-                capability, normalized_precision
+            requested = (
+                requested_diagnostic_precision_profile(capability, profile_name)
+                if profile_name
+                else requested_uniform_precision(capability, normalized_precision)
             )
             profile = quant.build_profile(
                 capability,
                 requested,
                 profile_id=(
-                    f"{spec.candidate_id}_strict_{normalized_precision.lower()}"
+                    f"{spec.candidate_id}_{profile_name or ('strict_' + normalized_precision.lower())}"
                 ),
             )
             mapping = quant.build_mapping(origin, profile)
@@ -1078,6 +1129,7 @@ def run_export_build(
                 "status": "ok",
                 "code_commit": _git_commit(),
                 "engine_precision": normalized_precision,
+                "diagnostic_precision_profile": profile_name,
                 "fixed_k": fixed_k,
                 "build_elapsed_seconds": time.monotonic() - started,
                 "builder_command": record_to_dict(command),
@@ -1102,13 +1154,17 @@ def run_export_build(
                 **spec.to_dict(),
                 "status": "failed",
                 "engine_precision": normalized_precision,
+                "diagnostic_precision_profile": profile_name,
                 "failure_reason": f"{type(exc).__name__}: {exc}",
             }
         _write_json(report_path, result)
         rows.append(result)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-    suffix = "" if normalized_precision == "FP16" else "_fp32"
+    suffix = _precision_result_suffix(
+        engine_precision=normalized_precision,
+        diagnostic_profile=profile_name,
+    )
     _write_json(output_dir / f"full_engine_build_results{suffix}.json", rows)
     _write_csv(output_dir / f"full_engine_build_results{suffix}.csv", rows)
     return {
@@ -1128,6 +1184,8 @@ def run_trt500(
     plugin_path: Path,
     engine_precision: str = "FP16",
     candidate_ids: Iterable[str] | None = None,
+    diagnostic_profile: str = "",
+    smoke_only: bool = False,
 ) -> dict[str, Any]:
     from search.integration.lidar_cobevt_evaluation_provider import (
         evaluate_cobevt_engine_modelopt,
@@ -1138,11 +1196,16 @@ def run_trt500(
         raise RuntimeError("fixed_k_not_validated_for_fixed500_manifest")
     fixed_k = int(experiment["fixed_k"])
     normalized_precision = str(engine_precision).strip().upper()
+    profile_name = str(diagnostic_profile).strip().lower()
     selected_ids = {str(value) for value in (candidate_ids or ())}
     smoke_manifest = Path(experiment["manifests"]["smoke10"]["path"])
     manifest = Path(experiment["manifests"]["fixed500"]["path"])
-    suffix = "" if normalized_precision == "FP16" else "_fp32"
-    results_path = output_dir / f"trt_ap500_results{suffix}.json"
+    suffix = _precision_result_suffix(
+        engine_precision=normalized_precision,
+        diagnostic_profile=profile_name,
+    )
+    result_prefix = "trt_smoke10_results" if smoke_only else "trt_ap500_results"
+    results_path = output_dir / f"{result_prefix}{suffix}.json"
     rows = (
         json.loads(results_path.read_text(encoding="utf-8"))
         if results_path.is_file()
@@ -1164,6 +1227,7 @@ def run_trt500(
             spec.candidate_id,
             fixed_k,
             precision=normalized_precision,
+            profile_name=profile_name,
         )
         build_report = candidate / "build_report.json"
         if not build_report.is_file():
@@ -1209,7 +1273,20 @@ def run_trt500(
             }
             rows = upsert_candidate_result(rows, row)
             _write_json(results_path, rows)
-            _write_csv(output_dir / f"trt_ap500_results{suffix}.csv", rows)
+            _write_csv(output_dir / f"{result_prefix}{suffix}.csv", rows)
+            continue
+        if smoke_only:
+            row = {
+                **spec.to_dict(),
+                **smoke,
+                "status": "ok",
+                "diagnostic_precision_profile": profile_name,
+                "engine_sha256": build.get("engine_sha256", ""),
+                "structure_hash": build.get("structure_hash", ""),
+            }
+            rows = upsert_candidate_result(rows, row)
+            _write_json(results_path, rows)
+            _write_csv(output_dir / f"{result_prefix}{suffix}.csv", rows)
             continue
         evaluation_dir = candidate / "evaluation_fixed500"
         result_path = evaluation_dir / "evaluation.json"
@@ -1244,7 +1321,7 @@ def run_trt500(
         }
         rows = upsert_candidate_result(rows, row)
         _write_json(results_path, rows)
-        _write_csv(output_dir / f"trt_ap500_results{suffix}.csv", rows)
+        _write_csv(output_dir / f"{result_prefix}{suffix}.csv", rows)
     return {
         "candidate_count": len(rows),
         "successful_count": sum(row.get("status") == "ok" for row in rows),
@@ -1288,6 +1365,12 @@ def _parser() -> argparse.ArgumentParser:
         "--engine-precision", choices=("FP32", "FP16"), default="FP16"
     )
     parser.add_argument("--candidate-id", action="append", default=[])
+    parser.add_argument(
+        "--diagnostic-profile",
+        choices=DIAGNOSTIC_PRECISION_PROFILES,
+        default="",
+    )
+    parser.add_argument("--smoke-only", action="store_true")
     return parser
 
 
@@ -1321,6 +1404,7 @@ def main(argv: list[str] | None = None) -> int:
             plugin_path=Path(args.plugin).expanduser().resolve(),
             engine_precision=str(args.engine_precision),
             candidate_ids=tuple(args.candidate_id),
+            diagnostic_profile=str(args.diagnostic_profile),
         )
     else:
         result = run_trt500(
@@ -1330,6 +1414,8 @@ def main(argv: list[str] | None = None) -> int:
             plugin_path=Path(args.plugin).expanduser().resolve(),
             engine_precision=str(args.engine_precision),
             candidate_ids=tuple(args.candidate_id),
+            diagnostic_profile=str(args.diagnostic_profile),
+            smoke_only=bool(args.smoke_only),
         )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
