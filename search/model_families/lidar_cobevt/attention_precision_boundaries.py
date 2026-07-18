@@ -24,7 +24,7 @@ ATTENTION_ROLES = (
     "residual_add",
 )
 
-ATTENTION_BOUNDARY_PROFILE_NAMES = (
+SINGLE_BOUNDARY_PROFILE_NAMES = (
     "A0_strict_fp32_reference",
     "A1_qkv_projection_fp16_core_fp32",
     "A2_layernorm_fp16_only",
@@ -33,6 +33,17 @@ ATTENTION_BOUNDARY_PROFILE_NAMES = (
     "A5_av_matmul_fp16_only",
     "A6_output_projection_fp16_only",
     "A7_residual_add_fp16_only",
+)
+
+COMBINATION_PROFILE_NAMES = (
+    "M1_projection_fp16_core_fp32",
+    "M2_projection_qk_av_fp16_softmax_fp32",
+    "M3_projection_av_fp16_qk_softmax_fp32",
+)
+
+ATTENTION_BOUNDARY_PROFILE_NAMES = (
+    *SINGLE_BOUNDARY_PROFILE_NAMES,
+    *COMBINATION_PROFILE_NAMES,
 )
 
 
@@ -56,6 +67,12 @@ class AttentionBoundaryProfile:
         recovery = tuple(str(role) for role in self.output_recovery_roles)
         if not set(recovery) <= set(ATTENTION_ROLES):
             raise ValueError(f"attention_profile_recovery_role_invalid:{self.profile_name}")
+        if not set(recovery) <= {
+            role for role, precision in normalized.items() if precision == "FP16"
+        }:
+            raise ValueError(
+                f"attention_profile_recovery_role_not_fp16:{self.profile_name}"
+            )
         object.__setattr__(self, "role_dtypes", MappingProxyType(normalized))
         object.__setattr__(self, "output_recovery_roles", recovery)
 
@@ -94,6 +111,23 @@ def _single_boundary_profile(
     )
 
 
+def _combination_profile(
+    profile_name: str,
+    *,
+    fp16_roles: Iterable[str],
+    output_recovery_roles: Iterable[str],
+) -> AttentionBoundaryProfile:
+    selected = {str(role) for role in fp16_roles}
+    return AttentionBoundaryProfile(
+        profile_name=profile_name,
+        role_dtypes={
+            role: ("FP16" if role in selected else "FP32")
+            for role in ATTENTION_ROLES
+        },
+        output_recovery_roles=tuple(str(role) for role in output_recovery_roles),
+    )
+
+
 _PROFILES = {
     name: _single_boundary_profile(name, roles)
     for name, roles in (
@@ -110,6 +144,53 @@ _PROFILES = {
         ("A7_residual_add_fp16_only", ("residual_add",)),
     )
 }
+_PROFILES.update(
+    {
+        "M1_projection_fp16_core_fp32": _combination_profile(
+            "M1_projection_fp16_core_fp32",
+            fp16_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "output_projection",
+            ),
+            output_recovery_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "output_projection",
+            ),
+        ),
+        "M2_projection_qk_av_fp16_softmax_fp32": _combination_profile(
+            "M2_projection_qk_av_fp16_softmax_fp32",
+            fp16_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "qk_scale",
+                "qk_matmul",
+                "av_matmul",
+                "output_projection",
+            ),
+            output_recovery_roles=("qk_matmul", "output_projection"),
+        ),
+        "M3_projection_av_fp16_qk_softmax_fp32": _combination_profile(
+            "M3_projection_av_fp16_qk_softmax_fp32",
+            fp16_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "av_matmul",
+                "output_projection",
+            ),
+            output_recovery_roles=(
+                "q_projection",
+                "k_projection",
+                "output_projection",
+            ),
+        ),
+    }
+)
 
 
 def attention_boundary_profile(profile_name: str) -> AttentionBoundaryProfile:
@@ -627,6 +708,8 @@ def describe_existing_attention_boundaries(
 
 __all__ = [
     "ATTENTION_BOUNDARY_PROFILE_NAMES",
+    "COMBINATION_PROFILE_NAMES",
+    "SINGLE_BOUNDARY_PROFILE_NAMES",
     "ATTENTION_ROLES",
     "AttentionBlockNodes",
     "AttentionBoundaryProfile",

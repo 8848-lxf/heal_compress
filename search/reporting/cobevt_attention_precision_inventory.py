@@ -128,20 +128,29 @@ def build_attention_precision_inventory(
         metadata = " ".join(str(row.get("Metadata", "")) for row in matched)
         fused = metadata.count("[ONNX Layer:") > 1
         requested = str(boundary["compute_dtype"])
+        onnx_inputs = [_dtype_name(types.get(str(value))) for value in node.input]
+        onnx_outputs = [_dtype_name(types.get(str(value))) for value in node.output]
         realized_inputs = []
         realized_outputs = []
         tactic_precision = "UNRESOLVED"
         if primary is not None:
+            realized_rows = (
+                [primary]
+                if str(node.op_type) in {"MatMul", "Einsum"}
+                else list(matched)
+            )
             realized_inputs = sorted(
                 {
                     _trt_dtype(value.get("Format/Datatype", ""))
-                    for value in primary.get("Inputs", [])
+                    for row in realized_rows
+                    for value in row.get("Inputs", [])
                 }
             )
             realized_outputs = sorted(
                 {
                     _trt_dtype(value.get("Format/Datatype", ""))
-                    for value in primary.get("Outputs", [])
+                    for row in realized_rows
+                    for value in row.get("Outputs", [])
                 }
             )
             tactic_precision = _tactic_precision(str(primary.get("TacticName", "")))
@@ -155,8 +164,28 @@ def build_attention_precision_inventory(
             if compute_match and output_match:
                 status = "matched"
                 failure_reason = ""
+            elif (
+                compute_match
+                and bool(boundary.get("output_cast_nodes", []))
+                and requested in realized_outputs
+                and set(onnx_outputs) == {requested}
+            ):
+                status = "matched_separate_output_cast"
+                failure_reason = ""
             elif compute_match and fused:
                 status = "matched_fused_output_unexposed"
+                failure_reason = ""
+            elif (
+                fused
+                and output_match
+                and {
+                    value
+                    for value in onnx_inputs
+                    if value in {"FP16", "FP32", "INT8"}
+                }
+                == {requested}
+            ):
+                status = "matched_fused_input_unexposed"
                 failure_reason = ""
             else:
                 status = "mismatched"
@@ -200,13 +229,9 @@ def build_attention_precision_inventory(
                 "fused": fused,
                 "module_path": _module_path(str(boundary["block_id"]), role),
                 "node_name": node_name,
-                "onnx_input_dtypes": [
-                    _dtype_name(types.get(str(value))) for value in node.input
-                ],
+                "onnx_input_dtypes": onnx_inputs,
                 "onnx_input_tensors": list(node.input),
-                "onnx_output_dtypes": [
-                    _dtype_name(types.get(str(value))) for value in node.output
-                ],
+                "onnx_output_dtypes": onnx_outputs,
                 "onnx_output_tensors": list(node.output),
                 "op_type": str(node.op_type),
                 "realization_failure_reason": failure_reason,

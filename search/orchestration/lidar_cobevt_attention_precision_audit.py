@@ -5,12 +5,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 from zoneinfo import ZoneInfo
 
 import torch
@@ -20,6 +21,10 @@ from search.model_families.lidar_cobevt.attention_precision_boundaries import (
     ATTENTION_BOUNDARY_PROFILE_NAMES,
     attention_boundary_profile,
     describe_existing_attention_boundaries,
+)
+from search.model_families.lidar_cobevt.attention_tensor_parity import (
+    append_attention_diagnostic_outputs,
+    attention_diagnostic_output_specs,
 )
 from search.reporting.cobevt_attention_precision_inventory import (
     build_attention_precision_inventory,
@@ -101,6 +106,180 @@ def classify_smoke_delta(delta_map: float) -> str:
     if value >= -0.01:
         return "safe"
     return "ambiguous"
+
+
+def diagnostic_builder_command(
+    production_command: Iterable[str],
+    *,
+    onnx_path: str | Path,
+    engine_path: str | Path,
+    layer_info_path: str | Path,
+) -> list[str]:
+    """Derive a diagnostic build without changing production type semantics."""
+
+    command = [str(value) for value in production_command]
+    required = ("--stronglyTyped", "--noTF32")
+    for flag in required:
+        if flag not in command:
+            raise ValueError(f"diagnostic_builder_missing_required_flag:{flag}")
+    if not any(value.startswith("--staticPlugins=") for value in command):
+        raise ValueError("diagnostic_builder_missing_required_flag:--staticPlugins")
+    forbidden = (
+        "--fp16",
+        "--int8",
+        "--precisionConstraints",
+        "--layerPrecisions",
+        "--layerOutputTypes",
+    )
+    if any(value.split("=", 1)[0] in forbidden for value in command):
+        raise ValueError("diagnostic_builder_forbidden_precision_control")
+    replacements = {
+        "--onnx=": str(Path(onnx_path).expanduser().resolve()),
+        "--saveEngine=": str(Path(engine_path).expanduser().resolve()),
+        "--exportLayerInfo=": str(Path(layer_info_path).expanduser().resolve()),
+    }
+    replaced: set[str] = set()
+    result: list[str] = []
+    for value in command:
+        prefix = next((item for item in replacements if value.startswith(item)), None)
+        if prefix is None:
+            result.append(value)
+            continue
+        result.append(prefix + replacements[prefix])
+        replaced.add(prefix)
+    missing = sorted(set(replacements) - replaced)
+    if missing:
+        raise ValueError(f"diagnostic_builder_missing_path_flags:{missing}")
+    return result
+
+
+def build_attention_diagnostic_engine(
+    *,
+    production_build_report: str | Path,
+    diagnostic_onnx: str | Path,
+    output_dir: str | Path,
+    physical_gpu: int,
+    timeout_seconds: int = 3600,
+) -> dict[str, Any]:
+    """Build a parity-only engine with the production strongly typed command."""
+
+    source_report = Path(production_build_report).expanduser().resolve()
+    onnx_path = Path(diagnostic_onnx).expanduser().resolve()
+    destination = Path(output_dir).expanduser().resolve()
+    if not source_report.is_file() or not onnx_path.is_file():
+        raise FileNotFoundError(str(source_report if not source_report.is_file() else onnx_path))
+    production = json.loads(source_report.read_text(encoding="utf-8"))
+    if str(production.get("status", "")) != "ok":
+        raise RuntimeError("diagnostic_engine_requires_successful_production_build")
+    base_command = list(production.get("builder_command", {}).get("command", []))
+    destination.mkdir(parents=True, exist_ok=True)
+    engine_path = destination / "diagnostic_engine.plan"
+    layer_info_path = destination / "diagnostic_engine_layer_info.json"
+    report_path = destination / "diagnostic_engine_build_report.json"
+    onnx_sha256 = _sha256(onnx_path)
+    production_sha256 = _sha256(source_report)
+    if report_path.is_file():
+        previous = json.loads(report_path.read_text(encoding="utf-8"))
+        previous_engine = Path(str(previous.get("engine_path", "")))
+        previous_layers = Path(str(previous.get("layer_info_path", "")))
+        exact = (
+            str(previous.get("status", "")) == "ok"
+            and str(previous.get("onnx_sha256", "")) == onnx_sha256
+            and str(previous.get("production_build_report_sha256", ""))
+            == production_sha256
+            and int(previous.get("physical_gpu", -1)) == int(physical_gpu)
+            and previous_engine.is_file()
+            and previous_layers.is_file()
+            and str(previous.get("engine_sha256", "")) == _sha256(previous_engine)
+        )
+        if exact:
+            return {**previous, "reused_existing_diagnostic_engine": True}
+        raise RuntimeError("diagnostic_engine_cache_signature_mismatch")
+    command = diagnostic_builder_command(
+        base_command,
+        onnx_path=onnx_path,
+        engine_path=engine_path,
+        layer_info_path=layer_info_path,
+    )
+    env = dict(os.environ)
+    env["CUDA_VISIBLE_DEVICES"] = str(int(physical_gpu))
+    completed = subprocess.run(
+        command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
+        check=False,
+        timeout=int(timeout_seconds),
+    )
+    log_path = destination / "trtexec.log"
+    log_path.write_text(completed.stdout or "", encoding="utf-8")
+    status = (
+        "ok"
+        if int(completed.returncode) == 0
+        and engine_path.is_file()
+        and layer_info_path.is_file()
+        else "failed"
+    )
+    report = {
+        "builder_command": command,
+        "builder_returncode": int(completed.returncode),
+        "diagnostic_latency_invalid": True,
+        "engine_path": str(engine_path),
+        "engine_sha256": _sha256(engine_path) if engine_path.is_file() else "",
+        "layer_info_path": str(layer_info_path),
+        "log_path": str(log_path),
+        "onnx_path": str(onnx_path),
+        "onnx_sha256": onnx_sha256,
+        "physical_gpu": int(physical_gpu),
+        "production_build_report": str(source_report),
+        "production_build_report_sha256": production_sha256,
+        "reused_existing_diagnostic_engine": False,
+        "status": status,
+        "strongly_typed": "--stronglyTyped" in command,
+    }
+    _write_json(report_path, report)
+    if status != "ok":
+        raise RuntimeError(
+            f"attention_diagnostic_engine_build_failed:{completed.returncode}"
+        )
+    return report
+
+
+def build_attention_parity_request(
+    *,
+    reference_engine_path: str | Path,
+    candidate_engine_path: str | Path,
+    model_config: str | Path,
+    heal_root: str | Path,
+    plugin_path: str | Path,
+    eval_manifest_path: str | Path,
+    output_path: str | Path,
+    output_specs: Iterable[Mapping[str, Any]],
+    physical_gpu: int,
+    profile_name: str,
+) -> dict[str, Any]:
+    return {
+        "candidate_engine_path": str(candidate_engine_path),
+        "cuda_visible_devices": str(int(physical_gpu)),
+        "device": "cuda:0",
+        "diagnostic_latency_invalid": True,
+        "eval_manifest_path": str(eval_manifest_path),
+        "fixed_k": 29696,
+        "heal_root": str(heal_root),
+        "max_cav": 2,
+        "model_config": str(model_config),
+        "model_family": "lidar_cobevt",
+        "num_frames": 10,
+        "num_workers": 8,
+        "output_path": str(output_path),
+        "output_specs": [dict(row) for row in output_specs],
+        "physical_device": f"cuda:{int(physical_gpu)}",
+        "plugin_path": str(plugin_path),
+        "profile_name": str(profile_name),
+        "reference_engine_path": str(reference_engine_path),
+        "warmup_frames": 0,
+    }
 
 
 def _manifest_record(path: Path) -> dict[str, Any]:
@@ -322,6 +501,19 @@ def _load_run_manifest(output_dir: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def register_run_profile(run_manifest_path: str | Path, profile_name: str) -> None:
+    path = Path(run_manifest_path).expanduser().resolve()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    profiles = [str(value) for value in payload.get("profiles", [])]
+    name = str(profile_name)
+    if name not in ATTENTION_BOUNDARY_PROFILE_NAMES:
+        raise ValueError(f"unknown_attention_boundary_profile:{name}")
+    if name not in profiles:
+        profiles.append(name)
+        payload["profiles"] = profiles
+        _write_json(path, payload)
+
+
 def _profile_freshness(
     *, output_dir: Path, profile_name: str
 ) -> tuple[dict[str, Any], str]:
@@ -366,6 +558,7 @@ def run_boundary_build(
     )
 
     destination = Path(output_dir).expanduser().resolve()
+    register_run_profile(destination / "run_manifest.json", profile_name)
     profile_dir = _profile_directory(destination, profile_name)
     profile_manifest, signature = _profile_freshness(
         output_dir=destination, profile_name=profile_name
@@ -513,10 +706,143 @@ def run_boundary_evaluation(
     return result
 
 
+def _prepare_diagnostic_profile_engine(
+    *, output_dir: Path, profile_name: str, physical_gpu: int
+) -> dict[str, Any]:
+    from search.orchestration.lidar_cobevt_attention_pruning import (
+        candidate_engine_directory,
+    )
+
+    engine_dir = candidate_engine_directory(
+        output_dir,
+        "baseline_d32",
+        29696,
+        precision="FP32",
+        profile_name=profile_name,
+    )
+    production_report_path = engine_dir / "build_report.json"
+    production = json.loads(production_report_path.read_text(encoding="utf-8"))
+    if str(production.get("status", "")) != "ok":
+        raise RuntimeError(f"parity_production_profile_not_ready:{profile_name}")
+    specs = attention_diagnostic_output_specs(
+        production.get("attention_boundary_report", {})
+    )
+    parity_dir = _profile_directory(output_dir, profile_name) / "tensor_parity"
+    diagnostic_onnx = parity_dir / "diagnostic.onnx"
+    onnx_report = append_attention_diagnostic_outputs(
+        engine_dir / "typed_parser.onnx", diagnostic_onnx, specs
+    )
+    _write_json(parity_dir / "diagnostic_output_specs.json", specs)
+    engine_report = build_attention_diagnostic_engine(
+        production_build_report=production_report_path,
+        diagnostic_onnx=diagnostic_onnx,
+        output_dir=parity_dir / "diagnostic_engine",
+        physical_gpu=physical_gpu,
+    )
+    return {
+        "diagnostic_engine": engine_report,
+        "diagnostic_onnx": onnx_report,
+        "output_specs": specs,
+        "profile_name": profile_name,
+    }
+
+
+def run_attention_tensor_parity(
+    *,
+    output_dir: str | Path,
+    profile_name: str,
+    config: str | Path,
+    heal_root: str | Path,
+    trt_root: str | Path,
+    plugin_path: str | Path,
+    physical_gpu: int,
+) -> dict[str, Any]:
+    from search.integration.runtime_environment import (
+        modelopt_python_command,
+        modelopt_subprocess_env,
+    )
+
+    destination = Path(output_dir).expanduser().resolve()
+    reference = _prepare_diagnostic_profile_engine(
+        output_dir=destination,
+        profile_name="A0_strict_fp32_reference",
+        physical_gpu=physical_gpu,
+    )
+    candidate = _prepare_diagnostic_profile_engine(
+        output_dir=destination,
+        profile_name=profile_name,
+        physical_gpu=physical_gpu,
+    )
+    reference_specs = reference["output_specs"]
+    candidate_specs = candidate["output_specs"]
+    if reference_specs != candidate_specs:
+        raise RuntimeError(f"parity_output_specs_differ:{profile_name}")
+    profile_dir = _profile_directory(destination, profile_name) / "tensor_parity"
+    output_path = profile_dir / "parity_result.json"
+    request = build_attention_parity_request(
+        reference_engine_path=reference["diagnostic_engine"]["engine_path"],
+        candidate_engine_path=candidate["diagnostic_engine"]["engine_path"],
+        model_config=config,
+        heal_root=heal_root,
+        plugin_path=plugin_path,
+        eval_manifest_path=destination / "manifests/smoke10_manifest.json",
+        output_path=output_path,
+        output_specs=reference_specs,
+        physical_gpu=physical_gpu,
+        profile_name=profile_name,
+    )
+    smoke_manifest = json.loads(
+        Path(request["eval_manifest_path"]).read_text(encoding="utf-8")
+    )
+    request["warmup_frames"] = len(smoke_manifest.get("warmup_frame_ids", []))
+    request_path = profile_dir / "parity_request.json"
+    _write_json(request_path, request)
+    root = Path(trt_root).expanduser().resolve()
+    repo_root = Path(__file__).resolve().parents[2]
+    env = modelopt_subprocess_env(
+        tensorrt_root=root,
+        conda_env="modelopt",
+        pythonpath_entries=[str(repo_root), str(heal_root), str(Path(heal_root).parent)],
+        cuda_visible_devices=str(int(physical_gpu)),
+    )
+    env["LD_LIBRARY_PATH"] = ":".join(
+        (
+            str(root / "targets/x86_64-linux-gnu/lib"),
+            str(root / "lib"),
+            env.get("LD_LIBRARY_PATH", ""),
+        )
+    )
+    command = modelopt_python_command("modelopt") + [
+        "-m",
+        "search.integration.lidar_cobevt_attention_parity_worker",
+        "--request",
+        str(request_path),
+    ]
+    completed = subprocess.run(
+        command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
+        check=False,
+    )
+    log_path = profile_dir / "parity_worker.log"
+    log_path.write_text(completed.stdout or "", encoding="utf-8")
+    if not output_path.is_file():
+        raise RuntimeError(f"parity_worker_no_output_rc_{completed.returncode}")
+    result = json.loads(output_path.read_text(encoding="utf-8"))
+    result["worker_returncode"] = int(completed.returncode)
+    result["worker_log_path"] = str(log_path)
+    _write_json(output_path, result)
+    return result
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--phase", choices=("prepare", "inventory", "build", "evaluate"), required=True
+        "--phase",
+        choices=("prepare", "inventory", "build", "evaluate", "parity"),
+        required=True,
     )
     parser.add_argument("--source-output", default=str(DEFAULT_SOURCE_OUTPUT))
     parser.add_argument("--output-dir", required=True)
@@ -565,7 +891,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             device=torch.device(args.device),
             physical_gpu=args.physical_gpu,
         )
-    else:
+    elif args.phase == "evaluate":
         if not args.profile:
             raise ValueError("boundary_evaluation_profile_required")
         result = run_boundary_evaluation(
@@ -579,17 +905,34 @@ def main(argv: Iterable[str] | None = None) -> int:
             plugin_path=plugin,
             physical_gpu=args.physical_gpu,
         )
+    else:
+        if not args.profile or args.profile == "A0_strict_fp32_reference":
+            raise ValueError("boundary_parity_candidate_profile_required")
+        result = run_attention_tensor_parity(
+            output_dir=output_dir,
+            profile_name=args.profile,
+            config=config,
+            heal_root=args.heal_root,
+            trt_root=args.trt_root,
+            plugin_path=plugin,
+            physical_gpu=args.physical_gpu,
+        )
     print(json.dumps(result, indent=2, sort_keys=True, default=str))
     return 0
 
 
 __all__ = [
     "boundary_freshness_signature",
+    "build_attention_diagnostic_engine",
+    "build_attention_parity_request",
     "classify_smoke_delta",
+    "diagnostic_builder_command",
     "prepare_boundary_audit_run",
     "run_boundary_build",
     "run_boundary_evaluation",
     "run_static_precision_inventory",
+    "run_attention_tensor_parity",
+    "register_run_profile",
 ]
 
 

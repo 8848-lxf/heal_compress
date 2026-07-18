@@ -78,6 +78,55 @@ def test_single_boundary_profiles_change_only_the_named_roles(
     assert set(profile.output_recovery_roles) == fp16_roles
 
 
+@pytest.mark.parametrize(
+    ("profile_name", "fp16_roles", "recovery_roles"),
+    [
+        (
+            "M1_projection_fp16_core_fp32",
+            {"q_projection", "k_projection", "v_projection", "output_projection"},
+            {"q_projection", "k_projection", "v_projection", "output_projection"},
+        ),
+        (
+            "M2_projection_qk_av_fp16_softmax_fp32",
+            {
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "qk_scale",
+                "qk_matmul",
+                "av_matmul",
+                "output_projection",
+            },
+            {"qk_matmul", "output_projection"},
+        ),
+        (
+            "M3_projection_av_fp16_qk_softmax_fp32",
+            {
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "av_matmul",
+                "output_projection",
+            },
+            {"q_projection", "k_projection", "output_projection"},
+        ),
+    ],
+)
+def test_evidence_supported_combination_profiles_define_explicit_recovery_boundaries(
+    profile_name: str, fp16_roles: set[str], recovery_roles: set[str]
+):
+    from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+        attention_boundary_profile,
+    )
+
+    profile = attention_boundary_profile(profile_name)
+
+    assert {
+        role for role, precision in profile.role_dtypes.items() if precision == "FP16"
+    } == fp16_roles
+    assert set(profile.output_recovery_roles) == recovery_roles
+
+
 def test_boundary_profile_lookup_rejects_unknown_names():
     from search.model_families.lidar_cobevt.attention_precision_boundaries import (
         attention_boundary_profile,

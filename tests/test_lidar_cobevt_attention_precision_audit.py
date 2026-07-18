@@ -106,7 +106,7 @@ def test_prepare_boundary_audit_isolates_baseline_and_creates_fixed50(tmp_path: 
     assert fixed50["evaluation_frame_ids"] == [f"f{index}" for index in range(50)]
     assert fixed50["warmup_frame_ids"] == ["w0", "w1"]
     assert fixed50["num_frames"] == 50
-    assert len(list((output / "profiles").iterdir())) == 8
+    assert len(list((output / "profiles").iterdir())) == 11
     assert not list(output.rglob("*.plan"))
 
 
@@ -177,3 +177,169 @@ def test_freshness_signature_changes_with_every_owned_identity():
         assert boundary_freshness_signature(**changed) != baseline
     assert len(baseline) == 64
     assert set(baseline) <= set("0123456789abcdef")
+
+
+def test_diagnostic_builder_command_preserves_production_strong_typing(tmp_path: Path):
+    from search.orchestration.lidar_cobevt_attention_precision_audit import (
+        diagnostic_builder_command,
+    )
+
+    production = [
+        "/trt/bin/trtexec",
+        "--onnx=/run/typed_parser.onnx",
+        "--saveEngine=/run/engine.plan",
+        "--profilingVerbosity=detailed",
+        "--exportLayerInfo=/run/engine_layer_info.json",
+        "--skipInference",
+        "--noTF32",
+        "--stronglyTyped",
+        "--staticPlugins=/run/scatter.so",
+    ]
+
+    command = diagnostic_builder_command(
+        production,
+        onnx_path=tmp_path / "diagnostic.onnx",
+        engine_path=tmp_path / "diagnostic.plan",
+        layer_info_path=tmp_path / "diagnostic_layer_info.json",
+    )
+
+    assert f"--onnx={tmp_path / 'diagnostic.onnx'}" in command
+    assert f"--saveEngine={tmp_path / 'diagnostic.plan'}" in command
+    assert f"--exportLayerInfo={tmp_path / 'diagnostic_layer_info.json'}" in command
+    assert "--stronglyTyped" in command
+    assert "--noTF32" in command
+    assert "--staticPlugins=/run/scatter.so" in command
+    assert "--skipInference" in command
+    assert not any(item == "--fp16" or item == "--int8" for item in command)
+
+
+def test_diagnostic_builder_command_rejects_nonproduction_precision_protocol(
+    tmp_path: Path,
+):
+    from search.orchestration.lidar_cobevt_attention_precision_audit import (
+        diagnostic_builder_command,
+    )
+
+    with pytest.raises(ValueError, match="diagnostic_builder_missing_required_flag"):
+        diagnostic_builder_command(
+            ["trtexec", "--onnx=a", "--saveEngine=b", "--noTF32"],
+            onnx_path=tmp_path / "diagnostic.onnx",
+            engine_path=tmp_path / "diagnostic.plan",
+            layer_info_path=tmp_path / "diagnostic.json",
+        )
+
+
+def test_build_attention_diagnostic_engine_records_parity_only_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    import subprocess
+
+    from search.orchestration.lidar_cobevt_attention_precision_audit import (
+        build_attention_diagnostic_engine,
+    )
+
+    diagnostic_onnx = tmp_path / "diagnostic.onnx"
+    diagnostic_onnx.write_bytes(b"diagnostic-onnx")
+    production = tmp_path / "production_build.json"
+    _write_json(
+        production,
+        {
+            "status": "ok",
+            "builder_command": {
+                "command": [
+                    "/trt/bin/trtexec",
+                    "--onnx=/run/typed_parser.onnx",
+                    "--saveEngine=/run/engine.plan",
+                    "--exportLayerInfo=/run/engine_layer_info.json",
+                    "--skipInference",
+                    "--noTF32",
+                    "--stronglyTyped",
+                    "--staticPlugins=/run/scatter.so",
+                ]
+            },
+        },
+    )
+
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(list(command))
+        assert kwargs["env"]["CUDA_VISIBLE_DEVICES"] == "2"
+        engine = Path(next(value.split("=", 1)[1] for value in command if value.startswith("--saveEngine=")))
+        layers = Path(next(value.split("=", 1)[1] for value in command if value.startswith("--exportLayerInfo=")))
+        engine.write_bytes(b"diagnostic-engine")
+        layers.write_text('{"Layers": []}', encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, stdout="built")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    report = build_attention_diagnostic_engine(
+        production_build_report=production,
+        diagnostic_onnx=diagnostic_onnx,
+        output_dir=tmp_path / "diagnostic_engine",
+        physical_gpu=2,
+    )
+
+    assert report["status"] == "ok"
+    assert report["diagnostic_latency_invalid"] is True
+    assert report["strongly_typed"] is True
+    assert report["engine_sha256"]
+    assert report["onnx_sha256"]
+    assert Path(report["engine_path"]).is_file()
+    assert (tmp_path / "diagnostic_engine/diagnostic_engine_build_report.json").is_file()
+
+    reused = build_attention_diagnostic_engine(
+        production_build_report=production,
+        diagnostic_onnx=diagnostic_onnx,
+        output_dir=tmp_path / "diagnostic_engine",
+        physical_gpu=2,
+    )
+
+    assert len(calls) == 1
+    assert reused["reused_existing_diagnostic_engine"] is True
+
+
+def test_attention_parity_request_maps_physical_gpu_to_isolated_logical_device():
+    from search.orchestration.lidar_cobevt_attention_precision_audit import (
+        build_attention_parity_request,
+    )
+
+    request = build_attention_parity_request(
+        reference_engine_path="/run/a0.plan",
+        candidate_engine_path="/run/a1.plan",
+        model_config="/run/config.yaml",
+        heal_root="/run/HEAL",
+        plugin_path="/run/scatter.so",
+        eval_manifest_path="/run/smoke10.json",
+        output_path="/run/parity.json",
+        output_specs=[
+            {"block_id": "layers.0.window", "role": "q_projection", "tensor_name": "q"}
+        ],
+        physical_gpu=2,
+        profile_name="A1_qkv_projection_fp16_core_fp32",
+    )
+
+    assert request["cuda_visible_devices"] == "2"
+    assert request["device"] == "cuda:0"
+    assert request["physical_device"] == "cuda:2"
+    assert request["fixed_k"] == 29696
+    assert request["num_frames"] == 10
+    assert request["num_workers"] == 8
+    assert request["diagnostic_latency_invalid"] is True
+
+
+def test_run_manifest_profile_registration_is_idempotent(tmp_path: Path):
+    from search.orchestration.lidar_cobevt_attention_precision_audit import (
+        register_run_profile,
+    )
+
+    manifest = tmp_path / "run_manifest.json"
+    _write_json(manifest, {"profiles": ["A0_strict_fp32_reference"]})
+
+    register_run_profile(manifest, "M1_projection_fp16_core_fp32")
+    register_run_profile(manifest, "M1_projection_fp16_core_fp32")
+
+    assert json.loads(manifest.read_text())["profiles"] == [
+        "A0_strict_fp32_reference",
+        "M1_projection_fp16_core_fp32",
+    ]
