@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -110,7 +111,7 @@ def test_zero_candidates_records_bops_funnel_without_stage2(tmp_path: Path) -> N
     assert (tmp_path / "generation_001_top5.json").is_file()
 
 
-def test_expanded_band_runs_only_after_primary_build_supply_is_exhausted(
+def test_build_failure_does_not_trigger_engine_backfill(
     tmp_path: Path,
 ) -> None:
     from search.admission.bops_band import BopsBandPolicy
@@ -121,39 +122,142 @@ def test_expanded_band_runs_only_after_primary_build_supply_is_exhausted(
     def build(rows):
         calls.append([row.candidate_hash for row in rows])
         return [
-            (
-                {
-                    "candidate_hash": row.candidate_hash,
-                    "status": "engine_build_failed",
-                    "failure_reason": "build",
-                }
-                if row.candidate_hash == "primary"
-                else _ok_build(row.candidate_hash, 0.207)
-            )
+            {
+                "candidate_hash": row.candidate_hash,
+                "status": "engine_build_failed",
+                "failure_reason": "build",
+            }
+            if row.candidate_hash in {"a", "b"}
+            else _ok_build(row.candidate_hash)
             for row in rows
         ]
 
     report = run_generation_stage2(
         ranked_records=[
-            _record("primary", 0.20, 2.0),
-            _record("expanded", 0.207, 1.0),
+            _record(name, 0.20, 10.0 - index)
+            for index, name in enumerate("abcdefg")
         ],
         generation_index=0,
         output_dir=tmp_path,
-        policy=BopsBandPolicy(
-            target=0.20,
-            primary_tolerance=0.005,
-            expanded_tolerance=0.0075,
-        ),
+        policy=BopsBandPolicy(target=0.20),
+        topk=5,
         build_smoke_batch_fn=build,
+        evaluate_500_batch_fn=lambda rows: [
+            _ok_eval(row, f2=float(index)) for index, row in enumerate(rows)
+        ],
+    )
+
+    assert calls == [list("abcde")]
+    assert report["engine_build_attempt_count"] == 5
+    assert report["build_success_count"] == 3
+    assert report["evaluated_500_count"] == 3
+    assert {row["candidate_hash"] for row in report["failure_records"]} == {"a", "b"}
+
+
+def test_physical_preflight_backfills_without_exceeding_engine_build_cap(
+    tmp_path: Path,
+) -> None:
+    from search.admission.bops_band import BopsBandPolicy
+    from search.orchestration.generation_stage2 import run_generation_stage2
+
+    preflight_calls: list[list[str]] = []
+    build_calls: list[list[str]] = []
+
+    def preflight(rows):
+        preflight_calls.append([row.candidate_hash for row in rows])
+        return [
+            {
+                "candidate_hash": row.candidate_hash,
+                "status": "ok",
+                "physical_hash": f"physical-{row.candidate_hash}",
+                "physical_BOPS_retention": (
+                    0.220 if row.candidate_hash in {"a", "b"} else 0.20
+                ),
+            }
+            for row in rows
+        ]
+
+    def build(rows):
+        build_calls.append([row.candidate_hash for row in rows])
+        return [_ok_build(row.candidate_hash) for row in rows]
+
+    report = run_generation_stage2(
+        ranked_records=[
+            _record(name, 0.20, 10.0 - index)
+            for index, name in enumerate("abcdefg")
+        ],
+        generation_index=0,
+        output_dir=tmp_path,
+        policy=BopsBandPolicy(target=0.20),
+        topk=5,
+        physical_preflight_batch_fn=preflight,
+        build_smoke_batch_fn=build,
+        evaluate_500_batch_fn=lambda rows: [
+            _ok_eval(row, f2=float(index)) for index, row in enumerate(rows)
+        ],
+    )
+
+    assert preflight_calls == [list("abcde"), list("fg")]
+    assert build_calls == [list("cdefg")]
+    assert report["physical_preflight_attempt_count"] == 7
+    assert report["physical_preflight_admitted_count"] == 5
+    assert report["engine_build_attempt_count"] == 5
+    assert all(
+        row["failure_reason"] == "physical_bops_out_of_active_interval"
+        for row in report["failure_records"]
+    )
+
+
+def test_zero_physical_preflight_candidates_skips_generation_with_reason(
+    tmp_path: Path,
+) -> None:
+    from search.admission.bops_band import BopsBandPolicy
+    from search.orchestration.generation_stage2 import run_generation_stage2
+
+    build_calls: list[object] = []
+    report = run_generation_stage2(
+        ranked_records=[_record("a", 0.20), _record("b", 0.20)],
+        generation_index=0,
+        output_dir=tmp_path,
+        policy=BopsBandPolicy(target=0.20),
+        topk=5,
+        physical_preflight_batch_fn=lambda rows: [
+            {
+                "candidate_hash": row.candidate_hash,
+                "status": "ok",
+                "physical_hash": f"physical-{row.candidate_hash}",
+                "physical_BOPS_retention": 0.22,
+            }
+            for row in rows
+        ],
+        build_smoke_batch_fn=lambda rows: build_calls.extend(rows) or [],
         evaluate_500_batch_fn=lambda _rows: [],
     )
 
-    assert calls == [["primary"], ["expanded"]]
-    assert report["status"] == "single_candidate_direct_winner"
-    assert report["winner"]["candidate_hash"] == "expanded"
-    assert report["active_bops_mode"] == "expanded_bops_tolerance"
-    assert report["expanded_tolerance_reason"] == "primary_build_supply_exhausted"
+    assert build_calls == []
+    assert report["status"] == "no_physical_bops_admissible_candidates"
+    assert report["generation_skipped"] is True
+    assert report["generation_skip_reason"] == "physical_bops_preflight_exhausted"
+    assert report["engine_build_attempt_count"] == 0
+    decision = json.loads(
+        (tmp_path / "generation_001_count_decision.json").read_text(encoding="utf-8")
+    )
+    assert decision == {
+        "build_success_count": 0,
+        "engine_build_attempt_count": 0,
+        "evaluated_500_count": 0,
+        "evaluation_500_skipped": False,
+        "failure_reason_histogram": {
+            "physical_bops_out_of_active_interval": 2
+        },
+        "failure_stage_histogram": {"physical_bops_admission": 2},
+        "generation_skip_reason": "physical_bops_preflight_exhausted",
+        "generation_skipped": True,
+        "physical_preflight_admitted_count": 0,
+        "physical_preflight_attempt_count": 2,
+        "selected_count": 0,
+        "status": "no_physical_bops_admissible_candidates",
+    }
 
 
 def test_realized_bops_outside_active_band_is_not_admitted(tmp_path: Path) -> None:

@@ -293,6 +293,7 @@ def _evaluate_task(
     known_protocols = {
         "",
         "reference_strict_fp32",
+        "physical_preflight",
         "build_smoke",
         "evaluate_500",
         "full_validation",
@@ -313,6 +314,13 @@ def _evaluate_task(
             "reference_precision": "strict_fp32",
         }
         result["reference_hash"] = canonical_json_hash(result)
+    elif protocol == "physical_preflight":
+        phenotype = CandidatePhenotype.from_dict(dict(task["phenotype"]))
+        result = evaluator.preflight_physical_candidate(
+            phenotype,
+            output_dir=task["output_dir"],
+            candidate_hash=str(task["candidate_hash"]),
+        )
     elif protocol == "build_smoke":
         phenotype = CandidatePhenotype.from_dict(dict(task["phenotype"]))
         result = evaluator.build_and_smoke_candidate(
@@ -387,7 +395,7 @@ def _evaluate_task(
         "worker_gpu_id": int(gpu_id),
         "worker_pid": os.getpid(),
     }
-    if protocol == "reference_strict_fp32":
+    if protocol in {"reference_strict_fp32", "physical_preflight"}:
         return merged
     hashes = [
         str(merged.get(key, ""))

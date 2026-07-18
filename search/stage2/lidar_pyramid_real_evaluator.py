@@ -1153,6 +1153,77 @@ class LidarPyramidRealEvaluator:
         _write_json(destination / "build_smoke_result.json", result)
         return result
 
+    def preflight_physical_candidate(
+        self,
+        phenotype: CandidatePhenotype,
+        *,
+        output_dir: str | Path,
+        candidate_hash: str,
+    ) -> dict[str, Any]:
+        """Materialize and compute planned physical BOPS without deployment."""
+
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        _write_json(destination / "phenotype.json", phenotype.to_dict())
+        try:
+            physical = self._materialize_physical(phenotype, destination)
+            physical_shapes = profile_runtime_layer_shapes(
+                physical["model"],
+                self.context.trace_example_inputs,
+                forward_fn=self.context.model_bundle.adapter.forward_for_task,
+            )
+            _write_json(
+                destination / "physical_preflight_runtime_layer_shapes.json",
+                physical_shapes.to_dict(),
+            )
+            if (
+                self._baseline_bops_shapes is None
+                or self._baseline_bops_snapshot is None
+            ):
+                baseline_shapes = profile_runtime_layer_shapes(
+                    self.context.model,
+                    self.context.trace_example_inputs,
+                    forward_fn=self.context.model_bundle.adapter.forward_for_task,
+                )
+                self._baseline_bops_shapes = baseline_shapes.shapes
+                self._baseline_bops_snapshot = self.pruning.snapshot_fn(
+                    self.context.model
+                )
+            bops = compute_realized_bops(
+                physical_runtime_shapes=physical_shapes.shapes,
+                baseline_runtime_shapes=self._baseline_bops_shapes,
+                realized_precision_profile=phenotype.realized_precision_profile,
+                physical_snapshot=physical["snapshot"],
+                baseline_snapshot=self._baseline_bops_snapshot,
+                target_retention=None,
+                tolerance=self.bops_tolerance,
+            )
+            report = {
+                "candidate_hash": candidate_hash,
+                "status": "ok",
+                "physical_hash": physical["physical_hash"],
+                "physical_BOPS_retention": float(bops["bops_retention"]),
+                "physical_params": int(bops["physical_params"]),
+                "parameter_retention": float(bops["parameter_retention"]),
+                "R_MAC": float(bops["R_MAC"]),
+                "int8_macs_share_full": float(bops["int8_macs_share_full"]),
+                "engine_build_started": False,
+            }
+            _write_json(
+                destination / "physical_bops_preflight.json",
+                {**bops, **report},
+            )
+            return report
+        except Exception as exc:  # noqa: BLE001
+            report = {
+                "candidate_hash": candidate_hash,
+                "status": "physical_preflight_failed",
+                "failure_reason": f"{type(exc).__name__}: {exc}",
+                "engine_build_started": False,
+            }
+            _write_json(destination / "physical_bops_preflight.json", report)
+            return report
+
     def evaluate_existing_engine(
         self,
         engine_path: str | Path,

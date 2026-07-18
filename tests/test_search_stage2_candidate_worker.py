@@ -206,6 +206,48 @@ def test_candidate_worker_routes_build_smoke_without_formal_evaluation(
     assert result["status"] == "ok"
 
 
+def test_candidate_worker_routes_physical_preflight_without_building_engine(
+    tmp_path: Path,
+) -> None:
+    from search.candidate import CandidatePhenotype, PrecisionDecision
+    from search.stage2.candidate_worker import _evaluate_task
+
+    calls: list[str] = []
+
+    class Evaluator:
+        def preflight_physical_candidate(self, *_args, **_kwargs):
+            calls.append("physical_preflight")
+            return {
+                "status": "ok",
+                "physical_hash": "physical",
+                "physical_BOPS_retention": 0.20,
+            }
+
+        def build_and_smoke_candidate(self, *_args, **_kwargs):
+            raise AssertionError("physical preflight must not build an engine")
+
+    phenotype = CandidatePhenotype(
+        pruned_unit_ids=[],
+        precision_profile={"layer": PrecisionDecision("FP16", "FP16", "")},
+    )
+    result = _evaluate_task(
+        Evaluator(),
+        {
+            "task_protocol": "physical_preflight",
+            "task_cache_key": "preflight-key",
+            "candidate_hash": "candidate",
+            "phenotype": phenotype.to_dict(),
+            "output_dir": str(tmp_path),
+        },
+        4,
+    )
+
+    assert calls == ["physical_preflight"]
+    assert result["task_protocol"] == "physical_preflight"
+    assert result["task_cache_key"] == "preflight-key"
+    assert result["status"] == "ok"
+
+
 def test_candidate_worker_routes_evaluation_without_rebuilding_engine(
     tmp_path: Path,
 ) -> None:

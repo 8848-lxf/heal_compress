@@ -212,6 +212,47 @@ def _build_smoke_callback(
     return build
 
 
+def _physical_preflight_callback(
+    *,
+    stage2_pool: Any,
+    generation_dir: Path,
+):
+    def preflight(records: list[ProxyCandidateRecord]) -> list[dict[str, Any]]:
+        tasks: list[dict[str, Any]] = []
+        for record in records:
+            candidate_dir = generation_dir / "stage2" / record.candidate_hash
+            candidate_dir.mkdir(parents=True, exist_ok=True)
+            genotype = record.genotype.to_dict()
+            phenotype = record.phenotype.to_dict()
+            _write_json(candidate_dir / "genotype.json", genotype)
+            _write_json(candidate_dir / "phenotype.json", phenotype)
+            precision_hash = _precision_hash(record)
+            tasks.append(
+                {
+                    "task_protocol": "physical_preflight",
+                    "task_cache_key": canonical_json_hash(
+                        {
+                            "protocol": "physical_preflight",
+                            "candidate_hash": record.candidate_hash,
+                            "precision_hash": precision_hash,
+                        }
+                    ),
+                    "candidate_hash": record.candidate_hash,
+                    "phenotype": phenotype,
+                    "output_dir": str(candidate_dir.resolve()),
+                    "seed_family": str(
+                        dict(getattr(record.genotype, "meta", {}) or {}).get(
+                            "seed_family", "ga"
+                        )
+                    ),
+                    "stage1_metrics": dict(record.metrics),
+                }
+            )
+        return [dict(row) for row in stage2_pool.map_tasks(tasks)]
+
+    return preflight
+
+
 def _evaluate_500_callback(*, stage2_pool: Any, generation_dir: Path):
     def evaluate(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         tasks: list[dict[str, Any]] = []
@@ -334,6 +375,10 @@ def run_six_budget_joint_ga(
                     primary_tolerance=primary_tolerance,
                     expanded_tolerance=expanded_tolerance,
                     adjacent_targets=adjacent,
+                ),
+                physical_preflight_batch_fn=_physical_preflight_callback(
+                    stage2_pool=stage2_pool,
+                    generation_dir=generation_dir,
                 ),
                 build_smoke_batch_fn=_build_smoke_callback(
                     stage2_pool=stage2_pool,
