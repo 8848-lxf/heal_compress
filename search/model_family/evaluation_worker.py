@@ -59,7 +59,12 @@ def main(argv: list[str] | None = None) -> int:
             _timed,
             _verify_cuda_postprocess_backend,
         )
-        from search.model_family.export import HealV2XViTExportPolicy, prepare_v2xvit_fixed_k_inputs
+        from search.model_family.export import (
+            HealLidarBaselineExportPolicy,
+            HealV2XViTExportPolicy,
+            prepare_heal_lidar_baseline_inputs,
+            prepare_v2xvit_fixed_k_inputs,
+        )
 
         device = torch.device(str(request["device"]))
         if device.type != "cuda":
@@ -98,10 +103,21 @@ def main(argv: list[str] | None = None) -> int:
             )
         loader = DataLoader(dataset, **loader_kwargs)
         runner = TensorRTEngineRunner(request["engine_path"], device)
-        policy = HealV2XViTExportPolicy(
-            fixed_k=int(request["fixed_k"]),
-            max_agents=int(request.get("max_agents", 2)),
-        )
+        input_contract = str(request.get("input_contract", "heal_v2xvit_fixed_k"))
+        if input_contract == "heal_lidar_baseline_fixed_k":
+            policy = HealLidarBaselineExportPolicy(
+                fixed_k=int(request["fixed_k"]),
+                max_agents=int(request.get("max_agents", 2)),
+            )
+            prepare_inputs = prepare_heal_lidar_baseline_inputs
+        elif input_contract == "heal_v2xvit_fixed_k":
+            policy = HealV2XViTExportPolicy(
+                fixed_k=int(request["fixed_k"]),
+                max_agents=int(request.get("max_agents", 2)),
+            )
+            prepare_inputs = prepare_v2xvit_fixed_k_inputs
+        else:
+            raise RuntimeError(f"unsupported_fixed_k_input_contract:{input_contract}")
         manifest_path = Path(request["eval_manifest_path"])
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         warmup_ids = [str(value) for value in manifest.get("warmup_frame_ids", [])]
@@ -147,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
                     batch, h2d_ms = _timed(lambda: _move(batch, device), device)
                     ego = batch["ego"]
                     prepared, prepare_ms = _timed(
-                        lambda: prepare_v2xvit_fixed_k_inputs(ego, policy=policy), device
+                        lambda: prepare_inputs(ego, policy=policy), device
                     )
                     outputs = None
                     profiles = []
@@ -230,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
             "skip_reason_counts": dict(skip_reasons),
             "fixed_k": policy.fixed_k,
             "max_agents": policy.max_agents,
+            "input_contract": input_contract,
             "eval_manifest_path": str(manifest_path),
             "eval_manifest_hash": str(manifest.get("manifest_hash", "")),
             "reset_after_warmup": True,

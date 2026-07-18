@@ -32,7 +32,11 @@ def file_sha256(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def build_physical_structure_snapshot_v2(model: torch.nn.Module) -> dict[str, Any]:
+def build_physical_structure_snapshot_v2(
+    model: torch.nn.Module,
+    *,
+    model_family: str = "heal_lidar_v2xvit",
+) -> dict[str, Any]:
     """Describe every parameterized module in the generic structure schema."""
 
     weighted = (
@@ -64,7 +68,7 @@ def build_physical_structure_snapshot_v2(model: torch.nn.Module) -> dict[str, An
     payload = {
         "snapshot_schema_version": "physical-structure-snapshot-v2",
         "schema_version": "physical-structure-snapshot-v2",
-        "model_family": "heal_lidar_v2xvit",
+        "model_family": str(model_family),
         "modules": modules,
         "parameter_count": sum(int(parameter.numel()) for parameter in model.parameters()),
     }

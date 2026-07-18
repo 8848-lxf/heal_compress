@@ -26,6 +26,7 @@ def evaluate_v2xvit_engine_modelopt(
     warmup_frames: int = 5,
     latency_rounds: int = 1,
     dataloader_num_workers: int = 8,
+    input_contract: str = "heal_v2xvit_fixed_k",
 ) -> dict[str, Any]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -44,6 +45,7 @@ def evaluate_v2xvit_engine_modelopt(
         "latency_rounds": int(latency_rounds),
         "fixed_k": int(fixed_k),
         "max_agents": int(max_agents),
+        "input_contract": str(input_contract),
         "eval_manifest_path": str(Path(eval_manifest_path).resolve()),
         "dataloader_num_workers": int(dataloader_num_workers),
         "torch_num_threads": 4,
