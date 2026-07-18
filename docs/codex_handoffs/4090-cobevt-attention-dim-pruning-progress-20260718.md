@@ -325,3 +325,27 @@ Validation: all 16 orchestration tests passed; modified Python passed
 ------------------------------------------------------------
 Round completed: 2026-07-19 01:18 CST
 ------------------------------------------------------------
+
+## Round 11: CoBEVT FP16 Collapse Localized to Attention
+
+Baseline-only smoke10 diagnostic results on the same manifest:
+
+- strict FP32: mAP `0.521809`, p50 `8.181 ms`;
+- strict FP16: mAP `0.115378`, p50 `5.120 ms`;
+- frontend FP16 only: mAP `0.520389`, p50 `6.999 ms`;
+- fusion FP16 only: mAP `0.117048`, p50 `6.406 ms`;
+- Attention projection FP16 only: mAP `0.116860`, p50 `7.631 ms`;
+- FFN/mlp/head FP16 only: mAP `0.519500`, p50 `7.464 ms`.
+
+This isolates the collapse to the Attention FP16 path: Q/K/V/Out projections
+cause the surrounding QK MatMul, mask/RPE, Softmax and AV MatMul chain to run in
+FP16. Frontend and FFN/head FP16 are independently stable.
+
+Added an explicit `attention_fp32_rest_fp16` profile for the next controlled
+experiment. It protects only the 24 Attention projection groups in FP32 while
+placing all remaining weighted groups in FP16. This profile is labeled mixed
+precision and will not be reported as strict FP16.
+
+------------------------------------------------------------
+Round completed: 2026-07-19 01:35 CST
+------------------------------------------------------------

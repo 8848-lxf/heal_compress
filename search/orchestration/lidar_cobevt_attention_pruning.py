@@ -57,6 +57,7 @@ DIAGNOSTIC_PRECISION_PROFILES = (
     "fusion_fp16",
     "attention_fp16",
     "ffn_heads_fp16",
+    "attention_fp32_rest_fp16",
 )
 
 
@@ -272,6 +273,8 @@ def requested_diagnostic_precision_profile(
             return module_path.startswith("fusion_net.")
         if profile == "attention_fp16":
             return "_attention.fn." in module_path
+        if profile == "attention_fp32_rest_fp16":
+            return "_attention.fn." not in module_path
         return (
             "_ffd.fn." in module_path
             or module_path.startswith("fusion_net.mlp_head.")
