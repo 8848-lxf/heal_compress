@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
+import pytest
 import torch
 
 from search.model_families.lidar_cobevt.attention_dim_pruning import (
@@ -70,3 +72,51 @@ def test_explicit_int8_attention_export_contains_real_qdq(tmp_path: Path):
     assert node_types.count("QuantizeLinear") >= 9
     assert node_types.count("DequantizeLinear") >= 9
     assert "Softmax" in node_types
+
+
+def test_tensorrt_runtime_loader_fails_closed_when_library_is_missing(
+    tmp_path: Path,
+):
+    from search.orchestration.lidar_cobevt_attention_microbenchmark import (
+        load_tensorrt_runtime,
+    )
+
+    with pytest.raises(FileNotFoundError, match="libnvinfer.so.10"):
+        load_tensorrt_runtime(tmp_path)
+
+
+def test_engine_audit_recognizes_mha_fusion_and_metadata_nodes(tmp_path: Path):
+    from search.orchestration.lidar_cobevt_attention_microbenchmark import (
+        audit_attention_engine,
+    )
+
+    layer_info = tmp_path / "layer_info.json"
+    layer_info.write_text(
+        json.dumps(
+            {
+                "Layers": [
+                    {
+                        "Name": "_gemm_mha_v2_myl0_4",
+                        "LayerType": "kgen",
+                        "TacticName": "_gemm_mha_v2_tactic",
+                        "Metadata": (
+                            "[ONNX Layer: /qk_matmul/MatMul]"
+                            "[ONNX Layer: /softmax/Softmax]"
+                            "[ONNX Layer: /av_matmul/MatMul]"
+                        ),
+                        "Inputs": [{"Format/Datatype": "Int8"}],
+                        "Outputs": [{"Format/Datatype": "Int8"}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    audit = audit_attention_engine(layer_info)
+
+    assert audit["mha_fused"] is True
+    assert audit["qk_matmul_precision_layer_count"] == 1
+    assert audit["softmax_precision_layer_count"] == 1
+    assert audit["av_matmul_precision_layer_count"] == 1
+    assert audit["qk_matmul_precision"] == ["Int8"]

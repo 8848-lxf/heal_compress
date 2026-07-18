@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import ctypes
 import hashlib
 import json
 import os
@@ -233,6 +234,19 @@ def _trt_environment(trt_root: Path, physical_gpu: int) -> dict[str, str]:
     return env
 
 
+def load_tensorrt_runtime(trt_root: Path) -> None:
+    library_root = Path(trt_root) / "targets/x86_64-linux-gnu/lib"
+    libraries = (
+        library_root / "libnvinfer.so.10",
+        library_root / "libnvinfer_plugin.so.10",
+        library_root / "libnvonnxparser.so.10",
+    )
+    for library in libraries:
+        if not library.is_file():
+            raise FileNotFoundError(str(library))
+        ctypes.CDLL(str(library), mode=ctypes.RTLD_GLOBAL)
+
+
 def _build_engine(
     *,
     onnx_path: Path,
@@ -307,13 +321,19 @@ def audit_attention_engine(layer_info_path: Path) -> dict[str, Any]:
         "out_proj_precision": "out_proj",
     }
     result: dict[str, Any] = {}
+
+    def searchable(row: Mapping[str, Any]) -> str:
+        return " ".join(
+            str(row.get(key, ""))
+            for key in ("Name", "LayerType", "TacticName", "Metadata")
+        ).lower()
+
     for field, token in targets.items():
-        matched = [row for row in layers if token in str(row.get("Name", "")).lower()]
+        matched = [row for row in layers if token in searchable(row)]
         result[field] = sorted({value for row in matched for value in _formats(row)})
         result[f"{field}_layer_count"] = len(matched)
     result["mha_fused"] = any(
-        "mha" in str(row.get("LayerType", "")).lower()
-        or "multiheadattention" in str(row.get("LayerType", "")).lower()
+        "mha" in searchable(row) or "multiheadattention" in searchable(row)
         for row in layers
     )
     result["reformat_count"] = sum(
@@ -334,7 +354,10 @@ def _measure_engine(
     device: torch.device,
     warmup: int,
     iterations: int,
+    trt_root: Path,
 ) -> dict[str, Any]:
+    torch.cuda.set_device(device)
+    load_tensorrt_runtime(trt_root)
     from tests.quant_deploy.deployment_equivalence import TensorRTEngineRunner
 
     runner = TensorRTEngineRunner(str(engine_path), device)
@@ -450,6 +473,7 @@ def run_attention_microbenchmarks(
                         device=device,
                         warmup=20,
                         iterations=100,
+                        trt_root=trt_root,
                     )
                     row = {
                         "status": "ok",

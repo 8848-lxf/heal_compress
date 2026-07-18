@@ -389,3 +389,41 @@ projection, QK MatMul, Softmax, AV MatMul and out projection tensor formats.
 ------------------------------------------------------------
 Round completed: 2026-07-19 02:08 CST
 ------------------------------------------------------------
+
+## Round 13: Attention Microbenchmark Minimum Control
+
+The d32 CoBEVT mask/RPE control produced successful strongly typed FP16 and
+explicit-QDQ INT8 engines and executed the captured real activation for 20
+warmup plus 100 measured iterations.
+
+Preliminary control metrics:
+
+- FP16 p50/p90/p99: `0.300/0.314/0.323 ms`;
+- INT8 p50/p90/p99: `0.496/0.577/0.629 ms`;
+- FP16 cosine vs PyTorch graph: `0.995172`;
+- INT8 cosine vs PyTorch fake-quant graph: `0.995208`;
+- explicit INT8 topology: 11 QuantizeLinear + 11 DequantizeLinear nodes;
+- no non-finite output.
+
+EngineInspector shows real INT8 realization:
+
+- fused Q/K/V projection GEMM consumes and produces INT8;
+- out projection consumes and produces INT8;
+- QK MatMul, real mask/RPE, Softmax and AV MatMul are fused into
+  `_gemm_mha_v2` with INT8 Q/K/V/AV boundaries;
+- Softmax/RPE auxiliary tensors remain floating as expected.
+
+The first two execution attempts failed before inference because the new runner
+did not preload TensorRT shared libraries, then created the TensorRT context on
+default GPU 0 while using a GPU 2 stream. Both were environment-boundary bugs,
+not engine failures. The runner now explicitly loads `libnvinfer`,
+`libnvinfer_plugin`, `libnvonnxparser`, and calls `torch.cuda.set_device` before
+deserialization. Tests cover missing-library fail-closed behavior and fused MHA
+metadata recognition.
+
+At d32, INT8 is slower than FP16 in this real-shape subgraph, so INT8 build
+success alone will not make a width eligible for future search.
+
+------------------------------------------------------------
+Round completed: 2026-07-19 02:28 CST
+------------------------------------------------------------
