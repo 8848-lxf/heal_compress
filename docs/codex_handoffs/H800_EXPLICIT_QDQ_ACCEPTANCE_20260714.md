@@ -1388,3 +1388,35 @@ authoritative source until credentials are refreshed.
 Completed checkpoint: 2026-07-19 05:47:26 +0800 CST
 
 ---
+
+## Dual-GPU, evaluation-only fairness rerun
+
+Re-evaluated the accepted strict-FP32, six GA P+Q, and six greedy P+Q engines
+on H800 GPU 0 and GPU 1. GPU 0 completed its entire sequence before GPU 1
+started. Every item ran in a fresh process, followed by explicit CUDA cache
+cleanup and nvidia-smi memory-return validation. All 26 evaluations used the
+same fixedK29696 1789-frame manifest, warmup200/reset, latency rounds 3,
+DataLoader workers 8, and CUDA postprocess; all completed 1789/1789 with zero
+skips and the same frame-order hash.
+
+This run invoked zero engine builds. All source engine SHA256 values and six
+deployment acceptance reports were verified before evaluation, source hashes
+were unchanged afterward, and evaluation directories contain no model/ONNX/
+engine files.
+
+Fresh strict-FP32 references were `mAP=0.736783, p50=6.9771 ms` on GPU 0 and
+`mAP=0.736601, p50=6.9403 ms` on GPU 1. The largest cross-GPU mAP difference
+over all engines was `0.000339514`; the largest p50 difference was
+`0.079973 ms`. Both cards reproduce near-lossless accuracy for budgets
+0.10--0.30 and the 0.05 accuracy cliff.
+
+Evidence and the complete AP30/AP50/AP70/mAP/p50/p90/p99/speedup tables:
+
+```text
+outputs/h800_lidar_pyramid_dual_gpu_eval_only_20260718_154151/
+docs/codex_handoffs/H800_LIDAR_PYRAMID_DUAL_GPU_FAIR_EVALUATION_20260719.md
+```
+
+Completed checkpoint: 2026-07-19 07:17:50 +0800 CST
+
+---
