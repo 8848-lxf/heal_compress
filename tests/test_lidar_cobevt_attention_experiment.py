@@ -164,3 +164,22 @@ def test_only_successful_build_report_is_complete():
 
     assert build_report_is_complete({"status": "ok"})
     assert not build_report_is_complete({"status": "failed"})
+
+
+def test_engine_evaluation_completion_requires_exact_frames_and_zero_skip():
+    from search.orchestration.lidar_cobevt_attention_pruning import (
+        engine_evaluation_is_complete,
+    )
+
+    assert engine_evaluation_is_complete(
+        {"status": "ok", "num_evaluated_frames": 10, "num_skipped_frames": 0},
+        expected_frames=10,
+    )
+    assert not engine_evaluation_is_complete(
+        {"status": "ok", "num_evaluated_frames": 9, "num_skipped_frames": 0},
+        expected_frames=10,
+    )
+    assert not engine_evaluation_is_complete(
+        {"status": "ok", "num_evaluated_frames": 10, "num_skipped_frames": 1},
+        expected_frames=10,
+    )

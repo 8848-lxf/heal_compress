@@ -927,10 +927,23 @@ def run_trt500(
     )
 
     experiment = _read_config(output_dir)
+    smoke_manifest = Path(experiment["manifests"]["smoke10"]["path"])
     manifest = Path(experiment["manifests"]["fixed500"]["path"])
-    rows = []
+    results_path = output_dir / "trt_ap500_results.json"
+    rows = (
+        json.loads(results_path.read_text(encoding="utf-8"))
+        if results_path.is_file()
+        else []
+    )
+    completed_ids = {
+        str(row["candidate_id"])
+        for row in rows
+        if engine_evaluation_is_complete(row, expected_frames=500)
+    }
     for record in experiment["candidates"]:
         spec = _spec_from_record(record)
+        if spec.candidate_id in completed_ids:
+            continue
         candidate = output_dir / "candidates" / spec.candidate_id / "fp16_engine"
         build_report = candidate / "build_report.json"
         if not build_report.is_file():
@@ -944,6 +957,39 @@ def run_trt500(
                     "failure_reason": build.get("failure_reason", ""),
                 }
             )
+            continue
+        smoke_dir = candidate / "evaluation_smoke10"
+        smoke_path = smoke_dir / "evaluation.json"
+        if smoke_path.is_file():
+            smoke = json.loads(smoke_path.read_text(encoding="utf-8"))
+        else:
+            smoke = evaluate_cobevt_engine_modelopt(
+                engine_path=build["engine_path"],
+                checkpoint=checkpoint,
+                model_config=config,
+                heal_root=heal_root,
+                device=f"cuda:{physical_gpu}",
+                output_dir=smoke_dir,
+                tensorrt_root=trt_root,
+                plugin_path=plugin_path,
+                fixed_k=DEFAULT_FIXED_K,
+                num_frames=10,
+                warmup_frames=20,
+                eval_manifest_path=smoke_manifest,
+                num_workers=8,
+                ap_iou_backend="gpu",
+                latency_rounds=1,
+            )
+        if not engine_evaluation_is_complete(smoke, expected_frames=10):
+            row = {
+                **spec.to_dict(),
+                "status": "smoke_failed",
+                "smoke": smoke,
+                "failure_reason": smoke.get("failure_reason", "incomplete_smoke10"),
+            }
+            rows = upsert_candidate_result(rows, row)
+            _write_json(results_path, rows)
+            _write_csv(output_dir / "trt_ap500_results.csv", rows)
             continue
         evaluation_dir = candidate / "evaluation_fixed500"
         result_path = evaluation_dir / "evaluation.json"
@@ -970,18 +1016,29 @@ def run_trt500(
         row = {
             **spec.to_dict(),
             **evaluation,
+            "smoke": smoke,
             "structure_hash": build.get("structure_hash", ""),
             "engine_sha256": build.get("engine_sha256", ""),
             "params": build.get("physical_parameter_count", 0),
             "latency_classification": "screening_shared_gpu",
         }
-        rows.append(row)
-        _write_json(output_dir / "trt_ap500_results.json", rows)
+        rows = upsert_candidate_result(rows, row)
+        _write_json(results_path, rows)
         _write_csv(output_dir / "trt_ap500_results.csv", rows)
     return {
         "candidate_count": len(rows),
         "successful_count": sum(row.get("status") == "ok" for row in rows),
     }
+
+
+def engine_evaluation_is_complete(
+    result: Mapping[str, Any], *, expected_frames: int
+) -> bool:
+    return (
+        str(result.get("status", "")) == "ok"
+        and int(result.get("num_evaluated_frames", -1)) == int(expected_frames)
+        and int(result.get("num_skipped_frames", -1)) == 0
+    )
 
 
 def _parser() -> argparse.ArgumentParser:

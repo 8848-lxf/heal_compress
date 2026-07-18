@@ -170,3 +170,30 @@ is reused only after reconstructing and validating the exact precision mapping.
 ------------------------------------------------------------
 Round completed: 2026-07-18 09:20 CST
 ------------------------------------------------------------
+
+## Round 6: Strongly Typed Full-Model FP16 Engines
+
+Built all six formal candidates in the `modelopt` environment using TensorRT
+10.9, `--stronglyTyped --noTF32`, the existing scatter plugin and no weak
+precision flags.
+
+Results:
+
+- six of six engine builds passed;
+- each graph realized 66 FP16 weighted groups, zero INT8 groups and zero
+  unresolved precision layers;
+- requested/realized precision audit passed for every engine;
+- engine sizes range from 48,009,844 bytes (B2-24) to 50,425,628 bytes
+  (baseline);
+- no QK/V width candidate required nominal or hidden INT8 fallback.
+
+The baseline and QK24 engines created before the report-serialization fix were
+reused only after reconstructing the exact typed graph/mapping and passing the
+same EngineInspector precision audit. All other engines were freshly built.
+
+Added a required smoke10 admission phase before fixed-500 TensorRT evaluation;
+an engine must complete exactly 10/10 with zero skip before the 500-frame phase.
+
+------------------------------------------------------------
+Round completed: 2026-07-18 09:30 CST
+------------------------------------------------------------
