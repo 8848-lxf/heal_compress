@@ -39,6 +39,7 @@ COMBINATION_PROFILE_NAMES = (
     "M1_projection_fp16_core_fp32",
     "M2_projection_qk_av_fp16_softmax_fp32",
     "M3_projection_av_fp16_qk_softmax_fp32",
+    "M4_projection_boundary_qk_av_fp16",
 )
 
 ATTENTION_BOUNDARY_PROFILE_NAMES = (
@@ -186,6 +187,24 @@ _PROFILES.update(
             output_recovery_roles=(
                 "q_projection",
                 "k_projection",
+                "output_projection",
+            ),
+        ),
+        "M4_projection_boundary_qk_av_fp16": _combination_profile(
+            "M4_projection_boundary_qk_av_fp16",
+            fp16_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "qk_scale",
+                "qk_matmul",
+                "av_matmul",
+                "output_projection",
+            ),
+            output_recovery_roles=(
+                "q_projection",
+                "k_projection",
+                "qk_matmul",
                 "output_projection",
             ),
         ),
