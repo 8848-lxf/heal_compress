@@ -1815,3 +1815,57 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 31 completed: 2026-07-17 12:11:43 CST ---
+
+## Round 32 - cap Stage-2 engine builds and move physical BOPS before deployment
+
+The restarted six-budget GA exposed a contract error in per-generation
+Stage-2 selection. `topk_stage2: 5` was implemented as a target of five
+successful deployments, so failures after calibration/TRT build triggered
+ranked backfill and additional engines. Budget 0.10 built 120 engines for 100
+nominal slots: 17 extra after smoke collapse and 3 after physical-BOPS
+rejection. This also explained why runtime and storage exceeded the simple
+`6 budgets * 20 generations * 5 engines` estimate.
+
+The run at
+`/data/lxf/heal_data/outputs/4090_joint_six_budget_ga_20260717_180315`
+was stopped during budget 0.15 generation 17. All persistent workers exited,
+and no output was deleted. Completed status was budget 0.05 at 20/20 with 25
+engines and 8 winners, budget 0.10 at 20/20 with 120 engines and 20 winners,
+and budget 0.15 at 16 completed winners plus an incomplete generation 17 with
+91 engines accumulated through that point.
+
+Implementation commit `9bcec4c` replaces post-build backfill with a two-phase
+contract. Ranked candidates first pass proxy BOPS, then a new worker protocol
+materializes the physical model and calculates planned physical BOPS without
+ONNX, QDQ, calibration, or TensorRT. Preflight may scan lower-ranked candidates
+until at most five pass. Those candidates form one build wave of size at most
+five. Build, smoke, identity, realized-precision, merge/QDQ, or realized-BOPS
+failure never triggers another engine build.
+
+Generation result semantics now match the accepted protocol: zero successes
+skip the generation with explicit stage/reason histograms; one success skips
+500 frames and becomes the generation winner for later full validation; two
+through five successes all run the fixed 500-frame evaluation. Lightweight
+`generation_XXX_count_decision.json` records preflight attempted/admitted,
+engine build attempts, successful deployments, skip reason, and exact failure
+histograms.
+
+The implementation followed RED-to-GREEN tests. The final selected regression
+gate passed 245/245 with six existing dependency warnings. Modified Python
+files passed `py_compile`, and `git diff --check` passed. Full evidence and the
+fresh restart storage decision are recorded in
+`docs/codex_handoffs/4090-stage2-engine-build-cap-20260718.md`.
+
+Current state:
+
+- `PHYSICAL_BOPS_GATE_BEFORE_ENGINE = true`;
+- `MAX_ENGINE_BUILD_ATTEMPTS_PER_GENERATION = 5`;
+- `POST_BUILD_BACKFILL_ENABLED = false`;
+- `ZERO_CANDIDATE_SKIP_REASON_RECORDED = true`;
+- `SINGLE_CANDIDATE_500FRAME_SKIPPED = true`;
+- `OLD_SIX_BUDGET_RUN_ACCEPTED = false`;
+- `CORRECTED_SIX_BUDGET_RUN_RESTART_REQUIRED = true`;
+- `STAGE_A_STARTED = false`;
+- `STAGE_B_ALLOWED = false`.
+
+--- Round 32 completed: 2026-07-18 21:57:18 CST ---
