@@ -321,9 +321,38 @@ def attention_masks_structure_hash(masks: Mapping[str, AttentionDimMask]) -> str
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def stratified_embedding_keep_indices(
+    *, heads: int, original_dim_per_head: int, keep_dim_per_head: int
+) -> tuple[int, ...]:
+    if heads <= 0 or original_dim_per_head <= 0:
+        raise ValueError("invalid_stratified_embedding_dimensions")
+    if not 0 < keep_dim_per_head <= original_dim_per_head:
+        raise ValueError("invalid_stratified_embedding_keep_width")
+    return tuple(
+        head * int(original_dim_per_head) + local
+        for head in range(int(heads))
+        for local in range(int(keep_dim_per_head))
+    )
+
+
 @dataclass(frozen=True)
 class AttentionBottleneckPruneReport:
     passed: bool
+    attention_module_count: int
+    original_parameter_count: int
+    predicted_parameter_count: int
+    physical_parameter_count: int
+    structure_hash: str
+    operations: tuple[dict[str, Any], ...]
+    issues: tuple[dict[str, Any], ...]
+
+
+@dataclass(frozen=True)
+class GlobalEmbeddingPruneReport:
+    passed: bool
+    original_embed_dim: int
+    new_embed_dim: int
+    heads: int
     attention_module_count: int
     original_parameter_count: int
     predicted_parameter_count: int
@@ -390,11 +419,225 @@ def materialize_attention_bottleneck(
     )
 
 
+def _slice_linear(
+    module: nn.Linear,
+    *,
+    input_keep: tuple[int, ...] | None = None,
+    output_keep: tuple[int, ...] | None = None,
+) -> None:
+    weight = module.weight.detach()
+    if input_keep is not None:
+        index = torch.as_tensor(input_keep, dtype=torch.long, device=weight.device)
+        weight = weight.index_select(1, index)
+        module.in_features = len(input_keep)
+    if output_keep is not None:
+        index = torch.as_tensor(output_keep, dtype=torch.long, device=weight.device)
+        weight = weight.index_select(0, index)
+        module.out_features = len(output_keep)
+        if module.bias is not None:
+            module.bias = nn.Parameter(
+                module.bias.detach().index_select(0, index).clone(),
+                requires_grad=module.bias.requires_grad,
+            )
+    module.weight = nn.Parameter(weight.clone(), requires_grad=module.weight.requires_grad)
+
+
+def _slice_layer_norm(module: nn.LayerNorm, keep: tuple[int, ...]) -> None:
+    if module.elementwise_affine:
+        index = torch.as_tensor(keep, dtype=torch.long, device=module.weight.device)
+        module.weight = nn.Parameter(
+            module.weight.detach().index_select(0, index).clone(),
+            requires_grad=module.weight.requires_grad,
+        )
+        module.bias = nn.Parameter(
+            module.bias.detach().index_select(0, index).clone(),
+            requires_grad=module.bias.requires_grad,
+        )
+    module.normalized_shape = (len(keep),)
+
+
+def materialize_global_embedding_bottleneck(
+    model: nn.Module,
+    *,
+    masks: Mapping[str, AttentionDimMask],
+    embedding_keep_indices: Iterable[int],
+) -> GlobalEmbeddingPruneReport:
+    """Materialize B2 while preserving all eight heads and FFN hidden width."""
+
+    attention_rows = _stock_attention_modules(model)
+    names = {name for name, _ in attention_rows}
+    if names != set(masks):
+        raise ValueError("attention_mask_inventory_mismatch_for_global_embedding")
+    shrink = model.shrinker_m1.layers[0].double_conv[2]
+    if not isinstance(shrink, nn.Conv2d):
+        raise RuntimeError("cobevt_fusion_input_conv_missing")
+    original = int(shrink.out_channels)
+    keep = tuple(int(value) for value in embedding_keep_indices)
+    if tuple(sorted(set(keep))) != keep or not keep:
+        raise ValueError("global_embedding_keep_indices_must_be_sorted_unique")
+    if keep[0] < 0 or keep[-1] >= original:
+        raise ValueError("global_embedding_keep_index_out_of_range")
+    heads = {mask.heads for mask in masks.values()}
+    if len(heads) != 1:
+        raise ValueError("global_embedding_attention_head_counts_disagree")
+    head_count = next(iter(heads))
+    if len(keep) % head_count:
+        raise ValueError("global_embedding_width_not_divisible_by_heads")
+    original_count = sum(int(parameter.numel()) for parameter in model.parameters())
+    operations: list[dict[str, Any]] = []
+    issues: list[dict[str, Any]] = []
+    index = torch.as_tensor(keep, dtype=torch.long, device=shrink.weight.device)
+    shrink.weight = nn.Parameter(
+        shrink.weight.detach().index_select(0, index).clone(),
+        requires_grad=shrink.weight.requires_grad,
+    )
+    if shrink.bias is not None:
+        shrink.bias = nn.Parameter(
+            shrink.bias.detach().index_select(0, index).clone(),
+            requires_grad=shrink.bias.requires_grad,
+        )
+    shrink.out_channels = len(keep)
+    operations.append(
+        {
+            "module": "shrinker_m1.layers.0.double_conv.2",
+            "axis": "out",
+            "before": original,
+            "after": len(keep),
+        }
+    )
+
+    attention_prefixes = tuple(f"{name}." for name, _ in attention_rows)
+    for name, module in list(model.named_modules()):
+        if not name.startswith("fusion_net") or name in names:
+            continue
+        if any(name.startswith(prefix) for prefix in attention_prefixes):
+            continue
+        if isinstance(module, nn.LayerNorm):
+            if tuple(module.normalized_shape) != (original,):
+                issues.append(
+                    {"module": name, "reason": "unexpected_layernorm_shape"}
+                )
+                continue
+            _slice_layer_norm(module, keep)
+            operations.append(
+                {
+                    "module": name,
+                    "axis": "layernorm",
+                    "before": original,
+                    "after": len(keep),
+                }
+            )
+        elif isinstance(module, nn.Linear):
+            before = [int(module.in_features), int(module.out_features)]
+            if name.endswith(".window_ffd.fn.net.0") or name.endswith(
+                ".grid_ffd.fn.net.0"
+            ):
+                _slice_linear(module, input_keep=keep)
+            elif name.endswith(".window_ffd.fn.net.3") or name.endswith(
+                ".grid_ffd.fn.net.3"
+            ):
+                _slice_linear(module, output_keep=keep)
+            elif name == "fusion_net.mlp_head.3":
+                _slice_linear(module, input_keep=keep, output_keep=keep)
+            else:
+                issues.append(
+                    {"module": name, "reason": "unsupported_global_embedding_linear"}
+                )
+                continue
+            operations.append(
+                {
+                    "module": name,
+                    "axis": "linear_boundary",
+                    "before": before,
+                    "after": [int(module.in_features), int(module.out_features)],
+                }
+            )
+
+    for name, module in attention_rows:
+        replacement = PrunableCobevtAttention.from_stock_attention(
+            module,
+            qk_keep_by_head=masks[name].qk_keep_by_head,
+            vo_keep_by_head=masks[name].vo_keep_by_head,
+            input_keep_indices=keep,
+            output_keep_indices=keep,
+        )
+        _set_submodule(model, name, replacement)
+        operations.append(
+            {
+                "module": name,
+                "axis": "attention_qk_vo_and_embedding",
+                "before": [original, 32, 32],
+                "after": [len(keep), replacement.d_qk, replacement.d_v],
+            }
+        )
+
+    for head_name in ("cls_head", "reg_head", "dir_head"):
+        head = getattr(model, head_name)
+        if not isinstance(head, nn.Conv2d) or int(head.in_channels) != original:
+            issues.append(
+                {"module": head_name, "reason": "unexpected_prediction_head_input"}
+            )
+            continue
+        head_index = torch.as_tensor(
+            keep, dtype=torch.long, device=head.weight.device
+        )
+        head.weight = nn.Parameter(
+            head.weight.detach().index_select(1, head_index).clone(),
+            requires_grad=head.weight.requires_grad,
+        )
+        head.in_channels = len(keep)
+        operations.append(
+            {
+                "module": head_name,
+                "axis": "in",
+                "before": original,
+                "after": len(keep),
+            }
+        )
+
+    physical_count = sum(int(parameter.numel()) for parameter in model.parameters())
+    payload = {
+        "embedding_keep_indices": keep,
+        "masks_hash": attention_masks_structure_hash(masks),
+        "recipe": "cobevt-global-embedding-bottleneck-v1",
+    }
+    structure_hash = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    explicit_rows = [
+        module
+        for module in model.modules()
+        if isinstance(module, PrunableCobevtAttention)
+    ]
+    if len(explicit_rows) != len(attention_rows):
+        issues.append({"reason": "attention_replacement_count_mismatch"})
+    if any(module.embed_dim != len(keep) for module in explicit_rows):
+        issues.append({"reason": "attention_embedding_width_mismatch"})
+    if any(module.heads != head_count for module in explicit_rows):
+        issues.append({"reason": "attention_head_count_changed"})
+    return GlobalEmbeddingPruneReport(
+        passed=not issues and len(attention_rows) == 6,
+        original_embed_dim=original,
+        new_embed_dim=len(keep),
+        heads=head_count,
+        attention_module_count=len(attention_rows),
+        original_parameter_count=original_count,
+        predicted_parameter_count=physical_count,
+        physical_parameter_count=physical_count,
+        structure_hash=structure_hash,
+        operations=tuple(operations),
+        issues=tuple(issues),
+    )
+
+
 __all__ = [
     "AttentionBottleneckPruneReport",
     "AttentionDimMask",
+    "GlobalEmbeddingPruneReport",
     "PrunableCobevtAttention",
     "attention_masks_structure_hash",
     "materialize_attention_bottleneck",
+    "materialize_global_embedding_bottleneck",
+    "stratified_embedding_keep_indices",
     "uniform_attention_masks",
 ]

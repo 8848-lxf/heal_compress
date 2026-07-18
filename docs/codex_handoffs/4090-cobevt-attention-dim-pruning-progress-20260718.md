@@ -72,3 +72,27 @@ not changed.
 ------------------------------------------------------------
 Round completed: 2026-07-18 08:15 CST
 ------------------------------------------------------------
+
+## Round 3: B2 Global Embedding Closure and Model-Level Taylor Masks
+
+- Added B2 materialization with `E=192`, `H=8`, `d_qk=d_v=24`.
+- The global embedding keep set is an independent stratified axis; it is not
+  inferred from an Attention-internal QK or VO mask.
+- Synchronized the shrinker output, all fusion LayerNorms, Attention
+  inputs/outputs, FFN residual boundaries, fusion MLP head and detection-head
+  inputs.
+- Preserved FFN hidden width at 256 and relative-position bias at eight heads.
+- Added model-level decoding from full mean-gradient dictionaries to module-
+  local, per-head QK and VO masks with deterministic ranking audit records.
+- Verified that different Attention modules can select different local
+  dimensions and that QK/VO families remain independent.
+
+Validation:
+
+- focused Attention tests: 13 passed;
+- full CoBEVT/family isolation regression: 83 passed;
+- `py_compile` and `git diff --check`: passed.
+
+------------------------------------------------------------
+Round completed: 2026-07-18 08:35 CST
+------------------------------------------------------------

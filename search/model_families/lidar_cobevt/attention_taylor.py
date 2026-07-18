@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Mapping
+from typing import Any, Iterable, Mapping
 
 import torch
 import torch.nn as nn
@@ -99,8 +99,62 @@ def keep_indices_from_scores(
     return tuple(result)
 
 
+def attention_masks_from_mean_gradients(
+    model: nn.Module,
+    gradients: Mapping[str, torch.Tensor],
+    *,
+    d_qk: int,
+    d_v: int,
+    module_type: type[nn.Module] | None = None,
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    from .attention_dim_pruning import AttentionDimMask, PrunableCobevtAttention
+
+    expected_type = PrunableCobevtAttention if module_type is None else module_type
+    masks: dict[str, AttentionDimMask] = {}
+    audit: dict[str, dict[str, Any]] = {}
+    for name, module in model.named_modules():
+        if not isinstance(module, expected_type):
+            continue
+        prefix = f"{name}." if name else ""
+        local = {
+            parameter_name[len(prefix) :]: value
+            for parameter_name, value in gradients.items()
+            if parameter_name.startswith(prefix)
+        }
+        scores = first_order_attention_scores(module, local)
+        qk_keep = keep_indices_from_scores(scores.qk_by_head, keep_width=int(d_qk))
+        vo_keep = keep_indices_from_scores(scores.vo_by_head, keep_width=int(d_v))
+        masks[name] = AttentionDimMask(
+            qk_keep,
+            vo_keep,
+            original_d_qk=int(module.d_qk),
+            original_d_v=int(module.d_v),
+        )
+        qk_rankings = tuple(
+            tuple(sorted(range(len(row)), key=lambda index: (row[index], index)))
+            for row in scores.qk_by_head
+        )
+        vo_rankings = tuple(
+            tuple(sorted(range(len(row)), key=lambda index: (row[index], index)))
+            for row in scores.vo_by_head
+        )
+        audit[name] = {
+            **scores.to_dict(),
+            "d_qk": int(d_qk),
+            "d_v": int(d_v),
+            "qk_keep_by_head": [list(row) for row in qk_keep],
+            "vo_keep_by_head": [list(row) for row in vo_keep],
+            "qk_ranking_by_head": [list(row) for row in qk_rankings],
+            "vo_ranking_by_head": [list(row) for row in vo_rankings],
+        }
+    if not masks:
+        raise RuntimeError("attention_taylor_modules_missing")
+    return masks, audit
+
+
 __all__ = [
     "AttentionTaylorScores",
+    "attention_masks_from_mean_gradients",
     "first_order_attention_scores",
     "keep_indices_from_scores",
 ]

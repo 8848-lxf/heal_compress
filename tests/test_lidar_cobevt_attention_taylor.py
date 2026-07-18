@@ -72,3 +72,42 @@ def test_taylor_scoring_does_not_double_count_or_average_elements():
 
     assert scores.qk_by_head[0][0] == 48.0
     assert scores.vo_by_head[0][0] == 42.0
+
+
+def test_model_taylor_masks_are_module_local_and_deterministic():
+    from search.model_families.lidar_cobevt.attention_dim_pruning import (
+        PrunableCobevtAttention,
+    )
+    from search.model_families.lidar_cobevt.attention_taylor import (
+        attention_masks_from_mean_gradients,
+    )
+
+    class Pair(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.first = _TinyExplicitAttention()
+            self.second = _TinyExplicitAttention()
+
+    model = Pair()
+    assert not any(isinstance(module, PrunableCobevtAttention) for module in model.modules())
+    gradients = {
+        name: torch.ones_like(parameter) for name, parameter in model.named_parameters()
+    }
+    with torch.no_grad():
+        model.first.q_proj.weight[1].fill_(0.001)
+        model.first.k_proj.weight[1].fill_(0.001)
+        model.second.q_proj.weight[0].fill_(0.001)
+        model.second.k_proj.weight[0].fill_(0.001)
+
+    masks, audit = attention_masks_from_mean_gradients(
+        model,
+        gradients,
+        d_qk=1,
+        d_v=1,
+        module_type=_TinyExplicitAttention,
+    )
+
+    assert masks["first"].qk_keep_by_head[0] == (0,)
+    assert masks["second"].qk_keep_by_head[0] == (1,)
+    assert audit["first"]["qk_ranking_by_head"][0][0] == 1
+    assert audit["second"]["qk_ranking_by_head"][0][0] == 0

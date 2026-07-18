@@ -181,3 +181,78 @@ def test_qk_only_and_uniform_masks_have_deterministic_structure_hashes():
     assert attention_masks_structure_hash(first) == attention_masks_structure_hash(
         second
     )
+
+
+@pytest.fixture(scope="module")
+def real_b2_model():
+    from search.model_families.lidar_cobevt.attention_dim_pruning import (
+        materialize_global_embedding_bottleneck,
+        stratified_embedding_keep_indices,
+        uniform_attention_masks,
+    )
+    from search.model_families.lidar_cobevt.model_capability import (
+        CobevtModelCapability,
+    )
+
+    model = CobevtModelCapability(CHECKPOINT, CONFIG, HEAL_ROOT).load().model
+    masks = uniform_attention_masks(model, d_qk=24, d_v=24)
+    embedding_keep = stratified_embedding_keep_indices(
+        heads=8, original_dim_per_head=32, keep_dim_per_head=24
+    )
+    report = materialize_global_embedding_bottleneck(
+        model,
+        masks=masks,
+        embedding_keep_indices=embedding_keep,
+    )
+    return model, report
+
+
+def test_b2_global_embedding_closure_keeps_eight_heads(real_b2_model):
+    from search.model_families.lidar_cobevt.attention_dim_pruning import (
+        PrunableCobevtAttention,
+    )
+
+    model, report = real_b2_model
+    assert report.passed
+    assert report.original_embed_dim == 256
+    assert report.new_embed_dim == 192
+    assert report.heads == 8
+    assert report.physical_parameter_count < report.original_parameter_count
+    assert model.shrinker_m1.layers[0].double_conv[2].out_channels == 192
+    assert model.cls_head.in_channels == 192
+    assert model.reg_head.in_channels == 192
+    assert model.dir_head.in_channels == 192
+    for name, module in model.named_modules():
+        if isinstance(module, PrunableCobevtAttention):
+            assert module.embed_dim == 192
+            assert module.heads == 8
+            assert module.d_qk == 24
+            assert module.d_v == 24
+        if name.startswith("fusion_net") and isinstance(module, nn.LayerNorm):
+            assert tuple(module.normalized_shape) == (192,)
+
+
+def test_b2_ffn_preserves_hidden_width_but_closes_residual_boundary(real_b2_model):
+    model, _ = real_b2_model
+    for block in model.fusion_net.layers:
+        for ffn in (block.window_ffd.fn, block.grid_ffd.fn):
+            assert ffn.net[0].in_features == 192
+            assert ffn.net[0].out_features == 256
+            assert ffn.net[3].in_features == 256
+            assert ffn.net[3].out_features == 192
+    assert model.fusion_net.mlp_head[3].in_features == 192
+    assert model.fusion_net.mlp_head[3].out_features == 192
+
+
+def test_stratified_embedding_indices_retain_equal_count_per_head():
+    from search.model_families.lidar_cobevt.attention_dim_pruning import (
+        stratified_embedding_keep_indices,
+    )
+
+    keep = stratified_embedding_keep_indices(
+        heads=8, original_dim_per_head=32, keep_dim_per_head=24
+    )
+    assert len(keep) == 192
+    assert keep[:24] == tuple(range(24))
+    assert keep[24:48] == tuple(range(32, 56))
+    assert keep[-24:] == tuple(range(224, 248))
