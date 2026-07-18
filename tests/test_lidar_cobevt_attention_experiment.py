@@ -203,3 +203,47 @@ def test_fixed_k_contract_and_engine_directory_are_manifest_specific(tmp_path: P
     assert candidate_engine_directory(tmp_path, "qk24", contract.fixed_k).name == (
         "fp16_engine_k27136"
     )
+
+
+def test_fixed_k_contract_honors_pyramid_full_validation_floor():
+    from search.orchestration.lidar_cobevt_attention_pruning import (
+        fixed_k_contract_from_rows,
+    )
+
+    contract = fixed_k_contract_from_rows(
+        [
+            {"frame_id": "a", "voxel_count": 25600},
+            {"frame_id": "b", "voxel_count": 28949},
+        ],
+        minimum_fixed_k=29696,
+    )
+
+    assert contract.fixed_k == 29696
+    assert contract.source_max_k == 28949
+    assert contract.minimum_fixed_k == 29696
+    assert contract.overflow_count == 0
+
+
+def test_fixed_k_selection_is_validated_against_full_validation_rows():
+    from search.orchestration.lidar_cobevt_attention_pruning import (
+        fixed_k_selection_record,
+    )
+
+    record = fixed_k_selection_record(
+        fixed500_rows=[
+            {"frame_id": "fixed-a", "voxel_count": 28949},
+        ],
+        full_validation_rows=[
+            {"frame_id": "fixed-a", "voxel_count": 28949},
+            {"frame_id": "full-b", "voxel_count": 30001},
+        ],
+        fixed500_manifest_hash="fixed500-hash",
+        minimum_fixed_k=29696,
+    )
+
+    assert record["fixed500_derived_fixed_k"] == 29184
+    assert record["full_validation_source_max_k"] == 30001
+    assert record["fixed_k"] == 30208
+    assert record["pyramid_fixed_k_floor"] == 29696
+    assert record["validated_scope"] == "full_validation"
+    assert record["overflow_count"] == 0

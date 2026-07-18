@@ -17,23 +17,34 @@ class FixedKContract:
     record_count: int
     overflow_count: int
     manifest_sha256: str
+    minimum_fixed_k: int = 0
 
 
-def derive_fixed_k(records: Iterable[int], *, alignment: int) -> FixedKContract:
+def derive_fixed_k(
+    records: Iterable[int], *, alignment: int, minimum_fixed_k: int = 0
+) -> FixedKContract:
     """Derive a fixed-K profile from ordered manifest voxel counts."""
 
     if alignment <= 0:
         raise ValueError("alignment_must_be_positive")
+    if minimum_fixed_k < 0:
+        raise ValueError("minimum_fixed_k_must_be_nonnegative")
     counts = [int(value) for value in records]
     if not counts:
         raise ValueError("voxel_count_records_empty")
     if any(value <= 0 for value in counts):
         raise ValueError("voxel_counts_must_be_positive")
     source_max = max(counts)
-    fixed_k = int(math.ceil(source_max / alignment) * alignment)
+    derived_fixed_k = int(math.ceil(source_max / alignment) * alignment)
+    aligned_minimum = int(math.ceil(minimum_fixed_k / alignment) * alignment)
+    fixed_k = max(derived_fixed_k, aligned_minimum)
     overflow_count = sum(value > fixed_k for value in counts)
     canonical = json.dumps(
-        {"alignment": alignment, "voxel_counts": counts},
+        {
+            "alignment": alignment,
+            "minimum_fixed_k": int(minimum_fixed_k),
+            "voxel_counts": counts,
+        },
         sort_keys=True,
         separators=(",", ":"),
     )
@@ -44,5 +55,5 @@ def derive_fixed_k(records: Iterable[int], *, alignment: int) -> FixedKContract:
         record_count=len(counts),
         overflow_count=overflow_count,
         manifest_sha256=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        minimum_fixed_k=int(minimum_fixed_k),
     )
-

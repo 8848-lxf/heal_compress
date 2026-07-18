@@ -51,6 +51,7 @@ DEFAULT_PLUGIN = Path(
     "pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
 )
 DEFAULT_FIXED_K = 25600
+PYRAMID_FULL_VALIDATION_FIXED_K = 29696
 
 
 @dataclass(frozen=True)
@@ -180,11 +181,43 @@ def build_report_is_complete(report: Mapping[str, Any]) -> bool:
     return str(report.get("status", "")) == "ok"
 
 
-def fixed_k_contract_from_rows(rows: Iterable[Mapping[str, Any]]) -> Any:
+def fixed_k_contract_from_rows(
+    rows: Iterable[Mapping[str, Any]], *, minimum_fixed_k: int = 0
+) -> Any:
     from search.model_families.lidar_cobevt.input_contract import derive_fixed_k
 
     counts = [int(row["voxel_count"]) for row in rows]
-    return derive_fixed_k(counts, alignment=256)
+    return derive_fixed_k(
+        counts, alignment=256, minimum_fixed_k=int(minimum_fixed_k)
+    )
+
+
+def fixed_k_selection_record(
+    *,
+    fixed500_rows: Iterable[Mapping[str, Any]],
+    full_validation_rows: Iterable[Mapping[str, Any]],
+    fixed500_manifest_hash: str,
+    minimum_fixed_k: int = PYRAMID_FULL_VALIDATION_FIXED_K,
+) -> dict[str, Any]:
+    fixed500_contract = fixed_k_contract_from_rows(fixed500_rows)
+    full_contract = fixed_k_contract_from_rows(
+        full_validation_rows, minimum_fixed_k=int(minimum_fixed_k)
+    )
+    return {
+        "fixed_k": int(full_contract.fixed_k),
+        "fixed500_derived_fixed_k": int(fixed500_contract.fixed_k),
+        "fixed500_source_max_k": int(fixed500_contract.source_max_k),
+        "fixed500_record_count": int(fixed500_contract.record_count),
+        "fixed500_manifest_hash": str(fixed500_manifest_hash),
+        "full_validation_source_max_k": int(full_contract.source_max_k),
+        "full_validation_record_count": int(full_contract.record_count),
+        "full_validation_voxel_contract_hash": str(full_contract.manifest_sha256),
+        "pyramid_fixed_k_floor": int(minimum_fixed_k),
+        "alignment": int(full_contract.alignment),
+        "overflow_count": int(full_contract.overflow_count),
+        "validated_scope": "full_validation",
+        "validated_for_warmup_and_evaluation": True,
+    }
 
 
 def candidate_engine_directory(
@@ -388,9 +421,9 @@ def _read_config(output_dir: Path) -> dict[str, Any]:
     return json.loads((output_dir / "experiment_config.json").read_text(encoding="utf-8"))
 
 
-def scan_manifest_voxel_counts(
-    *, adapter: Any, config: Path, manifest_path: Path
-) -> tuple[list[dict[str, Any]], Any]:
+def scan_validation_voxel_counts(
+    *, adapter: Any, config: Path
+) -> list[dict[str, Any]]:
     from torch.utils.data import DataLoader
     from opencood.data_utils.datasets import build_dataset
     from opencood.hypes_yaml import yaml_utils
@@ -407,10 +440,6 @@ def scan_manifest_voxel_counts(
         persistent_workers=True,
         prefetch_factor=2,
     )
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    warmup = {str(value) for value in manifest["warmup_frame_ids"]}
-    evaluation = {str(value) for value in manifest["evaluation_frame_ids"]}
-    selected = warmup | evaluation
     split_ids = [
         str(value) for value in json.loads(Path(hypes["validate_dir"]).read_text())
     ]
@@ -419,8 +448,6 @@ def scan_manifest_voxel_counts(
         if index >= len(split_ids):
             break
         frame_id = split_ids[index]
-        if frame_id not in selected:
-            continue
         if batch is None:
             raise RuntimeError(f"fixed_k_scan_empty_batch:{frame_id}")
         ego = batch["ego"] if isinstance(batch, Mapping) and "ego" in batch else batch
@@ -430,16 +457,44 @@ def scan_manifest_voxel_counts(
         rows.append(
             {
                 "frame_id": frame_id,
-                "role": "warmup" if frame_id in warmup else "evaluation",
+                "role": "full_validation",
                 "voxel_count": int(inputs["voxel_features"].shape[0]),
             }
         )
-        if len(rows) == len(selected):
-            break
-    found = {row["frame_id"] for row in rows}
+    found = {str(row["frame_id"]) for row in rows}
+    missing = sorted(set(split_ids) - found)
+    if missing:
+        raise RuntimeError(f"fixed_k_scan_validation_frames_missing:{missing[:8]}")
+    return rows
+
+
+def _select_manifest_voxel_rows(
+    rows: Iterable[Mapping[str, Any]], manifest_path: Path
+) -> list[dict[str, Any]]:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    warmup = {str(value) for value in manifest["warmup_frame_ids"]}
+    evaluation = {str(value) for value in manifest["evaluation_frame_ids"]}
+    selected = warmup | evaluation
+    result = [
+        {
+            **dict(row),
+            "role": "warmup" if str(row["frame_id"]) in warmup else "evaluation",
+        }
+        for row in rows
+        if str(row["frame_id"]) in selected
+    ]
+    found = {str(row["frame_id"]) for row in result}
     missing = sorted(selected - found)
     if missing:
         raise RuntimeError(f"fixed_k_scan_manifest_frames_missing:{missing[:8]}")
+    return result
+
+
+def scan_manifest_voxel_counts(
+    *, adapter: Any, config: Path, manifest_path: Path
+) -> tuple[list[dict[str, Any]], Any]:
+    full_rows = scan_validation_voxel_counts(adapter=adapter, config=config)
+    rows = _select_manifest_voxel_rows(full_rows, manifest_path)
     return rows, fixed_k_contract_from_rows(rows)
 
 
@@ -458,22 +513,22 @@ def run_fixed_k_scan(
         device=torch.device("cpu"),
     )
     manifest = Path(experiment["manifests"]["fixed500"]["path"])
-    rows, contract = scan_manifest_voxel_counts(
-        adapter=bundle.adapter, config=config, manifest_path=manifest
-    )
-    _write_json(output_dir / "fixed500_voxel_counts.json", rows)
-    _write_csv(output_dir / "fixed500_voxel_counts.csv", rows)
-    contract_record = asdict(contract)
-    contract_record.update(
-        {
-            "manifest_hash": experiment["manifests"]["fixed500"][
-                "manifest_hash"
-            ],
-            "validated_for_warmup_and_evaluation": True,
-        }
+    full_rows = scan_validation_voxel_counts(adapter=bundle.adapter, config=config)
+    fixed500_rows = _select_manifest_voxel_rows(full_rows, manifest)
+    _write_json(output_dir / "fixed500_voxel_counts.json", fixed500_rows)
+    _write_csv(output_dir / "fixed500_voxel_counts.csv", fixed500_rows)
+    _write_json(output_dir / "full_validation_voxel_counts.json", full_rows)
+    _write_csv(output_dir / "full_validation_voxel_counts.csv", full_rows)
+    contract_record = fixed_k_selection_record(
+        fixed500_rows=fixed500_rows,
+        full_validation_rows=full_rows,
+        fixed500_manifest_hash=experiment["manifests"]["fixed500"][
+            "manifest_hash"
+        ],
+        minimum_fixed_k=PYRAMID_FULL_VALIDATION_FIXED_K,
     )
     _write_json(output_dir / "fixed_k_contract.json", contract_record)
-    experiment["fixed_k"] = int(contract.fixed_k)
+    experiment["fixed_k"] = int(contract_record["fixed_k"])
     experiment["fixed_k_contract"] = contract_record
     experiment["fixed_k_validated"] = True
     _write_json(output_dir / "experiment_config.json", experiment)

@@ -228,3 +228,44 @@ the K=29,184 fresh build.
 ------------------------------------------------------------
 Round completed: 2026-07-18 09:45 CST
 ------------------------------------------------------------
+
+## Round 8: Pyramid-Compatible Full-Validation Fixed-K Contract
+
+The fixed-500-only K=29,184 profile was stopped before evaluation and replaced
+with the accepted Pyramid single-engine K=29,696 policy. Pyramid and CoBEVT use
+the same DAIR-V2X point-cloud preprocessing contract:
+
+- point-cloud range: `[-102.4, -51.2, -3.5, 102.4, 51.2, 1.5]`;
+- voxel size: `[0.4, 0.4, 5]`;
+- maximum points per voxel: `32`;
+- configured test voxel ceiling: `70,000`.
+
+The CoBEVT validation split was scanned in full without running model inference:
+
+- validation records: `1,789`;
+- full-validation maximum real voxel count: `29,164`;
+- fixed-500 plus warmup records: `520`;
+- fixed-500 maximum real voxel count: `28,949`;
+- selected single-engine fixed K: `29,696`;
+- full-validation overflows at K=29,696: `0`.
+
+The fixed-K contract now records the subset-derived minimum separately from the
+full-validation maximum and applies K=29,696 as the accepted Pyramid floor. If a
+future CoBEVT split exceeds that floor, the scan raises the selected profile to
+the next aligned value instead of clipping points. Export/build remains
+fail-closed until a full-validation contract is present.
+
+Per user direction, bucketed engines, multi-engine routing and over-limit
+chunking are excluded. The production experiment remains one K=29,696 engine
+per Attention candidate.
+
+The interrupted K=29,184 attempt produced one baseline engine and partial QK24
+ONNX files. Nine obsolete `.onnx`/`.plan` files (484,751,482 bytes) were removed;
+the baseline build report, EngineInspector evidence and trtexec log were kept.
+
+Validation: 28 CoBEVT Attention tests passed; modified Python files passed
+`py_compile`; `git diff --check` passed.
+
+------------------------------------------------------------
+Round completed: 2026-07-19 00:42 CST
+------------------------------------------------------------
