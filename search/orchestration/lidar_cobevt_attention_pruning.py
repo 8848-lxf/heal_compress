@@ -10,7 +10,7 @@ import os
 import subprocess
 import time
 from collections import Counter, OrderedDict
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -163,6 +163,21 @@ def _write_json(path: str | Path, payload: Any) -> None:
         json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n",
         encoding="utf-8",
     )
+
+
+def record_to_dict(value: Any) -> dict[str, Any]:
+    converter = getattr(value, "to_dict", None)
+    if callable(converter):
+        return dict(converter())
+    if is_dataclass(value):
+        return dict(asdict(value))
+    if isinstance(value, Mapping):
+        return dict(value)
+    raise TypeError(f"result_record_not_serializable:{type(value).__name__}")
+
+
+def build_report_is_complete(report: Mapping[str, Any]) -> bool:
+    return str(report.get("status", "")) == "ok"
 
 
 def _sha256(path: str | Path) -> str:
@@ -767,8 +782,17 @@ def run_export_build(
         destination = output_dir / "candidates" / spec.candidate_id / "fp16_engine"
         report_path = destination / "build_report.json"
         if report_path.is_file():
-            rows.append(json.loads(report_path.read_text(encoding="utf-8")))
-            continue
+            previous = json.loads(report_path.read_text(encoding="utf-8"))
+            if build_report_is_complete(previous):
+                rows.append(previous)
+                continue
+            failure_path = (
+                output_dir
+                / "failure_records"
+                / f"{spec.candidate_id}_previous_build_report.json"
+            )
+            if not failure_path.is_file():
+                _write_json(failure_path, previous)
         destination.mkdir(parents=True, exist_ok=True)
         try:
             bundle, physical = materialize_candidate(
@@ -825,38 +849,46 @@ def run_export_build(
             env["LD_LIBRARY_PATH"] = ":".join(
                 (str(modelopt_lib), env.get("LD_LIBRARY_PATH", ""))
             )
+            reused_existing_engine = engine.is_file() and layer_info.is_file()
             started = time.monotonic()
-            completed = subprocess.run(
-                command.command,
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                env=env,
-                check=False,
-                timeout=3600,
-            )
-            (destination / "trtexec.log").write_text(
-                completed.stdout or "", encoding="utf-8"
-            )
-            if completed.returncode or not engine.is_file() or not layer_info.is_file():
-                raise RuntimeError(f"trtexec_build_failed_rc_{completed.returncode}")
+            if reused_existing_engine:
+                builder_returncode = 0
+            else:
+                completed = subprocess.run(
+                    command.command,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    env=env,
+                    check=False,
+                    timeout=3600,
+                )
+                builder_returncode = int(completed.returncode)
+                (destination / "trtexec.log").write_text(
+                    completed.stdout or "", encoding="utf-8"
+                )
+            if builder_returncode or not engine.is_file() or not layer_info.is_file():
+                raise RuntimeError(f"trtexec_build_failed_rc_{builder_returncode}")
             realization = validate_precision_realization(layer_info, mapping)
             if not realization.passed:
                 raise RuntimeError(f"precision_realization_failed:{realization.mismatches}")
             result = {
                 **spec.to_dict(),
                 "status": "ok",
+                "code_commit": _git_commit(),
                 "build_elapsed_seconds": time.monotonic() - started,
-                "builder_command": command.to_dict(),
+                "builder_command": record_to_dict(command),
+                "builder_reused_existing_engine": reused_existing_engine,
+                "builder_returncode": builder_returncode,
                 "engine_path": str(engine),
                 "engine_sha256": _sha256(engine),
                 "engine_size_bytes": engine.stat().st_size,
-                "export": export.to_dict(),
+                "export": record_to_dict(export),
                 "layer_info_path": str(layer_info),
-                "mapping": mapping.to_dict(),
+                "mapping": record_to_dict(mapping),
                 "physical_parameter_count": int(physical.physical_parameter_count),
-                "precision_realization": realization.to_dict(),
-                "profile": profile.to_dict(),
+                "precision_realization": record_to_dict(realization),
+                "profile": record_to_dict(profile),
                 "structure_hash": str(physical.structure_hash),
                 "typed_report": typed_report,
                 "auxiliary_typed_report": auxiliary,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import dataclass
 
 
 def test_formal_attention_candidates_cover_qk_b1_and_one_b2():
@@ -144,3 +145,22 @@ def test_candidate_result_upsert_replaces_failed_attempt():
         {"candidate_id": "a", "status": "ok"},
         {"candidate_id": "b", "status": "ok"},
     ]
+
+
+def test_result_record_serializes_plain_dataclass_without_to_dict():
+    from search.orchestration.lidar_cobevt_attention_pruning import record_to_dict
+
+    @dataclass(frozen=True)
+    class Plain:
+        value: int
+
+    assert record_to_dict(Plain(3)) == {"value": 3}
+
+
+def test_only_successful_build_report_is_complete():
+    from search.orchestration.lidar_cobevt_attention_pruning import (
+        build_report_is_complete,
+    )
+
+    assert build_report_is_complete({"status": "ok"})
+    assert not build_report_is_complete({"status": "failed"})

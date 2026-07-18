@@ -139,3 +139,34 @@ Validation after implementation: 92 related tests passed; `py_compile` and
 ------------------------------------------------------------
 Round completed: 2026-07-18 09:00 CST
 ------------------------------------------------------------
+
+## Round 5: Committed Fixed-500 Results and Build Resume Fix
+
+Formal source run:
+
+- code commit: `0a308544e8c77539d08219955cc149e99aa506d7`;
+- output: `/data/lxf/heal_data/outputs/cobevt_attention_dim_pruning_20260718_085644`;
+- Taylor samples: 50 real train frames, micro-batch 1;
+- fixed-500 manifest hash:
+  `5a2a81c05e635f71f277e9bd151dbb6d5dd0a8f9b08475d60511f67399824c19`;
+- all structures passed full-model forward;
+- all six candidates completed 500/500 with zero skip.
+
+Formal FP32 PyTorch mAP:
+
+- baseline d32: `0.648880`;
+- QK-only d24: `0.646697` (`-0.002183`);
+- QK-only d16: `0.640169` (`-0.008711`);
+- B1 uniform d24: `0.644999` (`-0.003881`);
+- B1 uniform d16: `0.639942` (`-0.008938`);
+- B2 global d24: `0.485283` (`-0.163597`).
+
+The first strongly typed FP16 baseline engine and layer-info files were built
+successfully. Report creation then failed because the plain export dataclass
+does not implement `to_dict`. Added RED/GREEN serialization and resume tests:
+failed reports do not count as complete, and a completed engine plus layer-info
+is reused only after reconstructing and validating the exact precision mapping.
+
+------------------------------------------------------------
+Round completed: 2026-07-18 09:20 CST
+------------------------------------------------------------
