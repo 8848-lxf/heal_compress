@@ -1079,14 +1079,21 @@ def test_matrix_assembly_resolves_same_shape_speedup_across_shards(tmp_path):
         for path in (output / "synthetic").rglob("candidate.json")
     }
     (directories[reference_id] / "runtime_report.json").write_text(
-        json.dumps({"runtime_success": True, "p50_ms": 2.0})
+        json.dumps(
+            {
+                "runtime_success": True,
+                "p50_ms": 2.0,
+                "latency_status": "screening_shared_gpu",
+            }
+        )
     )
     (directories[candidate_id] / "runtime_report.json").write_text(
         json.dumps(
             {
-                "runtime_success": True,
-                "p50_ms": 1.0,
-                "same_shape_fp32_reference_id": reference_id,
+                    "runtime_success": True,
+                    "p50_ms": 1.0,
+                    "latency_status": "screening_shared_gpu",
+                    "same_shape_fp32_reference_id": reference_id,
             }
         )
     )
@@ -1097,6 +1104,7 @@ def test_matrix_assembly_resolves_same_shape_speedup_across_shards(tmp_path):
 
     assert selected["same_shape_fp32_p50_ms"] == 2.0
     assert selected["same_shape_fp32_speedup"] == 2.0
+    assert selected["latency_status"] == "screening_shared_gpu"
 
 
 def test_trtexec_command_is_strongly_typed_detailed_and_fresh(tmp_path):

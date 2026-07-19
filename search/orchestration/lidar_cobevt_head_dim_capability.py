@@ -1412,6 +1412,10 @@ def assemble_capability_matrix(output_dir: str | Path) -> dict[str, str]:
                 "softmax", "not_applicable"
             ),
             "runtime_success": executed,
+            "latency_status": runtime.get("latency_status", "unavailable"),
+            "same_shape_fp32_p50_ms": runtime.get(
+                "same_shape_fp32_p50_ms"
+            ),
             "same_shape_fp32_speedup": runtime.get(
                 "same_shape_fp32_speedup"
             ),
