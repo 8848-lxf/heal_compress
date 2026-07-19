@@ -1461,3 +1461,13 @@ docs/codex_handoffs/H800_LIDAR_PYRAMID_SPLIT_GPU_PQ_ABLATION_20260719.md
 Completed checkpoint: 2026-07-19 08:49:39 +0800 CST
 
 ---
+
+Corrected split-GPU implementation/results commit:
+
+```text
+1396b80 feat(search): split GA and greedy ablation evaluation
+```
+
+Completed checkpoint: 2026-07-19 08:51:38 +0800 CST
+
+---

@@ -128,3 +128,16 @@ All per-evaluation logs and detailed frame data also remain local.
 Completed checkpoint: 2026-07-19 08:49:39 +0800 CST
 
 ---
+
+## Git delivery
+
+Implementation, tests, small reports, and this handoff were committed on
+`feature/heal-unified-search-h800`:
+
+```text
+1396b80 feat(search): split GA and greedy ablation evaluation
+```
+
+Completed checkpoint: 2026-07-19 08:51:38 +0800 CST
+
+---
