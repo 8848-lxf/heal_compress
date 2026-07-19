@@ -41,6 +41,74 @@ def _write_csv(path: Path, rows: list[Mapping[str, Any]]) -> None:
             )
 
 
+def _read_json(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _load_reusable_build_result(
+    output_dir: Path,
+    *,
+    candidate_hash: str,
+    precision_hash: str,
+) -> dict[str, Any] | None:
+    """Reuse a completed build only when its identity evidence is complete."""
+
+    result = _read_json(output_dir / "build_smoke_result.json")
+    engine = output_dir / "engine.plan"
+    if result is None or str(result.get("status", "")) != "ok":
+        return None
+    if not engine.is_file() or str(result.get("candidate_hash", "")) != candidate_hash:
+        return None
+    stored_precision = str(
+        result.get("requested_precision_profile_hash")
+        or result.get("realized_precision_profile_hash")
+        or ""
+    )
+    if stored_precision and stored_precision != precision_hash:
+        return None
+    required = ("engine_hash", "physical_hash", "deployment_hash", "engine_path")
+    if any(not str(result.get(key, "")) for key in required):
+        return None
+    return {
+        **result,
+        "engine_path": str(engine.resolve()),
+        "cache_hit": True,
+        "reuse_reason": "validated_existing_build_artifact",
+    }
+
+
+def _load_reusable_full_result(
+    output_dir: Path,
+    *,
+    candidate_hash: str,
+    required_evaluated_frames: int,
+    required_skipped_frames: int,
+) -> dict[str, Any] | None:
+    """Reuse a completed full validation only when frame and identity gates pass."""
+
+    result = _read_json(output_dir / "evaluation_existing_engine.json")
+    if result is None:
+        result = _read_json(output_dir / "evaluation.json")
+    if result is None or str(result.get("status", "")) not in {"ok", "passed"}:
+        return None
+    if str(result.get("candidate_hash", candidate_hash)) != candidate_hash:
+        return None
+    evaluated = int(result.get("evaluated", result.get("num_evaluated_frames", -1)))
+    skipped = int(result.get("skipped", result.get("num_skipped_frames", -1)))
+    if evaluated != int(required_evaluated_frames) or skipped != int(required_skipped_frames):
+        return None
+    for key in ("engine_hash", "physical_hash", "deployment_hash", "eval_manifest_hash"):
+        if not str(result.get(key, "")):
+            return None
+    return {**result, "cache_hit": True, "reuse_reason": "validated_existing_full_result"}
+
+
 def _expanded_precision_hash(phenotype: Any) -> str:
     return canonical_json_hash(
         {
@@ -634,37 +702,51 @@ def run_greedy_endpoint_full_validation(
         lineage.setdefault(identity, []).append(_lineage_reference(row))
     build_tasks = []
     identities = []
+    build_reused: dict[str, dict[str, Any]] = {}
     for identity, row in unique.items():
         candidate_hash = str(row["candidate_hash"])
         phenotype = dict(row.get("phenotype", {}) or {})
         precision_hash = _serialized_precision_hash(phenotype)
-        build_tasks.append(
-            {
-                "task_protocol": "build_smoke",
-                "task_cache_key": canonical_json_hash(
-                    {
-                        "protocol": "build_smoke",
-                        "candidate_hash": candidate_hash,
-                        "precision_hash": precision_hash,
-                    }
-                ),
-                "candidate_hash": candidate_hash,
-                "phenotype": phenotype,
-                "output_dir": str(
-                    (destination / "greedy_build" / candidate_hash).resolve()
-                ),
-                "raw_precision_gene_hash": precision_hash,
-                "repaired_precision_gene_hash": precision_hash,
-                "smoke_frames": 10,
-                "smoke_warmup_frames": 10,
-            }
+        output_dir = destination / "greedy_build" / candidate_hash
+        reused = _load_reusable_build_result(
+            output_dir,
+            candidate_hash=candidate_hash,
+            precision_hash=precision_hash,
         )
+        if reused is not None:
+            build_reused[identity] = reused
+        else:
+            build_tasks.append(
+                {
+                    "task_protocol": "build_smoke",
+                    "task_cache_key": canonical_json_hash(
+                        {
+                            "protocol": "build_smoke",
+                            "candidate_hash": candidate_hash,
+                            "precision_hash": precision_hash,
+                        }
+                    ),
+                    "candidate_hash": candidate_hash,
+                    "phenotype": phenotype,
+                    "output_dir": str(output_dir.resolve()),
+                    "raw_precision_gene_hash": precision_hash,
+                    "repaired_precision_gene_hash": precision_hash,
+                    "smoke_frames": 10,
+                    "smoke_warmup_frames": 10,
+                }
+            )
         identities.append(identity)
-    build_results = stage2_pool.map_tasks(build_tasks) if build_tasks else []
+    fresh_build_results = stage2_pool.map_tasks(build_tasks) if build_tasks else []
+    fresh_by_hash = {
+        str(row.get("candidate_hash", "")): dict(row)
+        for row in fresh_build_results
+    }
+    build_results = []
     built = []
-    for identity, endpoint, result in zip(
-        identities, unique.values(), build_results
-    ):
+    for identity, endpoint in zip(identities, unique.values()):
+        candidate_hash = str(endpoint["candidate_hash"])
+        result = build_reused.get(identity) or fresh_by_hash.get(candidate_hash, {})
+        build_results.append(dict(result))
         if str(result.get("status", "")) != "ok":
             continue
         metrics = dict(endpoint.get("metrics", {}) or {})
@@ -682,13 +764,28 @@ def run_greedy_endpoint_full_validation(
                 - float(metrics.get("R_prune", 1.0 - metrics.get("R_param", 1.0))),
             }
         )
-    tasks = _full_validation_tasks(
-        built,
-        destination=destination,
-        required_evaluated_frames=required_evaluated_frames,
-        required_skipped_frames=required_skipped_frames,
-    )
-    results = stage2_pool.map_tasks(tasks) if tasks else []
+    tasks = []
+    reused_full_results = []
+    for row in built:
+        candidate_hash = str(row["candidate_hash"])
+        reusable = _load_reusable_full_result(
+            destination / "full_validation" / candidate_hash,
+            candidate_hash=candidate_hash,
+            required_evaluated_frames=required_evaluated_frames,
+            required_skipped_frames=required_skipped_frames,
+        )
+        if reusable is not None:
+            reused_full_results.append({**dict(row), **reusable})
+        else:
+            tasks.extend(
+                _full_validation_tasks(
+                    [row],
+                    destination=destination,
+                    required_evaluated_frames=required_evaluated_frames,
+                    required_skipped_frames=required_skipped_frames,
+                )
+            )
+    results = reused_full_results + (stage2_pool.map_tasks(tasks) if tasks else [])
     normalized, successful = _normalize_full_validation_results(
         results,
         required_evaluated_frames=required_evaluated_frames,
@@ -699,7 +796,9 @@ def run_greedy_endpoint_full_validation(
         "unique_endpoint_count": len(unique),
         "budget_lineage_count": sum(len(rows) for rows in lineage.values()),
         "build_task_count": len(build_tasks),
+        "build_reused_count": len(build_reused),
         "full_validation_task_count": len(tasks),
+        "full_validation_reused_count": len(reused_full_results),
         "successful_count": len(successful),
         "build_results": [dict(row) for row in build_results],
         "results": normalized,

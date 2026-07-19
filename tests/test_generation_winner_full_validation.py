@@ -122,6 +122,74 @@ def test_greedy_builds_only_one_unique_endpoint_per_budget_lineage(
     assert sum(task["task_protocol"] == "full_validation" for task in pool.tasks) == 2
 
 
+def test_existing_greedy_build_and_full_validation_are_reused_only_with_identity(
+    tmp_path: Path,
+) -> None:
+    from search.orchestration.legal_width_stage2 import (
+        _load_reusable_build_result,
+        _load_reusable_full_result,
+    )
+
+    candidate = "candidate-a"
+    build_dir = tmp_path / "build"
+    build_dir.mkdir()
+    (build_dir / "engine.plan").write_bytes(b"engine")
+    (build_dir / "build_smoke_result.json").write_text(
+        json.dumps(
+            {
+                "status": "ok",
+                "candidate_hash": candidate,
+                "requested_precision_profile_hash": "precision-a",
+                "engine_hash": "engine-a",
+                "physical_hash": "physical-a",
+                "deployment_hash": "deployment-a",
+                "engine_path": str(build_dir / "engine.plan"),
+            }
+        ),
+        encoding="utf-8",
+    )
+    reused = _load_reusable_build_result(
+        build_dir, candidate_hash=candidate, precision_hash="precision-a"
+    )
+    assert reused is not None
+    assert reused["cache_hit"] is True
+    assert _load_reusable_build_result(
+        build_dir, candidate_hash=candidate, precision_hash="wrong"
+    ) is None
+
+    full_dir = tmp_path / "full"
+    full_dir.mkdir()
+    (full_dir / "evaluation_existing_engine.json").write_text(
+        json.dumps(
+            {
+                "status": "ok",
+                "candidate_hash": candidate,
+                "evaluated": 1789,
+                "skipped": 0,
+                "engine_hash": "engine-a",
+                "physical_hash": "physical-a",
+                "deployment_hash": "deployment-a",
+                "eval_manifest_hash": "manifest-a",
+            }
+        ),
+        encoding="utf-8",
+    )
+    full = _load_reusable_full_result(
+        full_dir,
+        candidate_hash=candidate,
+        required_evaluated_frames=1789,
+        required_skipped_frames=0,
+    )
+    assert full is not None
+    assert full["cache_hit"] is True
+    assert _load_reusable_full_result(
+        full_dir,
+        candidate_hash=candidate,
+        required_evaluated_frames=500,
+        required_skipped_frames=0,
+    ) is None
+
+
 def test_all_unique_generation_winners_are_full_validated_once(
     tmp_path: Path,
 ) -> None:
