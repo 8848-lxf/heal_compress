@@ -1221,6 +1221,29 @@ def assemble_real_cobevt_matrix(output_dir: str | Path) -> list[dict[str, Any]]:
         for row in structure_rows
     } if isinstance(structure_rows, list) else {}
     rows = []
+
+    def evaluation_complete(payload: Mapping[str, Any], expected: int) -> bool:
+        return bool(
+            (
+                payload.get("evaluation_complete")
+                or payload.get("status") == "ok"
+            )
+            and int(
+                payload.get(
+                    "num_evaluated_frames",
+                    payload.get("frames_evaluated", -1),
+                )
+            )
+            == int(expected)
+            and int(
+                payload.get(
+                    "num_skipped_frames",
+                    payload.get("frames_skipped", -1),
+                )
+            )
+            == 0
+        )
+
     for structure in experiment["candidates"]:
         for profile in (
             "P0_strict_fp32",
@@ -1240,11 +1263,11 @@ def assemble_real_cobevt_matrix(output_dir: str | Path) -> list[dict[str, Any]]:
             fixed500 = _read_optional_json(
                 engine_dir / "evaluation_fixed500" / "evaluation.json"
             )
-            fixed_complete = bool(
-                fixed500.get("evaluation_complete")
-                and int(fixed500.get("num_evaluated_frames", -1)) == 500
-                and int(fixed500.get("num_skipped_frames", -1)) == 0
+            fixed_complete = evaluation_complete(fixed500, 500)
+            fixed50 = _read_optional_json(
+                engine_dir / "evaluation_fixed50" / "evaluation.json"
             )
+            fixed50_complete = evaluation_complete(fixed50, 50)
             rows.append(
                 {
                     **structure,
@@ -1257,6 +1280,14 @@ def assemble_real_cobevt_matrix(output_dir: str | Path) -> list[dict[str, Any]]:
                     "engine_directory": str(engine_dir),
                     "engine_sha256": str(build.get("engine_sha256", "")),
                     "fixed500_complete": fixed_complete,
+                    "fixed50_complete": fixed50_complete,
+                    "fixed50_AP30": fixed50.get("AP@0.3"),
+                    "fixed50_AP50": fixed50.get("AP@0.5"),
+                    "fixed50_AP70": fixed50.get("AP@0.7"),
+                    "fixed50_mAP": fixed50.get("mAP"),
+                    "fixed50_p50_ms": fixed50.get("forward_p50_ms"),
+                    "fixed50_p90_ms": fixed50.get("forward_p90_ms"),
+                    "fixed50_p99_ms": fixed50.get("forward_p99_ms"),
                     "AP30": fixed500.get("AP@0.3"),
                     "AP50": fixed500.get("AP@0.5"),
                     "AP70": fixed500.get("AP@0.7"),
@@ -1264,11 +1295,13 @@ def assemble_real_cobevt_matrix(output_dir: str | Path) -> list[dict[str, Any]]:
                     "p50_ms": fixed500.get("forward_p50_ms"),
                     "p90_ms": fixed500.get("forward_p90_ms"),
                     "p99_ms": fixed500.get("forward_p99_ms"),
-                    "smoke10_complete": bool(
-                        smoke.get("evaluation_complete")
-                        and int(smoke.get("num_evaluated_frames", -1)) == 10
-                        and int(smoke.get("num_skipped_frames", -1)) == 0
+                    "latency_status": fixed500.get(
+                        "latency_status",
+                        fixed50.get(
+                            "latency_status", "screening_shared_gpu"
+                        ),
                     ),
+                    "smoke10_complete": evaluation_complete(smoke, 10),
                     "trt_build_success": build.get("status") == "ok",
                     "precision_realization": build.get(
                         "precision_realization", {}

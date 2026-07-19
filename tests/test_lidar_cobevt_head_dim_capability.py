@@ -1254,6 +1254,61 @@ def test_real_integration_inventory_covers_three_families_and_fixedk29696(
     )["manifest_hash"] == "fixed"
 
 
+def test_real_matrix_accepts_provider_evaluation_completion_schema(tmp_path):
+    import json
+
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        assemble_real_cobevt_matrix,
+    )
+
+    output = tmp_path / "real"
+    candidate = {
+        "candidate_id": "uniform_qk32_v32",
+        "d_qk": 32,
+        "d_v": 32,
+        "embed_dim": 256,
+        "experiment": "capability",
+        "heads": 8,
+        "variant": "uniform",
+    }
+    (output).mkdir(parents=True)
+    (output / "experiment_config.json").write_text(
+        json.dumps({"candidates": [candidate]})
+    )
+    (output / "structure_audit.json").write_text(
+        json.dumps([{"candidate_id": candidate["candidate_id"], "structure_legal": True}])
+    )
+    engine = output / "candidates" / candidate["candidate_id"] / "fp32_engine_k29696"
+    (engine / "evaluation_fixed50").mkdir(parents=True)
+    (engine / "evaluation_fixed500").mkdir(parents=True)
+    (engine / "evaluation_smoke10").mkdir(parents=True)
+    (engine / "build_report.json").write_text(
+        json.dumps({"status": "ok", "engine_sha256": "engine"})
+    )
+    for directory, frames in (
+        ("evaluation_fixed50", 50),
+        ("evaluation_fixed500", 500),
+        ("evaluation_smoke10", 10),
+    ):
+        (engine / directory / "evaluation.json").write_text(
+            json.dumps(
+                {
+                    "status": "ok",
+                    "num_evaluated_frames": frames,
+                    "num_skipped_frames": 0,
+                    "mAP": 0.5,
+                    "forward_p50_ms": 1.0,
+                }
+            )
+        )
+
+    rows = assemble_real_cobevt_matrix(output)
+    fp32 = next(row for row in rows if row["precision_profile"] == "P0_strict_fp32")
+    assert fp32["fixed50_complete"] is True
+    assert fp32["fixed500_complete"] is True
+    assert fp32["smoke10_complete"] is True
+
+
 def test_export_phase_writes_complete_candidate_provenance_without_engine(tmp_path):
     import json
 
