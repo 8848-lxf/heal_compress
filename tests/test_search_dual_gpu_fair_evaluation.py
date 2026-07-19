@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 
 from search.integration.dual_gpu_fair_evaluation import (
+    ablation_contribution_rows,
     build_evaluation_inventory,
+    build_method_ablation_inventory,
     cross_gpu_differences,
     ensure_evaluation_only_output,
     summarize_results,
@@ -152,3 +154,60 @@ def test_summary_uses_fp32_from_same_gpu() -> None:
     assert len(cross) == 2
     assert cross[0]["same_engine_hash"]
     assert cross[1]["p50_ratio_gpu1_vs_gpu0"] == 0.8
+
+
+def test_method_ablation_inventory_uses_source_pq_and_local_p_q(tmp_path: Path) -> None:
+    root = tmp_path / "ablation"
+    baseline = root / "full_validation/baselines/original_strict_fp32"
+    _artifact(baseline)
+    rows = []
+    for budget in (0.30, 0.25, 0.20, 0.15, 0.10, 0.05):
+        for variant in ("prune_quant", "prune_only", "quant_only"):
+            local = root / "candidates/ga" / f"{budget:.2f}" / variant
+            source = tmp_path / "source" / f"{budget:.2f}"
+            _artifact(local)
+            _artifact(source)
+            rows.append(
+                {
+                    "method": "ga",
+                    "budget": budget,
+                    "actual_bops": budget,
+                    "variant": variant,
+                    "artifact_dir": str(local),
+                    "source_artifact_dir": str(source),
+                    "source_candidate_hash": "hash",
+                    "row_id": f"{budget}-{variant}",
+                }
+            )
+    _json(root / "ablation_results.json", {"rows": rows})
+    inventory = build_method_ablation_inventory(ablation_root=root, method="ga")
+    assert len(inventory) == 19
+    assert inventory[1]["variant"] == "prune_quant"
+    assert inventory[1]["artifact_dir"].startswith(str(tmp_path / "source"))
+    assert inventory[2]["variant"] == "prune_only"
+    assert inventory[2]["artifact_dir"].startswith(str(root / "candidates"))
+
+
+def test_ablation_contribution_uses_assigned_fp32_baseline() -> None:
+    def row(variant: str, value: float) -> dict[str, object]:
+        return {
+            "assigned_method": "ga",
+            "variant": variant,
+            "gpu_id": 0,
+            "budget": None if variant == "fp32" else 0.3,
+            "actual_bops": 1.0 if variant == "fp32" else 0.3,
+            "mAP": value,
+            "forward_p50_ms": 10.0,
+            "speedup_vs_same_gpu_fp32": 1.0,
+        }
+
+    result = ablation_contribution_rows(
+        [
+            row("fp32", 0.70),
+            row("prune_quant", 0.65),
+            row("prune_only", 0.68),
+            row("quant_only", 0.66),
+        ]
+    )[0]
+    assert result["prune_quant_delta_vs_fp32"] == pytest.approx(-0.05)
+    assert result["pq_interaction_mAP"] == pytest.approx(0.01)

@@ -30,6 +30,7 @@ ACCEPTANCE_REPORTS = (
 )
 FORBIDDEN_EVALUATION_ARTIFACT_SUFFIXES = (".plan", ".engine", ".onnx", ".pth")
 METHOD_ORDER = {"fp32": 0, "ga": 1, "greedy": 2}
+ABLATION_VARIANT_ORDER = {"prune_quant": 0, "prune_only": 1, "quant_only": 2}
 
 
 def read_json(path: str | Path) -> dict[str, Any]:
@@ -139,6 +140,86 @@ def build_evaluation_inventory(
                 "actual_bops": float(candidate["actual_bops"]),
                 "artifact_dir": str(artifact_dir),
                 "source_candidate_hash": str(candidate.get("candidate_hash", "")),
+            }
+        )
+    return rows
+
+
+def build_method_ablation_inventory(
+    *, ablation_root: str | Path, method: str
+) -> list[dict[str, Any]]:
+    """Load FP32 plus the 18 P+Q/P-only/Q-only rows for one search method."""
+
+    root = Path(ablation_root).resolve()
+    method_name = str(method).lower()
+    if method_name not in {"ga", "greedy"}:
+        raise ValueError(f"unsupported_ablation_method:{method}")
+    baseline = (root / "full_validation/baselines/original_strict_fp32").resolve()
+    result_payload = read_json(root / "ablation_results.json")
+    candidates = [
+        dict(row)
+        for row in result_payload.get("rows", [])
+        if str(row.get("method", "")).lower() == method_name
+    ]
+    expected = {
+        (round(budget, 2), variant)
+        for budget in (0.30, 0.25, 0.20, 0.15, 0.10, 0.05)
+        for variant in ABLATION_VARIANT_ORDER
+    }
+    actual = {
+        (round(float(row["budget"]), 2), str(row["variant"])) for row in candidates
+    }
+    if actual != expected:
+        raise RuntimeError(
+            f"ablation_inventory_mismatch:{method_name}:missing={sorted(expected-actual)}:extra={sorted(actual-expected)}"
+        )
+    candidates.sort(
+        key=lambda row: (
+            -float(row["budget"]),
+            ABLATION_VARIANT_ORDER[str(row["variant"])],
+        )
+    )
+    rows: list[dict[str, Any]] = [
+        {
+            "sequence_index": 0,
+            "item_id": f"{method_name}_fp32_original",
+            "method": "fp32",
+            "assigned_method": method_name,
+            "variant": "fp32",
+            "budget": None,
+            "actual_bops": 1.0,
+            "artifact_dir": str(baseline),
+            "source_candidate_hash": "original_strict_fp32",
+            "parameter_count_base": None,
+            "parameter_count_pruned": None,
+            "parameter_reduction": 0.0,
+        }
+    ]
+    for index, candidate in enumerate(candidates, start=1):
+        variant = str(candidate["variant"])
+        source_dir = str(candidate.get("source_artifact_dir", "")).strip()
+        artifact_dir = Path(str(candidate["artifact_dir"])).resolve()
+        if variant == "prune_quant" and source_dir:
+            artifact_dir = Path(source_dir).resolve()
+        rows.append(
+            {
+                "sequence_index": index,
+                "item_id": (
+                    f"{method_name}_bops_{float(candidate['budget']):.2f}_{variant}"
+                ),
+                "method": method_name,
+                "assigned_method": method_name,
+                "variant": variant,
+                "budget": float(candidate["budget"]),
+                "actual_bops": float(candidate["actual_bops"]),
+                "artifact_dir": str(artifact_dir),
+                "source_candidate_hash": str(
+                    candidate.get("source_candidate_hash", "")
+                ),
+                "source_row_id": str(candidate.get("row_id", "")),
+                "parameter_count_base": candidate.get("parameter_count_base"),
+                "parameter_count_pruned": candidate.get("parameter_count_pruned"),
+                "parameter_reduction": candidate.get("parameter_reduction"),
             }
         )
     return rows
@@ -454,8 +535,13 @@ def summarize_results(results: Iterable[Mapping[str, Any]]) -> list[dict[str, An
                 "sequence_index": int(row["sequence_index"]),
                 "item_id": row["item_id"],
                 "method": row["method"],
+                "assigned_method": row.get("assigned_method", row["method"]),
+                "variant": row.get("variant", "prune_quant"),
                 "budget": row.get("budget"),
                 "actual_bops": row.get("actual_bops"),
+                "parameter_count_base": row.get("parameter_count_base"),
+                "parameter_count_pruned": row.get("parameter_count_pruned"),
+                "parameter_reduction": row.get("parameter_reduction"),
                 "AP@0.3": row.get("AP@0.3"),
                 "AP@0.5": row.get("AP@0.5"),
                 "AP@0.7": row.get("AP@0.7"),
@@ -478,6 +564,66 @@ def summarize_results(results: Iterable[Mapping[str, Any]]) -> list[dict[str, An
             }
         )
     return summary
+
+
+def ablation_contribution_rows(
+    rows: Iterable[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Compute P/Q accuracy contributions within each assigned GPU baseline."""
+
+    values = [dict(row) for row in rows]
+    baseline_by_method = {
+        str(row["assigned_method"]): row
+        for row in values
+        if str(row["variant"]) == "fp32"
+    }
+    grouped: dict[tuple[str, float], dict[str, dict[str, Any]]] = {}
+    for row in values:
+        if str(row["variant"]) == "fp32":
+            continue
+        key = (str(row["assigned_method"]), round(float(row["budget"]), 2))
+        grouped.setdefault(key, {})[str(row["variant"])] = row
+    result: list[dict[str, Any]] = []
+    for (method, budget), variants in sorted(
+        grouped.items(), key=lambda item: (METHOD_ORDER[item[0][0]], -item[0][1])
+    ):
+        if set(variants) != set(ABLATION_VARIANT_ORDER):
+            raise RuntimeError(
+                f"ablation_variants_missing:{method}:{budget}:{sorted(variants)}"
+            )
+        baseline = baseline_by_method[method]
+        p_q = variants["prune_quant"]
+        p_only = variants["prune_only"]
+        q_only = variants["quant_only"]
+        fp32_map = float(baseline["mAP"])
+        result.append(
+            {
+                "assigned_method": method,
+                "gpu_id": int(p_q["gpu_id"]),
+                "budget": budget,
+                "actual_bops": float(p_q["actual_bops"]),
+                "fp32_mAP": fp32_map,
+                "prune_quant_mAP": float(p_q["mAP"]),
+                "prune_only_mAP": float(p_only["mAP"]),
+                "quant_only_mAP": float(q_only["mAP"]),
+                "prune_quant_delta_vs_fp32": float(p_q["mAP"]) - fp32_map,
+                "prune_only_delta_vs_fp32": float(p_only["mAP"]) - fp32_map,
+                "quant_only_delta_vs_fp32": float(q_only["mAP"]) - fp32_map,
+                "pq_interaction_mAP": (
+                    float(p_q["mAP"])
+                    - float(p_only["mAP"])
+                    - float(q_only["mAP"])
+                    + fp32_map
+                ),
+                "prune_quant_p50_ms": float(p_q["forward_p50_ms"]),
+                "prune_only_p50_ms": float(p_only["forward_p50_ms"]),
+                "quant_only_p50_ms": float(q_only["forward_p50_ms"]),
+                "prune_quant_speedup": float(p_q["speedup_vs_same_gpu_fp32"]),
+                "prune_only_speedup": float(p_only["speedup_vs_same_gpu_fp32"]),
+                "quant_only_speedup": float(q_only["speedup_vs_same_gpu_fp32"]),
+            }
+        )
+    return result
 
 
 def write_summary_csv(path: str | Path, rows: list[Mapping[str, Any]]) -> None:

@@ -1430,3 +1430,34 @@ f445476 feat(search): add dual-GPU fair engine evaluation
 Completed checkpoint: 2026-07-19 07:21:25 +0800 CST
 
 ---
+
+## Corrected split-GPU P/Q ablation rerun
+
+The earlier dual-GPU run was a cross-card consistency audit and did not match
+the requested method assignment. The corrected formal rerun fixes GA to GPU 0
+and greedy to GPU 1. Each card independently evaluates its fresh strict-FP32
+reference and all six budgets as P+Q, P-only, and Q-only. Same-card execution
+is serial, the two cards run concurrently, and every item is followed by cache
+cleanup and memory-return validation.
+
+All 38 evaluations completed 1789/1789 frames with zero skips. Engine build
+count is zero; source hashes remained unchanged. Fresh FP32 mAP/p50 were
+`0.736743/7.3182 ms` for GA on GPU 0 and `0.736754/7.2797 ms` for greedy on
+GPU 1.
+
+At 0.05, GA P+Q/P-only/Q-only mAP is
+`0.707625/0.736298/0.707421`; greedy is
+`0.699694/0.736374/0.698780`. This confirms that the AP cliff is caused mainly
+by the aggressive quantization profile, not physical pruning. Budgets
+0.10--0.30 remain effectively FP32-accurate for all variants.
+
+Complete evidence and handoff:
+
+```text
+outputs/h800_lidar_pyramid_split_gpu_ablation_20260718_171525/
+docs/codex_handoffs/H800_LIDAR_PYRAMID_SPLIT_GPU_PQ_ABLATION_20260719.md
+```
+
+Completed checkpoint: 2026-07-19 08:49:39 +0800 CST
+
+---
