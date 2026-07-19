@@ -14,6 +14,7 @@ from dataclasses import fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import yaml
 
@@ -33,6 +34,7 @@ from search.integration.lidar_cobevt_head_dim_runtime import (
 )
 from search.reporting.cobevt_head_dim_capability import (
     audit_requested_realized_precision,
+    classify_real_accuracy_delta,
     classify_support,
     derive_head_dim_search_contract,
     inspect_attention_layers,
@@ -160,13 +162,21 @@ def _manifest_tensorrt_root(previous_output: Path) -> Path:
 
 def _probe_tensorrt_versions(
     *, previous_output: Path, modelopt_python: Path
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     trt_root = _manifest_tensorrt_root(previous_output)
     env = _tensorrt_environment(
         {"tensorrt_root": str(trt_root)}, physical_gpu=0
     )
     python_probe = subprocess.run(
-        [str(modelopt_python), "-c", "import tensorrt; print(tensorrt.__version__)"],
+        [
+            str(modelopt_python),
+            "-c",
+            (
+                "import json,tensorrt; "
+                "print(json.dumps({'version':tensorrt.__version__,"
+                "'package':tensorrt.__file__}))"
+            ),
+        ],
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -178,7 +188,11 @@ def _probe_tensorrt_versions(
         raise RuntimeError(
             "python_tensorrt_probe_failed:" + str(python_probe.stdout).strip()
         )
-    python_version = str(python_probe.stdout).strip().splitlines()[-1]
+    python_payload = json.loads(
+        str(python_probe.stdout).strip().splitlines()[-1]
+    )
+    python_version = str(python_payload["version"])
+    python_package = str(Path(python_payload["package"]).resolve())
     trtexec = trt_root / "targets/x86_64-linux-gnu/bin/trtexec"
     help_probe = subprocess.run(
         [str(trtexec), "--help"],
@@ -194,7 +208,7 @@ def _probe_tensorrt_versions(
         raise RuntimeError("trtexec_version_probe_failed")
     encoded = int(match.group(1))
     trtexec_version = f"{encoded // 10000}.{(encoded % 10000) // 100}.{encoded % 100}"
-    return python_version, trtexec_version
+    return python_version, trtexec_version, python_package
 
 
 def _gpu_rows() -> list[dict[str, Any]]:
@@ -300,7 +314,7 @@ def discover_capability_environment(
     physical_gpu: int,
 ) -> dict[str, Any]:
     previous = Path(previous_output).expanduser().resolve()
-    python_version, trtexec_version = _probe_tensorrt_versions(
+    python_version, trtexec_version, python_package = _probe_tensorrt_versions(
         previous_output=previous,
         modelopt_python=Path(modelopt_python).expanduser().resolve(),
     )
@@ -314,6 +328,7 @@ def discover_capability_environment(
         {
             **gpu,
             "gpu_architecture": "sm" + str(gpu["compute_capability"]).replace(".", ""),
+            "python_tensorrt_package": python_package,
             "hardware_id": hashlib.sha256(
                 json.dumps(
                     {
@@ -335,6 +350,7 @@ def discover_capability_environment(
 def capability_build_signature(
     *,
     candidate_hash: str,
+    code_commit: str,
     onnx_sha256: str,
     qdq_scale_hash: str,
     trtexec_sha256: str,
@@ -343,10 +359,11 @@ def capability_build_signature(
 ) -> str:
     payload = {
         "candidate_hash": str(candidate_hash),
+        "code_commit": str(code_commit),
         "gpu_architecture": str(gpu_architecture),
         "onnx_sha256": str(onnx_sha256),
         "qdq_scale_hash": str(qdq_scale_hash),
-        "schema": "cobevt-head-dim-capability-build-v1",
+        "schema": "cobevt-head-dim-capability-build-v2",
         "tensorrt_version": str(tensorrt_version),
         "trtexec_sha256": str(trtexec_sha256),
     }
@@ -473,6 +490,15 @@ def prepare_capability_run(
         gpu_architecture=gpu_architecture,
     )
     candidate_rows = [candidate.to_dict() for candidate in candidates]
+    checkpoint = Path(
+        "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/"
+        "LiDAROnly/lidar_cobevt/net_epoch_bestval_at19.pth"
+    )
+    config = checkpoint.with_name("config.yaml")
+    plugin = Path(
+        "/home/lixingfeng/UniAD_examine/heal_compress/quantization/plugins/"
+        "pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
+    )
     run_manifest = {
         "candidate_count": len(candidate_rows),
         "candidate_matrix_hash": hashlib.sha256(
@@ -481,9 +507,25 @@ def prepare_capability_run(
             ).encode("ascii")
         ).hexdigest(),
         "code_commit": str(code_commit),
-        "created_at": datetime.now(timezone.utc).astimezone().isoformat(),
+        "created_at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
         "environment": dict(environment),
+        "model_identity": {
+            "checkpoint": str(checkpoint),
+            "checkpoint_sha256": _sha256(checkpoint),
+            "config": str(config),
+            "config_sha256": _sha256(config),
+            "plugin": str(plugin),
+            "plugin_sha256": _sha256(plugin),
+            "synthetic_plugin_used": False,
+        },
         "graph_variants": ["core_attention", "projection_attention"],
+        "numerical_safety_contract": {
+            "all_outputs_finite": True,
+            "output_cosine_min": 0.99,
+            "output_relative_l2_max": 0.1,
+            "softmax_js_divergence_max": 0.05,
+            "matching_qk_negative_infinity_mask_positions_allowed": True,
+        },
         "output_dir": str(destination),
         "real_attention_shape": {
             "activation": [1, 2, 16, 32, 4, 4, 256],
@@ -505,6 +547,7 @@ def prepare_capability_run(
                 "environment": dict(environment),
                 "real_attention_shape": run_manifest["real_attention_shape"],
                 "trace_window_groups": 1,
+                "synthetic_input_cases": list(SYNTHETIC_INPUT_CASES),
             },
             sort_keys=True,
         ),
@@ -702,6 +745,7 @@ def export_capability_candidates(
         raise RuntimeError("capability_candidate_matrix_missing")
     records = json.loads(matrix_path.read_text(encoding="utf-8"))
     attempted = succeeded = failed = 0
+    code_commit = _git_commit()
     for record in records:
         candidate = _candidate_from_record(dict(record))
         if only_candidate_ids and candidate.candidate_id not in only_candidate_ids:
@@ -760,14 +804,17 @@ def export_capability_candidates(
                 )
                 diagnostic_report["diagnostic_export_reused_same_run"] = False
             export_report["evidence_directory"] = str(candidate_dir)
+            export_report["code_commit"] = code_commit
             export_report["qdq_scale_hash"] = qdq_scale_hash
             export_report["trace_window_groups"] = int(trace_window_groups)
+            diagnostic_report["code_commit"] = code_commit
             _write_json(diagnostic_report_path, diagnostic_report)
             succeeded += 1
         except Exception as exc:  # noqa: BLE001
             export_report = {
                 "candidate_hash": candidate.candidate_hash,
                 "candidate_id": candidate.candidate_id,
+                "code_commit": code_commit,
                 "evidence_directory": str(candidate_dir),
                 "failure_reason": f"{type(exc).__name__}:{exc}",
                 "onnx_export_success": False,
@@ -815,6 +862,7 @@ def build_capability_candidates(
     if not trtexec.is_file():
         raise RuntimeError(f"capability_trtexec_missing:{trtexec}")
     attempted = succeeded = failed = 0
+    code_commit = _git_commit()
     for candidate_path in sorted((destination / "synthetic").rglob("candidate.json")):
         candidate_dir = candidate_path.parent
         candidate = _candidate_from_record(
@@ -829,6 +877,10 @@ def build_capability_candidates(
         export = json.loads(export_path.read_text(encoding="utf-8"))
         if not bool(export.get("onnx_export_success")):
             continue
+        if str(export.get("code_commit", "")) != code_commit:
+            raise RuntimeError(
+                f"capability_export_code_commit_mismatch:{candidate.candidate_id}"
+            )
         attempted += 1
         onnx_path = candidate_dir / f"{artifact_prefix}attention.onnx"
         engine_path = candidate_dir / f"{artifact_prefix}engine.plan"
@@ -880,6 +932,7 @@ def build_capability_candidates(
                 "builder_command": command,
                 "candidate_hash": candidate.candidate_hash,
                 "candidate_id": candidate.candidate_id,
+                "code_commit": code_commit,
                 "diagnostic_only": bool(diagnostic),
                 "engine_path": str(engine_path),
                 "engine_sha256": _sha256(engine_path)
@@ -899,6 +952,7 @@ def build_capability_candidates(
             }
             build_report["build_signature"] = capability_build_signature(
                 candidate_hash=candidate.candidate_hash,
+                code_commit=code_commit,
                 onnx_sha256=str(export.get("onnx_sha256", "")),
                 qdq_scale_hash=str(export.get("qdq_scale_hash", "")),
                 trtexec_sha256=str(environment.get("trtexec_sha256", "")),
@@ -911,6 +965,7 @@ def build_capability_candidates(
                 "builder_command": command,
                 "candidate_hash": candidate.candidate_hash,
                 "candidate_id": candidate.candidate_id,
+                "code_commit": code_commit,
                 "diagnostic_only": bool(diagnostic),
                 "failure_reason": f"{type(exc).__name__}:{exc}",
                 "latency_eligible": not diagnostic,
@@ -975,6 +1030,7 @@ def run_capability_candidates(
 
     attempted = succeeded = failed = 0
     runtime_reports: dict[str, dict[str, Any]] = {}
+    code_commit = _git_commit()
     cached_reference_id = ""
     cached_reference_runner: Any | None = None
     for candidate_id, candidate in candidates.items():
@@ -991,6 +1047,13 @@ def run_capability_candidates(
         diagnostic_build = json.loads(
             diagnostic_build_path.read_text(encoding="utf-8")
         )
+        if any(
+            str(payload.get("code_commit", "")) != code_commit
+            for payload in (production_build, diagnostic_build)
+        ):
+            raise RuntimeError(
+                f"capability_build_code_commit_mismatch:{candidate_id}"
+            )
         if not (
             production_build.get("trt_build_success")
             and diagnostic_build.get("trt_build_success")
@@ -1075,10 +1138,139 @@ def run_capability_candidates(
     return {"attempted": attempted, "failed": failed, "succeeded": succeeded}
 
 
-def _read_optional_json(path: Path) -> dict[str, Any]:
+def _read_optional_json(path: Path) -> Any:
     if not path.is_file():
         return {}
-    return dict(json.loads(path.read_text(encoding="utf-8")))
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _real_profile_directory(profile: str) -> str:
+    if profile == "P0_strict_fp32":
+        return "fp32_engine_k29696"
+    if profile == "P1_strict_fp16_native":
+        return "fp16_engine_k29696"
+    if profile == "P2_f3_mixed":
+        return "f3_rest_fp16_qk_fp32_minimal_island_engine_k29696"
+    raise ValueError(f"unsupported_real_capability_profile:{profile}")
+
+
+def assemble_real_cobevt_matrix(output_dir: str | Path) -> list[dict[str, Any]]:
+    destination = Path(output_dir).expanduser().resolve()
+    experiment_path = destination / "experiment_config.json"
+    if not experiment_path.is_file():
+        return []
+    experiment = json.loads(experiment_path.read_text(encoding="utf-8"))
+    structure_rows = _read_optional_json(destination / "structure_audit.json")
+    structure_by_id = {
+        str(row["candidate_id"]): row
+        for row in structure_rows
+    } if isinstance(structure_rows, list) else {}
+    rows = []
+    for structure in experiment["candidates"]:
+        for profile in (
+            "P0_strict_fp32",
+            "P1_strict_fp16_native",
+            "P2_f3_mixed",
+        ):
+            engine_dir = (
+                destination
+                / "candidates"
+                / str(structure["candidate_id"])
+                / _real_profile_directory(profile)
+            )
+            build = _read_optional_json(engine_dir / "build_report.json")
+            smoke = _read_optional_json(
+                engine_dir / "evaluation_smoke10" / "evaluation.json"
+            )
+            fixed500 = _read_optional_json(
+                engine_dir / "evaluation_fixed500" / "evaluation.json"
+            )
+            fixed_complete = bool(
+                fixed500.get("evaluation_complete")
+                and int(fixed500.get("num_evaluated_frames", -1)) == 500
+                and int(fixed500.get("num_skipped_frames", -1)) == 0
+            )
+            rows.append(
+                {
+                    **structure,
+                    "precision_profile": profile,
+                    "structure_legal": bool(
+                        structure_by_id.get(
+                            str(structure["candidate_id"]), {}
+                        ).get("structure_legal", False)
+                    ),
+                    "engine_directory": str(engine_dir),
+                    "engine_sha256": str(build.get("engine_sha256", "")),
+                    "fixed500_complete": fixed_complete,
+                    "AP30": fixed500.get("AP@0.3"),
+                    "AP50": fixed500.get("AP@0.5"),
+                    "AP70": fixed500.get("AP@0.7"),
+                    "mAP": fixed500.get("mAP"),
+                    "p50_ms": fixed500.get("forward_p50_ms"),
+                    "p90_ms": fixed500.get("forward_p90_ms"),
+                    "p99_ms": fixed500.get("forward_p99_ms"),
+                    "smoke10_complete": bool(
+                        smoke.get("evaluation_complete")
+                        and int(smoke.get("num_evaluated_frames", -1)) == 10
+                        and int(smoke.get("num_skipped_frames", -1)) == 0
+                    ),
+                    "trt_build_success": build.get("status") == "ok",
+                    "precision_realization": build.get(
+                        "precision_realization", {}
+                    ),
+                    "failure_reason": next(
+                        (
+                            str(payload.get("failure_reason"))
+                            for payload in (fixed500, smoke, build)
+                            if payload.get("failure_reason")
+                        ),
+                        "",
+                    ),
+                }
+            )
+    references = {
+        str(row["candidate_id"]): row
+        for row in rows
+        if row["precision_profile"] == "P0_strict_fp32"
+    }
+    for row in rows:
+        reference = references[str(row["candidate_id"])]
+        row["same_shape_fp32_map"] = reference.get("mAP")
+        row["delta_map_vs_same_shape_fp32"] = (
+            None
+            if row.get("mAP") is None or reference.get("mAP") is None
+            else float(row["mAP"]) - float(reference["mAP"])
+        )
+        classification = classify_real_accuracy_delta(
+            reference.get("mAP"), row.get("mAP")
+        )
+        row["accuracy_classification"] = classification
+        row["accuracy_safe"] = (
+            True
+            if classification == "accuracy_safe"
+            else False
+            if classification in {"accuracy_watch", "accuracy_unsafe"}
+            else "accuracy_unresolved"
+        )
+    _write_json(destination / "real_cobevt_capability_matrix.json", rows)
+    fields = sorted({key for row in rows for key in row})
+    with (destination / "real_cobevt_capability_matrix.csv").open(
+        "w", encoding="utf-8", newline=""
+    ) as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    key: (
+                        json.dumps(row.get(key), sort_keys=True)
+                        if isinstance(row.get(key), (dict, list, tuple))
+                        else row.get(key)
+                    )
+                    for key in fields
+                }
+            )
+    return rows
 
 
 def assemble_capability_matrix(output_dir: str | Path) -> dict[str, str]:
@@ -1089,6 +1281,16 @@ def assemble_capability_matrix(output_dir: str | Path) -> dict[str, str]:
         (destination / "candidate_matrix.json").read_text(encoding="utf-8")
     )
     hardware = _read_optional_json(destination / "hardware_manifest.json")
+    real_rows = assemble_real_cobevt_matrix(destination / "real_cobevt")
+    real_by_key = {
+        (
+            str(row["variant"]),
+            int(row["d_qk"]),
+            int(row["d_v"]),
+            str(row["precision_profile"]),
+        ): row
+        for row in real_rows
+    }
     rows: list[dict[str, Any]] = []
     for record in records:
         candidate = _candidate_from_record(dict(record))
@@ -1203,6 +1405,36 @@ def assemble_capability_matrix(output_dir: str | Path) -> dict[str, str]:
             "support_class": support_class,
             "trt_build_success": bool(build.get("trt_build_success", False)),
         }
+        real = real_by_key.get(
+            (
+                candidate.structure_family,
+                candidate.d_qk,
+                candidate.d_v,
+                candidate.precision_profile,
+            )
+        )
+        if candidate.graph_variant == "projection_attention" and real:
+            row.update(
+                {
+                    "accuracy_classification": real[
+                        "accuracy_classification"
+                    ],
+                    "accuracy_safe": real["accuracy_safe"],
+                    "real_cobevt_AP30": real.get("AP30"),
+                    "real_cobevt_AP50": real.get("AP50"),
+                    "real_cobevt_AP70": real.get("AP70"),
+                    "real_cobevt_delta_map_vs_same_shape_fp32": real.get(
+                        "delta_map_vs_same_shape_fp32"
+                    ),
+                    "real_cobevt_fixed500_complete": real.get(
+                        "fixed500_complete"
+                    ),
+                    "real_cobevt_mAP": real.get("mAP"),
+                    "real_cobevt_structure_legal": real.get(
+                        "structure_legal"
+                    ),
+                }
+            )
         rows.append(row)
     paths = write_capability_matrix(destination, rows)
     contract_path = destination / "final_head_dim_search_contract.json"

@@ -540,6 +540,7 @@ def test_build_signature_owns_candidate_onnx_qdq_trtexec_and_architecture():
 
     fields = {
         "candidate_hash": "candidate",
+        "code_commit": "commit",
         "onnx_sha256": "onnx",
         "qdq_scale_hash": "scale",
         "trtexec_sha256": "trtexec",
@@ -806,6 +807,17 @@ def test_accuracy_unresolved_capability_is_not_promoted_to_accuracy_safe():
         "f3_accuracy_safe_widths"
     ] == []
     assert contract["search_space_recommendation"]["unresolved_pairs"]
+
+
+def test_accuracy_classification_uses_same_shape_fp32_absolute_map_delta():
+    from search.reporting.cobevt_head_dim_capability import (
+        classify_real_accuracy_delta,
+    )
+
+    assert classify_real_accuracy_delta(0.7000, 0.6970) == "accuracy_safe"
+    assert classify_real_accuracy_delta(0.7000, 0.6960) == "accuracy_watch"
+    assert classify_real_accuracy_delta(0.7000, 0.6949) == "accuracy_unsafe"
+    assert classify_real_accuracy_delta(None, 0.7000) == "accuracy_unresolved"
 
 
 def test_capability_matrix_writer_preserves_failures_and_machine_readable_rows(

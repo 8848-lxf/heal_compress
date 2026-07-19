@@ -209,6 +209,20 @@ def classify_support(row: Mapping[str, Any]) -> str:
     return "supported_primitive"
 
 
+def classify_real_accuracy_delta(
+    reference_map: float | None, candidate_map: float | None
+) -> str:
+    if reference_map is None or candidate_map is None:
+        return "accuracy_unresolved"
+    delta = float(candidate_map) - float(reference_map)
+    tolerance = 1.0e-12
+    if delta >= -0.003 - tolerance:
+        return "accuracy_safe"
+    if delta >= -0.005 - tolerance:
+        return "accuracy_watch"
+    return "accuracy_unsafe"
+
+
 def _topk_overlap(
     reference: torch.Tensor, candidate: torch.Tensor, k: int
 ) -> float:
@@ -493,13 +507,16 @@ def derive_head_dim_search_contract(
         )
     )
     legal_uniform = sorted(
-        set().union(
-            *(
-                set(value)
-                for key, value in uniform.items()
-                if key != "unsupported_head_dims"
-            )
-        )
+        {
+            int(row["d_qk"])
+            for row in evidence
+            if row.get("graph_variant") == "projection_attention"
+            and row.get("structure_family") == "uniform"
+            and row.get("runtime_success")
+            and row.get("precision_identity")
+            and row.get("numerical_safe")
+            and row.get("real_cobevt_structure_legal") is True
+        }
     )
     forbidden = []
     unresolved = []
@@ -673,6 +690,7 @@ __all__ = [
     "attention_tensor_parity",
     "audit_requested_realized_precision",
     "classify_support",
+    "classify_real_accuracy_delta",
     "derive_head_dim_search_contract",
     "inspect_attention_layers",
     "write_capability_matrix",
