@@ -226,3 +226,46 @@ The real sample was copied to `/tmp` before migration. No file in the active
 Pyramid output was changed.
 
 --- ROUND 2 | 2026-07-19 18:22:20 +0800 ---
+
+## Round 3: model-family registry and DiscoNet checkpoint loading
+
+Implemented:
+
+- `search/integration/lidar_family.py`
+  - immutable HEAL LiDAR family schema;
+  - fixedK, plugin boundary, export recipe, fusion kind, output contract.
+- `search/integration/lidar_family_registry.py`
+  - canonical registrations for Pyramid, DiscoNet, and deferred F-Cooper;
+  - strict alias resolution and unknown-family rejection.
+- `search/integration/disconet_compat.py`
+  - local checkpoint-compatible PixelWeightLayer;
+  - explicit installation only when the HEAL native module is absent;
+  - native implementation is never overwritten;
+  - compatibility source SHA recorded.
+- `search/integration/model_provider.py`
+  - generalized `HEALLidarModelBundle`;
+  - preserved `LidarPyramidModelBundle` and `load_lidar_pyramid_model` APIs;
+  - checkpoint state count, missing/unexpected keys, and shape audit;
+  - weighted mismatch fails closed before search readiness.
+
+Real checkpoint evidence:
+
+```text
+DiscoNet source state entries       = 171
+DiscoNet missing parameter keys     = 0
+DiscoNet unexpected weighted keys   = 0
+DiscoNet strict weighted pass       = true
+Pyramid missing parameter keys      = 0
+Pyramid unexpected weighted keys    = 0
+Pyramid strict weighted pass        = true
+```
+
+Tests:
+
+```text
+8 family/provider tests passed
+real DiscoNet checkpoint loaded on CPU
+real Pyramid compatibility checkpoint loaded on CPU
+```
+
+--- ROUND 3 | 2026-07-19 18:28:02 +0800 ---

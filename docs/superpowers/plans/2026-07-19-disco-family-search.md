@@ -111,7 +111,7 @@ git commit -m "feat: compact completed candidate audit artifacts"
 - Produces: `install_disconet_compat_module() -> dict[str, Any]`.
 - Produces: `load_heal_lidar_model(..., family: HEALLidarFamilySpec) -> HEALLidarModelBundle`.
 
-- [ ] **Step 1: Write failing registry tests for `lidar_pyramid`, `lidar_disco`, and deferred `lidar_fcooper`.**
+- [x] **Step 1: Write failing registry tests for `lidar_pyramid`, `lidar_disco`, and deferred `lidar_fcooper`.**
 
 ```python
 def test_disco_family_has_weighted_soft_fusion():
@@ -120,7 +120,7 @@ def test_disco_family_has_weighted_soft_fusion():
     assert spec.export_recipe == "soft_fusion_fixed_k"
 ```
 
-- [ ] **Step 2: Write failing PixelWeightLayer topology and state-key tests.**
+- [x] **Step 2: Write failing PixelWeightLayer topology and state-key tests.**
 
 ```python
 def test_disconet_compat_pixel_weight_topology():
@@ -129,11 +129,11 @@ def test_disconet_compat_pixel_weight_topology():
     assert tuple(layer.conv1_4.weight.shape) == (1, 8, 1, 1)
 ```
 
-- [ ] **Step 3: Run tests and verify RED.**
+- [x] **Step 3: Run tests and verify RED.**
 
 Run: `/home/lixingfeng/anaconda3/envs/univ2x-opt/bin/python -m pytest -q tests/test_lidar_family_registry.py tests/test_disconet_model_provider.py`
 
-- [ ] **Step 4: Implement the family schema and registry without changing Pyramid defaults.**
+- [x] **Step 4: Implement the family schema and registry without changing Pyramid defaults.**
 
 ```python
 @dataclass(frozen=True)
@@ -147,15 +147,15 @@ class HEALLidarFamilySpec:
     compatibility_installer: Callable[[], Mapping[str, Any]] | None = None
 ```
 
-- [ ] **Step 5: Implement and install the local DiscoNet compatibility module only when the family is `lidar_disco`.**
+- [x] **Step 5: Implement and install the local DiscoNet compatibility module only when the family is `lidar_disco`.**
 
-- [ ] **Step 6: Generalize the model bundle and add strict weighted-key audit; preserve `load_lidar_pyramid_model` as a compatibility wrapper.**
+- [x] **Step 6: Generalize the model bundle and add strict weighted-key audit; preserve `load_lidar_pyramid_model` as a compatibility wrapper.**
 
-- [ ] **Step 7: Load the real checkpoint on CPU and assert zero missing/unexpected weighted keys, 171 source state entries, and checkpoint SHA identity.**
+- [x] **Step 7: Load the real checkpoint on CPU and assert zero missing/unexpected weighted keys, 171 source state entries, and checkpoint SHA identity.**
 
 Run: `/home/lixingfeng/anaconda3/envs/univ2x-opt/bin/python -m pytest -q tests/test_disconet_model_provider.py -m integration`
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
 ```bash
 git add search/integration/lidar_family.py search/integration/lidar_family_registry.py search/integration/disconet_compat.py search/integration/model_provider.py tests/test_lidar_family_registry.py tests/test_disconet_model_provider.py
