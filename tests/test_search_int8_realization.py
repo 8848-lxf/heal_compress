@@ -231,6 +231,115 @@ def test_exact_npz_calibration_manifest_verifies_tensor_files(tmp_path: Path) ->
         )
 
 
+def test_baseline_six_input_npz_calibration_manifest_preserves_agent_mask(tmp_path: Path) -> None:
+    import hashlib
+    import json
+
+    import numpy as np
+    import torch
+
+    from search.integration.calibration_provider import (
+        BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
+        load_fixed_k_calibration_npz_batches,
+    )
+
+    fixed_k = 4
+    sample = tmp_path / "baseline_sample.npz"
+    np.savez_compressed(
+        sample,
+        voxel_features=np.ones((fixed_k, 2, 4), dtype=np.float32),
+        voxel_coords=np.zeros((fixed_k, 4), dtype=np.int32),
+        voxel_num_points=np.ones((fixed_k,), dtype=np.int32),
+        pairwise_t_matrix=np.eye(4, dtype=np.float32).reshape(1, 1, 1, 4, 4).repeat(2, axis=1).repeat(2, axis=2),
+        valid_voxel_mask=np.ones((fixed_k,), dtype=np.float32),
+        agent_mask=np.asarray([[1.0, 0.0]], dtype=np.float32),
+    )
+    digest = hashlib.sha256(sample.read_bytes()).hexdigest()
+    manifest = tmp_path / "baseline_manifest.json"
+    manifest.write_text(json.dumps({
+        "strategy": "single_engine_maxK",
+        "calibration_split": "train",
+        "fixed_K": fixed_k,
+        "input_names": list(BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES),
+        "files": [{
+            "name": sample.name,
+            "path": str(sample),
+            "sha256": digest,
+            "bytes": sample.stat().st_size,
+        }],
+    }), encoding="utf-8")
+
+    batches, identity = load_fixed_k_calibration_npz_batches(
+        manifest,
+        num_batches=1,
+        fixed_k=fixed_k,
+        device=torch.device("cpu"),
+        input_names=BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
+    )
+
+    assert tuple(batches[0]) == BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES
+    assert torch.equal(batches[0]["agent_mask"], torch.tensor([[1.0, 0.0]]))
+    assert identity["input_names"] == list(BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES)
+
+    np.savez_compressed(
+        sample,
+        voxel_features=np.ones((fixed_k, 2, 4), dtype=np.float32),
+        voxel_coords=np.zeros((fixed_k, 4), dtype=np.int32),
+        voxel_num_points=np.ones((fixed_k,), dtype=np.int32),
+        pairwise_t_matrix=np.eye(4, dtype=np.float32).reshape(1, 1, 1, 4, 4).repeat(2, axis=1).repeat(2, axis=2),
+        valid_voxel_mask=np.ones((fixed_k,), dtype=np.float32),
+        agent_mask=np.asarray([[1.0, 0.5]], dtype=np.float32),
+    )
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["files"][0]["sha256"] = hashlib.sha256(sample.read_bytes()).hexdigest()
+    payload["files"][0]["bytes"] = sample.stat().st_size
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    import pytest
+    with pytest.raises(RuntimeError, match="agent_mask_values_invalid"):
+        load_fixed_k_calibration_npz_batches(
+            manifest,
+            num_batches=1,
+            fixed_k=fixed_k,
+            device=torch.device("cpu"),
+            input_names=BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
+        )
+
+
+def test_collect_qdq_calibration_propagates_six_input_contract(tmp_path: Path, monkeypatch) -> None:
+    import torch
+
+    from search.integration import calibration_provider
+
+    captured = {}
+
+    def fake_load(*args, **kwargs):
+        captured["input_names"] = tuple(kwargs["input_names"])
+        return [{"x": torch.ones(1, 2)}], {"source": "test"}
+
+    class Adapter:
+        @staticmethod
+        def forward_for_task(model, batch):
+            return model(batch["x"])
+
+    model = torch.nn.Sequential(torch.nn.Linear(2, 2)).eval()
+    monkeypatch.setattr(calibration_provider, "load_fixed_k_calibration_npz_batches", fake_load)
+
+    scales = calibration_provider.collect_or_load_qdq_calibration_scales(
+        model=model,
+        adapter=Adapter(),
+        model_config_path=tmp_path / "unused.yaml",
+        module_paths=["0"],
+        device=torch.device("cpu"),
+        cache_path=tmp_path / "scales.json",
+        num_batches=1,
+        calibration_npz_manifest=tmp_path / "manifest.json",
+        calibration_input_names=calibration_provider.BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
+    )
+
+    assert captured["input_names"] == calibration_provider.BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES
+    assert set(scales) == {"0"}
+
+
 def test_tensorrt_entropy_cache_requires_exact_boundaries_and_keeps_per_channel_weights(
     tmp_path: Path,
 ) -> None:

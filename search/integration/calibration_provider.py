@@ -26,6 +26,10 @@ FIXED_K_CALIBRATION_INPUT_NAMES = (
     "pairwise_t_matrix",
     "valid_voxel_mask",
 )
+BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES = (
+    *FIXED_K_CALIBRATION_INPUT_NAMES,
+    "agent_mask",
+)
 
 
 def _sha256_file(path: Path) -> str:
@@ -41,9 +45,13 @@ def fixed_k_calibration_npz_manifest_identity(
     *,
     num_batches: int,
     fixed_k: int,
+    input_names: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Return a content-addressed identity for preprocessed train calibration tensors."""
 
+    expected_inputs = tuple(str(value) for value in (input_names or FIXED_K_CALIBRATION_INPUT_NAMES))
+    if not expected_inputs or len(expected_inputs) != len(set(expected_inputs)):
+        raise RuntimeError(f"calibration_npz_expected_input_names_invalid:{expected_inputs}")
     path = Path(manifest_path).expanduser().resolve()
     if not path.is_file():
         raise RuntimeError(f"calibration_npz_manifest_missing:{path}")
@@ -57,9 +65,11 @@ def fixed_k_calibration_npz_manifest_identity(
         raise RuntimeError(f"calibration_npz_split_not_train:{payload.get('calibration_split')}")
     if str(payload.get("strategy", "")) != "single_engine_maxK":
         raise RuntimeError(f"calibration_npz_strategy_mismatch:{payload.get('strategy')}")
-    input_names = [str(value) for value in payload.get("input_names", [])]
-    if set(input_names) != set(FIXED_K_CALIBRATION_INPUT_NAMES):
-        raise RuntimeError(f"calibration_npz_input_names_mismatch:{input_names}")
+    manifest_input_names = [str(value) for value in payload.get("input_names", [])]
+    if tuple(manifest_input_names) != expected_inputs:
+        raise RuntimeError(
+            f"calibration_npz_input_names_mismatch:{manifest_input_names}!={list(expected_inputs)}"
+        )
     file_rows = [
         {
             "index": int(index),
@@ -84,7 +94,7 @@ def fixed_k_calibration_npz_manifest_identity(
         "fixed_k": int(fixed_k),
         "strategy": "single_engine_maxK",
         "calibration_split": "train",
-        "input_names": list(FIXED_K_CALIBRATION_INPUT_NAMES),
+        "input_names": list(expected_inputs),
         "train_dataset_indices": [int(value) for value in payload.get("train_dataset_indices", [])],
         "files": file_rows,
     }
@@ -96,6 +106,7 @@ def load_fixed_k_calibration_npz_batches(
     num_batches: int,
     fixed_k: int,
     device: torch.device,
+    input_names: Sequence[str] | None = None,
 ) -> tuple[list[dict[str, torch.Tensor]], dict[str, Any]]:
     """Load and verify exact preprocessed tensors in manifest order."""
 
@@ -105,7 +116,9 @@ def load_fixed_k_calibration_npz_batches(
         manifest_path,
         num_batches=num_batches,
         fixed_k=fixed_k,
+        input_names=input_names,
     )
+    expected_inputs = tuple(str(value) for value in identity["input_names"])
     manifest = Path(identity["manifest_path"])
     batches: list[dict[str, torch.Tensor]] = []
     verified_files: list[dict[str, Any]] = []
@@ -122,14 +135,35 @@ def load_fixed_k_calibration_npz_batches(
         if digest != str(row["sha256"]):
             raise RuntimeError(f"calibration_npz_file_hash_mismatch:{row['name']}:{digest}!={row['sha256']}")
         with np.load(source) as values:
-            missing = [name for name in FIXED_K_CALIBRATION_INPUT_NAMES if name not in values.files]
+            missing = [name for name in expected_inputs if name not in values.files]
             if missing:
                 raise RuntimeError(f"calibration_npz_inputs_missing:{row['name']}:{missing}")
-            arrays = {name: np.ascontiguousarray(values[name]) for name in FIXED_K_CALIBRATION_INPUT_NAMES}
+            arrays = {name: np.ascontiguousarray(values[name]) for name in expected_inputs}
         for name in ("voxel_features", "voxel_coords", "voxel_num_points", "valid_voxel_mask"):
             if int(arrays[name].shape[0]) != int(fixed_k):
                 raise RuntimeError(
                     f"calibration_npz_fixed_k_tensor_mismatch:{row['name']}:{name}:{arrays[name].shape[0]}!={int(fixed_k)}"
+                )
+        if "agent_mask" in arrays:
+            pairwise = tuple(int(value) for value in arrays["pairwise_t_matrix"].shape)
+            if len(pairwise) != 5 or pairwise[1] != 2 or pairwise[2] != 2:
+                raise RuntimeError(
+                    f"baseline_calibration_requires_static_two_agent_tensors:{row['name']}:{pairwise}"
+                )
+            agent_mask = arrays["agent_mask"]
+            agent_mask_shape = tuple(int(value) for value in agent_mask.shape)
+            if len(pairwise) != 5 or agent_mask_shape != (1, pairwise[1]) or pairwise[1] != pairwise[2]:
+                raise RuntimeError(
+                    f"calibration_npz_agent_mask_shape_mismatch:{row['name']}:{agent_mask_shape}:{pairwise}"
+                )
+            if (
+                not np.all(np.isfinite(agent_mask))
+                or not np.all((agent_mask == 0) | (agent_mask == 1))
+                or float(agent_mask[0, 0]) != 1.0
+                or float(agent_mask.sum()) < 1.0
+            ):
+                raise RuntimeError(
+                    f"calibration_npz_agent_mask_values_invalid:{row['name']}:{agent_mask.tolist()}"
                 )
         batches.append({name: torch.as_tensor(value, device=device) for name, value in arrays.items()})
         verified_files.append({"index": row["index"], "name": row["name"], "path": str(source), "size": size, "sha256": digest})
@@ -298,6 +332,7 @@ def build_tensorrt_entropy_calibration_cache_modelopt(
     physical_gpu_id: int,
     num_batches: int,
     fixed_k: int = 29696,
+    input_names: Sequence[str] | None = None,
     conda_env: str = "modelopt",
     force_rebuild: bool = True,
     timeout_seconds: int = 1800,
@@ -319,6 +354,7 @@ def build_tensorrt_entropy_calibration_cache_modelopt(
         calibration_npz_manifest,
         num_batches=int(num_batches),
         fixed_k=int(fixed_k),
+        input_names=input_names,
     )
     dependencies = {
         "onnx_sha256": _sha256_file(Path(onnx_path).expanduser().resolve()),
@@ -327,6 +363,7 @@ def build_tensorrt_entropy_calibration_cache_modelopt(
         "plugin_sha256": _sha256_file(Path(plugin_path).expanduser().resolve()),
         "fixed_k": int(fixed_k),
         "num_batches": int(num_batches),
+        "input_names": list(identity["input_names"]),
         "semantics_version": TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION,
     }
     if result_path.is_file() and not force_rebuild:
@@ -350,6 +387,7 @@ def build_tensorrt_entropy_calibration_cache_modelopt(
         "output_path": str(result_path.resolve()),
         "fixed_k": int(fixed_k),
         "num_batches": int(num_batches),
+        "input_names": list(identity["input_names"]),
         "dependencies": dependencies,
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
@@ -498,10 +536,24 @@ def collect_or_load_qdq_calibration_scales(
     calibration_frame_ids: Sequence[str] | None = None,
     calibration_seed: int = 20260713,
     calibration_npz_manifest: str | Path | None = None,
+    calibration_input_names: Sequence[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
+    expected_calibration_inputs = tuple(
+        str(value) for value in (calibration_input_names or FIXED_K_CALIBRATION_INPUT_NAMES)
+    )
     path = Path(cache_path)
     if path.is_file():
         payload = json.loads(path.read_text(encoding="utf-8"))
+        cached_inputs = tuple(
+            str(value)
+            for value in payload.get("metadata", {}).get(
+                "input_names", FIXED_K_CALIBRATION_INPUT_NAMES
+            )
+        )
+        if cached_inputs != expected_calibration_inputs:
+            raise RuntimeError(
+                f"calibration_cache_input_contract_mismatch:{cached_inputs}!={expected_calibration_inputs}"
+            )
         return dict(payload["scales"])
     if int(num_batches) <= 0:
         raise RuntimeError("calibration_scales_missing:num_batches")
@@ -531,6 +583,7 @@ def collect_or_load_qdq_calibration_scales(
                 num_batches=int(num_batches),
                 fixed_k=int(fixed_k),
                 device=device,
+                input_names=expected_calibration_inputs,
             )
         else:
             _dataset, loader = build_dataset_and_loader(adapter, model_config_path, split="train", num_workers=0, visualize=False)
@@ -555,25 +608,49 @@ def collect_or_load_qdq_calibration_scales(
         return adapter.forward_for_task(inner_model, batch)
 
     if onnx_path is not None and origin_map is not None:
-        from quantization.config import OnnxExportConfig
-        from quantization.export.heal_lidar_pyramid import prepare_signal_maxk_inputs
-        from search.integration.trt_compatible_export import build_search_trt_compatible_export_module
+        if expected_calibration_inputs == BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES:
+            from search.model_family.export.heal_lidar_baselines import (
+                HealLidarBaselineExportPolicy,
+                build_heal_lidar_baseline_export_module,
+                prepare_heal_lidar_baseline_inputs,
+            )
 
-        export_config = OnnxExportConfig(fixed_k=int(fixed_k), min_agents=1, opt_agents=2, max_agents=2)
-        wrapper = build_search_trt_compatible_export_module(
-            model,
-            output_names=export_config.output_names,
-            fixed_k=export_config.fixed_k,
-            modality="m1",
-        ).to(device).eval()
+            baseline_policy = HealLidarBaselineExportPolicy(fixed_k=int(fixed_k), max_agents=2)
+            wrapper = build_heal_lidar_baseline_export_module(
+                model,
+                policy=baseline_policy,
+            ).to(device).eval()
+
+            def prepare_fixed_k(ego: Any) -> Mapping[str, torch.Tensor]:
+                return prepare_heal_lidar_baseline_inputs(ego, policy=baseline_policy)
+        elif expected_calibration_inputs == FIXED_K_CALIBRATION_INPUT_NAMES:
+            from quantization.config import OnnxExportConfig
+            from quantization.export.heal_lidar_pyramid import prepare_signal_maxk_inputs
+            from search.integration.trt_compatible_export import build_search_trt_compatible_export_module
+
+            export_config = OnnxExportConfig(fixed_k=int(fixed_k), min_agents=1, opt_agents=2, max_agents=2)
+            wrapper = build_search_trt_compatible_export_module(
+                model,
+                output_names=export_config.output_names,
+                fixed_k=export_config.fixed_k,
+                modality="m1",
+            ).to(device).eval()
+
+            def prepare_fixed_k(ego: Any) -> Mapping[str, torch.Tensor]:
+                return prepare_signal_maxk_inputs(ego, config=export_config, modality="m1")
+        else:
+            raise RuntimeError(
+                f"unsupported_qdq_calibration_input_contract:{expected_calibration_inputs}"
+            )
 
         def fixed_k_forward(_inner_model: torch.nn.Module, batch: Any) -> Any:
-            if isinstance(batch, Mapping) and all(name in batch for name in FIXED_K_CALIBRATION_INPUT_NAMES):
-                prepared = {name: batch[name] for name in FIXED_K_CALIBRATION_INPUT_NAMES}
+            if isinstance(batch, Mapping) and all(name in batch for name in expected_calibration_inputs):
+                prepared = {name: batch[name] for name in expected_calibration_inputs}
             else:
                 ego = batch["ego"] if isinstance(batch, Mapping) and "ego" in batch else batch
-                prepared = prepare_signal_maxk_inputs(ego, config=export_config, modality="m1")
-            return wrapper(**{name: tensor.to(device) for name, tensor in prepared.items()})
+                prepared = prepare_fixed_k(ego)
+            tensors = tuple(prepared[name].to(device) for name in expected_calibration_inputs)
+            return wrapper(*tensors)
 
         scales, calibration_details = collect_onnx_bn_fold_aware_qdq_scales(
             model=model,
@@ -616,10 +693,12 @@ def collect_or_load_qdq_calibration_scales(
                     "activation_calibration_method": activation_calibration_method,
                     "histogram_bins": int(histogram_bins),
                     "fixed_k": int(fixed_k),
+                    "input_names": list(expected_calibration_inputs),
                 }
             ),
             "source": "search.collect_onnx_bn_fold_aware_qdq_scales" if onnx_path is not None and origin_map is not None else "quantization.collect_calibration_scales",
             "fixed_k": int(fixed_k),
+            "input_names": list(expected_calibration_inputs),
             "calibration_seed": int(calibration_seed),
             "calibration_frame_ids": expected_frame_ids,
             "calibration_frame_manifest_hash": canonical_json_hash(

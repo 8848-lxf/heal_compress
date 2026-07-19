@@ -59,25 +59,26 @@ def _merge_group_map(
 
 
 def _merge_closure_index_map(rows: list[SamplingPruningEntry]) -> dict[int, list[int]]:
-    """Merge an optional root-to-local mapping saved by the dependency tracer."""
+    """Union compatible partial root-to-local maps for one dependent axis."""
 
-    mappings: list[dict[int, list[int]]] = []
+    merged: dict[int, list[int]] = {}
     for row in rows:
         raw = (
             row.metadata.get("closure_index_map")
             or row.metadata.get("root_to_local_map")
             or row.metadata.get("index_map")
         )
-        if not raw:
-            continue
-        mappings.append(
-            {int(key): sorted({int(value) for value in values}) for key, values in raw.items()}
-        )
-    if not mappings:
-        return {}
-    if any(mapping != mappings[0] for mapping in mappings[1:]):
-        raise PruningPlanError("conflicting closure index maps for one module axis")
-    return mappings[0]
+        for key, values in dict(raw or {}).items():
+            root = int(key)
+            local = sorted({int(value) for value in values})
+            existing = merged.get(root)
+            if existing is not None and existing != local:
+                raise PruningPlanError(
+                    "conflicting closure index maps for one module axis:"
+                    f"root={root}:old={existing}:new={local}"
+                )
+            merged[root] = local
+    return dict(sorted(merged.items()))
 
 
 def build_physical_pruning_plan(

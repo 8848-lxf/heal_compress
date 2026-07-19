@@ -46,6 +46,9 @@ class GreedySearchConfig:
     precision_order: tuple[str, ...] = ("FP32", "FP16", "INT8")
     parameter_retention_tiebreak: bool = True
     bops_tolerance_abs: float = 0.005
+    budget_recovery_beam_width: int = 8
+    budget_recovery_seed_pool_size: int = 32
+    budget_recovery_max_depth: int = 64
 
     def __post_init__(self) -> None:
         targets = tuple(sorted({float(value) for value in self.bops_targets}))
@@ -57,6 +60,14 @@ class GreedySearchConfig:
             "precision_order",
             tuple(str(value).upper() for value in self.precision_order),
         )
+        if int(self.budget_recovery_beam_width) <= 0:
+            raise ValueError("greedy_budget_recovery_beam_width_must_be_positive")
+        if int(self.budget_recovery_seed_pool_size) < int(
+            self.budget_recovery_beam_width
+        ):
+            raise ValueError("greedy_budget_recovery_seed_pool_smaller_than_beam")
+        if int(self.budget_recovery_max_depth) <= 0:
+            raise ValueError("greedy_budget_recovery_max_depth_must_be_positive")
 
 
 @dataclass(frozen=True)
@@ -107,6 +118,8 @@ class GreedySearchResult:
     unreachable_targets: tuple[float, ...]
     termination_reason: str
     evaluated_neighbor_count: int
+    budget_recovery_evaluated_neighbor_count: int
+    budget_recovery_reports: dict[float, dict[str, Any]]
     bops_tolerance_abs: float
 
     def to_dict(self) -> dict[str, Any]:
@@ -133,12 +146,25 @@ class GreedySearchResult:
             "unreachable_targets": list(self.unreachable_targets),
             "termination_reason": self.termination_reason,
             "evaluated_neighbor_count": self.evaluated_neighbor_count,
+            "budget_recovery_evaluated_neighbor_count": (
+                self.budget_recovery_evaluated_neighbor_count
+            ),
+            "budget_recovery_reports": {
+                f"{target:.6f}": dict(report)
+                for target, report in sorted(self.budget_recovery_reports.items())
+            },
             "search_semantics": {
                 "action_set": "one_adjacent_legal_domain_width_or_precision_downgrade",
                 "selection": "minimum_incremental_joint_taylor_loss_per_positive_BOPS_reduction",
                 "neighbor_costs_recomputed_after_every_step": True,
                 "activation_taylor_included": False,
-                "budget_capture": "abs(R_BOPS-target)<=bops_tolerance_abs",
+                "budget_capture": (
+                    "lowest_joint_taylor_loss_among_all_evaluated_one-action_neighbors_"
+                    "with_abs(R_BOPS-target)<=bops_tolerance_abs"
+                ),
+                "missing_budget_recovery": (
+                    "deterministic_target_directed_beam_over_legal_adjacent_actions"
+                ),
                 "bops_tolerance_abs": float(self.bops_tolerance_abs),
                 "stage2_policy": "only_unique_final_candidate_per_budget_full_validation",
             },
@@ -146,7 +172,7 @@ class GreedySearchResult:
 
 
 class GreedyBudgetSearch:
-    """Follow one monotonic path and snapshot the first feasible candidate/budget."""
+    """Follow one monotonic path and retain its evaluated strict-budget frontier."""
 
     def __init__(
         self,
@@ -291,12 +317,94 @@ class GreedyBudgetSearch:
         nearest_budget_metrics = {
             target: dict(current_metrics) for target in targets_desc
         }
-        for target in targets_desc:
-            if abs(_bops(current_metrics) - target) <= float(
-                self.config.bops_tolerance_abs
-            ):
-                budget_candidates[target] = current
-                budget_metrics[target] = dict(current_metrics)
+        recovery_seed_pools: dict[
+            float,
+            dict[str, tuple[CandidateGenotype, dict[str, Any]]],
+        ] = {target: {} for target in targets_desc}
+
+        def update_budget_frontier(
+            candidate: CandidateGenotype,
+            metrics: dict[str, Any],
+            *,
+            source: str,
+        ) -> None:
+            """Keep the best evaluated candidate in each strict BOPS band.
+
+            The primary greedy trajectory remains a single monotonic path.  A
+            batched step nevertheless evaluates every one-action neighbor, so
+            discarding an in-band non-selected neighbor makes the reported
+            budget frontier depend on an unrelated action selected for a later
+            target.  Retaining those already evaluated neighbors is both
+            deterministic and does not add scalar proxy work.
+            """
+
+            candidate_bops = _bops(metrics)
+            candidate_loss = _loss(metrics)
+            candidate_id = _identity(candidate)
+            for target in targets_desc:
+                delta = abs(candidate_bops - target)
+                if candidate_bops > target + float(self.config.bops_tolerance_abs):
+                    pool = recovery_seed_pools[target]
+                    pool[candidate_id] = (candidate, dict(metrics))
+                    if len(pool) > int(self.config.budget_recovery_seed_pool_size):
+                        retained = sorted(
+                            pool.items(),
+                            key=lambda row: (
+                                _bops(row[1][1]) - target,
+                                _loss(row[1][1]),
+                                row[0],
+                            ),
+                        )[: int(self.config.budget_recovery_seed_pool_size)]
+                        recovery_seed_pools[target] = dict(retained)
+                nearest_delta = abs(_bops(nearest_budget_metrics[target]) - target)
+                nearest_key = (
+                    nearest_delta,
+                    _loss(nearest_budget_metrics[target]),
+                    _identity(nearest_budget_candidates[target]),
+                )
+                candidate_nearest_key = (delta, candidate_loss, candidate_id)
+                if candidate_nearest_key < nearest_key:
+                    nearest_budget_candidates[target] = candidate
+                    nearest_budget_metrics[target] = dict(metrics)
+
+                if delta > float(self.config.bops_tolerance_abs):
+                    continue
+                parameter_retention = float(
+                    metrics.get("R_parameter_retention", 1.0)
+                )
+                candidate_key = (
+                    candidate_loss,
+                    parameter_retention
+                    if self.config.parameter_retention_tiebreak
+                    else 0.0,
+                    delta,
+                    candidate_id,
+                )
+                if target in budget_candidates:
+                    incumbent_metrics = budget_metrics[target]
+                    incumbent_key = (
+                        _loss(incumbent_metrics),
+                        float(incumbent_metrics.get("R_parameter_retention", 1.0))
+                        if self.config.parameter_retention_tiebreak
+                        else 0.0,
+                        abs(_bops(incumbent_metrics) - target),
+                        _identity(budget_candidates[target]),
+                    )
+                    if candidate_key >= incumbent_key:
+                        continue
+                annotated = dict(metrics)
+                annotated.update(
+                    {
+                        "bops_target": float(target),
+                        "bops_abs_delta": float(delta),
+                        "bops_within_tolerance": True,
+                        "greedy_budget_capture_source": str(source),
+                    }
+                )
+                budget_candidates[target] = candidate
+                budget_metrics[target] = annotated
+
+        update_budget_frontier(current, current_metrics, source="initial_candidate")
         steps: list[GreedyStep] = []
         seen = {_identity(current)}
         evaluated_neighbors = 0
@@ -348,6 +456,20 @@ class GreedyBudgetSearch:
             if not feasible_rows:
                 termination = "no_positive_bops_reduction_action"
                 break
+            for (
+                _row_key,
+                frontier_candidate,
+                _frontier_action,
+                frontier_metrics,
+                _frontier_reduction,
+                _frontier_marginal,
+                _frontier_ratio,
+            ) in feasible_rows:
+                update_budget_frontier(
+                    frontier_candidate,
+                    frontier_metrics,
+                    source="primary_evaluated_neighbor_frontier",
+                )
             (
                 _key,
                 selected_candidate,
@@ -378,21 +500,161 @@ class GreedyBudgetSearch:
             steps.append(step)
             current = selected_candidate
             current_metrics = dict(selected_metrics)
-            for target in targets_desc:
-                if abs(_bops(current_metrics) - target) < abs(
-                    _bops(nearest_budget_metrics[target]) - target
-                ):
-                    nearest_budget_candidates[target] = current
-                    nearest_budget_metrics[target] = dict(current_metrics)
-                if target not in budget_candidates and abs(
-                    _bops(current_metrics) - target
-                ) <= float(self.config.bops_tolerance_abs):
-                    budget_candidates[target] = current
-                    budget_metrics[target] = dict(current_metrics)
+            update_budget_frontier(
+                current,
+                current_metrics,
+                source="primary_selected_path",
+            )
             if _bops(current_metrics) <= min(targets_desc):
                 termination = "minimum_target_reached"
         if not termination:
             termination = "maximum_steps_reached"
+
+        recovery_evaluated_neighbors = 0
+        recovery_reports: dict[float, dict[str, Any]] = {
+            target: {
+                "status": "reached_primary_frontier",
+                "depth": 0,
+                "evaluated_neighbor_count": 0,
+                "beam_width": int(self.config.budget_recovery_beam_width),
+            }
+            for target in targets_desc
+            if target in budget_candidates
+        }
+
+        def select_recovery_beam(
+            rows: list[tuple[CandidateGenotype, dict[str, Any]]],
+            *,
+            target: float,
+        ) -> list[tuple[CandidateGenotype, dict[str, Any]]]:
+            unique = {_identity(candidate): (candidate, metrics) for candidate, metrics in rows}
+            values = list(unique.values())
+            closest = sorted(
+                values,
+                key=lambda row: (
+                    max(0.0, _bops(row[1]) - target),
+                    _loss(row[1]),
+                    _identity(row[0]),
+                ),
+            )
+            initial_bops = _bops(initial_metrics)
+            initial_loss = _loss(initial_metrics)
+
+            def cumulative_ratio(row: tuple[CandidateGenotype, dict[str, Any]]) -> float:
+                compression = initial_bops - _bops(row[1])
+                if compression <= float(self.config.minimum_bops_reduction):
+                    return float("inf")
+                return (_loss(row[1]) - initial_loss) / compression
+
+            quality = sorted(
+                values,
+                key=lambda row: (
+                    cumulative_ratio(row),
+                    _loss(row[1]),
+                    max(0.0, _bops(row[1]) - target),
+                    _identity(row[0]),
+                ),
+            )
+            selected: list[tuple[CandidateGenotype, dict[str, Any]]] = []
+            selected_ids: set[str] = set()
+            for index in range(max(len(closest), len(quality))):
+                for ordered in (closest, quality):
+                    if index >= len(ordered):
+                        continue
+                    row = ordered[index]
+                    candidate_id = _identity(row[0])
+                    if candidate_id in selected_ids:
+                        continue
+                    selected.append(row)
+                    selected_ids.add(candidate_id)
+                    if len(selected) >= int(self.config.budget_recovery_beam_width):
+                        return selected
+            return selected
+
+        for target in targets_desc:
+            if target in budget_candidates:
+                continue
+            seeds = select_recovery_beam(
+                list(recovery_seed_pools[target].values())
+                or [(initial_candidate, initial_metrics)],
+                target=target,
+            )
+            beam = list(seeds)
+            visited = {_identity(candidate) for candidate, _metrics in beam}
+            target_evaluated = 0
+            reached_depth = 0
+            stop_reason = "recovery_depth_exhausted"
+            for depth in range(1, int(self.config.budget_recovery_max_depth) + 1):
+                expansion: dict[
+                    str,
+                    tuple[CandidateGenotype, dict[str, Any]],
+                ] = {}
+                for parent, parent_metrics in beam:
+                    for candidate, _action in self._neighbors(parent):
+                        candidate_id = _identity(candidate)
+                        if candidate_id in visited or candidate_id in expansion:
+                            continue
+                        expansion[candidate_id] = (candidate, parent_metrics)
+                if not expansion:
+                    stop_reason = "no_unvisited_recovery_neighbor"
+                    break
+                expansion_rows = list(expansion.values())
+                visited.update(expansion)
+                metrics_rows = self._evaluate(
+                    evaluator,
+                    [candidate for candidate, _parent_metrics in expansion_rows],
+                    len(steps) + recovery_evaluated_neighbors + 1,
+                )
+                recovery_evaluated_neighbors += len(expansion_rows)
+                target_evaluated += len(expansion_rows)
+                feasible_recovery: list[
+                    tuple[CandidateGenotype, dict[str, Any]]
+                ] = []
+                for (candidate, parent_metrics), metrics in zip(
+                    expansion_rows, metrics_rows
+                ):
+                    candidate_bops = _bops(metrics)
+                    candidate_loss = _loss(metrics)
+                    reduction = _bops(parent_metrics) - candidate_bops
+                    if (
+                        not math.isfinite(candidate_bops)
+                        or not math.isfinite(candidate_loss)
+                        or reduction <= float(self.config.minimum_bops_reduction)
+                    ):
+                        continue
+                    update_budget_frontier(
+                        candidate,
+                        metrics,
+                        source=f"target_directed_beam_recovery:{target:.6f}",
+                    )
+                    if candidate_bops >= target - float(
+                        self.config.bops_tolerance_abs
+                    ):
+                        feasible_recovery.append((candidate, metrics))
+                if target in budget_candidates:
+                    reached_depth = depth
+                    stop_reason = "strict_budget_reached"
+                    break
+                if not feasible_recovery:
+                    stop_reason = "all_recovery_neighbors_undershoot_budget"
+                    break
+                beam = select_recovery_beam(feasible_recovery, target=target)
+                if not beam:
+                    stop_reason = "empty_recovery_beam"
+                    break
+            recovery_reports[target] = {
+                "status": (
+                    "reached_budget_recovery"
+                    if target in budget_candidates
+                    else "unreachable_after_budget_recovery"
+                ),
+                "depth": int(reached_depth),
+                "evaluated_neighbor_count": int(target_evaluated),
+                "seed_count": len(seeds),
+                "beam_width": int(self.config.budget_recovery_beam_width),
+                "maximum_depth": int(self.config.budget_recovery_max_depth),
+                "stop_reason": stop_reason,
+            }
         unreachable = tuple(
             sorted(set(self.config.bops_targets) - set(budget_candidates))
         )
@@ -406,6 +668,10 @@ class GreedyBudgetSearch:
             nearest_budget_metrics=nearest_budget_metrics,
             unreachable_targets=unreachable,
             termination_reason=termination,
-            evaluated_neighbor_count=evaluated_neighbors,
+            evaluated_neighbor_count=(
+                evaluated_neighbors + recovery_evaluated_neighbors
+            ),
+            budget_recovery_evaluated_neighbor_count=recovery_evaluated_neighbors,
+            budget_recovery_reports=recovery_reports,
             bops_tolerance_abs=float(self.config.bops_tolerance_abs),
         )

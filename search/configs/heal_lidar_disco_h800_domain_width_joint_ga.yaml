@@ -1,0 +1,132 @@
+model:
+  family_id: heal_lidar_disco
+  checkpoint: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_disco/net_epoch_bestval_at35.pth
+  config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_disco/config.yaml
+  fixed_k: 29696
+  max_agents: 2
+
+runtime:
+  gpu_id: 5
+  exclude_gpu_ids: []
+  parallel_gpu_ids: [5, 6, 7]
+  stage1_gpu_ids: [5, 6, 7]
+  stage2_gpu_ids: [5, 6, 7]
+  parallel_gpu_min_free_mib: 60000
+  parallel_gpu_max_utilization_pct: 10
+  stage1_minimum_workers: 3
+  stage2_minimum_workers: 3
+  stage1_max_workers: 3
+  stage2_max_workers: 3
+  model_env: univ2x-opt
+  tensorrt_env: modelopt
+  heal_root: /home/lixingfeng/UniAD_examine/HEAL
+  tensorrt_root: /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
+
+output:
+  experiment_name: h800_heal_lidar_disco_domain_width_joint_ga
+
+baselines:
+  build_before_search: false
+  strict_fp32_engine: /home/lixingfeng/UniAD_examine/heal_compress/outputs/h800_heal_lidar_fixedk29696_fp32_baselines_20260719/lidar_disco/strict_fp32.plan
+
+pruning:
+  gene_type: legal_domain_width
+  fixed_ranking: pruning_only_first_plus_second_order_fisher_taylor
+  minimum_retained_ratio: 0.10
+  dense_channel_alignment: 4
+  disco_protected_prelogit_width: 8
+  disco_scalar_logit_width: 1
+
+precision:
+  gene_type: audited_module_precision_group
+  candidates: [FP32, FP16, INT8]
+  default: FP32
+  weight_granularity: per_channel
+  activation_calibration: tensorrt_entropy_calibration2
+  fusion_policy: disconet_concat_logits_softmax_weighted_sum_fp16_island
+  pixel_weight_convs: [FP32, FP16]
+
+proxy:
+  objective_mode: joint_weight_taylor_hard_bops
+  backend: cuda_batched
+  device: auto
+  batch_size: 128
+  fisher_calibration_batches: 8
+  quant_calibration_batches: 200
+  quant_calibration_npz_manifest: /home/lixingfeng/UniAD_examine/heal_compress/outputs/heal_lidar_baseline_train200_fixedk29696_20260719_1215_v2/calibration_manifest.json
+  quant_activation_calibration_backend: tensorrt_entropy_calibration2
+  quant_calibration_force_rebuild: false
+  activation_taylor_included: false
+  parameter_retention_role: report_only
+  size_reference: original_strict_fp32
+  bops_reference: original_strict_fp32
+  bops_definition: weight_bits_times_activation_bits
+  bops_constraint_mode: hard_band_feasibility
+  bops_tolerance_abs: 0.005
+  bops_targets: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
+
+search:
+  method: ga
+  seed: 42
+  bops_targets: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
+  initial_population_size: 1024
+  population_size: 512
+  offspring_size: 512
+  generations_per_round: 15
+  elite_ratio: 0.05
+  crossover_rate: 0.80
+  prune_mutation_rate: 0.08
+  precision_group_mutation_rate: 0.08
+  immigrant_ratio: 0.08
+  stagnation_generations: 5
+  stagnation_immigrant_ratio: 0.15
+  mutation_action_min: 1
+  mutation_action_max: 2
+  minimum_generations: 5
+  early_stop_patience: 5
+  independent_budget_rounds: true
+  greedy_frontier_warm_start: true
+  budget_recovery_beam_width: 8
+  budget_recovery_seed_pool_size: 32
+  budget_recovery_max_depth: 64
+  seeded_initial_population_ratio: 0.90
+  taylor_relative_epsilon: 0.05
+  taylor_absolute_epsilon: 1.0e-8
+  preserve_evaluated_elites: true
+  repair_pool_size: 50
+  topk_stage2: 5
+  stage2_topk_selection_policy: three_plus_two_diversity
+  stage2_exploitation_count: 3
+  stage2_diversity_count: 2
+  global_cross_round_dedup: true
+
+stage2:
+  num_frames: 500
+  warmup_frames: 200
+  reset_after_warmup: true
+  latency_rounds: 3
+  dataloader_num_workers: 8
+  latency_metric: forward_p50_ms
+  accuracy_reference: original_strict_fp32
+  latency_reference: original_strict_fp32
+  tau_ap: 0.02
+  eta_ap: 0.80
+  eta_latency: 0.20
+
+full_validation:
+  num_frames: 1789
+  warmup_frames: 200
+  reset_after_warmup: true
+  latency_rounds: 3
+
+final_selection:
+  reevaluate_round_winners_on_full_validation: true
+  reuse_round_winner_engine: true
+  objective: same_stage2_F2
+
+cache:
+  layered_hashes: true
+  reuse_across_rounds: true
+  reuse_across_resume: true
+  reject_unproven_cache: true

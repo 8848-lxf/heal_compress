@@ -74,8 +74,8 @@ def test_greedy_search_recomputes_neighbors_and_captures_each_budget_once() -> N
         config=GreedySearchConfig(bops_targets=(0.50, 0.25, 0.125)),
     ).run(evaluate)
 
-    assert result.unreachable_targets == (0.125, 0.50)
-    assert set(result.budget_candidates) == {0.25}
+    assert result.unreachable_targets == ()
+    assert set(result.budget_candidates) == {0.50, 0.25, 0.125}
     assert all(
         abs(result.budget_metrics[target]["R_bops_vs_fp32"] - target) <= 0.005
         for target in result.budget_candidates
@@ -92,6 +92,11 @@ def test_greedy_search_recomputes_neighbors_and_captures_each_budget_once() -> N
     assert any(count > 1 for _step, count in calls)
     assert set(result.nearest_budget_candidates) == {0.50, 0.25, 0.125}
     assert result.to_dict()["search_semantics"]["bops_tolerance_abs"] == 0.005
+    assert all(
+        result.budget_metrics[target]["bops_target"] == target
+        and result.budget_metrics[target]["bops_within_tolerance"] is True
+        for target in result.budget_candidates
+    )
 
 
 def test_greedy_search_respects_protected_precision_group() -> None:
@@ -131,3 +136,84 @@ def test_greedy_search_respects_protected_precision_group() -> None:
 
     assert result.initial_candidate.precision_genes == {"pg::conv": "FP16"}
     assert all(step.action_kind != "precision" for step in result.steps)
+
+
+def test_greedy_budget_recovery_finds_multi_action_alternative_branch() -> None:
+    from search.canonicalization import SearchSpaceSpec
+    from search.greedy import GreedyBudgetSearch, GreedySearchConfig
+    from search.pruning_space.local_domains import LocalPruningDomain
+    from search.quantization_space.types import QuantizationSearchGroup
+
+    dummy_domain = LocalPruningDomain(
+        domain_id="dummy::out",
+        root_module_path="dummy",
+        root_axis="out",
+        scope_id="dummy",
+        kind="dense",
+        original_width=1,
+        total_original_width=1,
+        ordered_unit_ids=(),
+        legal_widths=(1,),
+        width_to_pruned_unit_ids={1: ()},
+    )
+    groups = tuple(
+        QuantizationSearchGroup(
+            group_id=f"pg::{name}",
+            module_paths=(f"backbone.{name}",),
+            canonical_node_ids=(name,),
+            allowed_precisions=("FP32", "FP16"),
+            protected=False,
+            protection_reason="",
+            ordering=index,
+            parameter_count=1,
+            baseline_macs=1.0,
+        )
+        for index, name in enumerate(("a", "b", "c", "d"))
+    )
+    space = SearchSpaceSpec(
+        pruning_unit_ids=[],
+        precision_layer_ids=[f"backbone.{name}" for name in ("a", "b", "c", "d")],
+        quantization_groups=groups,
+        pruning_domains=(dummy_domain,),
+        default_precision="FP32",
+    )
+    reductions = {"pg::a": 0.35, "pg::b": 0.15, "pg::c": 0.15, "pg::d": 0.15}
+    losses = {"pg::a": 0.001, "pg::b": 0.03, "pg::c": 0.03, "pg::d": 0.03}
+
+    def evaluate(candidates, _step):
+        rows = []
+        for candidate in candidates:
+            selected = {
+                gene_id
+                for gene_id, precision in candidate.precision_genes.items()
+                if precision == "FP16"
+            }
+            rows.append(
+                {
+                    "R_bops_vs_fp32": 1.0
+                    - sum(reductions[gene_id] for gene_id in selected),
+                    "R_parameter_retention": 1.0,
+                    "L_joint_weight_taylor": sum(
+                        losses[gene_id] for gene_id in selected
+                    ),
+                }
+            )
+        return rows
+
+    result = GreedyBudgetSearch(
+        space,
+        config=GreedySearchConfig(
+            bops_targets=(0.55,),
+            budget_recovery_beam_width=4,
+            budget_recovery_seed_pool_size=8,
+            budget_recovery_max_depth=8,
+        ),
+    ).run(evaluate)
+
+    assert result.unreachable_targets == ()
+    assert abs(result.budget_metrics[0.55]["R_bops_vs_fp32"] - 0.55) < 1.0e-9
+    assert result.budget_metrics[0.55]["greedy_budget_capture_source"].startswith(
+        "target_directed_beam_recovery"
+    )
+    assert result.budget_recovery_evaluated_neighbor_count > 0
+    assert result.budget_recovery_reports[0.55]["status"] == "reached_budget_recovery"

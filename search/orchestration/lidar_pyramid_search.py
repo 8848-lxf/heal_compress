@@ -72,6 +72,10 @@ def _append_jsonl(path: str | Path, rows: list[dict[str, Any]]) -> None:
 
 def _load_candidate(path: str | Path) -> CandidateGenotype | CandidatePhenotype:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if isinstance(payload.get("phenotype"), dict):
+        return CandidatePhenotype.from_dict(payload["phenotype"])
+    if isinstance(payload.get("genotype"), dict):
+        return CandidateGenotype.from_dict(payload["genotype"])
     if "pruned_unit_ids" in payload or "precision_profile" in payload:
         return CandidatePhenotype.from_dict(payload)
     return CandidateGenotype.from_dict(payload)
@@ -875,6 +879,15 @@ class LidarPyramidTwoStageSearch:
                 bops_tolerance_abs=float(
                     proxy_cfg.get("bops_tolerance_abs", 0.005)
                 ),
+                budget_recovery_beam_width=int(
+                    search_cfg.get("budget_recovery_beam_width", 8)
+                ),
+                budget_recovery_seed_pool_size=int(
+                    search_cfg.get("budget_recovery_seed_pool_size", 32)
+                ),
+                budget_recovery_max_depth=int(
+                    search_cfg.get("budget_recovery_max_depth", 64)
+                ),
             ),
         )
         result = greedy.run(evaluate_batch)
@@ -1292,6 +1305,15 @@ class LidarPyramidTwoStageSearch:
                         parameter_retention_tiebreak=True,
                         bops_tolerance_abs=float(
                             proxy_cfg.get("bops_tolerance_abs", 0.005)
+                        ),
+                        budget_recovery_beam_width=int(
+                            search_cfg.get("budget_recovery_beam_width", 8)
+                        ),
+                        budget_recovery_seed_pool_size=int(
+                            search_cfg.get("budget_recovery_seed_pool_size", 32)
+                        ),
+                        budget_recovery_max_depth=int(
+                            search_cfg.get("budget_recovery_max_depth", 64)
                         ),
                     ),
                 )

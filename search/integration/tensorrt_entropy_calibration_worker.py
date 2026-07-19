@@ -68,19 +68,19 @@ def _resolve_and_verify_samples(
     *,
     num_batches: int,
     fixed_k: int,
+    input_names: list[str] | None = None,
 ) -> tuple[list[Path], list[int], dict[str, Any]]:
     import numpy as np
 
-    from .calibration_provider import (
-        FIXED_K_CALIBRATION_INPUT_NAMES,
-        fixed_k_calibration_npz_manifest_identity,
-    )
+    from .calibration_provider import fixed_k_calibration_npz_manifest_identity
 
     identity = fixed_k_calibration_npz_manifest_identity(
         manifest_path,
         num_batches=int(num_batches),
         fixed_k=int(fixed_k),
+        input_names=input_names,
     )
+    expected_inputs = tuple(str(value) for value in identity["input_names"])
     manifest = Path(identity["manifest_path"])
     samples: list[Path] = []
     agent_counts: list[int] = []
@@ -102,7 +102,7 @@ def _resolve_and_verify_samples(
                 f"calibration_npz_file_hash_mismatch:{row['name']}:{digest}!={row['sha256']}"
             )
         with np.load(source) as values:
-            missing = [name for name in FIXED_K_CALIBRATION_INPUT_NAMES if name not in values.files]
+            missing = [name for name in expected_inputs if name not in values.files]
             if missing:
                 raise RuntimeError(f"calibration_npz_inputs_missing:{row['name']}:{missing}")
             for name in ("voxel_features", "voxel_coords", "voxel_num_points", "valid_voxel_mask"):
@@ -116,6 +116,29 @@ def _resolve_and_verify_samples(
                 raise RuntimeError(
                     f"calibration_npz_pairwise_shape_invalid:{row['name']}:{pairwise_shape}"
                 )
+            if "agent_mask" in expected_inputs:
+                if pairwise_shape[1] != 2:
+                    raise RuntimeError(
+                        f"baseline_calibration_requires_static_two_agent_tensors:"
+                        f"{row['name']}:{pairwise_shape}"
+                    )
+                agent_mask = np.asarray(values["agent_mask"])
+                agent_mask_shape = tuple(int(value) for value in agent_mask.shape)
+                if agent_mask_shape != (1, pairwise_shape[1]):
+                    raise RuntimeError(
+                        f"calibration_npz_agent_mask_shape_invalid:{row['name']}:"
+                        f"{agent_mask_shape}:{pairwise_shape}"
+                    )
+                if (
+                    not np.all(np.isfinite(agent_mask))
+                    or not np.all((agent_mask == 0) | (agent_mask == 1))
+                    or float(agent_mask[0, 0]) != 1.0
+                    or float(agent_mask.sum()) < 1.0
+                ):
+                    raise RuntimeError(
+                        f"calibration_npz_agent_mask_values_invalid:{row['name']}:"
+                        f"{agent_mask.tolist()}"
+                    )
             agent_counts.append(int(pairwise_shape[1]))
         samples.append(source)
         verified.append(
@@ -130,7 +153,12 @@ def _resolve_and_verify_samples(
     return samples, agent_counts, {**identity, "files_verified": True, "verified_files": verified}
 
 
-def _profile(agent_counts: list[int], fixed_k: int) -> dict[str, dict[str, list[int]]]:
+def _profile(
+    agent_counts: list[int],
+    fixed_k: int,
+    *,
+    input_names: list[str] | None = None,
+) -> dict[str, dict[str, list[int]]]:
     if not agent_counts:
         raise RuntimeError("calibration_agent_counts_empty")
     counts = Counter(agent_counts)
@@ -138,7 +166,7 @@ def _profile(agent_counts: list[int], fixed_k: int) -> dict[str, dict[str, list[
     opt_n = min(value for value, count in counts.items() if count == max_count)
     min_n = min(agent_counts)
     max_n = max(agent_counts)
-    return {
+    profile = {
         "voxel_features": {"min": [fixed_k, 32, 4], "opt": [fixed_k, 32, 4], "max": [fixed_k, 32, 4]},
         "voxel_coords": {"min": [fixed_k, 4], "opt": [fixed_k, 4], "max": [fixed_k, 4]},
         "voxel_num_points": {"min": [fixed_k], "opt": [fixed_k], "max": [fixed_k]},
@@ -149,6 +177,21 @@ def _profile(agent_counts: list[int], fixed_k: int) -> dict[str, dict[str, list[
         },
         "valid_voxel_mask": {"min": [fixed_k], "opt": [fixed_k], "max": [fixed_k]},
     }
+    expected = list(input_names or profile)
+    if "agent_mask" in expected:
+        if set(agent_counts) != {2}:
+            raise RuntimeError(
+                f"baseline_calibration_profile_requires_static_two_agents:{agent_counts}"
+            )
+        profile["agent_mask"] = {
+            "min": [1, min_n],
+            "opt": [1, opt_n],
+            "max": [1, max_n],
+        }
+    unknown = sorted(set(expected) - set(profile))
+    if unknown:
+        raise RuntimeError(f"calibration_profile_inputs_unsupported:{unknown}")
+    return {name: profile[name] for name in expected}
 
 
 def _pad_pairwise(array: Any, target_n: int) -> Any:
@@ -164,6 +207,29 @@ def _pad_pairwise(array: Any, target_n: int) -> Any:
     result[:, :n, :n, :, :] = source
     for index in range(n, target_n):
         result[0, index, index] = np.eye(4, dtype=source.dtype)
+    return np.ascontiguousarray(result)
+
+
+def _pad_agent_mask(array: Any, target_n: int) -> Any:
+    import numpy as np
+
+    source = np.asarray(array)
+    if source.ndim != 2 or source.shape[0] != 1:
+        raise RuntimeError(f"agent_mask_shape_invalid:{source.shape}")
+    if (
+        not np.all(np.isfinite(source))
+        or not np.all((source == 0) | (source == 1))
+        or float(source[0, 0]) != 1.0
+        or float(source.sum()) < 1.0
+    ):
+        raise RuntimeError(f"agent_mask_values_invalid:{source.tolist()}")
+    n = int(source.shape[1])
+    if n == int(target_n):
+        return np.ascontiguousarray(source)
+    if n > int(target_n):
+        raise RuntimeError(f"agent_mask_count_exceeds_calibration_opt:{n}>{target_n}")
+    result = np.zeros((1, target_n), dtype=source.dtype)
+    result[:, :n] = source
     return np.ascontiguousarray(result)
 
 
@@ -238,6 +304,8 @@ class _EntropyCalibrator:
                 array = sample[name]
                 if name == "pairwise_t_matrix":
                     array = _pad_pairwise(array, self.opt_agents)
+                elif name == "agent_mask":
+                    array = _pad_agent_mask(array, self.opt_agents)
                 dtype = _trt_dtype_to_numpy(self.input_dtypes[name], self.trt)
                 array = np.ascontiguousarray(array.astype(dtype, copy=False))
                 tensor = self.torch.as_tensor(array, device="cuda")
@@ -268,12 +336,14 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
             raise RuntimeError(f"tensorrt_entropy_{label}_missing:{source}")
     if cache_path.exists() or engine_path.exists():
         raise RuntimeError("tensorrt_entropy_worker_refuses_existing_outputs")
+    expected_inputs = [str(value) for value in request.get("input_names", [])] or None
     samples, agent_counts, calibration_identity = _resolve_and_verify_samples(
         request["calibration_npz_manifest"],
         num_batches=num_batches,
         fixed_k=fixed_k,
+        input_names=expected_inputs,
     )
-    profile_shapes = _profile(agent_counts, fixed_k)
+    profile_shapes = _profile(agent_counts, fixed_k, input_names=expected_inputs)
     ctypes.CDLL(str(plugin_path), mode=ctypes.RTLD_GLOBAL)
     logger = trt.Logger(trt.Logger.INFO)
     trt.init_libnvinfer_plugins(logger, "")
@@ -301,6 +371,14 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
         input_dtypes[name] = tensor.dtype
         shapes = profile_shapes[name]
         profile.set_shape(name, tuple(shapes["min"]), tuple(shapes["opt"]), tuple(shapes["max"]))
+    expected_network_inputs = set(profile_shapes)
+    realized_network_inputs = set(input_names)
+    if realized_network_inputs != expected_network_inputs:
+        raise RuntimeError(
+            f"tensorrt_entropy_network_input_contract_mismatch:"
+            f"missing={sorted(expected_network_inputs - realized_network_inputs)}:"
+            f"unknown={sorted(realized_network_inputs - expected_network_inputs)}"
+        )
     config.add_optimization_profile(profile)
     config.set_calibration_profile(profile)
     calibrator = _EntropyCalibrator(

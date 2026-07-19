@@ -79,11 +79,30 @@ def _closure_entries(units: Sequence[Any]) -> tuple[dict[str, Any], ...]:
             key = (str(row.get("module_path", "")), str(row.get("axis", "")))
             if not all(key):
                 continue
-            out = merged.setdefault(key, {"module_path": key[0], "axis": key[1], "indices": [], "dependency_types": []})
+            out = merged.setdefault(
+                key,
+                {
+                    "module_path": key[0],
+                    "axis": key[1],
+                    "indices": [],
+                    "dependency_types": [],
+                    "closure_index_map": {},
+                },
+            )
             out["indices"] = sorted(set(out["indices"]) | {int(value) for value in row.get("indices", [])})
             dep = str(row.get("dependency_type", ""))
             if dep:
                 out["dependency_types"] = sorted(set(out["dependency_types"]) | {dep})
+            for root_index, local_indices in dict(row.get("index_map", {}) or {}).items():
+                root = int(root_index)
+                local = sorted({int(value) for value in local_indices})
+                existing = out["closure_index_map"].get(root)
+                if existing is not None and existing != local:
+                    raise RuntimeError(
+                        "conflicting_action_closure_index_map:"
+                        f"{key[0]}:{key[1]}:root={root}:old={existing}:new={local}"
+                    )
+                out["closure_index_map"][root] = local
     return tuple(merged[key] for key in sorted(merged))
 
 

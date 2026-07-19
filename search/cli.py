@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .orchestration.heal_lidar_baseline_search import HealLidarBaselineTwoStageSearch
 from .orchestration.lidar_pyramid_search import LidarPyramidTwoStageSearch
 from .orchestration.two_stage_search import TwoStageSearchRunner
 
@@ -189,7 +190,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.dry_run:
         resume_path = None if args.resume in (None, "auto") else args.resume
-        runner = LidarPyramidTwoStageSearch(
+        family_id = str(model_cfg.get("family_id", "lidar_pyramid"))
+        runner_type = (
+            HealLidarBaselineTwoStageSearch
+            if family_id in {"heal_lidar_fcooper", "heal_lidar_disco"}
+            else LidarPyramidTwoStageSearch
+        )
+        runner = runner_type(
             config=config,
             checkpoint=checkpoint,
             output_root=output_root,

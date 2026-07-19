@@ -72,8 +72,21 @@ def _bundle_grouped_units(
             selected_rows = [by_index[index] for index in prune_indices]
             closure_by_axis: dict[tuple[str, str], dict[str, object]] = {}
             for selected_row in selected_rows:
-                for member in selected_row.metadata.get("closure_members", []):
-                    member_row = dict(member)
+                members = list(getattr(selected_row, "members", []) or [])
+                if not members:
+                    members = list(
+                        dict(getattr(selected_row, "metadata", {}) or {}).get(
+                            "closure_members", []
+                        )
+                    )
+                for member in members:
+                    member_row = (
+                        dict(member.to_dict())
+                        if hasattr(member, "to_dict")
+                        else dict(member)
+                        if isinstance(member, dict)
+                        else dict(vars(member))
+                    )
                     key = (str(member_row.get("module_path", "")), str(member_row.get("axis", "")))
                     if not all(key):
                         continue
@@ -84,14 +97,28 @@ def _bundle_grouped_units(
                             "axis": key[1],
                             "indices": [],
                             "dependency_types": [],
+                            "closure_index_map": {},
                         },
                     )
                     aggregate["indices"] = sorted(
                         set(aggregate["indices"]) | {int(value) for value in member_row.get("indices", [])}
                     )
-                    aggregate["dependency_types"] = sorted(
-                        set(aggregate["dependency_types"]) | {str(member_row.get("dependency_type", ""))}
-                    )
+                    dependency_type = str(member_row.get("dependency_type", ""))
+                    if dependency_type:
+                        aggregate["dependency_types"] = sorted(
+                            set(aggregate["dependency_types"]) | {dependency_type}
+                        )
+                    raw_index_map = member_row.get("closure_index_map") or member_row.get("index_map") or {}
+                    for root_index, local_indices in dict(raw_index_map).items():
+                        root = int(root_index)
+                        local = sorted({int(value) for value in local_indices})
+                        existing = aggregate["closure_index_map"].get(root)
+                        if existing is not None and existing != local:
+                            raise PruningLegalityError(
+                                "conflicting_grouped_closure_index_map:"
+                                f"{key[0]}:{key[1]}:root={root}:old={existing}:new={local}"
+                            )
+                        aggregate["closure_index_map"][root] = local
             normalized = sum(float(row.normalized_score) for row in selected_rows) / max(len(selected_rows), 1)
             finite_raw = [float(row.raw_score) for row in selected_rows if row.raw_score is not None]
             raw = sum(finite_raw) / len(finite_raw) if finite_raw else None
@@ -153,6 +180,16 @@ def select_global_units(
         raise ValueError("channel_budget must be non-negative")
     if parameter_budget is not None and parameter_budget < 0:
         raise ValueError("parameter_budget must be non-negative")
+    unscored = [
+        str(getattr(unit, "stable_id", "<unknown>"))
+        for unit in units
+        if not hasattr(unit, "normalized_score")
+    ]
+    if unscored:
+        raise PruningLegalityError(
+            "trace_time_atomic_units_require_importance_scoring_before_global_selection:"
+            f"{unscored[:8]}"
+        )
     candidates = _bundle_grouped_units(units, grouped_config or GroupedConvConfig())
     selection_policy = selection_config or SelectionConfig()
     alignment_policy = alignment_config or AlignmentConfig()
@@ -234,6 +271,7 @@ def select_global_units(
                 {
                     "indices": [],
                     "dependency_types": [],
+                    "closure_index_map": {},
                 },
             )
             aggregate["indices"] = sorted(
@@ -243,10 +281,22 @@ def select_global_units(
             aggregate["dependency_types"] = sorted(
                 set(aggregate["dependency_types"]) | {str(value) for value in dependency_types if value}
             )
+            raw_index_map = row.get("closure_index_map") or row.get("index_map") or {}
+            for root_index, local_indices in dict(raw_index_map).items():
+                root = int(root_index)
+                local = sorted({int(value) for value in local_indices})
+                existing = aggregate["closure_index_map"].get(root)
+                if existing is not None and existing != local:
+                    raise RuntimeError(
+                        "conflicting_global_closure_index_map:"
+                        f"{key[0]}:{key[1]}:root={root}:old={existing}:new={local}"
+                    )
+                aggregate["closure_index_map"][root] = local
         if (unit.root_module_path, unit.root_axis) not in merged:
             merged[(unit.root_module_path, unit.root_axis)] = {
                 "indices": list(unit.root_indices),
                 "dependency_types": ["root_output"],
+                "closure_index_map": {},
             }
         for ordering, ((module_path, axis), closure) in enumerate(sorted(merged.items())):
             is_active_root = module_path == unit.root_module_path and axis == unit.root_axis
@@ -269,6 +319,7 @@ def select_global_units(
                         "raw_score": unit.raw_score,
                         "dependency_driven": not is_active_root,
                         "dependency_types": list(closure["dependency_types"]),
+                        "closure_index_map": dict(sorted(closure["closure_index_map"].items())),
                         "active_root_module_path": unit.root_module_path,
                     },
                 )

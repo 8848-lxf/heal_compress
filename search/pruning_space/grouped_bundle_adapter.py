@@ -52,6 +52,10 @@ def request_from_pruning_actions(actions: Sequence[PruningSearchAction]) -> Samp
                         "source_coupled_unit_ids": list(action.source_coupled_unit_ids),
                         "constraints": dict(action.constraints),
                         "dependency_types": list(closure.get("dependency_types", [])),
+                        "closure_index_map": {
+                            int(root): [int(value) for value in values]
+                            for root, values in dict(closure.get("closure_index_map", {}) or {}).items()
+                        },
                     },
                 )
             )
