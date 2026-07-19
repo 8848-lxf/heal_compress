@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import time
 from dataclasses import fields
@@ -579,6 +580,9 @@ def prepare_real_cobevt_integration(
         raise RuntimeError("real_capability_fixedk_not_validated")
     if int(source.get("fixed_k_contract", {}).get("overflow_count", -1)) != 0:
         raise RuntimeError("real_capability_fixedk_overflow_detected")
+    manifests = _copy_real_cobevt_manifests(
+        destination, dict(source.get("manifests", {}))
+    )
     widths = (8, 12, 16, 24, 32, 48, 64)
     candidates = []
     for family in ("uniform", "qk_only", "v_only"):
@@ -604,7 +608,7 @@ def prepare_real_cobevt_integration(
         "fixed_k": 29696,
         "fixed_k_contract": dict(source["fixed_k_contract"]),
         "fixed_k_validated": True,
-        "manifests": dict(source["manifests"]),
+        "manifests": manifests,
         "protocol": dict(source.get("protocol", {})),
         "source_experiment": str(source_root),
         "structure_recipe": "capability_only_explicit_qk_v_resize_v1",
@@ -615,6 +619,44 @@ def prepare_real_cobevt_integration(
         "fixed_k": 29696,
         "output_dir": str(destination),
     }
+
+
+def _copy_real_cobevt_manifests(
+    destination: Path, manifests: dict[str, Any]
+) -> dict[str, dict[str, Any]]:
+    manifest_dir = destination / "manifests"
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    localized: dict[str, dict[str, Any]] = {}
+    for name, filename in (
+        ("smoke10", "smoke10_manifest.json"),
+        ("fixed500", "fixed500_manifest.json"),
+    ):
+        record = dict(manifests.get(name, {}))
+        source = Path(str(record.get("path", ""))).expanduser().resolve()
+        if not source.is_file():
+            raise RuntimeError(f"real_capability_manifest_missing:{name}:{source}")
+        target = manifest_dir / filename
+        shutil.copy2(source, target)
+        localized[name] = {
+            **record,
+            "file_sha256": _sha256(target),
+            "path": str(target),
+            "source_path": str(source),
+        }
+    return localized
+
+
+def localize_real_cobevt_manifests(output_dir: str | Path) -> dict[str, Any]:
+    """Copy referenced manifests into an existing capability run."""
+
+    destination = Path(output_dir).expanduser().resolve()
+    config_path = destination / "experiment_config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["manifests"] = _copy_real_cobevt_manifests(
+        destination, dict(config.get("manifests", {}))
+    )
+    _write_json(config_path, config)
+    return dict(config["manifests"])
 
 
 def audit_real_cobevt_structures(
@@ -1699,6 +1741,7 @@ __all__ = [
     "candidate_input_shapes",
     "capability_build_signature",
     "export_capability_candidates",
+    "localize_real_cobevt_manifests",
     "prepare_capability_run",
     "prepare_real_cobevt_integration",
     "resolve_tensorrt_evidence",

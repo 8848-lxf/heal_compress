@@ -1195,17 +1195,26 @@ def test_real_integration_inventory_covers_three_families_and_fixedk29696(
 
     source = tmp_path / "source"
     source.mkdir()
-    manifest = {
-        "path": str(source / "manifest.json"),
-        "manifest_hash": "manifest",
-    }
+    smoke_path = source / "smoke10_manifest.json"
+    fixed_path = source / "fixed500_manifest.json"
+    smoke_path.write_text(json.dumps({"manifest_hash": "smoke"}))
+    fixed_path.write_text(json.dumps({"manifest_hash": "fixed"}))
     (source / "experiment_config.json").write_text(
         json.dumps(
             {
                 "fixed_k": 29696,
                 "fixed_k_validated": True,
                 "fixed_k_contract": {"overflow_count": 0},
-                "manifests": {"smoke10": manifest, "fixed500": manifest},
+                "manifests": {
+                    "smoke10": {
+                        "path": str(smoke_path),
+                        "manifest_hash": "smoke",
+                    },
+                    "fixed500": {
+                        "path": str(fixed_path),
+                        "manifest_hash": "fixed",
+                    },
+                },
                 "protocol": {"dataloader_workers": 8},
             }
         )
@@ -1231,6 +1240,18 @@ def test_real_integration_inventory_covers_three_families_and_fixedk29696(
         48,
         64,
     }
+    assert config["manifests"]["smoke10"]["path"] == str(
+        destination / "manifests/smoke10_manifest.json"
+    )
+    assert config["manifests"]["fixed500"]["path"] == str(
+        destination / "manifests/fixed500_manifest.json"
+    )
+    assert json.loads(
+        (destination / "manifests/smoke10_manifest.json").read_text()
+    )["manifest_hash"] == "smoke"
+    assert json.loads(
+        (destination / "manifests/fixed500_manifest.json").read_text()
+    )["manifest_hash"] == "fixed"
 
 
 def test_export_phase_writes_complete_candidate_provenance_without_engine(tmp_path):
