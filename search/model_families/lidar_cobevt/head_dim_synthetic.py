@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,15 @@ from torch import nn
 from torch.nn import functional
 
 from .head_dim_capability import HeadDimCandidate
+
+
+SYNTHETIC_INPUT_CASES = (
+    "deterministic",
+    "random_normal",
+    "large_range",
+    "small_margin_qk",
+    "cancellation_heavy",
+)
 
 
 _ROLE_PRECISIONS: dict[str, dict[str, str]] = {
@@ -151,6 +161,16 @@ def _softmax(value: torch.Tensor) -> torch.Tensor:
     return torch.softmax(value, dim=-1)
 
 
+class CapabilityMatMul(nn.Module):
+    def forward(self, left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+        return _matmul(left, right)
+
+
+class CapabilitySoftmax(nn.Module):
+    def forward(self, value: torch.Tensor) -> torch.Tensor:
+        return _softmax(value)
+
+
 class CapabilityLinear(nn.Module):
     """Linear with optional deterministic explicit activation/weight Q/DQ."""
 
@@ -188,7 +208,9 @@ class _CoreAttention(nn.Module):
         super().__init__()
         self.profile = candidate.precision_profile
         self.scale = float(candidate.d_qk) ** -0.5
-        self.softmax = nn.Softmax(dim=-1)
+        self.qk_matmul = CapabilityMatMul()
+        self.softmax = CapabilitySoftmax()
+        self.av_matmul = CapabilityMatMul()
         self.register_buffer("q_scale", torch.tensor(0.03125, dtype=torch.float32))
         self.register_buffer("k_scale", torch.tensor(0.03125, dtype=torch.float32))
         self.register_buffer("v_scale", torch.tensor(0.03125, dtype=torch.float32))
@@ -199,6 +221,12 @@ class _CoreAttention(nn.Module):
     def forward(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
     ) -> torch.Tensor:
+        output, _score, _attention, _av = self.forward_with_intermediates(q, k, v)
+        return output
+
+    def forward_with_intermediates(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         profile = self.profile
         if profile == "P2_f3_mixed":
             q_for_score = q.float()
@@ -210,19 +238,21 @@ class _CoreAttention(nn.Module):
         else:
             q_for_score = q
             k_for_score = k
-        score = _matmul(q_for_score * self.scale, k_for_score.transpose(-1, -2))
+        score = self.qk_matmul(
+            q_for_score * self.scale, k_for_score.transpose(-1, -2)
+        )
         if profile == "P4_int8_native_attention":
             score = _qdq_tensor(score, self.score_scale)
         if profile == "P2_f3_mixed":
-            attention = _softmax(score.half())
+            attention = self.softmax(score.half())
         else:
-            attention = _softmax(score)
+            attention = self.softmax(score)
         if profile == "P4_int8_native_attention":
             attention = _qdq_tensor(attention.float(), self.attention_scale)
-        output = _matmul(attention, v)
+        av_output = self.av_matmul(attention, v)
         if profile == "P4_int8_native_attention":
-            output = _qdq_tensor(output.float(), self.output_scale)
-        return output
+            av_output = _qdq_tensor(av_output.float(), self.output_scale)
+        return av_output, score, attention, av_output
 
 
 class _ProjectionAttention(nn.Module):
@@ -257,7 +287,9 @@ class _ProjectionAttention(nn.Module):
             candidate.out_projection_out,
             quantized=quantized_projection,
         )
-        self.softmax = nn.Softmax(dim=-1)
+        self.qk_matmul = CapabilityMatMul()
+        self.softmax = CapabilitySoftmax()
+        self.av_matmul = CapabilityMatMul()
         self.register_buffer("q_scale", torch.tensor(0.03125, dtype=torch.float32))
         self.register_buffer("k_scale", torch.tensor(0.03125, dtype=torch.float32))
         self.register_buffer("v_scale", torch.tensor(0.03125, dtype=torch.float32))
@@ -275,6 +307,17 @@ class _ProjectionAttention(nn.Module):
         attention_mask: torch.Tensor,
         relative_position_bias: torch.Tensor,
     ) -> torch.Tensor:
+        output, _score, _attention, _av = self.forward_with_intermediates(
+            x, attention_mask, relative_position_bias
+        )
+        return output
+
+    def forward_with_intermediates(
+        self,
+        x: torch.Tensor,
+        attention_mask: torch.Tensor,
+        relative_position_bias: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         q = self._reshape(self.q_proj(x), self.d_qk)
         k = self._reshape(self.k_proj(x), self.d_qk)
         v = self._reshape(self.v_proj(x), self.d_v)
@@ -288,7 +331,7 @@ class _ProjectionAttention(nn.Module):
         else:
             q_for_score = q
             k_for_score = k
-        score = _matmul(
+        score = self.qk_matmul(
             q_for_score * self.scale, k_for_score.transpose(-1, -2)
         )
         score = score + relative_position_bias.to(score.dtype)
@@ -296,18 +339,28 @@ class _ProjectionAttention(nn.Module):
         if self.profile == "P4_int8_native_attention":
             score = _qdq_tensor(score, self.score_scale)
         if self.profile == "P2_f3_mixed":
-            attention = _softmax(score.half())
+            attention = self.softmax(score.half())
         else:
-            attention = _softmax(score)
+            attention = self.softmax(score)
         if self.profile == "P4_int8_native_attention":
             attention = _qdq_tensor(attention.float(), self.attention_scale)
-        output = _matmul(attention, v)
+        av_output = self.av_matmul(attention, v)
         if self.profile == "P4_int8_native_attention":
-            output = _qdq_tensor(output.float(), self.av_scale)
-        output = output.permute(0, 2, 1, 3).reshape(
-            output.shape[0], output.shape[2], self.num_heads * self.d_v
+            av_output = _qdq_tensor(av_output.float(), self.av_scale)
+        output = av_output.permute(0, 2, 1, 3).reshape(
+            av_output.shape[0], av_output.shape[2], self.num_heads * self.d_v
         )
-        return self.out_proj(output)
+        output = self.out_proj(output)
+        return output, score, attention, av_output
+
+
+class _DiagnosticAttention(nn.Module):
+    def __init__(self, graph: nn.Module) -> None:
+        super().__init__()
+        self.graph = graph
+
+    def forward(self, *args: torch.Tensor) -> tuple[torch.Tensor, ...]:
+        return self.graph.forward_with_intermediates(*args)
 
 
 def _input_dtype(profile: str) -> torch.dtype:
@@ -316,6 +369,84 @@ def _input_dtype(profile: str) -> torch.dtype:
         if profile in {"P1_strict_fp16_native", "P2_f3_mixed"}
         else torch.float32
     )
+
+
+def _paired_cancellation(shape: tuple[int, ...], generator: torch.Generator) -> torch.Tensor:
+    width = int(shape[-1])
+    half = (width + 1) // 2
+    source = torch.randn(*shape[:-1], half, generator=generator)
+    result = torch.empty(*shape, dtype=torch.float32)
+    result[..., 0::2] = source[..., : result[..., 0::2].shape[-1]]
+    result[..., 1::2] = -source[..., : result[..., 1::2].shape[-1]]
+    return result
+
+
+def build_synthetic_inputs(
+    candidate: HeadDimCandidate, *, input_case: str
+) -> dict[str, torch.Tensor]:
+    if input_case not in SYNTHETIC_INPUT_CASES:
+        raise ValueError(f"unsupported_synthetic_input_case:{input_case}")
+    case_index = SYNTHETIC_INPUT_CASES.index(input_case)
+    generator = torch.Generator(device="cpu").manual_seed(20260718 + case_index)
+    dtype = _input_dtype(candidate.precision_profile)
+
+    def values(shape: tuple[int, ...]) -> torch.Tensor:
+        if input_case == "deterministic":
+            count = 1
+            for dimension in shape:
+                count *= int(dimension)
+            result = torch.linspace(-1.0, 1.0, count).reshape(shape)
+        elif input_case == "large_range":
+            result = torch.randn(*shape, generator=generator) * 32.0
+        elif input_case == "cancellation_heavy":
+            result = _paired_cancellation(shape, generator)
+        elif input_case == "small_margin_qk":
+            result = torch.randn(*shape, generator=generator) * 0.01
+        else:
+            result = torch.randn(*shape, generator=generator)
+        return result.to(dtype=dtype)
+
+    groups = int(candidate.window_groups)
+    heads = int(candidate.num_heads)
+    tokens = int(candidate.token_length)
+    if candidate.graph_variant == "core_attention":
+        q = values((groups, heads, tokens, int(candidate.d_qk)))
+        if input_case == "small_margin_qk":
+            k = q.float() + torch.randn(
+                q.shape, generator=generator, dtype=torch.float32
+            ) * 1.0e-4
+            k = k.to(dtype=dtype)
+        else:
+            k = values((groups, heads, tokens, int(candidate.d_qk)))
+        return {
+            "q": q,
+            "k": k,
+            "v": values((groups, heads, tokens, int(candidate.d_v))),
+        }
+    x = values((groups, tokens, int(candidate.embed_dim)))
+    mask = torch.rand(groups, tokens, tokens, generator=generator) > 0.2
+    diagonal = torch.arange(tokens)
+    mask[:, diagonal, diagonal] = True
+    bias_dtype = (
+        torch.float32
+        if candidate.precision_profile == "P2_f3_mixed"
+        else dtype
+    )
+    return {
+        "x": x,
+        "attention_mask": mask,
+        "relative_position_bias": (
+            torch.randn(
+                1,
+                heads,
+                tokens,
+                tokens,
+                generator=generator,
+                dtype=torch.float32,
+            )
+            * 0.01
+        ).to(dtype=bias_dtype),
+    }
 
 
 def build_synthetic_graph(
@@ -328,74 +459,22 @@ def build_synthetic_graph(
         raise ValueError("projection_int8_profile_requires_projection_graph")
     torch.manual_seed(20260718)
     dtype = _input_dtype(candidate.precision_profile)
-    generator = torch.Generator(device="cpu").manual_seed(20260718)
     if candidate.graph_variant == "core_attention":
         graph: nn.Module = _CoreAttention(candidate)
-        inputs = {
-            "q": torch.randn(
-                candidate.window_groups,
-                candidate.num_heads,
-                candidate.token_length,
-                candidate.d_qk,
-                generator=generator,
-                dtype=dtype,
-            ),
-            "k": torch.randn(
-                candidate.window_groups,
-                candidate.num_heads,
-                candidate.token_length,
-                candidate.d_qk,
-                generator=generator,
-                dtype=dtype,
-            ),
-            "v": torch.randn(
-                candidate.window_groups,
-                candidate.num_heads,
-                candidate.token_length,
-                candidate.d_v,
-                generator=generator,
-                dtype=dtype,
-            ),
-        }
     else:
         graph = _ProjectionAttention(candidate)
-        x = torch.randn(
-            candidate.window_groups,
-            candidate.token_length,
-            candidate.embed_dim,
-            generator=generator,
-            dtype=dtype,
-        )
-        mask = torch.rand(
-            candidate.window_groups,
-            candidate.token_length,
-            candidate.token_length,
-            generator=generator,
-        ) > 0.2
-        diagonal = torch.arange(candidate.token_length)
-        mask[:, diagonal, diagonal] = True
-        bias_dtype = (
-            torch.float32
-            if candidate.precision_profile == "P2_f3_mixed"
-            else dtype
-        )
-        inputs = {
-            "x": x,
-            "attention_mask": mask,
-            "relative_position_bias": torch.randn(
-                1,
-                candidate.num_heads,
-                candidate.token_length,
-                candidate.token_length,
-                generator=generator,
-                dtype=bias_dtype,
-            )
-            * 0.01,
-        }
+    inputs = build_synthetic_inputs(candidate, input_case="random_normal")
     graph = graph.eval()
     if dtype == torch.float16:
         graph = graph.half()
     return graph, inputs, requested_precision_manifest(candidate.precision_profile)
+
+
+def build_synthetic_diagnostic_graph(
+    candidate: HeadDimCandidate,
+) -> tuple[nn.Module, dict[str, torch.Tensor], dict[str, str]]:
+    graph, inputs, manifest = build_synthetic_graph(candidate)
+    return _DiagnosticAttention(graph).eval(), inputs, manifest
 
 
 def _sha256(path: Path) -> str:
@@ -407,18 +486,35 @@ def _sha256(path: Path) -> str:
 
 
 def export_synthetic_onnx(
-    candidate: HeadDimCandidate, destination: str | Path
+    candidate: HeadDimCandidate,
+    destination: str | Path,
+    *,
+    trace_window_groups: int | None = None,
 ) -> dict[str, Any]:
     import onnx
 
     path = Path(destination)
     path.parent.mkdir(parents=True, exist_ok=True)
-    graph, inputs, manifest = build_synthetic_graph(candidate)
+    trace_groups = (
+        int(candidate.window_groups)
+        if trace_window_groups is None
+        else int(trace_window_groups)
+    )
+    if trace_groups <= 0:
+        raise ValueError("trace_window_groups_must_be_positive")
+    trace_candidate = replace(candidate, window_groups=trace_groups)
+    graph, inputs, manifest = build_synthetic_graph(trace_candidate)
     names = tuple(inputs)
     with torch.no_grad():
         output = graph(**inputs)
     if not bool(torch.isfinite(output).all()):
         raise RuntimeError("synthetic_reference_nonfinite")
+    dynamic_axes = {
+        name: {0: "window_groups"}
+        for name in names
+        if name != "relative_position_bias"
+    }
+    dynamic_axes["output"] = {0: "window_groups"}
     torch.onnx.export(
         graph,
         tuple(inputs[name] for name in names),
@@ -427,6 +523,7 @@ def export_synthetic_onnx(
         output_names=("output",),
         opset_version=17,
         do_constant_folding=False,
+        dynamic_axes=dynamic_axes,
     )
     model = onnx.load(str(path))
     onnx.checker.check_model(model)
@@ -434,7 +531,45 @@ def export_synthetic_onnx(
     return {
         "candidate_hash": candidate.candidate_hash,
         "candidate_id": candidate.candidate_id,
-        "input_shapes": {name: list(value.shape) for name, value in inputs.items()},
+        "input_shapes": {
+            "q": [
+                candidate.window_groups,
+                candidate.num_heads,
+                candidate.token_length,
+                candidate.d_qk,
+            ],
+            "k": [
+                candidate.window_groups,
+                candidate.num_heads,
+                candidate.token_length,
+                candidate.d_qk,
+            ],
+            "v": [
+                candidate.window_groups,
+                candidate.num_heads,
+                candidate.token_length,
+                candidate.d_v,
+            ],
+        }
+        if candidate.graph_variant == "core_attention"
+        else {
+            "x": [
+                candidate.window_groups,
+                candidate.token_length,
+                candidate.embed_dim,
+            ],
+            "attention_mask": [
+                candidate.window_groups,
+                candidate.token_length,
+                candidate.token_length,
+            ],
+            "relative_position_bias": [
+                1,
+                candidate.num_heads,
+                candidate.token_length,
+                candidate.token_length,
+            ],
+        },
         "node_type_counts": {
             name: node_types.count(name)
             for name in sorted(set(node_types))
@@ -445,11 +580,120 @@ def export_synthetic_onnx(
         "output_dtype": str(output.dtype),
         "output_shape": list(output.shape),
         "requested_precision": manifest,
+        "target_input_shapes": {
+            "q": [
+                candidate.window_groups,
+                candidate.num_heads,
+                candidate.token_length,
+                candidate.d_qk,
+            ],
+            "k": [
+                candidate.window_groups,
+                candidate.num_heads,
+                candidate.token_length,
+                candidate.d_qk,
+            ],
+            "v": [
+                candidate.window_groups,
+                candidate.num_heads,
+                candidate.token_length,
+                candidate.d_v,
+            ],
+        }
+        if candidate.graph_variant == "core_attention"
+        else {
+            "x": [
+                candidate.window_groups,
+                candidate.token_length,
+                candidate.embed_dim,
+            ],
+            "attention_mask": [
+                candidate.window_groups,
+                candidate.token_length,
+                candidate.token_length,
+            ],
+            "relative_position_bias": [
+                1,
+                candidate.num_heads,
+                candidate.token_length,
+                candidate.token_length,
+            ],
+        },
+        "trace_input_shapes": {
+            name: list(value.shape) for name, value in inputs.items()
+        },
+    }
+
+
+def export_synthetic_diagnostic_onnx(
+    candidate: HeadDimCandidate,
+    destination: str | Path,
+    *,
+    trace_window_groups: int = 1,
+) -> dict[str, Any]:
+    import onnx
+
+    path = Path(destination)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if int(trace_window_groups) <= 0:
+        raise ValueError("trace_window_groups_must_be_positive")
+    trace_candidate = replace(
+        candidate, window_groups=int(trace_window_groups)
+    )
+    graph, inputs, manifest = build_synthetic_diagnostic_graph(trace_candidate)
+    names = tuple(inputs)
+    output_names = ("output", "qk_score", "softmax_output", "av_output")
+    with torch.no_grad():
+        outputs = graph(*tuple(inputs[name] for name in names))
+    output, qk_score, softmax_output, av_output = outputs
+    if not all(
+        bool(torch.isfinite(value).all())
+        for value in (output, softmax_output, av_output)
+    ) or bool(torch.isnan(qk_score).any() or torch.isposinf(qk_score).any()):
+        raise RuntimeError("synthetic_diagnostic_reference_nonfinite")
+    dynamic_axes = {
+        name: {0: "window_groups"}
+        for name in names
+        if name != "relative_position_bias"
+    }
+    dynamic_axes.update(
+        {name: {0: "window_groups"} for name in output_names}
+    )
+    torch.onnx.export(
+        graph,
+        tuple(inputs[name] for name in names),
+        path,
+        input_names=names,
+        output_names=output_names,
+        opset_version=17,
+        do_constant_folding=False,
+        dynamic_axes=dynamic_axes,
+    )
+    model = onnx.load(str(path))
+    onnx.checker.check_model(model)
+    return {
+        "candidate_hash": candidate.candidate_hash,
+        "candidate_id": candidate.candidate_id,
+        "diagnostic_only": True,
+        "latency_eligible": False,
+        "onnx_export_success": True,
+        "onnx_path": str(path.resolve()),
+        "onnx_sha256": _sha256(path),
+        "output_shapes": {
+            name: list(value.shape)
+            for name, value in zip(output_names, outputs)
+        },
+        "requested_precision": manifest,
+        "trace_window_groups": int(trace_window_groups),
     }
 
 
 __all__ = [
+    "SYNTHETIC_INPUT_CASES",
+    "build_synthetic_inputs",
     "build_synthetic_graph",
+    "build_synthetic_diagnostic_graph",
+    "export_synthetic_diagnostic_onnx",
     "export_synthetic_onnx",
     "requested_precision_manifest",
 ]

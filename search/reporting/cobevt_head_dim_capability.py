@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import csv
+import json
+import math
+from pathlib import Path
 from typing import Any, Iterable, Mapping
+
+import torch
 
 
 _ROLE_TOKENS: dict[str, tuple[str, ...]] = {
@@ -203,8 +209,414 @@ def classify_support(row: Mapping[str, Any]) -> str:
     return "supported_primitive"
 
 
+def _topk_overlap(
+    reference: torch.Tensor, candidate: torch.Tensor, k: int
+) -> float:
+    width = int(reference.shape[-1])
+    count = min(int(k), width)
+    reference_indices = torch.topk(reference, count, dim=-1).indices
+    candidate_indices = torch.topk(candidate, count, dim=-1).indices
+    matches = (
+        reference_indices.unsqueeze(-1)
+        == candidate_indices.unsqueeze(-2)
+    ).any(dim=-1)
+    return float(matches.float().mean().item())
+
+
+def _rank_correlation(reference: torch.Tensor, candidate: torch.Tensor) -> float:
+    reference_rank = torch.argsort(torch.argsort(reference, dim=-1), dim=-1).float()
+    candidate_rank = torch.argsort(torch.argsort(candidate, dim=-1), dim=-1).float()
+    reference_rank = reference_rank - reference_rank.mean(dim=-1, keepdim=True)
+    candidate_rank = candidate_rank - candidate_rank.mean(dim=-1, keepdim=True)
+    denominator = torch.sqrt(
+        (reference_rank.square().sum(dim=-1))
+        * (candidate_rank.square().sum(dim=-1))
+    )
+    numerator = (reference_rank * candidate_rank).sum(dim=-1)
+    valid = denominator > 0
+    if not bool(valid.any()):
+        return 1.0 if torch.equal(reference, candidate) else 0.0
+    return float((numerator[valid] / denominator[valid]).mean().item())
+
+
+def attention_tensor_parity(
+    reference: torch.Tensor,
+    candidate: torch.Tensor,
+    *,
+    role: str,
+) -> dict[str, Any]:
+    if tuple(reference.shape) != tuple(candidate.shape):
+        raise ValueError("attention_parity_shape_mismatch")
+    reference64 = reference.detach().double().cpu()
+    candidate64 = candidate.detach().double().cpu()
+    finite = bool(torch.isfinite(reference64).all() and torch.isfinite(candidate64).all())
+    difference = candidate64 - reference64
+    reference_flat = reference64.reshape(-1)
+    candidate_flat = candidate64.reshape(-1)
+    exact = torch.equal(reference64, candidate64)
+    denominator = float(torch.linalg.vector_norm(reference_flat).item())
+    relative_l2 = float(torch.linalg.vector_norm(difference.reshape(-1)).item()) / max(
+        denominator, torch.finfo(torch.float64).eps
+    )
+    cosine = (
+        1.0
+        if exact
+        else float(
+            torch.nn.functional.cosine_similarity(
+                reference_flat.unsqueeze(0), candidate_flat.unsqueeze(0)
+            ).item()
+        )
+    )
+    result: dict[str, Any] = {
+        "candidate_dtype": str(candidate.dtype),
+        "candidate_max": float(candidate64.max().item()),
+        "candidate_mean": float(candidate64.mean().item()),
+        "candidate_min": float(candidate64.min().item()),
+        "candidate_std": float(candidate64.std(unbiased=False).item()),
+        "cosine_similarity": cosine,
+        "finite": finite,
+        "max_absolute_error": float(difference.abs().max().item()),
+        "mean_absolute_error": float(difference.abs().mean().item()),
+        "nan_count": int(torch.isnan(candidate64).sum().item()),
+        "inf_count": int(torch.isinf(candidate64).sum().item()),
+        "reference_dtype": str(reference.dtype),
+        "reference_max": float(reference64.max().item()),
+        "reference_mean": float(reference64.mean().item()),
+        "reference_min": float(reference64.min().item()),
+        "reference_std": float(reference64.std(unbiased=False).item()),
+        "relative_l2_error": relative_l2,
+        "role": str(role),
+        "shape": list(reference.shape),
+    }
+    if role == "qk_score":
+        result.update(
+            {
+                "rank_correlation": _rank_correlation(
+                    reference64, candidate64
+                ),
+                "row_max_absolute_error": float(
+                    (
+                        reference64.max(dim=-1).values
+                        - candidate64.max(dim=-1).values
+                    )
+                    .abs()
+                    .mean()
+                    .item()
+                ),
+                "sign_flip_ratio": float(
+                    (torch.sign(reference64) != torch.sign(candidate64))
+                    .double()
+                    .mean()
+                    .item()
+                ),
+                "top1_agreement": _topk_overlap(
+                    reference64, candidate64, 1
+                ),
+                "top4_overlap": _topk_overlap(reference64, candidate64, 4),
+                "top8_overlap": _topk_overlap(reference64, candidate64, 8),
+            }
+        )
+    elif role == "softmax":
+        epsilon = torch.finfo(torch.float64).eps
+        reference_probability = reference64.clamp_min(epsilon)
+        candidate_probability = candidate64.clamp_min(epsilon)
+        midpoint = 0.5 * (reference_probability + candidate_probability)
+        kl = (
+            reference_probability
+            * (reference_probability.log() - candidate_probability.log())
+        ).sum(dim=-1)
+        js = 0.5 * (
+            reference_probability
+            * (reference_probability.log() - midpoint.log())
+        ).sum(dim=-1) + 0.5 * (
+            candidate_probability
+            * (candidate_probability.log() - midpoint.log())
+        ).sum(dim=-1)
+        reference_entropy = -(
+            reference_probability * reference_probability.log()
+        ).sum(dim=-1)
+        candidate_entropy = -(
+            candidate_probability * candidate_probability.log()
+        ).sum(dim=-1)
+        result.update(
+            {
+                "argmax_agreement": _topk_overlap(
+                    reference64, candidate64, 1
+                ),
+                "entropy_delta": float(
+                    (candidate_entropy - reference_entropy).mean().item()
+                ),
+                "js_divergence": 0.0 if exact else float(js.mean().item()),
+                "kl_divergence": 0.0 if exact else float(kl.mean().item()),
+                "row_sum_max_error": float(
+                    (candidate64.sum(dim=-1) - 1.0).abs().max().item()
+                ),
+                "top4_overlap": _topk_overlap(reference64, candidate64, 4),
+                "top8_overlap": _topk_overlap(reference64, candidate64, 8),
+                "zero_ratio": float((candidate64 == 0).double().mean().item()),
+            }
+        )
+    elif role == "av_output":
+        reference_energy = reference64.square().mean(dim=tuple(range(reference64.ndim - 1)))
+        candidate_energy = candidate64.square().mean(dim=tuple(range(candidate64.ndim - 1)))
+        energy_denominator = max(
+            float(torch.linalg.vector_norm(reference_energy).item()),
+            torch.finfo(torch.float64).eps,
+        )
+        result["channel_energy_relative_error"] = float(
+            torch.linalg.vector_norm(candidate_energy - reference_energy).item()
+            / energy_denominator
+        )
+    return result
+
+
+def _safe_widths(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    family: str,
+    profile: str,
+    fused: bool | None = None,
+) -> list[int]:
+    values = set()
+    for row in rows:
+        if str(row.get("structure_family")) != family:
+            continue
+        if str(row.get("precision_profile")) != profile:
+            continue
+        if not bool(row.get("runtime_success")):
+            continue
+        if not bool(row.get("precision_identity")):
+            continue
+        if not bool(row.get("numerical_safe")):
+            continue
+        if row.get("accuracy_safe") is False:
+            continue
+        if fused is not None and bool(row.get("fused_mha_detected")) != fused:
+            continue
+        values.add(int(row["d_qk"] if family != "v_only" else row["d_v"]))
+    return sorted(values)
+
+
+def derive_head_dim_search_contract(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    hardware_scope: Mapping[str, Any],
+) -> dict[str, Any]:
+    evidence = [dict(row) for row in rows]
+    uniform = {
+        "fp32_supported_head_dims": _safe_widths(
+            evidence, family="uniform", profile="P0_strict_fp32"
+        ),
+        "fp16_primitive_supported_head_dims": _safe_widths(
+            evidence,
+            family="uniform",
+            profile="P1_strict_fp16_native",
+            fused=False,
+        ),
+        "fp16_fused_supported_head_dims": _safe_widths(
+            evidence,
+            family="uniform",
+            profile="P1_strict_fp16_native",
+            fused=True,
+        ),
+        "f3_supported_head_dims": _safe_widths(
+            evidence, family="uniform", profile="P2_f3_mixed"
+        ),
+        "int8_projection_supported_head_dims": _safe_widths(
+            evidence,
+            family="uniform",
+            profile="P3_int8_projections_qk_fp32",
+        ),
+        "int8_primitive_supported_head_dims": _safe_widths(
+            evidence,
+            family="uniform",
+            profile="P4_int8_native_attention",
+            fused=False,
+        ),
+        "int8_fused_supported_head_dims": _safe_widths(
+            evidence,
+            family="uniform",
+            profile="P4_int8_native_attention",
+            fused=True,
+        ),
+        "unsupported_head_dims": sorted(
+            {
+                int(row["d_qk"])
+                for row in evidence
+                if row.get("structure_family") == "uniform"
+                and str(row.get("support_class", "")).startswith("unsupported")
+            }
+        ),
+    }
+    qk_supported = sorted(
+        set(
+            _safe_widths(
+                evidence, family="qk_only", profile="P0_strict_fp32"
+            )
+            + _safe_widths(
+                evidence, family="qk_only", profile="P1_strict_fp16_native"
+            )
+            + _safe_widths(
+                evidence, family="qk_only", profile="P2_f3_mixed"
+            )
+        )
+    )
+    v_supported = sorted(
+        set(
+            _safe_widths(
+                evidence, family="v_only", profile="P0_strict_fp32"
+            )
+            + _safe_widths(
+                evidence, family="v_only", profile="P1_strict_fp16_native"
+            )
+            + _safe_widths(
+                evidence, family="v_only", profile="P2_f3_mixed"
+            )
+        )
+    )
+    legal_uniform = sorted(
+        set().union(
+            *(
+                set(value)
+                for key, value in uniform.items()
+                if key != "unsupported_head_dims"
+            )
+        )
+    )
+    forbidden = []
+    unresolved = []
+    for row in evidence:
+        record = {
+            "d_qk": int(row.get("d_qk", 0)),
+            "d_v": int(row.get("d_v", 0)),
+            "precision_profile": str(row.get("precision_profile", "")),
+        }
+        if row.get("runtime_success") and not row.get("precision_identity"):
+            forbidden.append({**record, "reason": "precision_fallback"})
+        elif row.get("accuracy_safe") is False:
+            forbidden.append({**record, "reason": "accuracy_unsafe"})
+        elif row.get("accuracy_safe") in (None, "accuracy_unresolved"):
+            unresolved.append(record)
+    return {
+        "hardware_scope": dict(hardware_scope),
+        "qk_only": {
+            "fused_supported_d_qk": sorted(
+                {
+                    int(row["d_qk"])
+                    for row in evidence
+                    if row.get("structure_family") == "qk_only"
+                    and row.get("fused_mha_detected")
+                    and row.get("runtime_success")
+                    and row.get("precision_identity")
+                }
+            ),
+            "primitive_only_d_qk": sorted(
+                set(qk_supported)
+                - {
+                    int(row["d_qk"])
+                    for row in evidence
+                    if row.get("structure_family") == "qk_only"
+                    and row.get("fused_mha_detected")
+                }
+            ),
+            "supported_d_qk": qk_supported,
+        },
+        "search_space_recommendation": {
+            "f3_accuracy_safe_widths": uniform["f3_supported_head_dims"],
+            "forbidden_precision_shape_pairs": sorted(
+                forbidden,
+                key=lambda row: (
+                    row["d_qk"], row["d_v"], row["precision_profile"], row["reason"]
+                ),
+            ),
+            "int8_fused_eligible_widths": uniform[
+                "int8_fused_supported_head_dims"
+            ],
+            "legal_structural_widths": legal_uniform,
+            "preferred_latency_widths": [],
+            "unresolved_pairs": sorted(
+                unresolved,
+                key=lambda row: (
+                    row["d_qk"], row["d_v"], row["precision_profile"]
+                ),
+            ),
+        },
+        "uniform_attention": uniform,
+        "v_only": {
+            "fused_supported_d_v": sorted(
+                {
+                    int(row["d_v"])
+                    for row in evidence
+                    if row.get("structure_family") == "v_only"
+                    and row.get("fused_mha_detected")
+                    and row.get("runtime_success")
+                    and row.get("precision_identity")
+                }
+            ),
+            "primitive_only_d_v": sorted(v_supported),
+            "supported_d_v": v_supported,
+        },
+    }
+
+
+def write_capability_matrix(
+    output_dir: str | Path, rows: Iterable[Mapping[str, Any]]
+) -> dict[str, Path]:
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    records = [dict(row) for row in rows]
+    json_path = destination / "head_dim_capability_matrix.json"
+    csv_path = destination / "head_dim_capability_matrix.csv"
+    markdown_path = destination / "head_dim_capability_matrix.md"
+    json_path.write_text(
+        json.dumps(records, indent=2, sort_keys=False, default=str) + "\n",
+        encoding="utf-8",
+    )
+    fieldnames = sorted({str(key) for row in records for key in row})
+    with csv_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in records:
+            writer.writerow(
+                {
+                    key: (
+                        json.dumps(row.get(key), sort_keys=True)
+                        if isinstance(row.get(key), (dict, list, tuple))
+                        else row.get(key)
+                    )
+                    for key in fieldnames
+                }
+            )
+    columns = (
+        "candidate_id",
+        "structure_family",
+        "d_qk",
+        "d_v",
+        "precision_profile",
+        "support_class",
+        "failure_reason",
+    )
+    lines = [
+        "# CoBEVT Head-Dimension TensorRT Capability Matrix",
+        "",
+        "| " + " | ".join(columns) + " |",
+        "|" + "|".join("---" for _ in columns) + "|",
+    ]
+    for row in records:
+        lines.append(
+            "| "
+            + " | ".join(str(row.get(column, "")) for column in columns)
+            + " |"
+        )
+    markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {"csv": csv_path, "json": json_path, "markdown": markdown_path}
+
+
 __all__ = [
+    "attention_tensor_parity",
     "audit_requested_realized_precision",
     "classify_support",
+    "derive_head_dim_search_contract",
     "inspect_attention_layers",
+    "write_capability_matrix",
 ]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 
 import torch
 
@@ -215,6 +216,54 @@ def test_explicit_int8_profiles_export_real_qdq(tmp_path):
     assert counts["P4_int8_native_attention"][0] > counts[
         "P3_int8_projections_qk_fp32"
     ][0]
+
+
+def test_exported_attention_roles_have_stable_onnx_names(tmp_path):
+    import onnx
+
+    from search.model_families.lidar_cobevt.head_dim_synthetic import (
+        export_synthetic_onnx,
+    )
+
+    candidate = _small_candidate(
+        d_qk=16, d_v=16, family="uniform", profile="P0_strict_fp32"
+    )
+    destination = tmp_path / "named_roles.onnx"
+    export_synthetic_onnx(candidate, destination)
+    names = {node.name for node in onnx.load(str(destination)).graph.node}
+
+    assert "/qk_matmul/MatMul" in names
+    assert "/softmax/Softmax" in names
+    assert "/av_matmul/MatMul" in names
+
+
+def test_export_traces_one_group_but_records_real_512_group_build_shape(tmp_path):
+    import onnx
+
+    from search.model_families.lidar_cobevt.head_dim_capability import (
+        HeadDimCandidate,
+    )
+    from search.model_families.lidar_cobevt.head_dim_synthetic import (
+        export_synthetic_onnx,
+    )
+
+    candidate = HeadDimCandidate(
+        graph_variant="projection_attention",
+        structure_family="uniform",
+        d_qk=24,
+        d_v=24,
+        precision_profile="P0_strict_fp32",
+        tensorrt_version="10.9.0.34",
+        gpu_architecture="sm89",
+    )
+    destination = tmp_path / "dynamic_groups.onnx"
+    report = export_synthetic_onnx(candidate, destination, trace_window_groups=1)
+    model = onnx.load(str(destination))
+    dimensions = model.graph.input[0].type.tensor_type.shape.dim
+
+    assert report["trace_input_shapes"]["x"] == [1, 32, 256]
+    assert report["target_input_shapes"]["x"] == [512, 32, 256]
+    assert dimensions[0].dim_param == "window_groups"
 
 
 def _layer(name, metadata, dtype, *, tactic=""):
@@ -450,3 +499,425 @@ def test_trtexec_shapes_use_real_cobevt_window_and_token_layout():
         "k": (512, 8, 32, 24),
         "v": (512, 8, 32, 24),
     }
+
+
+def test_parity_metrics_cover_general_qk_softmax_and_av_signals():
+    from search.reporting.cobevt_head_dim_capability import (
+        attention_tensor_parity,
+    )
+
+    reference = torch.tensor(
+        [[[[2.0, 1.0, -1.0, -2.0], [0.0, 1.0, 2.0, 3.0]]]]
+    )
+    candidate = reference.clone()
+    qk = attention_tensor_parity(reference, candidate, role="qk_score")
+    assert qk["cosine_similarity"] == 1.0
+    assert qk["top1_agreement"] == 1.0
+    assert qk["top4_overlap"] == 1.0
+    assert qk["sign_flip_ratio"] == 0.0
+
+    probability = torch.softmax(reference, dim=-1)
+    softmax = attention_tensor_parity(
+        probability, probability.clone(), role="softmax"
+    )
+    assert softmax["row_sum_max_error"] < 1.0e-6
+    assert softmax["kl_divergence"] == 0.0
+    assert softmax["js_divergence"] == 0.0
+
+    av = attention_tensor_parity(reference, reference * 0.5, role="av_output")
+    assert av["relative_l2_error"] > 0.0
+    assert av["channel_energy_relative_error"] > 0.0
+
+
+def test_search_contract_uses_only_runtime_precision_identity_evidence():
+    from search.reporting.cobevt_head_dim_capability import (
+        derive_head_dim_search_contract,
+    )
+
+    common = {
+        "structure_family": "uniform",
+        "runtime_success": True,
+        "precision_identity": True,
+        "numerical_safe": True,
+        "accuracy_safe": True,
+        "support_class": "supported_primitive",
+    }
+    rows = [
+        {
+            **common,
+            "d_qk": 24,
+            "d_v": 24,
+            "precision_profile": "P1_strict_fp16_native",
+            "fused_mha_detected": False,
+        },
+        {
+            **common,
+            "d_qk": 16,
+            "d_v": 16,
+            "precision_profile": "P2_f3_mixed",
+            "fused_mha_detected": False,
+        },
+        {
+            **common,
+            "d_qk": 32,
+            "d_v": 32,
+            "precision_profile": "P4_int8_native_attention",
+            "fused_mha_detected": True,
+            "support_class": "supported_fused_mha",
+        },
+        {
+            **common,
+            "d_qk": 12,
+            "d_v": 12,
+            "precision_profile": "P4_int8_native_attention",
+            "precision_identity": False,
+            "support_class": "supported_with_fallback",
+        },
+    ]
+
+    contract = derive_head_dim_search_contract(
+        rows,
+        hardware_scope={
+            "gpu_model": "RTX 4090",
+            "compute_capability": "8.9",
+            "tensorrt_version": "10.9.0.34",
+            "cuda_version": "11.8",
+        },
+    )
+
+    assert contract["uniform_attention"][
+        "fp16_primitive_supported_head_dims"
+    ] == [24]
+    assert contract["uniform_attention"]["f3_supported_head_dims"] == [16]
+    assert contract["uniform_attention"]["int8_fused_supported_head_dims"] == [
+        32
+    ]
+    assert 12 not in contract["search_space_recommendation"][
+        "legal_structural_widths"
+    ]
+    assert {
+        "d_qk": 12,
+        "d_v": 12,
+        "precision_profile": "P4_int8_native_attention",
+        "reason": "precision_fallback",
+    } in contract["search_space_recommendation"][
+        "forbidden_precision_shape_pairs"
+    ]
+
+
+def test_capability_matrix_writer_preserves_failures_and_machine_readable_rows(
+    tmp_path,
+):
+    import json
+
+    from search.reporting.cobevt_head_dim_capability import (
+        write_capability_matrix,
+    )
+
+    rows = [
+        {
+            "candidate_id": "ok",
+            "structure_family": "uniform",
+            "d_qk": 24,
+            "d_v": 24,
+            "precision_profile": "P1_strict_fp16_native",
+            "support_class": "supported_primitive",
+            "failure_reason": "",
+        },
+        {
+            "candidate_id": "failed",
+            "structure_family": "uniform",
+            "d_qk": 6,
+            "d_v": 6,
+            "precision_profile": "P4_int8_native_attention",
+            "support_class": "unsupported_build",
+            "failure_reason": "no tactic",
+        },
+    ]
+    paths = write_capability_matrix(tmp_path, rows)
+
+    assert json.loads(paths["json"].read_text()) == rows
+    assert "no tactic" in paths["csv"].read_text()
+    assert "supported_primitive" in paths["markdown"].read_text()
+    assert "unsupported_build" in paths["markdown"].read_text()
+
+
+def test_trtexec_command_is_strongly_typed_detailed_and_fresh(tmp_path):
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        build_trtexec_command,
+    )
+
+    candidate = _small_candidate(
+        d_qk=16, d_v=16, family="uniform", profile="P4_int8_native_attention"
+    )
+    command = build_trtexec_command(
+        candidate,
+        trtexec=tmp_path / "trtexec",
+        onnx_path=tmp_path / "attention.onnx",
+        engine_path=tmp_path / "engine.plan",
+        layer_info_path=tmp_path / "engine_layer_info.json",
+        profile_path=tmp_path / "engine_profile.json",
+    )
+
+    assert "--stronglyTyped" in command
+    assert "--noTF32" in command
+    assert "--noBuilderCache" in command
+    assert "--profilingVerbosity=detailed" in command
+    assert "--dumpLayerInfo" in command
+    assert "--dumpProfile" in command
+    assert any(value.startswith("--exportLayerInfo=") for value in command)
+    assert any(value.startswith("--exportProfile=") for value in command)
+    assert "--fp16" not in command
+    assert "--int8" not in command
+    assert not any("precisionConstraints" in value for value in command)
+    shapes = next(value for value in command if value.startswith("--optShapes="))
+    assert "x:3x4x16" in shapes
+    assert "attention_mask:3x4x4" in shapes
+    assert "relative_position_bias" not in shapes
+
+
+def test_prepare_run_writes_all_candidates_and_rejects_nonempty_output(tmp_path):
+    import json
+
+    import pytest
+
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        prepare_capability_run,
+    )
+
+    output = tmp_path / "run"
+    result = prepare_capability_run(
+        output,
+        environment={
+            "tensorrt_version": "10.9.0.34",
+            "gpu_architecture": "sm89",
+            "gpu_model": "NVIDIA GeForce RTX 4090",
+            "compute_capability": "8.9",
+            "cuda_version": "11.8",
+            "driver_version": "580.105.08",
+        },
+        code_commit="a9c5151",
+    )
+
+    candidates = json.loads((output / "candidate_matrix.json").read_text())
+    assert result["candidate_count"] == 282
+    assert len(candidates) == 282
+    assert (output / "run_manifest.json").is_file()
+    assert (output / "resolved_config.yaml").is_file()
+    assert (output / "synthetic").is_dir()
+    assert (output / "real_cobevt").is_dir()
+    assert (output / "failures").is_dir()
+
+    with pytest.raises(RuntimeError, match="capability_output_not_empty"):
+        prepare_capability_run(
+            output,
+            environment={
+                "tensorrt_version": "10.9.0.34",
+                "gpu_architecture": "sm89",
+            },
+            code_commit="a9c5151",
+        )
+
+
+def test_export_phase_writes_complete_candidate_provenance_without_engine(tmp_path):
+    import json
+
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        export_capability_candidates,
+        prepare_capability_run,
+    )
+
+    output = tmp_path / "run"
+    prepare_capability_run(
+        output,
+        environment={
+            "tensorrt_version": "10.9.0.34",
+            "gpu_architecture": "sm89",
+        },
+        code_commit="a9c5151",
+    )
+    candidate_id = "projection_attention__uniform__qk24_v24__P2_f3_mixed"
+    result = export_capability_candidates(
+        output,
+        only_candidate_ids={candidate_id},
+        trace_window_groups=1,
+    )
+
+    assert result == {"attempted": 1, "failed": 0, "succeeded": 1}
+    candidate_dirs = list((output / "synthetic").rglob("candidate.json"))
+    assert len(candidate_dirs) == 1
+    candidate_dir = candidate_dirs[0].parent
+    candidate = json.loads((candidate_dir / "candidate.json").read_text())
+    requested = json.loads(
+        (candidate_dir / "requested_precision.json").read_text()
+    )
+    export = json.loads((candidate_dir / "export_report.json").read_text())
+    assert candidate["candidate_id"] == candidate_id
+    assert requested["qk_matmul"] == "FP32"
+    assert requested["q_projection"] == "FP16"
+    assert export["onnx_export_success"] is True
+    assert export["onnx_sha256"]
+    assert (candidate_dir / "attention.onnx").is_file()
+    assert not list(output.rglob("*.plan"))
+
+
+def test_diagnostic_onnx_exposes_qk_softmax_and_av_without_changing_production(
+    tmp_path,
+):
+    import onnx
+
+    from search.model_families.lidar_cobevt.head_dim_synthetic import (
+        export_synthetic_diagnostic_onnx,
+        export_synthetic_onnx,
+    )
+
+    candidate = _small_candidate(
+        d_qk=16, d_v=16, family="uniform", profile="P2_f3_mixed"
+    )
+    production = tmp_path / "production.onnx"
+    diagnostic = tmp_path / "diagnostic.onnx"
+    export_synthetic_onnx(candidate, production, trace_window_groups=1)
+    report = export_synthetic_diagnostic_onnx(
+        candidate, diagnostic, trace_window_groups=1
+    )
+
+    production_outputs = [row.name for row in onnx.load(str(production)).graph.output]
+    diagnostic_outputs = [row.name for row in onnx.load(str(diagnostic)).graph.output]
+    assert production_outputs == ["output"]
+    assert diagnostic_outputs == [
+        "output",
+        "qk_score",
+        "softmax_output",
+        "av_output",
+    ]
+    assert report["diagnostic_only"] is True
+    assert report["latency_eligible"] is False
+
+
+def test_runtime_input_cases_are_deterministic_and_cover_numeric_boundaries():
+    from search.model_families.lidar_cobevt.head_dim_capability import (
+        HeadDimCandidate,
+    )
+    from search.model_families.lidar_cobevt.head_dim_synthetic import (
+        SYNTHETIC_INPUT_CASES,
+        build_synthetic_inputs,
+    )
+
+    candidate = HeadDimCandidate(
+        graph_variant="core_attention",
+        structure_family="uniform",
+        d_qk=8,
+        d_v=8,
+        precision_profile="P0_strict_fp32",
+        tensorrt_version="10.9.0.34",
+        gpu_architecture="sm89",
+        num_heads=2,
+        embed_dim=16,
+        token_length=4,
+        window_shape=(2, 2),
+        window_groups=2,
+    )
+    assert SYNTHETIC_INPUT_CASES == (
+        "deterministic",
+        "random_normal",
+        "large_range",
+        "small_margin_qk",
+        "cancellation_heavy",
+    )
+    first = build_synthetic_inputs(candidate, input_case="deterministic")
+    second = build_synthetic_inputs(candidate, input_case="deterministic")
+    assert all(torch.equal(first[name], second[name]) for name in first)
+
+    normal = build_synthetic_inputs(candidate, input_case="random_normal")
+    large = build_synthetic_inputs(candidate, input_case="large_range")
+    assert large["q"].abs().max() > normal["q"].abs().max() * 8
+
+    small_margin = build_synthetic_inputs(candidate, input_case="small_margin_qk")
+    assert torch.max(torch.abs(small_margin["q"] - small_margin["k"])) < 1.0e-3
+
+    cancellation = build_synthetic_inputs(
+        candidate, input_case="cancellation_heavy"
+    )
+    assert torch.allclose(cancellation["q"][..., 0::2], -cancellation["q"][..., 1::2])
+
+
+def test_build_phase_records_engine_inspector_and_never_loads_plugin(tmp_path):
+    import json
+    from types import SimpleNamespace
+
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        build_capability_candidates,
+        export_capability_candidates,
+        prepare_capability_run,
+    )
+
+    trt_root = tmp_path / "TensorRT-10.9"
+    trtexec = trt_root / "targets/x86_64-linux-gnu/bin/trtexec"
+    trtexec.parent.mkdir(parents=True)
+    trtexec.write_bytes(b"trtexec")
+    output = tmp_path / "run"
+    environment = {
+        "tensorrt_version": "10.9.0.34",
+        "gpu_architecture": "sm89",
+        "tensorrt_root": str(trt_root),
+        "trtexec_path": str(trtexec),
+        "trtexec_sha256": "trtexec-sha",
+    }
+    prepare_capability_run(output, environment=environment, code_commit="commit")
+    candidate_id = "projection_attention__uniform__qk24_v24__P1_strict_fp16_native"
+    export_capability_candidates(output, only_candidate_ids={candidate_id})
+
+    def fake_runner(command, **_kwargs):
+        assert not any("Plugins" in value or "plugin" in value for value in command)
+        engine = next(value.split("=", 1)[1] for value in command if value.startswith("--saveEngine="))
+        layers = next(value.split("=", 1)[1] for value in command if value.startswith("--exportLayerInfo="))
+        profile = next(value.split("=", 1)[1] for value in command if value.startswith("--exportProfile="))
+        Path(engine).write_bytes(b"engine")
+        Path(layers).write_text(
+            json.dumps(
+                {
+                    "Layers": [
+                        _layer("qk_matmul", "[ONNX Layer: /qk_matmul/MatMul]", "Half"),
+                        _layer("softmax", "[ONNX Layer: /softmax/Softmax]", "Half"),
+                        _layer("av_matmul", "[ONNX Layer: /av_matmul/MatMul]", "Half"),
+                    ]
+                }
+            )
+        )
+        Path(profile).write_text("[]")
+        return SimpleNamespace(returncode=0, stdout="TensorRT build ok")
+
+    result = build_capability_candidates(
+        output,
+        environment=environment,
+        physical_gpu=2,
+        only_candidate_ids={candidate_id},
+        command_runner=fake_runner,
+    )
+
+    assert result == {"attempted": 1, "failed": 0, "succeeded": 1}
+    build_path = next((output / "synthetic").rglob("build_report.json"))
+    build = json.loads(build_path.read_text())
+    assert build["trt_build_success"] is True
+    assert build["fusion_kind"] == "primitive"
+    assert build["fused_mha_detected"] is False
+    assert build["engine_sha256"]
+    assert build["build_signature"]
+    assert "--stronglyTyped" in build["builder_command"]
+
+    diagnostic_result = build_capability_candidates(
+        output,
+        environment=environment,
+        physical_gpu=2,
+        only_candidate_ids={candidate_id},
+        command_runner=fake_runner,
+        diagnostic=True,
+    )
+    assert diagnostic_result == {"attempted": 1, "failed": 0, "succeeded": 1}
+    diagnostic_path = next(
+        (output / "synthetic").rglob("diagnostic_build_report.json")
+    )
+    diagnostic = json.loads(diagnostic_path.read_text())
+    assert diagnostic["diagnostic_only"] is True
+    assert diagnostic["latency_eligible"] is False
+    assert Path(diagnostic["engine_path"]).name == "diagnostic_engine.plan"
