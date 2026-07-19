@@ -135,6 +135,15 @@ def test_six_budget_greedy_writes_endpoints_and_fixed_scale(tmp_path: Path) -> N
     assert (tmp_path / "greedy" / "greedy_summary.json").is_file()
     assert (tmp_path / "greedy" / "budget_005_trace.json").is_file()
     assert (tmp_path / "greedy" / "budget_030_endpoint.json").is_file()
+    trace = json.loads(
+        (tmp_path / "greedy" / "budget_005_trace.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert trace["trace_schema"] == "greedy-compact-v1"
+    assert "evaluated_states" not in trace
+    assert len(trace["evaluated_state_digest"]) == 64
+    assert trace["evaluated_state_count"] >= 1
     scale_path = tmp_path / "joint_loss_scale.json"
     assert scale_path.stat().st_mode & 0o222 == 0
     assert result["joint_loss_scale"]["mapping"] == "linear_fixed_scale"

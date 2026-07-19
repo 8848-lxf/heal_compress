@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -88,6 +89,40 @@ def _path_row(
         "normal_candidate_repair_invoked": False,
         "genotype": state.genotype.to_dict(),
         **dict(state.metrics),
+    }
+
+
+def _compact_trace_payload(result: Any) -> dict[str, Any]:
+    """Keep greedy lineage without duplicating every evaluated genotype.
+
+    Endpoints and accepted paths remain fully auditable.  The evaluated-state
+    collection is represented by its deterministic hash and a small boundary
+    sample; full traces are still available through ``trace_detail: full``
+    for targeted debugging.
+    """
+
+    state_hashes = [state.genotype_hash for state in result.evaluated_states]
+    digest = hashlib.sha256("\n".join(state_hashes).encode("utf-8")).hexdigest()
+    return {
+        "trace_schema": "greedy-compact-v1",
+        "target": float(result.target),
+        "status": result.status,
+        "terminal": result.terminal.to_dict() if result.terminal else None,
+        "admission_mode": result.admission_mode,
+        "accepted_path_states": [
+            state.to_dict() for state in result.accepted_path_states
+        ],
+        "expansion_count": result.expansion_count,
+        "failure_reason": result.failure_reason,
+        "evaluated_state_count": result.evaluated_state_count,
+        "evaluated_state_digest": digest,
+        "evaluated_state_sample": {
+            "first": state_hashes[:3],
+            "last": state_hashes[-3:],
+        },
+        "rejection_counts": dict(result.rejection_counts),
+        "bops_funnel": dict(result.bops_funnel),
+        "nearest_misses": [dict(row) for row in result.nearest_misses],
     }
 
 
@@ -235,7 +270,14 @@ def run_six_budget_greedy(
             max_expansions=max_expansions,
         )
         label = _budget_label(target)
-        trace_payload = result.to_dict()
+        trace_detail = str(config.get("trace_detail", "compact")).lower()
+        if trace_detail not in {"compact", "full"}:
+            raise ValueError("greedy_trace_detail_must_be_compact_or_full")
+        trace_payload = (
+            result.to_dict()
+            if trace_detail == "full"
+            else _compact_trace_payload(result)
+        )
         _write_json(greedy_dir / f"{label}_trace.json", trace_payload)
         budget_results.append(
             {
@@ -318,6 +360,7 @@ def run_six_budget_greedy(
         "expanded_tolerance": expanded_tolerance,
         "frontier_size": frontier_size,
         "max_expansions": max_expansions,
+        "trace_detail": trace_detail,
         "unique_proxy_evaluations": len(metric_memo),
         "strict_fp32_search_group_count": sum(
             precision == "FP32" for precision in initial.precision_genes.values()
