@@ -269,3 +269,49 @@ real Pyramid compatibility checkpoint loaded on CPU
 ```
 
 --- ROUND 3 | 2026-07-19 18:28:02 +0800 ---
+
+## Round 4: fixedK soft-fusion export wrapper
+
+Implemented:
+
+- `search/integration/softfusion_trt_export.py`
+  - static BaseBEVBackbone blocks/deblocks execution;
+  - per-modality shrinker before fusion;
+  - fixedK PointPillarScatterTRT frontend reuse;
+  - exportable affine warp;
+  - MaxFusion agent-axis maximum;
+  - DiscoFusion PixelWeightLayer, agent-axis Softmax, and weighted sum;
+  - fixed cls/reg/dir output contract;
+  - explicit family/model mismatch rejection.
+- `search/integration/trt_compatible_export.py`
+  - family export factory;
+  - original Pyramid factory remains unchanged;
+  - unsupported recipes fail closed.
+
+Verification:
+
+```text
+13 family/provider/export tests passed
+real DiscoNet wrapper class = SearchTensorRTCompatibleSoftFusion
+real execution contract = pillar_vfe -> scatter_plugin ->
+  base_bev_backbone -> modality_shrinker -> disconet_fusion -> heads
+fixedK = 29696
+outputs = cls_preds, reg_preds, dir_preds
+```
+
+GPU 7 was explicitly approved for a bounded real-checkpoint parity run. The
+process peak allocation was 654,405,632 bytes. Results were finite:
+
+```text
+output      shape             max_abs       mean_abs
+cls_preds   [1,2,128,256]     7.1907e-4     7.7321e-7
+reg_preds   [1,14,128,256]    4.8721e-4     3.1177e-7
+dir_preds   [1,4,128,256]     1.9560e-3     9.7775e-7
+```
+
+These errors do not meet a strict `rtol=1e-5, atol=1e-6` elementwise allclose
+test, so the result is recorded as bounded finite parity rather than exact
+parity. ONNX/TRT tensor parity and real AP remain readiness-gate requirements;
+no TensorRT capability claim is made here.
+
+--- ROUND 4 | 2026-07-19 18:38:20 +0800 ---

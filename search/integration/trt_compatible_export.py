@@ -14,6 +14,9 @@ from typing import Any
 import torch
 import torch.nn as nn
 
+from .lidar_family import HEALLidarFamilySpec
+from .lidar_family_registry import get_lidar_family_spec
+
 
 def _ensure_quant_deploy_path() -> None:
     root = Path(__file__).resolve().parents[2]
@@ -154,6 +157,41 @@ class SearchTensorRTCompatibleLidarPyramid(nn.Module):
 
 def build_search_trt_compatible_export_module(model: nn.Module, *, output_names: tuple[str, ...], fixed_k: int, modality: str = "m1") -> SearchTensorRTCompatibleLidarPyramid:
     return SearchTensorRTCompatibleLidarPyramid(model, modality, list(output_names), fixed_k=fixed_k)
+
+
+def build_family_trt_export_module(
+    model: nn.Module,
+    *,
+    family: str | HEALLidarFamilySpec,
+    output_names: tuple[str, ...],
+    fixed_k: int,
+    modality: str = "m1",
+) -> nn.Module:
+    """Build the explicit exporter registered for one model family."""
+
+    spec = (
+        get_lidar_family_spec(family) if isinstance(family, str) else family
+    )
+    if spec.export_recipe == "pyramid_fixed_k":
+        return build_search_trt_compatible_export_module(
+            model,
+            output_names=output_names,
+            fixed_k=fixed_k,
+            modality=modality,
+        )
+    if spec.export_recipe == "soft_fusion_fixed_k":
+        from .softfusion_trt_export import SearchTensorRTCompatibleSoftFusion
+
+        return SearchTensorRTCompatibleSoftFusion(
+            model,
+            family=spec,
+            output_names=output_names,
+            fixed_k=fixed_k,
+            modality=modality,
+        )
+    raise RuntimeError(
+        f"unsupported_family_export_recipe:{spec.name}:{spec.export_recipe}"
+    )
 
 
 def make_pointpillar_domain_compatible(input_onnx: str | Path, output_onnx: str | Path) -> dict[str, Any]:

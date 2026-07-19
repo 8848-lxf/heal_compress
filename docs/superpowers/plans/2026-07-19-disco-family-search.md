@@ -173,7 +173,7 @@ git commit -m "feat: add HEAL lidar model family registry"
 - Produces: `SearchTensorRTCompatibleSoftFusion`.
 - Produces: `build_family_trt_export_module(model, family, output_names, fixed_k) -> nn.Module`.
 
-- [ ] **Step 1: Write failing shape and parity tests for DiscoFusion and MaxFusion wrappers.**
+- [x] **Step 1: Write failing shape and parity tests for DiscoFusion and MaxFusion wrappers.**
 
 ```python
 def test_disco_wrapper_uses_per_modality_shrinker_before_fusion(model):
@@ -183,15 +183,15 @@ def test_disco_wrapper_uses_per_modality_shrinker_before_fusion(model):
     )
 ```
 
-- [ ] **Step 2: Run the test and verify RED.**
+- [x] **Step 2: Run the test and verify RED.**
 
-- [ ] **Step 3: Implement fixedK PointPillar frontend reuse, BaseBEVBackbone execution, affine normalization, Max fusion, and Disco weighted fusion.**
+- [x] **Step 3: Implement fixedK PointPillar frontend reuse, BaseBEVBackbone execution, affine normalization, Max fusion, and Disco weighted fusion.**
 
-- [ ] **Step 4: Make family selection explicit and reject unsupported fusion recipes.**
+- [x] **Step 4: Make family selection explicit and reject unsupported fusion recipes.**
 
-- [ ] **Step 5: Compare real checkpoint PyTorch model and export wrapper on a deterministic synthetic batch; require finite outputs and bounded error.**
+- [x] **Step 5: Compare real checkpoint PyTorch model and export wrapper on a deterministic synthetic batch; finite bounded parity recorded on GPU 7.**
 
-- [ ] **Step 6: Run tests and commit.**
+- [x] **Step 6: Run tests and commit.**
 
 ```bash
 git add search/integration/softfusion_trt_export.py search/integration/trt_compatible_export.py tests/test_softfusion_trt_export.py
