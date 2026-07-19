@@ -139,3 +139,19 @@ manifest and aggregate reports are suitable for selective Git inclusion.
 Completed checkpoint: 2026-07-19 11:53:13 +0800 CST
 
 ---
+
+## Git delivery
+
+Production code, tests, handoff, and only the small aggregate evidence files
+were committed on `feature/heal-unified-search-h800`:
+
+```text
+8296601 feat(search): add five-repeat per-frame latency audit
+```
+
+The 64 MB consolidated `per_frame_latency.csv` and all detailed evaluation
+directories remain ignored and local.
+
+Completed checkpoint: 2026-07-19 11:56:26 +0800 CST
+
+---

@@ -1499,3 +1499,13 @@ Relevant tests pass with `14 passed`; `git diff --check` also passes.
 Completed checkpoint: 2026-07-19 11:53:13 +0800 CST
 
 ---
+
+Five-repeat latency implementation/results commit:
+
+```text
+8296601 feat(search): add five-repeat per-frame latency audit
+```
+
+Completed checkpoint: 2026-07-19 11:56:26 +0800 CST
+
+---
