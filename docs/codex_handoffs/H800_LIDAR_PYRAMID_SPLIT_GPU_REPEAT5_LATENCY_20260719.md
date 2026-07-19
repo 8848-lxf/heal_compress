@@ -155,3 +155,19 @@ directories remain ignored and local.
 Completed checkpoint: 2026-07-19 11:56:26 +0800 CST
 
 ---
+
+## Remote synchronization status
+
+The push to `origin/feature/heal-unified-search-h800` was attempted but the
+machine's VS Code Git credential socket refused the connection and GitHub
+rejected anonymous write access. No remote, credential, or system setting was
+changed. The local commits are complete and can be pushed after credentials
+are restored:
+
+```bash
+git push origin feature/heal-unified-search-h800
+```
+
+Completed checkpoint: 2026-07-19 11:57:39 +0800 CST
+
+---
