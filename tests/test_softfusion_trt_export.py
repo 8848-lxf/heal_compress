@@ -166,6 +166,29 @@ def test_disco_softfusion_wrapper_runs_weighted_agent_softmax() -> None:
     assert audit["softmax_axis"] == 0
 
 
+def test_disco_export_bypasses_redundant_dynamic_pixel_weight_reshape() -> None:
+    from search.integration.lidar_family_registry import get_lidar_family_spec
+    from search.integration.softfusion_trt_export import (
+        SearchTensorRTCompatibleSoftFusion,
+    )
+
+    wrapper = SearchTensorRTCompatibleSoftFusion(
+        _SoftModel("disconet").eval(),
+        family=get_lidar_family_spec("lidar_disco"),
+        output_names=("cls_preds", "reg_preds", "dir_preds"),
+        fixed_k=4,
+    ).eval()
+    traced = torch.jit.trace(wrapper, _inputs(), strict=False, check_trace=False)
+    graph = str(traced.inlined_graph)
+
+    pixel_weight_size_nodes = [
+        line
+        for line in graph.splitlines()
+        if "aten::size" in line and "pixel_weight_layer" in line
+    ]
+    assert pixel_weight_size_nodes == []
+
+
 def test_softfusion_factory_rejects_family_model_mismatch() -> None:
     import pytest
 

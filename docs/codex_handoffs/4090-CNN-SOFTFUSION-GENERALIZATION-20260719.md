@@ -456,3 +456,49 @@ ONNX or engine created by failed run = no
 ```
 
 --- ROUND 7 | 2026-07-19 19:01:13 +0800 ---
+
+## Round 8: make the real DiscoNet PixelWeight graph exportable
+
+All three baseline precisions reproduced one precision-independent export
+failure before TensorRT:
+
+```text
+TypeError: len() of a 0-d tensor (Occurred when translating size)
+```
+
+Root-cause evidence:
+
+- the synthetic DiscoFusion graph exported successfully;
+- the real checkpoint JIT graph exposed three negative-dimension
+  `aten::size` nodes under `fusion_net.pixel_weight_layer`;
+- they came from the historical, redundant
+  `view(-1, x.size(-3), x.size(-2), x.size(-1))` on an already 4-D tensor;
+- PyTorch 2.0 ONNX translation could not lower that negative-dimension size
+  after the custom scatter boundary.
+
+Minimal export-adapter fix:
+
+- `search/integration/softfusion_trt_export.py`
+  - executes the existing PixelWeightLayer Conv/BN/ReLU submodules directly;
+  - does not replace, resize, or reload any checkpoint parameter;
+  - preserves the exact weighted operation order and 4-D tensor semantics;
+  - removes only the redundant reshape from the export graph.
+- `tests/test_softfusion_trt_export.py`
+  - RED test captured the three PixelWeight `aten::size` nodes;
+  - GREEN test proves the export graph contains none.
+
+Verification:
+
+```text
+focused export/family/Stage-2 tests = 15 passed
+real checkpoint ONNX checker       = passed
+real weighted origin entries       = 32
+real ONNX bytes                     = 45,191,620
+py_compile                          = passed
+git diff --check                    = passed
+```
+
+The earlier failed baseline directory is retained as failure evidence and is
+not reused for the next fresh build.
+
+--- ROUND 8 | 2026-07-19 19:08:36 +0800 ---

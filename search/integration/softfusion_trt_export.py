@@ -41,6 +41,18 @@ def _base_bev_backbone_static(
     return value
 
 
+def _pixel_weight_layer_static(
+    pixel_weight_layer: nn.Module,
+    value: torch.Tensor,
+) -> torch.Tensor:
+    """Run the 4-D PixelWeightLayer without its redundant dynamic reshape."""
+
+    value = torch.relu(pixel_weight_layer.bn1_1(pixel_weight_layer.conv1_1(value)))
+    value = torch.relu(pixel_weight_layer.bn1_2(pixel_weight_layer.conv1_2(value)))
+    value = torch.relu(pixel_weight_layer.bn1_3(pixel_weight_layer.conv1_3(value)))
+    return torch.relu(pixel_weight_layer.conv1_4(value))
+
+
 class SearchTensorRTCompatibleSoftFusion(nn.Module):
     """B=1, dynamic-agent Max/Disco deployment wrapper."""
 
@@ -132,7 +144,10 @@ class SearchTensorRTCompatibleSoftFusion(nn.Module):
 
         ego = feature[:1].expand(feature.shape[0], -1, -1, -1)
         fusion_input = torch.cat((warped, ego), dim=1)
-        logits = self.model.fusion_net.pixel_weight_layer(fusion_input)
+        logits = _pixel_weight_layer_static(
+            self.model.fusion_net.pixel_weight_layer,
+            fusion_input,
+        )
         weights = torch.softmax(logits, dim=0)
         fused = torch.sum(weights.expand_as(warped) * warped, dim=0, keepdim=True)
         self.last_fusion_audit = {
@@ -190,5 +205,5 @@ class SearchTensorRTCompatibleSoftFusion(nn.Module):
 __all__ = [
     "SearchTensorRTCompatibleSoftFusion",
     "_base_bev_backbone_static",
+    "_pixel_weight_layer_static",
 ]
-
