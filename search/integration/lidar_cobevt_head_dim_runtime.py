@@ -131,6 +131,7 @@ def evaluate_synthetic_runtime(
         "diagnostic_latency_eligible": False,
         "input_cases": sorted(candidate_inputs_by_case),
         "latency_source": "production_engine",
+        "latency_status": "screening_shared_gpu",
         "measured_iterations": int(measured_iterations),
         "numerical_failure_reasons": numerical_failures,
         "numerical_safe": numerical_safe,

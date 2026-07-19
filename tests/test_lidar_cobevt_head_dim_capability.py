@@ -695,6 +695,7 @@ def test_synthetic_runtime_keeps_diagnostic_outputs_out_of_latency():
 
     assert result["runtime_success"] is True
     assert result["latency_source"] == "production_engine"
+    assert result["latency_status"] == "screening_shared_gpu"
     assert result["diagnostic_latency_eligible"] is False
     assert result["p50_ms"] == 2.5
     assert production.profiled_calls == 3
