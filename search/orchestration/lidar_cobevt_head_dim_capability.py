@@ -985,6 +985,19 @@ def build_capability_candidates(
     return {"attempted": attempted, "failed": failed, "succeeded": succeeded}
 
 
+def validated_engine_build_commit(
+    production_build: dict[str, Any], diagnostic_build: dict[str, Any]
+) -> str:
+    production_commit = str(production_build.get("code_commit", ""))
+    diagnostic_commit = str(diagnostic_build.get("code_commit", ""))
+    if not production_commit or production_commit != diagnostic_commit:
+        raise RuntimeError(
+            "engine_build_commit_mismatch:"
+            f"production={production_commit}:diagnostic={diagnostic_commit}"
+        )
+    return production_commit
+
+
 def run_capability_candidates(
     output_dir: str | Path,
     *,
@@ -1047,13 +1060,9 @@ def run_capability_candidates(
         diagnostic_build = json.loads(
             diagnostic_build_path.read_text(encoding="utf-8")
         )
-        if any(
-            str(payload.get("code_commit", "")) != code_commit
-            for payload in (production_build, diagnostic_build)
-        ):
-            raise RuntimeError(
-                f"capability_build_code_commit_mismatch:{candidate_id}"
-            )
+        engine_build_commit = validated_engine_build_commit(
+            production_build, diagnostic_build
+        )
         if not (
             production_build.get("trt_build_success")
             and diagnostic_build.get("trt_build_success")
@@ -1101,7 +1110,9 @@ def run_capability_candidates(
                 {
                     "candidate_hash": candidate.candidate_hash,
                     "candidate_id": candidate_id,
+                    "engine_build_code_commit": engine_build_commit,
                     "physical_gpu": int(physical_gpu),
+                    "runtime_code_commit": code_commit,
                     "same_shape_fp32_reference_id": reference_id,
                 }
             )
@@ -1111,8 +1122,10 @@ def run_capability_candidates(
                 "candidate_hash": candidate.candidate_hash,
                 "candidate_id": candidate_id,
                 "failure_reason": f"{type(exc).__name__}:{exc}",
+                "engine_build_code_commit": engine_build_commit,
                 "physical_gpu": int(physical_gpu),
                 "runtime_success": False,
+                "runtime_code_commit": code_commit,
                 "same_shape_fp32_reference_id": reference_id,
             }
             failed += 1
@@ -1656,6 +1669,7 @@ __all__ = [
     "prepare_real_cobevt_integration",
     "resolve_tensorrt_evidence",
     "run_capability_candidates",
+    "validated_engine_build_commit",
 ]
 
 

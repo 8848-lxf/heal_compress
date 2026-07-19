@@ -703,6 +703,68 @@ def test_synthetic_runtime_keeps_diagnostic_outputs_out_of_latency():
     assert result["numerical_safe"] is True
 
 
+def test_synthetic_runtime_accepts_tight_production_diagnostic_roundoff():
+    from search.integration.lidar_cobevt_head_dim_runtime import (
+        evaluate_synthetic_runtime,
+    )
+
+    candidate = _small_candidate(
+        d_qk=4,
+        d_v=4,
+        family="uniform",
+        profile="P0_strict_fp32",
+    )
+    output = torch.ones(3, 4, 16)
+    diagnostic = {
+        "output": output,
+        "qk_score": torch.ones(3, 2, 4, 4),
+        "softmax_output": torch.full((3, 2, 4, 4), 0.25),
+        "av_output": torch.ones(3, 2, 4, 4),
+    }
+
+    class Runner:
+        def __init__(self, outputs):
+            self.outputs = outputs
+
+        def run(self, inputs):
+            del inputs
+            return {key: value.clone() for key, value in self.outputs.items()}
+
+        def run_profiled(self, inputs):
+            return self.run(inputs), {"execute_async_ms": 1.0}
+
+    result = evaluate_synthetic_runtime(
+        candidate,
+        production_runner=Runner({"output": output + 1.0e-6}),
+        diagnostic_runner=Runner(diagnostic),
+        reference_diagnostic_runner=Runner(diagnostic),
+        input_cases=("deterministic",),
+        warmup_iterations=0,
+        measured_iterations=1,
+    )
+
+    assert result["runtime_success"] is True
+    assert result["production_diagnostic_parity"][0][
+        "relative_l2_error"
+    ] < 1.0e-5
+
+
+def test_runtime_accepts_immutable_engines_from_one_earlier_build_commit():
+    import pytest
+
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        validated_engine_build_commit,
+    )
+
+    assert validated_engine_build_commit(
+        {"code_commit": "build-a"}, {"code_commit": "build-a"}
+    ) == "build-a"
+    with pytest.raises(RuntimeError, match="engine_build_commit_mismatch"):
+        validated_engine_build_commit(
+            {"code_commit": "build-a"}, {"code_commit": "build-b"}
+        )
+
+
 def test_search_contract_uses_only_runtime_precision_identity_evidence():
     from search.reporting.cobevt_head_dim_capability import (
         derive_head_dim_search_contract,

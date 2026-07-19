@@ -73,6 +73,7 @@ def evaluate_synthetic_runtime(
         candidate, precision_profile="P0_strict_fp32"
     )
     parity_rows: list[dict[str, Any]] = []
+    production_diagnostic_parity: list[dict[str, Any]] = []
     candidate_inputs_by_case: dict[str, dict[str, torch.Tensor]] = {}
     for input_case in input_cases:
         case = str(input_case)
@@ -95,9 +96,12 @@ def evaluate_synthetic_runtime(
             production_outputs["output"],
             role="output",
         )
+        production_parity = {"input_case": case, **production_parity}
+        production_diagnostic_parity.append(production_parity)
         if not (
             production_parity["finite"]
-            and production_parity["max_absolute_error"] == 0.0
+            and production_parity["cosine_similarity"] >= 0.99999
+            and production_parity["relative_l2_error"] <= 1.0e-4
         ):
             raise RuntimeError("diagnostic_production_output_mismatch")
         for output_name, role in _DIAGNOSTIC_ROLES.items():
@@ -134,6 +138,7 @@ def evaluate_synthetic_runtime(
         "p90_ms": _percentile(timings, 0.90),
         "p99_ms": _percentile(timings, 0.99),
         "parity": parity_rows,
+        "production_diagnostic_parity": production_diagnostic_parity,
         "runtime_success": True,
         "warmup_iterations": int(warmup_iterations),
     }
