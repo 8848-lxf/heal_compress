@@ -422,3 +422,37 @@ No search, engine build, or AP result is claimed by this round; strongly typed
 DiscoNet readiness remains the fail-closed prerequisite for both searches.
 
 --- ROUND 6 | 2026-07-19 18:55:24 +0800 ---
+
+## Round 7: decouple baseline deployment from Stage-1 scale
+
+The first real `--baseline-only` attempt stopped before ONNX export with:
+
+```text
+RuntimeError: joint_taylor_joint_loss_scale_path_required
+```
+
+Root cause: the runner loaded the Stage-1 joint-loss scale before dispatching
+the baseline-only branch, although baseline export, TensorRT build, and AP
+evaluation do not consume that scale.
+
+Minimal fix:
+
+- `search/orchestration/lidar_pyramid_search.py`
+  - baseline-only context, GPU gate, and evaluator run first;
+  - Stage-1 scale loading remains mandatory immediately after that branch;
+  - normal Greedy/GA behavior is unchanged.
+- `tests/test_lidar_family_cli.py`
+  - reproduces a joint-Taylor config with no scale;
+  - proves baseline-only execution succeeds;
+  - search paths retain their existing scale validation tests.
+
+Verification:
+
+```text
+focused baseline/Stage-1/config tests = 21 passed
+py_compile                          = passed
+git diff --check                    = passed
+ONNX or engine created by failed run = no
+```
+
+--- ROUND 7 | 2026-07-19 19:01:13 +0800 ---

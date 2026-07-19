@@ -539,7 +539,6 @@ class LidarPyramidTwoStageSearch:
                 checkpoint=self.checkpoint,
                 code_commit=code_commit,
             )
-        joint_proxy_scale = _load_joint_proxy_scale(proxy_cfg)
         stage2_cfg = dict(self.config.get("stage2") or self.config.get("stage2_smoke") or self.config.get("evaluation", {}))
         constrained_cfg = dict(self.config.get("constrained_search", {}) or {})
         model_cfg = dict(self.config.get("model", {}))
@@ -717,6 +716,7 @@ class LidarPyramidTwoStageSearch:
                 "baseline_only": True,
                 "baselines": rows,
             }
+        joint_proxy_scale = _load_joint_proxy_scale(proxy_cfg)
         raw_unit_slices = build_unit_parameter_slices(context.model, context.atomic_prune_units)
         unit_slices = (
             raw_unit_slices
