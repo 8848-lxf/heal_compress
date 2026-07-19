@@ -1,0 +1,171 @@
+model:
+  family: lidar_disco
+  checkpoint: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_disco/net_epoch_bestval_at35.pth
+  config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_disco/config.yaml
+
+runtime:
+  gpu_id: "7"
+  exclude_gpu_ids: []
+  allow_foreign_gpu_processes: true
+  max_gpu_utilization_pct: 100
+  model_env: univ2x-opt
+  tensorrt_env: modelopt
+  tensorrt_root: /home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118
+  plugin_path: /home/lixingfeng/UniAD_examine/heal_compress/quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
+  plugin_boundary_dtype: fp32
+  stage2_gpu_ids: [7]
+  max_stage2_gpu_memory_fraction: 0.50
+
+output:
+  experiment_name: 4090_disco_joint_six_budget_ga
+
+structure_gene:
+  type: legal_keep_width
+  decoder: fixed_prune_only_taylor
+  ranking_mode: prune_only_second_order_fisher
+  ranking_depends_on_precision: false
+
+pruning:
+  gene_type: legal_keep_width
+  stage1_importance: prune_only_second_order_fisher
+  minimum_retained_ratio: 0.10
+  minimum_retained_channels: 4
+  domain_cap: 0.80
+  dense:
+    alignment: 4
+  grouped_conv:
+    preserve_group_count: true
+    allow_remove_groups: false
+    position_mode: independent_group_topk
+    default_channels_per_group: 4
+    allowed_channels_per_group: [4, 8, 16, 32, 64, 128, 256, 512]
+    require_group_keep_map: true
+
+precision_gene:
+  actions_from_deployment_capability: true
+
+precision:
+  gene_type: coupled_precision_group
+  candidates: [FP32, FP16, INT8]
+  default: FP16
+  preserve_existing_precision_groups: true
+  illegal_int8_policy: strict
+
+candidate_proxy:
+  mode: joint_pruning_quantization_second_order_fisher
+
+proxy:
+  proxy_mode: joint_taylor_second_order_fisher_diag
+  task_score_mapping: linear_fixed_scale
+  joint_loss_scale_path: null
+  include_activation_taylor: false
+  sqnr_main_objective_weight: 0.0
+  task_weight: 0.8
+  prune_weight: 0.2
+  backend: cuda_batched
+  device: auto
+  batch_size: 128
+  fisher_calibration_batches: 32
+  fisher_micro_batch_size: 1
+  quant_calibration_batches: 200
+  quant_calibration_npz_manifest: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json
+  quant_activation_calibration_backend: tensorrt_entropy_calibration2
+  quant_calibration_force_rebuild: true
+  bops_reference: original_strict_fp32
+  bops_definition: weight_bits_times_activation_bits
+
+repair:
+  role: exception_only
+  normal_candidate_repair_enabled: false
+  may_add_pruning: false
+  may_change_precision: false
+
+conditional_channel_refinement:
+  enabled: false
+
+greedy:
+  enabled: false
+
+search:
+  orchestration: single_seed_six_budget_joint_ga
+  targets: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
+  primary_bops_tolerance: 0.005
+  expanded_bops_tolerance: 0.0075
+  independent_seeds: 1
+  seed: 7190
+  initial_population_size: 64
+  population_size: 64
+  offspring_size: 64
+  generations: 15
+  topk_stage2: 5
+  elite_ratio: 0.10
+  crossover_rate: 0.80
+  width_mutation_rate: 0.12
+  precision_group_mutation_rate: 0.08
+  immigrant_ratio: 0.08
+  stagnation_generations: 6
+  stagnation_immigrant_ratio: 0.25
+  maintain_external_pareto_archive: true
+  per_generation_stage2: true
+  anchor_structure_manifest: null
+  greedy_endpoint_manifest: null
+  greedy_full_validation_manifest: null
+  stage2_artifact_retention:
+    enabled: true
+    removable_suffixes: [.onnx, .pth]
+    preserve_engine: true
+    content_addressed_audit: true
+
+stage2:
+  score_mode: map_minus_latency_ratio
+  latency_weight: 0.10
+  latency_metric: forward_p50_ms
+  ap_iou_backend: gpu
+  strict_gpu_ap_iou: true
+  num_frames: 500
+  warmup_frames: 20
+  smoke_frames: 10
+  smoke_warmup_frames: 10
+  reset_after_warmup: true
+  latency_rounds: 1
+  required_evaluated_frames: 500
+  required_skipped_frames: 0
+  shared_reference_precision: strict_fp32
+  num_workers: 8
+
+full_validation:
+  ap_iou_backend: gpu
+  strict_gpu_ap_iou: true
+  num_frames: 1789
+  warmup_frames: 20
+  required_evaluated_frames: 1789
+  required_skipped_frames: 0
+  num_workers: 8
+
+formal_latency:
+  gpu_id: auto
+  warmup_frames: 20
+  measured_frames: 1789
+  serial: true
+
+stage2_parallel:
+  enabled: true
+  gpu_ids: [7]
+  max_memory_fraction: 0.50
+  allow_controller_process_on_stage1_gpu: true
+  startup_timeout_seconds: 1200
+  task_timeout_seconds: 28800
+  poll_interval_seconds: 0.25
+
+pareto:
+  axes:
+    - map_vs_bops_retention
+    - map_vs_param_retention
+    - map_vs_latency_p50
+  official_results_require_full_validation: true
+  official_latency_requires_formal_same_gpu: true
+
+cache:
+  fresh_run: true
+  reuse_external_cache: false
+  resume: false

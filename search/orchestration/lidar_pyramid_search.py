@@ -39,7 +39,7 @@ from ..constrained.population import (
 from ..ga.engine import GAConfig, GeneticSearchEngine
 from ..hashing import candidate_hash, canonical_json_hash, search_hash
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
-from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
+from ..integration.lidar_family_context import build_lidar_family_context
 from ..integration.runtime_environment import query_gpus, require_gpu_isolation
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.fisher_proxy import FisherTaylorProxy
@@ -62,7 +62,7 @@ from ..pruning_space.mask_repair import GroupedDomainSpec, RepairPolicy, dense_f
 from ..stage1.proxy_evaluator import Stage1ProxyEvaluator
 from ..stage1.repair_selection import select_repaired_stage2_topk
 from ..stage1.topk_selector import ProxyCandidateRecord, TopKConfig, select_stage1_topk
-from ..stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
+from ..stage2.lidar_family_real_evaluator import LidarFamilyRealEvaluator
 from ..stage2.objective import Stage2ObjectiveConfig
 from ..stage2.repaired_topk_manifest import write_repaired_topk_manifest
 from ..stage2.round_results import write_round_stage2_results
@@ -89,6 +89,15 @@ from .formal_latency import (
     select_formal_latency_gpu,
 )
 from .stage2_process_pool import PersistentStage2ProcessPool
+
+
+SIX_BUDGET_ORCHESTRATION_NAMES = frozenset(
+    {
+        "three_seed_six_budget_joint_ga",
+        "single_seed_six_budget_joint_ga",
+        "six_budget_joint_ga",
+    }
+)
 
 
 def _write_json(path: str | Path, payload: Any) -> None:
@@ -535,7 +544,8 @@ class LidarPyramidTwoStageSearch:
         constrained_cfg = dict(self.config.get("constrained_search", {}) or {})
         model_cfg = dict(self.config.get("model", {}))
         gpu_isolation_policy = _gpu_isolation_policy(runtime)
-        context = build_lidar_pyramid_context(
+        context = build_lidar_family_context(
+            model_family=str(model_cfg.get("family", "lidar_pyramid")),
             checkpoint_path=self.checkpoint,
             output_dir=run_dir,
             model_config_path=model_cfg.get("config") or model_cfg.get("hypes_yaml"),
@@ -657,7 +667,7 @@ class LidarPyramidTwoStageSearch:
                 **gpu_isolation_policy,
             )
         if baseline_only:
-            real_evaluator = LidarPyramidRealEvaluator(
+            real_evaluator = LidarFamilyRealEvaluator(
                 context=context,
                 run_dir=run_dir,
                 num_frames=int(stage2_cfg.get("num_frames", 5)),
@@ -968,7 +978,7 @@ class LidarPyramidTwoStageSearch:
             self.config["proxy"] = proxy_cfg
         elif greedy_only:
             raise RuntimeError("greedy_only_requires_greedy_enabled")
-        real_evaluator = LidarPyramidRealEvaluator(
+        real_evaluator = LidarFamilyRealEvaluator(
             context=context,
             run_dir=run_dir,
             num_frames=int(stage2_cfg.get("num_frames", 5)),
@@ -1095,11 +1105,11 @@ class LidarPyramidTwoStageSearch:
         if legal_width_mode:
             if (
                 str(search_cfg.get("orchestration", ""))
-                == "three_seed_six_budget_joint_ga"
+                in SIX_BUDGET_ORCHESTRATION_NAMES
             ):
                 if stage1_only:
                     raise RuntimeError(
-                        "three_seed_six_budget_joint_ga_requires_stage2_execution"
+                        "six_budget_joint_ga_requires_stage2_execution"
                     )
                 if stage2_pool is None:
                     raise RuntimeError("joint_six_budget_stage2_process_pool_required")
@@ -1914,7 +1924,7 @@ class LidarPyramidTwoStageSearch:
         self,
         context: Any,
         proxy: Stage1ProxyEvaluator,
-        real_evaluator: LidarPyramidRealEvaluator,
+        real_evaluator: LidarFamilyRealEvaluator,
         run_dir: Path,
         search_cfg: dict[str, Any],
         *,

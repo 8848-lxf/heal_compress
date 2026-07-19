@@ -249,7 +249,7 @@ git commit -m "feat: add family aware strongly typed stage2"
 - Produces: family-neutral six-budget orchestration accepting `independent_seeds=1`.
 - Produces: Disco configs with 15 generations and Stage-2 Top-5 cap.
 
-- [ ] **Step 1: Write failing config-contract tests for the exact budgets, one seed, 15 generations, population/offspring 64, and Top-5 cap.**
+- [x] **Step 1: Write failing config-contract tests for the exact budgets, one seed, 15 generations, population/offspring 64, and Top-5 cap.**
 
 ```python
 def test_disco_ga_contract(config):
@@ -259,13 +259,13 @@ def test_disco_ga_contract(config):
     assert config["search"]["topk_stage2"] == 5
 ```
 
-- [ ] **Step 2: Write failing orchestration tests proving build count never exceeds five and no backfill build occurs after the selected Top-5.**
+- [x] **Step 2: Write failing orchestration tests proving build count never exceeds five and no backfill build occurs after the selected Top-5.**
 
-- [ ] **Step 3: Implement family-neutral naming while preserving three-seed Pyramid behavior for its existing config.**
+- [x] **Step 3: Implement family-neutral naming while preserving three-seed Pyramid behavior for its existing config.**
 
-- [ ] **Step 4: Add the two Disco configs with content-addressed artifact retention enabled.**
+- [x] **Step 4: Add the two Disco configs with content-addressed artifact retention enabled.**
 
-- [ ] **Step 5: Run tests and commit.**
+- [x] **Step 5: Run tests and commit.**
 
 ```bash
 git add search/orchestration/legal_width_six_budget_ga.py search/orchestration/lidar_pyramid_search.py search/cli.py search/configs/lidar_disco_4090_greedy_six_budget.yaml search/configs/lidar_disco_4090_joint_six_budget_ga.yaml tests/test_single_seed_six_budget_ga.py tests/test_lidar_family_cli.py

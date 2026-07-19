@@ -1,4 +1,4 @@
-"""Three-seed, six-budget legal-width GA with one Stage-2 decision per generation."""
+"""Multi-seed, six-budget legal-width GA with one Stage-2 decision per generation."""
 
 from __future__ import annotations
 
@@ -359,7 +359,7 @@ def run_six_budget_joint_ga(
     run_dir: str | Path,
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Run three independent populations and one merged Stage-2 per generation."""
+    """Run configured populations and one merged Stage-2 per generation."""
 
     targets = sorted({float(value) for value in config.get("targets", ())})
     if not targets:
@@ -369,15 +369,17 @@ def run_six_budget_joint_ga(
     population_size = int(config.get("population_size", 64))
     offspring_size = int(config.get("offspring_size", 64))
     generations = int(config.get("generations", 20))
-    if seed_count != 3:
-        raise ValueError("six_budget_ga_requires_three_independent_seeds")
+    if seed_count < 1:
+        raise ValueError("six_budget_ga_requires_at_least_one_seed")
     if min(initial_size, population_size, offspring_size) < 64:
         raise ValueError("six_budget_ga_population_and_offspring_must_be_at_least_64")
-    if generations != 20:
-        raise ValueError("six_budget_ga_generations_must_equal_20")
+    if generations < 1:
+        raise ValueError("six_budget_ga_requires_at_least_one_generation")
     primary_tolerance = float(config.get("primary_bops_tolerance", 0.005))
     expanded_tolerance = float(config.get("expanded_bops_tolerance", 0.0075))
     topk = int(config.get("topk_stage2", 5))
+    if not 1 <= topk <= 5:
+        raise ValueError("six_budget_ga_stage2_topk_must_be_between_1_and_5")
     smoke_frames = int(config.get("smoke_frames", 10))
     smoke_warmup_frames = int(config.get("smoke_warmup_frames", 10))
     destination = Path(run_dir)

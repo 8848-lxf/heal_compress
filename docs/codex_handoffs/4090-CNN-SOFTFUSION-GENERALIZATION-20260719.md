@@ -370,3 +370,55 @@ Tests:
 ```
 
 --- ROUND 5 | 2026-07-19 18:47:40 +0800 ---
+
+## Round 6: single-seed DiscoNet six-budget orchestration
+
+Implemented:
+
+- `search/orchestration/legal_width_six_budget_ga.py`
+  - accepts one or more independent seeds instead of hard-coding three;
+  - keeps the existing Pyramid three-seed configuration valid;
+  - enforces population and offspring sizes of at least 64;
+  - enforces a Stage-2 build cap in `[1, 5]`;
+  - retains one Stage-2 decision per budget and generation.
+- `search/orchestration/lidar_pyramid_search.py`
+  - routes the formal runner through family-aware context and evaluator hooks;
+  - recognizes legacy three-seed, new single-seed, and generic six-budget names;
+  - leaves existing Pyramid defaults unchanged.
+- `search/configs/lidar_disco_4090_joint_six_budget_ga.yaml`
+  - six targets: `0.05, 0.10, 0.15, 0.20, 0.25, 0.30`;
+  - one seed, 64 initial/population/offspring, 15 generations;
+  - at most five Stage-2 engines per generation;
+  - real 500-frame generation evaluation and 1789-frame final validation;
+  - completed-candidate content-addressed audit storage;
+  - GPU AP IoU with eight DataLoader workers.
+- `search/configs/lidar_disco_4090_greedy_six_budget.yaml`
+  - identical six budgets;
+  - final endpoint deployment only;
+  - real strongly typed deployment and full validation protocol.
+
+GPU policy:
+
+```text
+Stage-1 GPU = 7
+Stage-2 GPUs = [7]
+per-process memory fraction <= 0.50
+foreign processes are not killed or paused
+shared-GPU timing is screening only
+formal latency requires a later isolated serial replay
+```
+
+Verification:
+
+```text
+single-seed/config/Pyramid compatibility tests = 11 passed
+Disco GA CLI dry-run                          = passed
+Disco Greedy CLI dry-run                      = passed
+py_compile                                    = passed
+git diff --check                              = passed
+```
+
+No search, engine build, or AP result is claimed by this round; strongly typed
+DiscoNet readiness remains the fail-closed prerequisite for both searches.
+
+--- ROUND 6 | 2026-07-19 18:55:24 +0800 ---
