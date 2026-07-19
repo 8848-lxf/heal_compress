@@ -307,8 +307,15 @@ def _run_greedy_endpoint_stage2_resume(
         task_timeout_seconds=task_timeout,
         poll_interval_seconds=poll_interval,
     )
+    # Each resume gets a fresh task namespace.  Reusing queue/result filenames
+    # after an interrupted controller can pair a new task ID with stale output.
+    pool_run_dir = (
+        destination
+        / "greedy_endpoint_stage2_execution"
+        / f"attempt_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
+    )
     pool = PersistentStage2ProcessPool(
-        run_dir=destination / "greedy_endpoint_stage2_execution",
+        run_dir=pool_run_dir,
         gpu_ids=worker_gpu_ids,
         worker_payload={
             "config": runtime_config,
@@ -343,6 +350,7 @@ def _run_greedy_endpoint_stage2_resume(
         "greedy_endpoint_stage2": True,
         "selected_gpu_ids": worker_gpu_ids,
         "shared_stage2_reference": shared_reference,
+        "pool_run_dir": str(pool_run_dir.resolve()),
         "result": result,
     }
     _write_json(destination / "greedy_endpoint_stage2_result.json", payload)
