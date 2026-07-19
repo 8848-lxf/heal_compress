@@ -660,3 +660,39 @@ git diff --check                              = passed
 ```
 
 --- ROUND 12 | 2026-07-19 20:19:18 +0800 ---
+
+## Round 13: complete DiscoNet six-budget Greedy Stage-1 and compact traces
+
+The resumed legal-width Greedy search completed all six requested BOPS
+budgets with the unchanged primary tolerance of +/-0.005. Every endpoint was
+admitted by the primary band; the expanded +/-0.0075 band was not needed for
+the selected endpoint.
+
+```text
+target   endpoint R_BOPS   admission
+0.05     0.054996405       primary
+0.10     0.102304861       primary
+0.15     0.152289152       primary
+0.20     0.200173050       primary
+0.25     0.252669007       primary
+0.30     0.304440916       primary
+
+unique proxy evaluations = 27,590
+infeasible budgets        = 0
+normal candidate repair   = 0
+proxy device              = cuda:7 (physical GPU 7)
+```
+
+The lowest endpoint is a proxy result only. It still requires physical
+materialization, ONNX/QDQ export, strongly-typed TensorRT construction,
+deserialization, smoke evaluation, and full validation before it can be used
+as a deployment result.
+
+The Greedy trace writer now defaults to `greedy-compact-v1`: accepted path,
+terminal state, BOPS funnel, rejection counts, evaluated-state count, and a
+deterministic state-hash digest are retained; repeated full evaluated
+phenotypes are omitted. Existing completed traces were compacted from roughly
+1.0 GiB to roughly 15 MiB after verifying counts and digests. `trace_detail:
+full` remains available for targeted debugging.
+
+--- ROUND 13 | 2026-07-19 21:37:19 +0800 ---
