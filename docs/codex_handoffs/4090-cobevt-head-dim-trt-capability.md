@@ -139,3 +139,50 @@ No Pyramid process was modified, paused, killed, or restarted.
 ---
 
 Round 1 completed at 2026-07-19 12:19:06 Asia/Shanghai.
+
+## Round 2: same-shape FP32 runtime reference gate
+
+The first seven-way synthetic runtime attempt exposed a diagnostic-engine
+comparison bug. A production engine and a diagnostic engine expose the same
+Attention output, but registering QK/Softmax/AV tensors as additional outputs
+changes TensorRT fusion and tactics. The two engines can therefore differ more
+than a strict roundoff threshold in low precision even when both remain close to
+the same-shape strict-FP32 reference.
+
+The runtime evaluator now:
+
+- retains `production_vs_diagnostic` parity as diagnostic provenance;
+- evaluates production output against the same-shape P0 FP32 engine;
+- separately evaluates all diagnostic tensors against that same P0 engine;
+- applies numerical safety gates to both reference comparisons;
+- never treats diagnostic-engine latency as deployment latency.
+
+Changed files:
+
+- `search/integration/lidar_cobevt_head_dim_runtime.py`: added
+  `production_reference_parity` and removed the invalid production/diagnostic
+  equality admission gate.
+- `tests/test_lidar_cobevt_head_dim_capability.py`: added a RED-to-GREEN test in
+  which production and diagnostic outputs differ from one another but are both
+  within the accepted error bound of the same-shape FP32 reference.
+
+Validation:
+
+- focused regression: `35 passed`;
+- modified Python files compile;
+- `git diff --check` passes.
+
+Operational evidence:
+
+- 282/282 production engines and 282/282 diagnostic engines were already built
+  successfully before this runtime-only correction;
+- 44 reports emitted by the obsolete gate were retained under each candidate's
+  `runtime_attempts/` directory;
+- only the seven orphaned CoBEVT runtime children from that obsolete attempt
+  were terminated; no Pyramid GA process was modified;
+- user-approved shared GPUs are used for screening, so all current latency is
+  labeled `screening_shared_gpu`, not formal isolated latency.
+
+---
+
+Round 2 completed at 2026-07-19 13:17:48 Asia/Shanghai.

@@ -74,6 +74,7 @@ def evaluate_synthetic_runtime(
     )
     parity_rows: list[dict[str, Any]] = []
     production_diagnostic_parity: list[dict[str, Any]] = []
+    production_reference_parity: list[dict[str, Any]] = []
     candidate_inputs_by_case: dict[str, dict[str, torch.Tensor]] = {}
     for input_case in input_cases:
         case = str(input_case)
@@ -96,21 +97,37 @@ def evaluate_synthetic_runtime(
             production_outputs["output"],
             role="output",
         )
-        production_parity = {"input_case": case, **production_parity}
+        production_parity = {
+            "comparison": "production_vs_diagnostic",
+            "input_case": case,
+            **production_parity,
+        }
         production_diagnostic_parity.append(production_parity)
-        if not (
-            production_parity["finite"]
-            and production_parity["cosine_similarity"] >= 0.99999
-            and production_parity["relative_l2_error"] <= 1.0e-4
-        ):
-            raise RuntimeError("diagnostic_production_output_mismatch")
+        reference_parity = attention_tensor_parity(
+            reference_outputs["output"],
+            production_outputs["output"],
+            role="output",
+        )
+        reference_parity = {
+            "comparison": "production_vs_same_shape_fp32",
+            "input_case": case,
+            **reference_parity,
+        }
+        production_reference_parity.append(reference_parity)
+        parity_rows.append(reference_parity)
         for output_name, role in _DIAGNOSTIC_ROLES.items():
             metrics = attention_tensor_parity(
                 reference_outputs[output_name],
                 candidate_outputs[output_name],
                 role=role,
             )
-            parity_rows.append({"input_case": case, **metrics})
+            parity_rows.append(
+                {
+                    "comparison": "diagnostic_vs_same_shape_fp32",
+                    "input_case": case,
+                    **metrics,
+                }
+            )
 
     timing_case = (
         "random_normal"
@@ -140,6 +157,7 @@ def evaluate_synthetic_runtime(
         "p99_ms": _percentile(timings, 0.99),
         "parity": parity_rows,
         "production_diagnostic_parity": production_diagnostic_parity,
+        "production_reference_parity": production_reference_parity,
         "runtime_success": True,
         "warmup_iterations": int(warmup_iterations),
     }

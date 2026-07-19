@@ -750,6 +750,57 @@ def test_synthetic_runtime_accepts_tight_production_diagnostic_roundoff():
     ] < 1.0e-5
 
 
+def test_runtime_gates_production_and_diagnostic_against_same_shape_reference():
+    from search.integration.lidar_cobevt_head_dim_runtime import (
+        evaluate_synthetic_runtime,
+    )
+
+    candidate = _small_candidate(
+        d_qk=4,
+        d_v=4,
+        family="uniform",
+        profile="P1_strict_fp16_native",
+    )
+    output = torch.ones(3, 4, 16)
+
+    class Runner:
+        def __init__(self, outputs):
+            self.outputs = outputs
+
+        def run(self, inputs):
+            del inputs
+            return {key: value.clone() for key, value in self.outputs.items()}
+
+        def run_profiled(self, inputs):
+            return self.run(inputs), {"execute_async_ms": 1.0}
+
+    reference = {
+        "output": output,
+        "qk_score": torch.ones(3, 2, 4, 4),
+        "softmax_output": torch.full((3, 2, 4, 4), 0.25),
+        "av_output": torch.ones(3, 2, 4, 4),
+    }
+    diagnostic = {**reference, "output": output * 0.95}
+    result = evaluate_synthetic_runtime(
+        candidate,
+        production_runner=Runner({"output": output * 1.05}),
+        diagnostic_runner=Runner(diagnostic),
+        reference_diagnostic_runner=Runner(reference),
+        input_cases=("deterministic",),
+        warmup_iterations=0,
+        measured_iterations=1,
+    )
+
+    assert result["runtime_success"] is True
+    assert result["numerical_safe"] is True
+    assert result["production_diagnostic_parity"][0][
+        "relative_l2_error"
+    ] > 0.1
+    assert result["production_reference_parity"][0][
+        "relative_l2_error"
+    ] < 0.1
+
+
 def test_runtime_accepts_immutable_engines_from_one_earlier_build_commit():
     import pytest
 
