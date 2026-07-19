@@ -844,6 +844,9 @@ def test_search_contract_uses_only_runtime_precision_identity_evidence():
             "d_v": 16,
             "precision_profile": "P2_f3_mixed",
             "fused_mha_detected": False,
+            "graph_variant": "projection_attention",
+            "real_cobevt_fixed500_complete": True,
+            "real_cobevt_structure_legal": True,
         },
         {
             **common,
@@ -877,6 +880,9 @@ def test_search_contract_uses_only_runtime_precision_identity_evidence():
         "fp16_primitive_supported_head_dims"
     ] == [24]
     assert contract["uniform_attention"]["f3_supported_head_dims"] == [16]
+    assert contract["search_space_recommendation"][
+        "real_f3_accuracy_safe_widths"
+    ] == [16]
     assert contract["uniform_attention"]["int8_fused_supported_head_dims"] == [
         32
     ]

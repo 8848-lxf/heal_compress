@@ -585,6 +585,18 @@ def derive_head_dim_search_contract(
                 profile="P2_f3_mixed",
                 require_accuracy=True,
             ),
+            "real_f3_accuracy_safe_widths": sorted(
+                {
+                    int(row["d_qk"])
+                    for row in evidence
+                    if row.get("graph_variant") == "projection_attention"
+                    and row.get("structure_family") == "uniform"
+                    and row.get("precision_profile") == "P2_f3_mixed"
+                    and row.get("real_cobevt_fixed500_complete") is True
+                    and row.get("real_cobevt_structure_legal") is True
+                    and row.get("accuracy_safe") is True
+                }
+            ),
             "forbidden_precision_shape_pairs": sorted(
                 forbidden,
                 key=lambda row: (
@@ -1023,7 +1035,8 @@ def write_root_conclusion(
             "",
             f"- Uniform FP32 supported widths: `{contract.get('uniform_attention', {}).get('fp32_supported_head_dims', [])}`.",
             f"- Uniform FP16 fused widths: `{contract.get('uniform_attention', {}).get('fp16_fused_supported_head_dims', [])}`.",
-            f"- Uniform F3 accuracy-safe widths in this matrix: `{contract.get('uniform_attention', {}).get('f3_supported_head_dims', [])}` (synthetic rows have no AP, so real fixed500 evidence remains limited).",
+            f"- Uniform synthetic exact-F3 widths: `{contract.get('uniform_attention', {}).get('f3_supported_head_dims', [])}`.",
+            f"- Uniform real F3 fixed500 accuracy-safe widths: `{contract.get('search_space_recommendation', {}).get('real_f3_accuracy_safe_widths', [])}`; this is the limited d32/d48/d64 final subset, not evidence for every structural width.",
             f"- QK-only supported widths: `{contract.get('qk_only', {}).get('supported_d_qk', [])}`.",
             f"- V-only supported widths: `{contract.get('v_only', {}).get('supported_d_v', [])}`.",
             "- INT8 projection/native rows in this run are not promoted to a safe",
