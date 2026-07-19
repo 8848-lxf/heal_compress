@@ -502,3 +502,48 @@ The earlier failed baseline directory is retained as failure evidence and is
 not reused for the next fresh build.
 
 --- ROUND 8 | 2026-07-19 19:08:36 +0800 ---
+
+## Round 9: audit strongly typed fused DiscoNet concat boundaries
+
+Fresh strict FP32 and strict FP16 engines built successfully, but the existing
+merge audit rejected `/Concat_7` as `not_yet_verified`.
+
+EngineInspector evidence showed that TensorRT fused:
+
+```text
+GridSample -> Slice -> /Concat_7 -> explicit downstream Cast
+```
+
+into one kgen layer. The layer Metadata names both `/Concat_7` and the
+downstream Cast. The typed graph independently proves that every Concat input
+has an explicit FP16 Cast. In strict FP32 the fused layer exposes the tensor
+after its downstream FP32 Cast; in strict FP16 it exposes Half. Therefore the
+old audit incorrectly treated the final fused-layer output dtype as the Concat
+semantic dtype.
+
+Implemented in `search/stage2/lidar_pyramid_real_evaluator.py`:
+
+- match compiler-fused merges through exact EngineInspector Metadata tokens;
+- accept an FP16 Concat only when all graph branches explicitly cast to FP16;
+- additionally require a named downstream Cast after the merge in Metadata;
+- retain fail-closed behavior when either proof is absent.
+
+Real saved-engine replay:
+
+```text
+strict_fp32 /Concat   = FP16, compiler_backend_merge_tensor_match
+strict_fp32 /Concat_7 = FP16, graph_constrained_fp16_concat_fused_with_downstream_cast
+strict_fp16 /Concat   = FP16, compiler_backend_merge_tensor_match
+strict_fp16 /Concat_7 = FP16, graph_constrained_fp16_concat_fused_with_downstream_cast
+issues = []
+```
+
+Verification:
+
+```text
+focused merge/family Stage-2 tests = 7 passed
+py_compile                         = passed
+git diff --check                   = passed
+```
+
+--- ROUND 9 | 2026-07-19 19:15:30 +0800 ---

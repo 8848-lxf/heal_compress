@@ -176,6 +176,15 @@ def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result:
             ]
             if matched:
                 optimization = "compiler_backend_merge_tensor_match"
+        if not matched and name:
+            marker = f"[ONNX Layer: {name}]"
+            matched = [
+                layer
+                for layer in layers
+                if marker in str(layer.get("Metadata", ""))
+            ]
+            if matched:
+                optimization = "compiler_backend_metadata_fused_merge"
         if not matched and str(merge.get("merge_op_type")) == "Concat":
             downstream_q = [
                 str(row.get("consumer", ""))
@@ -195,11 +204,27 @@ def _engine_merge_precision_realization(layer_info_path: str | Path, qdq_result:
             bool(branch.get("cast_to_fp16", False))
             for branch in merge.get("input_branches", [])
         )
+        metadata_fused_downstream_cast = False
+        if optimization == "compiler_backend_metadata_fused_merge":
+            marker = f"[ONNX Layer: {name}]"
+            for layer in matched:
+                metadata = str(layer.get("Metadata", ""))
+                marker_index = metadata.find(marker)
+                if marker_index >= 0 and "Cast]" in metadata[marker_index + len(marker) :]:
+                    metadata_fused_downstream_cast = True
+                    break
         fused_weighted_compute = any(
             any(token in str(layer.get("LayerType", "")).lower() for token in ("conv", "gemm", "matmul"))
             for layer in matched
         )
         if (
+            str(merge.get("merge_op_type")) == "Concat"
+            and graph_fp16_casts
+            and metadata_fused_downstream_cast
+        ):
+            precision = "FP16"
+            optimization = "graph_constrained_fp16_concat_fused_with_downstream_cast"
+        elif (
             str(merge.get("merge_op_type")) == "Add"
             and graph_fp16_casts
             and fused_weighted_compute
