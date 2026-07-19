@@ -750,6 +750,21 @@ def run_greedy_endpoint_full_validation(
         if str(result.get("status", "")) != "ok":
             continue
         metrics = dict(endpoint.get("metrics", {}) or {})
+        requested_precision_hash = str(
+            result.get("requested_precision_profile_hash")
+            or metrics.get("requested_precision_profile_hash")
+            or ""
+        )
+        raw_precision_hash = str(
+            result.get("raw_precision_gene_hash")
+            or metrics.get("raw_precision_gene_hash")
+            or requested_precision_hash
+        )
+        repaired_precision_hash = str(
+            result.get("repaired_precision_gene_hash")
+            or metrics.get("repaired_precision_gene_hash")
+            or requested_precision_hash
+        )
         built.append(
             {
                 **dict(endpoint),
@@ -762,6 +777,14 @@ def run_greedy_endpoint_full_validation(
                 ),
                 "R_param": 1.0
                 - float(metrics.get("R_prune", 1.0 - metrics.get("R_param", 1.0))),
+                "raw_precision_gene_hash": raw_precision_hash,
+                "repaired_precision_gene_hash": repaired_precision_hash,
+                "requested_precision_profile_hash": requested_precision_hash,
+                "realized_precision_profile_hash": str(
+                    result.get("realized_precision_profile_hash")
+                    or metrics.get("realized_precision_profile_hash")
+                    or requested_precision_hash
+                ),
             }
         )
     tasks = []
