@@ -89,7 +89,7 @@ greedy:
   primary_tolerance: 0.005
   expanded_tolerance: 0.0075
   frontier_size: 1
-  max_expansions: 16384
+  max_expansions: 65536
   deploy_final_only: true
 
 stage2:

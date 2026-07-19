@@ -40,6 +40,7 @@ from ..ga.engine import GAConfig, GeneticSearchEngine
 from ..hashing import candidate_hash, canonical_json_hash, search_hash
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
 from ..integration.lidar_family_context import build_lidar_family_context
+from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
 from ..integration.runtime_environment import query_gpus, require_gpu_isolation
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.fisher_proxy import FisherTaylorProxy

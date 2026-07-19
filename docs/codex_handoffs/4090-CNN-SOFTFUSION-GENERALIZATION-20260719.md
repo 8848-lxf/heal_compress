@@ -621,3 +621,42 @@ The incomplete 2.1-GiB run contains no endpoint or deployment result and is
 removed after this audit is committed. The Greedy search restarts fresh.
 
 --- ROUND 11 | 2026-07-19 19:52:53 +0800 ---
+
+## Round 12: size the DiscoNet Greedy state bound from its legal space
+
+The first compact-cache run reached the configured 16,384-state cap for the
+0.05 target. Its nearest state remained at BOPS retention 0.244341 with zero
+INT8 MAC share, so the resulting `infeasible` status was a search-cap failure,
+not a model reachability result.
+
+DiscoNet inventory audit:
+
+```text
+legal-width domains = 25
+adjacent width-decrease actions on a complete path = 842
+maximum precision-decrease actions = 64
+maximum monotonic path actions = 906
+maximum simultaneous successors = 57
+conservative state bound = 51,643
+```
+
+Implemented:
+
+- Disco Greedy `max_expansions` raised from 16,384 to 65,536;
+- BOPS targets and tolerances remain unchanged;
+- action ordering, Taylor score, and legal widths remain unchanged;
+- the incomplete run is resumed so its Fisher statistics and compact proxy
+  cache are reused;
+- the legacy `build_lidar_pyramid_context` runner symbol is retained for
+  Pyramid API/test compatibility while execution continues through family
+  hooks.
+
+Verification:
+
+```text
+Greedy/config/family/Pyramid compatibility tests = 15 passed
+py_compile                                    = passed
+git diff --check                              = passed
+```
+
+--- ROUND 12 | 2026-07-19 20:19:18 +0800 ---

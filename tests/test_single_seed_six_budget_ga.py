@@ -130,6 +130,7 @@ def test_disco_greedy_config_has_same_six_budgets() -> None:
     assert config["model"]["family"] == "lidar_disco"
     assert config["greedy"]["targets"] == [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
     assert config["greedy"]["deploy_final_only"] is True
+    assert config["greedy"]["max_expansions"] == 65536
     assert config["stage2"]["num_frames"] == 500
     assert config["baselines"]["precisions"] == [
         "strict_fp32",
