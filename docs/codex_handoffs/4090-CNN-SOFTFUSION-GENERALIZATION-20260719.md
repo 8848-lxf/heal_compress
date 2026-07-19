@@ -547,3 +547,27 @@ git diff --check                   = passed
 ```
 
 --- ROUND 9 | 2026-07-19 19:15:30 +0800 ---
+
+## Round 10: DiscoNet strongly typed readiness accepted
+
+Fresh all-keep strict FP32, strict FP16, and maximal legal INT8 engines completed
+the same real 500-frame protocol on GPU 7. Full results and hashes are recorded
+in `docs/codex_handoffs/4090-DISCONET-STRONGLY-TYPED-READINESS.md`.
+
+Key result:
+
+```text
+strict FP32 mAP / BOPS = 0.603354 / 1.000000
+strict FP16 mAP / BOPS = 0.603948 / 0.250000
+maximal INT8 mAP / BOPS = 0.512429 / 0.062500
+all evaluated = 500
+all skipped = 0
+requested/realized mismatches = 0
+DISCONET_READY_FOR_SEARCH = true
+formal isolated latency = pending
+```
+
+The readiness output occupies 1.2 GiB under `/var/tmp`; no ONNX, engine,
+calibration cache, or checkpoint is added to Git.
+
+--- ROUND 10 | 2026-07-19 19:35:51 +0800 ---

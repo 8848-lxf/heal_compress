@@ -281,21 +281,21 @@ git commit -m "feat: configure DiscoNet six budget search"
 **Interfaces:**
 - Produces: timestamped readiness output and `DISCONET_READY_FOR_SEARCH=true|false`.
 
-- [ ] **Step 1: Select GPUs that do not overlap active Pyramid processes and record UUID/utilization/memory/processes.**
+- [x] **Step 1: Use user-approved GPU 7 with shared-process provenance; reserve isolated replay for formal latency.**
 
-- [ ] **Step 2: Generate fixed smoke10, calibration train200, fixed500, and full-validation manifests with hashes.**
+- [x] **Step 2: Resolve calibration train200 and fixed500 manifests with hashes; retain full-validation protocol for winners.**
 
-- [ ] **Step 3: Run physical all-keep export parity and ONNX checker.**
+- [x] **Step 3: Run physical all-keep export parity and ONNX checker.**
 
-- [ ] **Step 4: Build fresh strongly typed strict-FP32, strict-FP16, and supported explicit-QDQ baselines in `modelopt`.**
+- [x] **Step 4: Build fresh strongly typed strict-FP32, strict-FP16, and supported explicit-QDQ baselines in `modelopt`.**
 
-- [ ] **Step 5: Run smoke10 and fixed500 with GPU AP IoU, evaluated count exact, and zero skipped frames.**
+- [x] **Step 5: Run the stronger fixed500 runtime/AP gate with GPU AP IoU, exact evaluated count, and zero skipped frames.**
 
-- [ ] **Step 6: Audit EngineInspector, requested/realized precision, QDQ, fusion Softmax/weighted-sum contract, BOPS, and plugin boundary.**
+- [x] **Step 6: Audit EngineInspector, requested/realized precision, QDQ, fusion Softmax/weighted-sum contract, BOPS, and plugin boundary.**
 
-- [ ] **Step 7: Stop if readiness fails; record direct evidence without weakening gates.**
+- [x] **Step 7: Stop if readiness fails; record direct evidence without weakening gates.**
 
-- [ ] **Step 8: Commit lightweight evidence and report.**
+- [x] **Step 8: Commit lightweight evidence and report.**
 
 ```bash
 git add docs/codex_handoffs/4090-DISCONET-STRONGLY-TYPED-READINESS.md docs/codex_handoffs/4090-CNN-SOFTFUSION-GENERALIZATION-20260719.md
