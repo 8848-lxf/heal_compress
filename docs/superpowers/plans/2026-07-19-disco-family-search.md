@@ -213,21 +213,21 @@ git commit -m "feat: export fixedK HEAL soft fusion models"
 - Produces: `LidarFamilySearchContext` extending the shared context fields with `family_spec` and `export_module_factory`.
 - Produces: `LidarFamilyRealEvaluator` using family hooks while retaining the production physical/QDQ/TRT/evaluation core.
 
-- [ ] **Step 1: Write failing tests that Pyramid and Disco contexts select different exporters but identical shared BOPS and process-pool contracts.**
+- [x] **Step 1: Write failing tests that Pyramid and Disco contexts select different exporters but identical shared BOPS and process-pool contracts.**
 
-- [ ] **Step 2: Write failing tests that Disco weighted fusion layers enter canonical precision mapping and functional Softmax remains an explicit floating contract.**
+- [x] **Step 2: Write failing tests that Disco weighted fusion layers enter canonical precision mapping and functional Softmax remains an explicit floating contract.**
 
-- [ ] **Step 3: Run tests and verify RED.**
+- [x] **Step 3: Run tests and verify RED.**
 
-- [ ] **Step 4: Extract only family-varying hooks from the Pyramid context/evaluator; keep existing Pyramid public classes and defaults unchanged.**
+- [x] **Step 4: Extract only family-varying hooks from the Pyramid context/evaluator; keep existing Pyramid public classes and defaults unchanged.**
 
-- [ ] **Step 5: Add Disco merge/Softmax weighted-sum contracts and fail on unresolved weighted ONNX layers or precision fallback.**
+- [x] **Step 5: Add Disco merge/Softmax weighted-sum contracts and fail on unresolved weighted ONNX layers or precision fallback.**
 
-- [ ] **Step 6: Route persistent workers by `model_family` in the request context.**
+- [x] **Step 6: Route persistent workers by `model_family` in the request context.**
 
-- [ ] **Step 7: Run context, QDQ, strongly typed, merge, realized-BOPS, worker, and Pyramid regression tests.**
+- [x] **Step 7: Run context, QDQ, strongly typed, merge, realized-BOPS, worker, and Pyramid regression tests.**
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
 ```bash
 git add search/integration/lidar_family_context.py search/stage2/lidar_family_real_evaluator.py search/integration/lidar_pyramid_context.py search/stage2/lidar_pyramid_real_evaluator.py search/stage2/candidate_worker.py tests/test_lidar_family_context.py tests/test_lidar_family_stage2.py

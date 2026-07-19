@@ -38,12 +38,15 @@ def evaluate_engine_modelopt(
     num_workers: int = 8,
     ap_iou_backend: str = "gpu",
     strict_gpu_ap_iou: bool = True,
+    model_family: str = "lidar_pyramid",
+    repository_root: str | Path | None = None,
 ) -> dict[str, Any]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     request_path = destination / "evaluation_request.json"
     output_path = destination / "evaluation.json"
     cuda_visible_devices, worker_device = _cuda_visible_and_logical_device(str(device))
+    repo_root = Path(repository_root or Path(__file__).resolve().parents[2]).resolve()
     request = {
         "engine_path": str(engine_path),
         "checkpoint": str(checkpoint),
@@ -61,6 +64,8 @@ def evaluate_engine_modelopt(
         "num_workers": int(num_workers),
         "ap_iou_backend": str(ap_iou_backend),
         "strict_gpu_ap_iou": bool(strict_gpu_ap_iou),
+        "model_family": str(model_family),
+        "repository_root": str(repo_root),
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
     root = Path(tensorrt_root)
@@ -68,8 +73,10 @@ def evaluate_engine_modelopt(
         tensorrt_root=root,
         conda_env=conda_env,
         pythonpath_entries=[
+            str(repo_root),
+            str(repo_root / "tests"),
+            str(repo_root / "tests" / "quant_deploy"),
             "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
             "/home/lixingfeng/UniAD_examine",
         ],
         cuda_visible_devices=cuda_visible_devices,

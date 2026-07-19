@@ -16,7 +16,9 @@ from ..hashing import canonical_json_hash
 from ..pruning_space.action_catalog import PruningActionCatalog, build_pruning_action_catalog
 from ..quantization_space.group_builder import build_quantization_search_groups
 from .data_provider import EvaluationManifest, load_split_frame_ids, write_eval_manifest
-from .model_provider import LidarPyramidModelBundle, load_lidar_pyramid_model
+from .lidar_family import HEALLidarFamilySpec
+from .lidar_family_registry import get_lidar_family_spec
+from .model_provider import HEALLidarModelBundle, load_heal_lidar_model
 from .runtime_environment import GPUSelection, TensorRTEnvironment, discover_trt_environment, plugin_hashes, select_gpu
 
 
@@ -29,11 +31,13 @@ DEFAULT_PLUGIN = Path("quantization/plugins/pointpillar_scatter_trt/build/libpoi
 
 @dataclass
 class LidarPyramidSearchContext:
+    model_family: str
+    family_spec: HEALLidarFamilySpec
     code_commit: str
     checkpoint_path: Path
     model: torch.nn.Module
     model_config: Path
-    model_bundle: LidarPyramidModelBundle
+    model_bundle: HEALLidarModelBundle
     trace_result: Any
     atomic_prune_units: list[Any]
     coupled_channel_units: list[Any]
@@ -64,6 +68,7 @@ class LidarPyramidSearchContext:
     search_space: SearchSpaceSpec
     eval_manifest_hash: str
     checkpoint_hash: str
+    heal_root: Path
 
 
 def _repository_commit(repo_root: str | Path) -> str:
@@ -173,10 +178,23 @@ _FUNCTIONAL_FP16_OUTPUT_BOUNDARIES: dict[str, dict[str, Any]] = {
 }
 
 
-def _functional_fp16_output_boundary(module_path: str) -> dict[str, Any] | None:
+def _functional_fp16_output_boundary(
+    module_path: str,
+    *,
+    family: HEALLidarFamilySpec | None = None,
+) -> dict[str, Any] | None:
     """Return the model-specific compute/output split verified by the H800 ablation."""
 
-    boundary = _FUNCTIONAL_FP16_OUTPUT_BOUNDARIES.get(str(module_path))
+    spec = family or get_lidar_family_spec("lidar_pyramid")
+    if str(module_path) not in spec.functional_fp16_output_modules:
+        return None
+    if spec.name == "lidar_disco":
+        boundary = {
+            "merge_kind": "functional_agent_softmax_weighted_sum",
+            "following_ops": ["Relu", "Softmax", "Mul", "ReduceSum"],
+        }
+    else:
+        boundary = _FUNCTIONAL_FP16_OUTPUT_BOUNDARIES.get(str(module_path))
     if boundary is None:
         return None
     return {
@@ -188,12 +206,19 @@ def _functional_fp16_output_boundary(module_path: str) -> dict[str, Any] | None:
         "output_qdq_placement": "no weighted-output Q/DQ; FP16 functional path",
         "activation_scale_ownership": "canonical weighted input; output scale is diagnostic only",
         "merge_scale_policy": "INT8 compute then FP16 Sigmoid/Add/GridSample functional weighting path",
-        "boundary_source": "lidar_pyramid_export_contract_verified_by_canonical_onnx",
+        "boundary_source": (
+            f"{spec.name}_export_contract_verified_by_canonical_onnx"
+        ),
         **boundary,
     }
 
 
-def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
+def _build_precision_groups(
+    model: nn.Module,
+    trace_result: Any,
+    *,
+    family: HEALLidarFamilySpec | None = None,
+) -> list[Any]:
     try:
         from tracer.dependency_tracer import build_dependency_graph
         from tracer.precision_coupling_tracer import PrecisionGroup, build_precision_coupling_groups
@@ -206,9 +231,14 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
     # compute precision when policy A dequantizes them before an FP16 merge.
     base_groups = build_precision_coupling_groups(model, graph, sample_batch=None, allow_head_int8=True)
     weighted = set(_precision_layer_ids(model))
+    spec = family or get_lidar_family_spec("lidar_pyramid")
     protected = {
-        "encoder_m1.pillar_vfe.pfn_layers.0.linear": "mapped_pillar_vfe_linear_legacy_realized_fp16",
-        "pyramid_backbone.single_head_2": "coordinate_grid_generation_requires_fp16_output",
+        module: (
+            "coordinate_grid_generation_requires_fp16_output"
+            if "single_head_2" in module
+            else "mapped_pillar_vfe_linear_realized_fp16"
+        )
+        for module in spec.protected_precision_modules
     }
     memberships: dict[str, list[tuple[int, Any, list[str]]]] = {name: [] for name in weighted}
     for group_index, group in enumerate(base_groups):
@@ -247,7 +277,9 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
             for _index, parent, parent_members in rows
             if len(parent_members) > 1 and str(parent.reason) in {"residual", "concat"}
         ]
-        functional_output_boundary = _functional_fp16_output_boundary(module)
+        functional_output_boundary = _functional_fp16_output_boundary(
+            module, family=spec
+        )
         if functional_output_boundary is not None:
             merge_boundaries.append(functional_output_boundary)
         fp16_output_boundary = functional_output_boundary is not None or any(
@@ -333,7 +365,9 @@ def build_lidar_pyramid_context(
     allow_foreign_gpu_processes: bool = False,
     allowed_gpu_pids: set[int] | None = None,
     max_gpu_utilization_pct: int = 20,
+    model_family: str = "lidar_pyramid",
 ) -> LidarPyramidSearchContext:
+    family_spec = get_lidar_family_spec(model_family)
     normalized_plugin_boundary = str(plugin_boundary_dtype).strip().lower()
     if normalized_plugin_boundary not in {"fp16", "fp32"}:
         raise RuntimeError("strongly_typed_plugin_boundary_must_be_fp16_or_fp32")
@@ -341,8 +375,11 @@ def build_lidar_pyramid_context(
     device = torch.device(gpu.runtime_device)
     torch.cuda.set_device(device)
     capability_major, capability_minor = torch.cuda.get_device_capability(device)
-    config_path = Path(model_config_path or DEFAULT_CONFIG).expanduser().resolve()
-    bundle = load_lidar_pyramid_model(
+    config_path = Path(
+        model_config_path or family_spec.default_config
+    ).expanduser().resolve()
+    bundle = load_heal_lidar_model(
+        family=family_spec,
         checkpoint_path=checkpoint_path,
         model_config_path=config_path,
         heal_root=heal_root,
@@ -377,7 +414,9 @@ def build_lidar_pyramid_context(
         for unit in selected_units
     }
     precision_layers = _precision_layer_ids(bundle.model)
-    precision_groups = _build_precision_groups(bundle.model, bundle.trace_result)
+    precision_groups = _build_precision_groups(
+        bundle.model, bundle.trace_result, family=family_spec
+    )
     search_quant_groups = build_quantization_search_groups(bundle.model, precision_groups=precision_groups)
     plugin = Path(plugin_path).expanduser().resolve() if plugin_path else (Path.cwd() / DEFAULT_PLUGIN).resolve()
     tensorrt = discover_trt_environment(tensorrt_root, plugin_path=plugin, conda_env=tensorrt_env)
@@ -394,6 +433,8 @@ def build_lidar_pyramid_context(
         "plugin_boundary_dtype": normalized_plugin_boundary,
         "no_tf32": True,
         "shape_profiles": _shape_profiles(),
+        "model_family": family_spec.name,
+        "export_recipe": family_spec.export_recipe,
     }
     calibration_npz_manifest = (
         Path(quant_calibration_npz_manifest).expanduser().resolve()
@@ -449,7 +490,16 @@ def build_lidar_pyramid_context(
                 "config": str(config_path),
             }
         ),
-        onnx_export_config_hash=canonical_json_hash({"fixed_k": 29696, "min_agents": 1, "opt_agents": 2, "max_agents": 2}),
+        onnx_export_config_hash=canonical_json_hash(
+            {
+                "model_family": family_spec.name,
+                "export_recipe": family_spec.export_recipe,
+                "fixed_k": family_spec.fixed_k,
+                "min_agents": 1,
+                "opt_agents": 2,
+                "max_agents": 2,
+            }
+        ),
         tensorrt_version="10.9",
         gpu_compute_capability=f"{capability_major}.{capability_minor}",
         builder_flags=builder_flags,
@@ -457,6 +507,8 @@ def build_lidar_pyramid_context(
         code_commit=code_commit,
     )
     context = LidarPyramidSearchContext(
+        model_family=family_spec.name,
+        family_spec=family_spec,
         code_commit=code_commit,
         checkpoint_path=Path(checkpoint_path).expanduser().resolve(),
         model=bundle.model,
@@ -492,6 +544,7 @@ def build_lidar_pyramid_context(
         search_space=search_space,
         eval_manifest_hash=manifest.manifest_hash,
         checkpoint_hash=bundle.checkpoint_hash,
+        heal_root=Path(heal_root).expanduser().resolve(),
     )
     _write_context_report(Path(output_dir) / "context_report.json", context)
     return context
@@ -499,6 +552,8 @@ def build_lidar_pyramid_context(
 
 def _write_context_report(path: Path, context: LidarPyramidSearchContext) -> None:
     payload = {
+        "model_family": context.model_family,
+        "family_spec": context.family_spec.to_dict(),
         "code_commit": context.code_commit,
         "checkpoint_path": str(context.checkpoint_path),
         "checkpoint_hash": context.checkpoint_hash,

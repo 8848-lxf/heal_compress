@@ -36,7 +36,7 @@ from ..integration.calibration_provider import (
 from ..integration.data_provider import load_split_frame_ids, write_eval_manifest
 from ..integration.evaluation_provider import evaluate_engine_modelopt
 from ..integration.lidar_pyramid_context import LidarPyramidSearchContext
-from ..integration.trt_compatible_export import build_search_trt_compatible_export_module, make_pointpillar_domain_compatible
+from ..integration.trt_compatible_export import build_family_trt_export_module, make_pointpillar_domain_compatible
 from ..pruning_space.action_codec import selected_actions_from_genes
 from ..pruning_space.grouped_bundle_adapter import request_from_pruning_actions
 from ..proxy.runtime_shape_profiler import profile_runtime_layer_shapes
@@ -795,8 +795,7 @@ class LidarPyramidRealEvaluator:
         self.real_cache.put(cache_key, result)
         return result
 
-    @staticmethod
-    def _deployment_audit_summary(output_dir: Path) -> dict[str, Any]:
+    def _deployment_audit_summary(self, output_dir: Path) -> dict[str, Any]:
         required = (
             "physical_validation.json",
             "pruning_quantization_group_audit.json",
@@ -834,25 +833,63 @@ class LidarPyramidRealEvaluator:
             if not passed:
                 reasons.append(f"audit_failed:{name}")
         merge_path = output_dir / "merge_precision_realization.json"
-        concat9_count = 0
+        required_names = list(
+            getattr(
+                getattr(self.context, "family_spec", None),
+                "required_merge_contract_names",
+                ("/Concat_9",),
+            )
+        )
+        named_counts = {name: 0 for name in required_names}
         if merge_path.is_file():
             try:
                 merge_payload = json.loads(merge_path.read_text(encoding="utf-8"))
-                concat9_count = sum(
-                    "/Concat_9" in str(row.get("merge_op_name", ""))
+                merge_names = [
+                    str(row.get("merge_op_name", ""))
                     for row in merge_payload.get("merges", []) or []
-                )
+                ]
+                named_counts = {
+                    name: sum(name in merge_name for merge_name in merge_names)
+                    for name in required_names
+                }
             except (OSError, json.JSONDecodeError):
-                concat9_count = 0
-        if concat9_count != 1:
-            reasons.append(f"Concat_9_contract_match_count:{concat9_count}")
+                named_counts = {name: 0 for name in required_names}
+        for name, count in named_counts.items():
+            if count != 1:
+                reasons.append(
+                    f"named_merge_contract_match_count:{name}:{count}"
+                )
         return {
             "passed": not reasons,
             "status": "passed" if not reasons else "deployment_audit_failed",
             "failure_reasons": reasons,
-            "Concat_9_match_count": concat9_count,
+            "required_named_merge_contracts": required_names,
+            "named_merge_contract_match_counts": named_counts,
+            "Concat_9_match_count": named_counts.get("/Concat_9", 0),
             "audits": details,
         }
+
+    def _build_export_wrapper(
+        self,
+        model: torch.nn.Module,
+        *,
+        fixed_k: int,
+    ) -> torch.nn.Module:
+        family = getattr(self.context, "family_spec", "lidar_pyramid")
+        output_names = tuple(
+            getattr(
+                family,
+                "output_names",
+                ("cls_preds", "reg_preds", "dir_preds"),
+            )
+        )
+        return build_family_trt_export_module(
+            model,
+            family=family,
+            output_names=output_names,
+            fixed_k=int(fixed_k),
+            modality="m1",
+        )
 
     def _smoke_evaluation_context(
         self,
@@ -2121,11 +2158,8 @@ class LidarPyramidRealEvaluator:
             export = SimpleNamespace(onnx_path=str(target_onnx), origin_map=_load_origin_map_result(cached_origin))
             _write_json(output_dir / "onnx_cache_hit.json", {"physical_hash": physical["physical_hash"], "onnx_sha256": cached_hash})
         else:
-            wrapper = build_search_trt_compatible_export_module(
-                physical["model"],
-                output_names=qcfg.output_names,
-                fixed_k=qcfg.fixed_k,
-                modality="m1",
+            wrapper = self._build_export_wrapper(
+                physical["model"], fixed_k=qcfg.fixed_k
             ).to(self.context.runtime_device).eval()
             inputs = prepare_signal_maxk_inputs(self.context.trace_example_inputs, config=qcfg, modality="m1")
             export = export_pruned_signal_maxk_onnx(
@@ -2741,14 +2775,18 @@ class LidarPyramidRealEvaluator:
             engine_path=engine_path,
             checkpoint=self.context.checkpoint_path,
             model_config=self.context.model_config,
-            heal_root="/home/lixingfeng/UniAD_examine/HEAL",
+            heal_root=self.context.heal_root,
+            model_family=getattr(self.context, "model_family", "lidar_pyramid"),
+            repository_root=Path(__file__).resolve().parents[2],
             device=self.context.runtime_device,
             output_dir=output_dir,
             tensorrt_root=self.context.tensorrt.tensorrt_root,
             plugin_path=self.context.tensorrt.plugin_path,
             num_frames=self.num_frames,
             warmup_frames=self.warmup_frames,
-            fixed_k=29696,
+            fixed_k=int(
+                getattr(getattr(self.context, "family_spec", None), "fixed_k", 29696)
+            ),
             latency_rounds=self.latency_rounds,
             conda_env=self.context.tensorrt.conda_env,
             eval_manifest_path=self.context.eval_manifest_path,

@@ -315,3 +315,58 @@ parity. ONNX/TRT tensor parity and real AP remain readiness-gate requirements;
 no TensorRT capability claim is made here.
 
 --- ROUND 4 | 2026-07-19 18:38:20 +0800 ---
+
+## Round 5: family-aware context and Stage-2 hooks
+
+Implemented:
+
+- `search/integration/lidar_family_context.py`
+  - family-neutral facade over the production context builder.
+- `search/integration/lidar_pyramid_context.py`
+  - records model family and family specification;
+  - loads generic HEAL LiDAR bundles;
+  - family-specific protected precision modules;
+  - family-specific functional FP16 output boundary;
+  - family identity included in ONNX/cache signature;
+  - existing Pyramid defaults preserved.
+- `search/stage2/lidar_family_real_evaluator.py`
+  - family-neutral production evaluator name backed by the validated Stage-2
+    core.
+- `search/stage2/lidar_pyramid_real_evaluator.py`
+  - selects export wrapper through the family factory;
+  - retains `/Concat_9` as a Pyramid-only named merge contract;
+  - passes family and worktree identity into real evaluation subprocesses.
+- `search/stage2/candidate_worker.py`
+  - propagates `model.family` and constructs family context/evaluator.
+- `search/integration/evaluation_provider.py`
+  - records `model_family` and `repository_root` in every evaluation request.
+- `search/integration/evaluation_worker.py`
+  - imports code from the producing worktree;
+  - installs DiscoNet compatibility before model construction;
+  - avoids silently importing the active Pyramid worktree implementation.
+
+Real context evidence on GPU 7:
+
+```text
+trace atomic units         = 4733
+trace coupled units        = 4733
+initial safe units         = 64
+initial pruning actions    = 64
+weighted precision layers = 32
+precision groups           = 32
+protected precision groups = 1
+trace hash = 308184a6ab6605c51fad1ec1049ffdd81e233f313d6ed9127df1d7111fa5fc4d
+```
+
+The final PixelWeightLayer output owns an explicit FP16 functional boundary
+before `Relu -> Softmax -> Mul -> ReduceSum`; its compute precision remains a
+separate gene only if later strongly typed realization proves the action legal.
+
+Tests:
+
+```text
+9 new family context/Stage-2 tests passed
+51 combined worker/process/QDQ/typed/merge/BOPS tests passed
+```
+
+--- ROUND 5 | 2026-07-19 18:47:40 +0800 ---

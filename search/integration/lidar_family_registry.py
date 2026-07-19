@@ -25,6 +25,15 @@ _FAMILIES = {
             / "lidar_pyramid"
             / "net_epoch_bestval_at17.pth"
         ),
+        protected_precision_modules=(
+            "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+            "pyramid_backbone.single_head_2",
+        ),
+        functional_fp16_output_modules=(
+            "pyramid_backbone.single_head_0",
+            "pyramid_backbone.single_head_1",
+        ),
+        required_merge_contract_names=("/Concat_9",),
     ),
     "lidar_disco": HEALLidarFamilySpec(
         name="lidar_disco",
@@ -39,6 +48,12 @@ _FAMILIES = {
             / "net_epoch_bestval_at35.pth"
         ),
         compatibility_module="opencood.models.fuse_modules.disco_fuse",
+        protected_precision_modules=(
+            "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+        ),
+        functional_fp16_output_modules=(
+            "fusion_net.pixel_weight_layer.conv1_4",
+        ),
     ),
     "lidar_fcooper": HEALLidarFamilySpec(
         name="lidar_fcooper",
@@ -48,6 +63,9 @@ _FAMILIES = {
         weighted_fusion=False,
         default_config=_MODEL_ROOT / "lidar_fcooper" / "config.yaml",
         default_checkpoint=None,
+        protected_precision_modules=(
+            "encoder_m1.pillar_vfe.pfn_layers.0.linear",
+        ),
     ),
 }
 
@@ -74,4 +92,3 @@ def get_lidar_family_spec(name: str) -> HEALLidarFamilySpec:
 
 
 __all__ = ["get_lidar_family_spec", "registered_lidar_families"]
-

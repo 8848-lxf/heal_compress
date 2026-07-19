@@ -55,6 +55,7 @@ def _context_kwargs(request: dict[str, Any]) -> dict[str, Any]:
         else set()
     )
     return {
+        "model_family": str(model.get("family", "lidar_pyramid")),
         "checkpoint_path": request["checkpoint"],
         "output_dir": request["worker_dir"],
         "model_config_path": model.get("config") or model.get("hypes_yaml"),
@@ -149,11 +150,11 @@ def _requires_global_pruning_context(config: dict[str, Any]) -> bool:
 
 def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
     from ..constrained.context import apply_constrained_pruning_context
-    from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
-    from .lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
+    from ..integration.lidar_family_context import build_lidar_family_context
+    from .lidar_family_real_evaluator import LidarFamilyRealEvaluator
     from .objective import Stage2ObjectiveConfig
 
-    context = build_lidar_pyramid_context(**_context_kwargs(request))
+    context = build_lidar_family_context(**_context_kwargs(request))
     config = dict(request.get("config", {}))
     if _requires_global_pruning_context(config):
         from ..anchors.joint_taylor_runner import apply_global_anchor_pruning_context
@@ -209,7 +210,7 @@ def _build_evaluator(request: dict[str, Any]) -> tuple[Any, Any]:
         or config.get("stage2_smoke")
         or config.get("evaluation", {})
     )
-    evaluator = LidarPyramidRealEvaluator(
+    evaluator = LidarFamilyRealEvaluator(
         context=context,
         run_dir=request["worker_dir"],
         num_frames=int(stage2.get("num_frames", 5)),

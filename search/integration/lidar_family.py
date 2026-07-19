@@ -25,6 +25,9 @@ class HEALLidarFamilySpec:
     plugin_boundary_dtype: str = "fp32"
     scatter_is_precision_gene: bool = False
     compatibility_module: str | None = None
+    protected_precision_modules: tuple[str, ...] = ()
+    functional_fp16_output_modules: tuple[str, ...] = ()
+    required_merge_contract_names: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -38,4 +41,3 @@ class HEALLidarFamilySpec:
 
 
 __all__ = ["HEALLidarFamilySpec"]
-

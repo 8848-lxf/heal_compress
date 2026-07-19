@@ -206,11 +206,20 @@ def main(argv: list[str] | None = None) -> int:
     output = Path(request["output_path"])
     output.parent.mkdir(parents=True, exist_ok=True)
     try:
+        repository_root = Path(
+            request.get("repository_root", "/home/lixingfeng/UniAD_examine/heal_compress")
+        ).expanduser().resolve()
         sys.path.insert(0, "/home/lixingfeng/UniAD_examine")
-        sys.path.insert(0, "/home/lixingfeng/UniAD_examine/heal_compress")
+        sys.path.insert(0, str(repository_root))
         sys.path.insert(0, "/home/lixingfeng/UniAD_examine/HEAL")
-        sys.path.insert(0, "/home/lixingfeng/UniAD_examine/heal_compress/tests")
-        sys.path.insert(0, "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy")
+        sys.path.insert(0, str(repository_root / "tests"))
+        sys.path.insert(0, str(repository_root / "tests" / "quant_deploy"))
+        if str(request.get("model_family", "lidar_pyramid")) == "lidar_disco":
+            from search.integration.disconet_compat import (
+                install_disconet_compat_module,
+            )
+
+            install_disconet_compat_module(request["heal_root"])
         plugin_path = request.get("plugin_path")
         if plugin_path:
             ctypes.CDLL(str(plugin_path), mode=ctypes.RTLD_GLOBAL)
@@ -218,9 +227,14 @@ def main(argv: list[str] | None = None) -> int:
         from opencood.hypes_yaml import yaml_utils
         from opencood.utils import eval_utils
         from tests.quant_deploy.deployment_equivalence import TensorRTEngineRunner
-        from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
-        from heal_compress.quantization.config import OnnxExportConfig
-        from heal_compress.quantization.export.heal_lidar_pyramid import prepare_signal_maxk_inputs
+        try:
+            from adapters.heal_lidar_adapter import HEALLiDARAdapter
+            from quantization.config import OnnxExportConfig
+            from quantization.export.heal_lidar_pyramid import prepare_signal_maxk_inputs
+        except ImportError:
+            from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
+            from heal_compress.quantization.config import OnnxExportConfig
+            from heal_compress.quantization.export.heal_lidar_pyramid import prepare_signal_maxk_inputs
         from tests.test_baseline_eval import calculate_tp_fp_for_threshold
 
         device = torch.device(request["device"])
