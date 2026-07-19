@@ -1046,6 +1046,59 @@ def test_matrix_assembly_binds_requested_realized_and_runtime_evidence(tmp_path)
     assert selected["same_shape_fp32_speedup"] == 1.5
 
 
+def test_matrix_assembly_resolves_same_shape_speedup_across_shards(tmp_path):
+    import json
+
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        assemble_capability_matrix,
+        export_capability_candidates,
+        prepare_capability_run,
+    )
+
+    output = tmp_path / "run"
+    prepare_capability_run(
+        output,
+        environment={
+            "hardware_id": "hardware",
+            "tensorrt_version": "10.9.0.34",
+            "gpu_architecture": "sm89",
+            "gpu_model": "NVIDIA GeForce RTX 4090",
+            "compute_capability": "8.9",
+            "cuda_version": "11.8",
+            "driver_version": "580.105.08",
+        },
+        code_commit="a9c5151",
+    )
+    reference_id = "projection_attention__uniform__qk24_v24__P0_strict_fp32"
+    candidate_id = "projection_attention__uniform__qk24_v24__P2_f3_mixed"
+    export_capability_candidates(
+        output, only_candidate_ids={reference_id, candidate_id}
+    )
+    directories = {
+        json.loads(path.read_text())["candidate_id"]: path.parent
+        for path in (output / "synthetic").rglob("candidate.json")
+    }
+    (directories[reference_id] / "runtime_report.json").write_text(
+        json.dumps({"runtime_success": True, "p50_ms": 2.0})
+    )
+    (directories[candidate_id] / "runtime_report.json").write_text(
+        json.dumps(
+            {
+                "runtime_success": True,
+                "p50_ms": 1.0,
+                "same_shape_fp32_reference_id": reference_id,
+            }
+        )
+    )
+
+    result = assemble_capability_matrix(output)
+    rows = json.loads(Path(result["json"]).read_text())
+    selected = next(row for row in rows if row["candidate_id"] == candidate_id)
+
+    assert selected["same_shape_fp32_p50_ms"] == 2.0
+    assert selected["same_shape_fp32_speedup"] == 2.0
+
+
 def test_trtexec_command_is_strongly_typed_detailed_and_fresh(tmp_path):
     from search.orchestration.lidar_cobevt_head_dim_capability import (
         build_trtexec_command,

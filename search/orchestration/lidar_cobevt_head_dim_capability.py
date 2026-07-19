@@ -1449,6 +1449,36 @@ def assemble_capability_matrix(output_dir: str | Path) -> dict[str, str]:
                 }
             )
         rows.append(row)
+    # Runtime workers are sharded by candidate, so a candidate and its
+    # same-shape FP32 reference commonly finish in different processes.  Fill
+    # the speedup only after all reports are available; never infer it from a
+    # missing worker-local reference.
+    runtime_by_id = {
+        str(row["candidate_id"]): _read_optional_json(
+            Path(str(row["evidence_directory"])) / "runtime_report.json"
+        )
+        for row in rows
+    }
+    for row in rows:
+        runtime = runtime_by_id.get(str(row["candidate_id"]), {})
+        reference_id = str(
+            row.get("same_shape_fp32_reference_id", "")
+        )
+        reference = runtime_by_id.get(reference_id, {})
+        candidate_p50 = runtime.get("p50_ms")
+        reference_p50 = reference.get("p50_ms")
+        if (
+            runtime.get("runtime_success")
+            and reference.get("runtime_success")
+            and candidate_p50 is not None
+            and reference_p50 is not None
+            and float(candidate_p50) > 0.0
+        ):
+            row["same_shape_fp32_p50_ms"] = float(reference_p50)
+            row["same_shape_fp32_speedup"] = float(reference_p50) / float(
+                candidate_p50
+            )
+
     paths = write_capability_matrix(destination, rows)
     contract_path = destination / "final_head_dim_search_contract.json"
     _write_json(
