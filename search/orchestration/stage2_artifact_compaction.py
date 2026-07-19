@@ -9,6 +9,11 @@ import os
 from pathlib import Path
 from typing import Any
 
+from ..artifacts.candidate_audit_store import (
+    CandidateAuditStore,
+    finalize_completed_candidate,
+)
+
 
 _IDENTICAL_ARTIFACT_GROUPS = (
     (
@@ -36,8 +41,84 @@ def _write_json(path: Path, payload: Any) -> None:
     )
 
 
-def compact_run(root: str | Path) -> dict[str, Any]:
-    """Hardlink known byte-identical aliases in completed generations."""
+def _content_addressed_candidates(
+    retention_markers: list[Path],
+) -> list[tuple[Path, Path]]:
+    candidates = []
+    for marker in retention_markers:
+        stage2_dir = marker.parent / "stage2"
+        if not stage2_dir.is_dir():
+            continue
+        for candidate_dir in sorted(stage2_dir.iterdir()):
+            if not candidate_dir.is_dir() or candidate_dir.is_symlink():
+                continue
+            has_plan = any(
+                (candidate_dir / name).is_file()
+                for name in (
+                    "physical_pruning_plan.json",
+                    "physical_plan.json",
+                    "legalized_plan.json",
+                )
+            )
+            has_request = any(
+                (candidate_dir / name).is_file()
+                for name in (
+                    "pruning_request.json",
+                    "sampling_pruning_request.json",
+                )
+            )
+            if has_plan and has_request:
+                candidates.append((candidate_dir, marker))
+    return candidates
+
+
+def _compact_content_addressed(
+    destination: Path,
+    retention_markers: list[Path],
+    *,
+    dry_run: bool,
+) -> dict[str, Any]:
+    candidates = _content_addressed_candidates(retention_markers)
+    reports = []
+    if not dry_run:
+        store = CandidateAuditStore(destination / "stage2_audit_store")
+        for candidate_dir, marker in candidates:
+            reports.append(
+                finalize_completed_candidate(
+                    candidate_dir,
+                    store=store,
+                    completion_marker=marker,
+                )
+            )
+    summary = {
+        "mode": "content_addressed",
+        "root": str(destination),
+        "dry_run": bool(dry_run),
+        "completed_generation_count": len(retention_markers),
+        "eligible_candidate_count": len(candidates),
+        "compacted_candidate_count": sum(
+            row.get("status") in {"compacted", "already_compacted"}
+            for row in reports
+        ),
+        "removed_file_count": sum(
+            int(row.get("removed_file_count", 0)) for row in reports
+        ),
+        "bytes_reclaimed": sum(
+            int(row.get("removed_bytes", 0)) for row in reports
+        ),
+        "candidate_reports": reports,
+    }
+    _write_json(destination / "stage2_content_addressed_compaction.json", summary)
+    return summary
+
+
+def compact_run(
+    root: str | Path,
+    *,
+    content_addressed: bool = False,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Compact known aliases in completed generations only."""
 
     destination = Path(root).expanduser().resolve()
     if not destination.is_dir():
@@ -45,6 +126,12 @@ def compact_run(root: str | Path) -> dict[str, Any]:
     retention_markers = sorted(
         destination.rglob("stage2_artifact_retention.json")
     )
+    if content_addressed:
+        return _compact_content_addressed(
+            destination, retention_markers, dry_run=dry_run
+        )
+    if dry_run:
+        raise ValueError("dry_run_requires_content_addressed_mode")
     linked_rows: list[dict[str, Any]] = []
     mismatch_rows: list[dict[str, Any]] = []
     already_linked_count = 0
@@ -133,8 +220,20 @@ def main() -> int:
         description="Losslessly hardlink duplicate completed Stage-2 artifacts."
     )
     parser.add_argument("root")
+    parser.add_argument("--content-addressed", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(compact_run(args.root), indent=2, sort_keys=True))
+    print(
+        json.dumps(
+            compact_run(
+                args.root,
+                content_addressed=bool(args.content_addressed),
+                dry_run=bool(args.dry_run),
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 

@@ -67,3 +67,72 @@ def test_incomplete_generation_and_mismatched_files_are_not_modified(
     assert result["content_mismatch_count"] == 1
     assert canonical.stat().st_ino != alias.stat().st_ino
     assert unfinished_a.stat().st_ino != unfinished_b.stat().st_ino
+
+
+def test_content_addressed_dry_run_does_not_modify_candidates(
+    tmp_path: Path,
+) -> None:
+    from search.orchestration.stage2_artifact_compaction import compact_run
+
+    generation = tmp_path / "budget_005" / "generation_001"
+    candidate = generation / "stage2" / "candidate-a"
+    candidate.mkdir(parents=True)
+    plan = {"entries": [], "source_request": {"entries": []}}
+    request = {"entries": [], "selected_atomic_unit_ids": []}
+    for name in (
+        "physical_pruning_plan.json",
+        "physical_plan.json",
+        "legalized_plan.json",
+    ):
+        (candidate / name).write_text(json.dumps(plan), encoding="utf-8")
+    for name in ("pruning_request.json", "sampling_pruning_request.json"):
+        (candidate / name).write_text(json.dumps(request), encoding="utf-8")
+    (generation / "stage2_artifact_retention.json").write_text(
+        json.dumps({"enabled": True}), encoding="utf-8"
+    )
+
+    result = compact_run(tmp_path, content_addressed=True, dry_run=True)
+
+    assert result["mode"] == "content_addressed"
+    assert result["dry_run"] is True
+    assert result["eligible_candidate_count"] == 1
+    assert result["compacted_candidate_count"] == 0
+    assert (candidate / "physical_pruning_plan.json").is_file()
+    assert not (candidate / "candidate_audit_manifest.json").exists()
+
+
+def test_content_addressed_compaction_only_processes_completed_generations(
+    tmp_path: Path,
+) -> None:
+    from search.orchestration.stage2_artifact_compaction import compact_run
+
+    complete = tmp_path / "budget_005" / "generation_001"
+    complete_candidate = complete / "stage2" / "candidate-a"
+    complete_candidate.mkdir(parents=True)
+    incomplete_candidate = (
+        tmp_path / "budget_005" / "generation_002" / "stage2" / "candidate-b"
+    )
+    incomplete_candidate.mkdir(parents=True)
+    for candidate in (complete_candidate, incomplete_candidate):
+        plan = {"entries": [], "source_request": {"entries": []}}
+        request = {"entries": [], "selected_atomic_unit_ids": []}
+        for name in (
+            "physical_pruning_plan.json",
+            "physical_plan.json",
+            "legalized_plan.json",
+        ):
+            (candidate / name).write_text(json.dumps(plan), encoding="utf-8")
+        for name in ("pruning_request.json", "sampling_pruning_request.json"):
+            (candidate / name).write_text(json.dumps(request), encoding="utf-8")
+    (complete / "stage2_artifact_retention.json").write_text(
+        "{}", encoding="utf-8"
+    )
+
+    result = compact_run(tmp_path, content_addressed=True)
+
+    assert result["eligible_candidate_count"] == 1
+    assert result["compacted_candidate_count"] == 1
+    assert (complete_candidate / "candidate_audit_manifest.json").is_file()
+    assert not (complete_candidate / "physical_pruning_plan.json").exists()
+    assert (incomplete_candidate / "physical_pruning_plan.json").is_file()
+    assert not (incomplete_candidate / "candidate_audit_manifest.json").exists()

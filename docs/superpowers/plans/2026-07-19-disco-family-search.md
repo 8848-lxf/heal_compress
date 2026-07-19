@@ -35,7 +35,7 @@
 - Produces: `finalize_completed_candidate(candidate_dir, store, completion_marker) -> dict[str, Any]`.
 - Produces: `resolve_artifact_reference(run_root, reference) -> Any`.
 
-- [ ] **Step 1: Write failing tests for deterministic gzip blobs, cross-candidate deduplication, reference resolution, and active-generation refusal.**
+- [x] **Step 1: Write failing tests for deterministic gzip blobs, cross-candidate deduplication, reference resolution, and active-generation refusal.**
 
 ```python
 def test_completed_candidates_share_one_structure_blob(tmp_path):
@@ -47,13 +47,13 @@ def test_completed_candidates_share_one_structure_blob(tmp_path):
     assert len(list((tmp_path / "audit_store").rglob("*.json.gz"))) == 1
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED.**
+- [x] **Step 2: Run the focused test and verify RED.**
 
 Run: `/home/lixingfeng/anaconda3/envs/univ2x-opt/bin/python -m pytest -q tests/test_candidate_audit_store.py`
 
 Expected: import failure for `search.artifacts.candidate_audit_store`.
 
-- [ ] **Step 3: Implement deterministic canonical JSON, gzip with `mtime=0`, atomic replacement, SHA verification, and safe reference resolution.**
+- [x] **Step 3: Implement deterministic canonical JSON, gzip with `mtime=0`, atomic replacement, SHA verification, and safe reference resolution.**
 
 ```python
 @dataclass(frozen=True)
@@ -68,7 +68,7 @@ class CandidateAuditStore:
     def put_json(self, role: str, payload: Any) -> ArtifactReference: ...
 ```
 
-- [ ] **Step 4: Implement completion-gated finalization that writes `candidate_audit_manifest.json` and `structure_plan_summary.json`, verifies references, then removes only configured redundant aliases.**
+- [x] **Step 4: Implement completion-gated finalization that writes `candidate_audit_manifest.json` and `structure_plan_summary.json`, verifies references, then removes only configured redundant aliases.**
 
 ```python
 REDUNDANT_STRUCTURE_INPUTS = (
@@ -80,15 +80,15 @@ REDUNDANT_STRUCTURE_INPUTS = (
 )
 ```
 
-- [ ] **Step 5: Extend legacy compaction with `--dry-run` and `--content-addressed`, requiring `stage2_artifact_retention.json` before mutation.**
+- [x] **Step 5: Extend legacy compaction with `--dry-run` and `--content-addressed`, requiring `stage2_artifact_retention.json` before mutation.**
 
-- [ ] **Step 6: Run tests and verify GREEN.**
+- [x] **Step 6: Run tests and verify GREEN.**
 
 Run: `/home/lixingfeng/anaconda3/envs/univ2x-opt/bin/python -m pytest -q tests/test_candidate_audit_store.py tests/test_stage2_artifact_compaction.py`
 
 Expected: all pass.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```bash
 git add search/artifacts/candidate_audit_store.py search/orchestration/stage2_artifact_compaction.py search/stage2/candidate_artifacts.py tests/test_candidate_audit_store.py tests/test_stage2_artifact_compaction.py
@@ -368,4 +368,3 @@ git fetch origin feature/heal-compress-4090-cnn-softfusion-family
 git rev-list --left-right --count HEAD...origin/feature/heal-compress-4090-cnn-softfusion-family
 git push origin feature/heal-compress-4090-cnn-softfusion-family
 ```
-

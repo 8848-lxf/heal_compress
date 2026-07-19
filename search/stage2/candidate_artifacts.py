@@ -30,6 +30,11 @@ SUMMARY_ARTIFACTS = [
     "stage2_score.json",
 ]
 
+COMPACTED_AUDIT_ARTIFACTS = [
+    "candidate_audit_manifest.json",
+    "structure_plan_summary.json",
+]
+
 
 def _plain(value: Any) -> Any:
     if isinstance(value, Path):
@@ -63,7 +68,7 @@ def _sha256(path: Path) -> str:
 def artifact_hashes(candidate_dir: str | Path, names: list[str] | None = None) -> dict[str, Any]:
     root = Path(candidate_dir)
     artifacts: dict[str, Any] = {}
-    for name in names or SUMMARY_ARTIFACTS:
+    for name in names or [*SUMMARY_ARTIFACTS, *COMPACTED_AUDIT_ARTIFACTS]:
         path = root / name
         if not path.is_file():
             continue

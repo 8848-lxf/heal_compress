@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -206,6 +207,55 @@ def test_stage2_retention_removes_only_reproducible_intermediates(
     assert all(not path.exists() for path in removable)
     assert all(path.is_file() for path in preserved)
     assert (tmp_path / "stage2_artifact_retention.json").is_file()
+
+
+def test_stage2_retention_finalizes_content_addressed_audit(
+    tmp_path: Path,
+) -> None:
+    from search.orchestration.legal_width_six_budget_ga import (
+        retain_stage2_deployment_artifacts,
+    )
+
+    generation = tmp_path / "search" / "budget_010" / "generation_001"
+    candidate = generation / "stage2" / "candidate-a"
+    candidate.mkdir(parents=True)
+    plan = {
+        "schema_version": "physical-pruning-plan-v1",
+        "entries": [],
+        "source_request": {"entries": []},
+    }
+    request = {
+        "schema_version": "sampling-pruning-request-v1",
+        "entries": [],
+        "selected_atomic_unit_ids": [],
+    }
+    for name in (
+        "physical_pruning_plan.json",
+        "physical_plan.json",
+        "legalized_plan.json",
+    ):
+        (candidate / name).write_text(json.dumps(plan), encoding="utf-8")
+    for name in ("pruning_request.json", "sampling_pruning_request.json"):
+        (candidate / name).write_text(json.dumps(request), encoding="utf-8")
+    (candidate / "engine.plan").write_bytes(b"engine")
+
+    result = retain_stage2_deployment_artifacts(
+        generation_dir=generation,
+        config={
+            "enabled": True,
+            "removable_suffixes": [],
+            "preserve_engine": True,
+            "content_addressed_audit": True,
+            "audit_store_root": str(tmp_path / "audit_store"),
+        },
+    )
+
+    assert result["content_addressed_audit"]["compacted_candidate_count"] == 1
+    assert (candidate / "candidate_audit_manifest.json").is_file()
+    assert (candidate / "structure_plan_summary.json").is_file()
+    assert not (candidate / "physical_pruning_plan.json").exists()
+    assert (candidate / "engine.plan").read_bytes() == b"engine"
+    assert list((tmp_path / "audit_store").rglob("*.json.gz"))
 
 
 def test_budget_winner_uses_full_map_and_formal_latency_exchange(tmp_path: Path) -> None:

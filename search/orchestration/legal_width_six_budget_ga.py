@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ..admission.bops_band import BopsBandPolicy
+from ..artifacts.candidate_audit_store import (
+    CandidateAuditStore,
+    finalize_completed_candidate,
+)
 from ..candidate import normalize_precision
 from ..hashing import canonical_json_hash
 from ..stage1.topk_selector import ProxyCandidateRecord
@@ -97,7 +101,62 @@ def retain_stage2_deployment_artifacts(
         "preserved_engine_count": len(engine_paths_after),
         "removed_files": removed,
     }
-    _write_json(destination / "stage2_artifact_retention.json", summary)
+    completion_marker = destination / "stage2_artifact_retention.json"
+    _write_json(completion_marker, summary)
+    content_addressed = bool(config.get("content_addressed_audit", False))
+    if enabled and content_addressed and stage2_dir.is_dir():
+        configured_store = config.get("audit_store_root")
+        store_root = (
+            Path(str(configured_store)).expanduser().resolve()
+            if configured_store
+            else destination.parents[1] / "stage2_audit_store"
+        )
+        store = CandidateAuditStore(store_root)
+        audit_reports = []
+        for candidate_dir in sorted(stage2_dir.iterdir()):
+            if not candidate_dir.is_dir() or candidate_dir.is_symlink():
+                continue
+            has_plan = any(
+                (candidate_dir / name).is_file()
+                for name in (
+                    "physical_pruning_plan.json",
+                    "physical_plan.json",
+                    "legalized_plan.json",
+                )
+            )
+            has_request = any(
+                (candidate_dir / name).is_file()
+                for name in (
+                    "pruning_request.json",
+                    "sampling_pruning_request.json",
+                )
+            )
+            if not (has_plan and has_request):
+                continue
+            audit_reports.append(
+                finalize_completed_candidate(
+                    candidate_dir,
+                    store=store,
+                    completion_marker=completion_marker,
+                )
+            )
+        summary["content_addressed_audit"] = {
+            "enabled": True,
+            "store_root": str(store.root),
+            "eligible_candidate_count": len(audit_reports),
+            "compacted_candidate_count": sum(
+                row.get("status") in {"compacted", "already_compacted"}
+                for row in audit_reports
+            ),
+            "removed_file_count": sum(
+                int(row.get("removed_file_count", 0)) for row in audit_reports
+            ),
+            "removed_bytes": sum(
+                int(row.get("removed_bytes", 0)) for row in audit_reports
+            ),
+            "candidate_reports": audit_reports,
+        }
+        _write_json(completion_marker, summary)
     return summary
 
 

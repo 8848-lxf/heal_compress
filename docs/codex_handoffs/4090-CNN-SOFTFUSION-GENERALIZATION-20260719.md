@@ -186,3 +186,43 @@ ignored.
 
 --- ROUND 1 | 2026-07-19 18:10:52 +0800 ---
 
+## Round 2: completed candidate artifact compaction
+
+Implemented:
+
+- `search/artifacts/candidate_audit_store.py`
+  - deterministic canonical JSON;
+  - gzip with fixed timestamp;
+  - SHA256 content addressing;
+  - atomic writes;
+  - reference resolution with path, size, and hash verification;
+  - completion-marker ownership checks;
+  - fail-closed alias mismatch handling;
+  - compact structure-plan summary generation.
+- `search/orchestration/stage2_artifact_compaction.py`
+  - retained legacy hardlink mode;
+  - added explicit content-addressed mode;
+  - added dry-run mode;
+  - only discovers candidates under completed-generation markers.
+- `search/orchestration/legal_width_six_budget_ga.py`
+  - added opt-in automatic finalization after Stage-2 retention completes;
+  - final engine plans remain preserved;
+  - existing Pyramid configuration behavior remains unchanged.
+- `search/stage2/candidate_artifacts.py`
+  - audit manifests and structure summaries now participate in candidate hashes.
+
+Verification:
+
+```text
+17 focused tests passed
+real candidate sample before = 13,787,508 bytes
+real candidate sample after  =    162,796 bytes
+sample reduction             =      98.82%
+removed redundant files      =          5
+stored canonical blobs       =          2
+```
+
+The real sample was copied to `/tmp` before migration. No file in the active
+Pyramid output was changed.
+
+--- ROUND 2 | 2026-07-19 18:22:20 +0800 ---
