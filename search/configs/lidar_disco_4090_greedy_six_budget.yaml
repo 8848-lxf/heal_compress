@@ -131,3 +131,7 @@ cache:
   fresh_run: true
   reuse_external_cache: false
   resume: false
+
+baselines:
+  build_before_search: true
+  precisions: [strict_fp32, strict_fp16, maximal_legal_int8]

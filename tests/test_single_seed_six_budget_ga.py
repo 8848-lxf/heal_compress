@@ -112,6 +112,11 @@ def test_disco_ga_config_is_one_seed_fifteen_generations() -> None:
     assert retention["content_addressed_audit"] is True
     assert config["stage2"]["num_frames"] == 500
     assert config["full_validation"]["num_frames"] == 1789
+    assert config["baselines"]["precisions"] == [
+        "strict_fp32",
+        "strict_fp16",
+        "maximal_legal_int8",
+    ]
 
 
 def test_disco_greedy_config_has_same_six_budgets() -> None:
@@ -126,4 +131,8 @@ def test_disco_greedy_config_has_same_six_budgets() -> None:
     assert config["greedy"]["targets"] == [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
     assert config["greedy"]["deploy_final_only"] is True
     assert config["stage2"]["num_frames"] == 500
-
+    assert config["baselines"]["precisions"] == [
+        "strict_fp32",
+        "strict_fp16",
+        "maximal_legal_int8",
+    ]
