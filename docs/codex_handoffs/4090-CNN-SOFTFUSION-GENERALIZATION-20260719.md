@@ -696,3 +696,40 @@ phenotypes are omitted. Existing completed traces were compacted from roughly
 full` remains available for targeted debugging.
 
 --- ROUND 13 | 2026-07-19 21:37:19 +0800 ---
+
+## Round 14: complete DiscoNet Greedy deployment and full validation
+
+The six-budget Greedy endpoint set completed the real DiscoNet deployment
+path. The endpoint Stage-2 resume used a unique process-pool namespace
+(`attempt_20260719_074233_248406`) after an earlier interrupted controller had
+left stale task identifiers. The resume accepted only identity-complete,
+frame-complete artifacts:
+
+```text
+unique endpoints              = 6
+unique deployments            = 6
+build tasks                   = 0
+validated build artifacts reused = 6
+full-validation tasks         = 0
+validated full results reused = 6
+successful endpoints          = 6
+full validation               = 1789/1789, skipped=0 for every endpoint
+```
+
+The final full-validation results are recorded in
+`docs/codex_handoffs/4090-DISCONET-GREEDY-RESULTS-20260719.md` and the
+timestamped run's `disco_greedy_six_budget_full_results.csv/json`. The strict
+FP32 reference was mAP `0.6357519111`, forward p50 `7.758738 ms`, and total
+pipeline p50 `13.469938 ms`. The six endpoint mAP values, in budget order,
+were `0.634540`, `0.636059`, `0.636044`, `0.635947`, `0.635771`, and
+`0.635952`; all structure, typed-QDQ, merge, precision-identity, and realized
+BOPS audits passed. The lowest endpoint retained `26.97%` physical
+parameters and `9.96%` weight storage, with forward speedup `2.412x` and
+total-pipeline speedup `1.700x` on the shared GPU7 screening measurement.
+
+No GA generation has started yet. The next controlled action is a fresh
+single-seed DiscoNet GA run with population/offspring `64`, `15` generations,
+six budgets, and at most five real Stage-2 engine candidates per generation.
+F-Cooper remains deferred until its checkpoint is available.
+
+--- ROUND 14 | 2026-07-19 22:58:00 +0800 ---
