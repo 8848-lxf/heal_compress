@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -305,6 +306,28 @@ def test_wrapper_parity_rejects_missing_outputs() -> None:
     assert "output_contract_mismatch" in result["failure_reason"]
 
 
+def test_wrapper_parity_allows_sparse_fixed_k_roundoff_but_rejects_systemic_drift() -> None:
+    from search.model_family.heal_lidar_deployment import _parity
+
+    expected = torch.zeros(1, 1, 10, 10)
+    sparse = expected.clone()
+    sparse[..., 0, 0] = 3.5e-3
+    systemic = expected + 1.0e-3
+    reference = {name: expected for name in ("cls", "reg", "dir")}
+
+    accepted = _parity(reference, (sparse, sparse, sparse), ("cls", "reg", "dir"))
+    rejected = _parity(
+        reference,
+        (systemic, systemic, systemic),
+        ("cls", "reg", "dir"),
+    )
+
+    assert accepted["passed"] is True
+    assert accepted["outputs"]["cls"]["max_abs_tolerance"] == 5.0e-3
+    assert rejected["passed"] is False
+    assert rejected["outputs"]["cls"]["mean_abs"] > 5.0e-5
+
+
 def test_baseline_evaluator_rejects_inconsistent_family_model_pair(tmp_path: Path) -> None:
     from search.stage2.heal_lidar_baseline_real_evaluator import HealLidarBaselineEvaluationConfig
 
@@ -382,6 +405,55 @@ def test_baseline_real_evaluator_reuses_engine_and_routes_six_input_contract(
     assert calls["max_agents"] == 2
     assert calls["physical_gpu_id"] == 3
     assert (tmp_path / "evaluation/evaluation_acceptance.json").is_file()
+
+
+def test_baseline_candidate_result_publishes_generic_stage2_score(tmp_path: Path) -> None:
+    from search.stage2.heal_lidar_baseline_real_evaluator import (
+        HealLidarBaselineCandidateEvaluator,
+    )
+
+    evaluator = object.__new__(HealLidarBaselineCandidateEvaluator)
+    result = {"status": "ok", "F2": 0.25, "candidate_hash": "candidate"}
+
+    evaluator._write_candidate_result(tmp_path, result)
+
+    assert json.loads((tmp_path / "candidate_stage2_result.json").read_text()) == result
+    assert json.loads((tmp_path / "stage2_score.json").read_text()) == result
+
+
+def test_heal_lidar_onnx_export_critical_section_is_serialized() -> None:
+    import threading
+    import time
+
+    from search.model_family.heal_lidar_deployment import (
+        _serialized_heal_lidar_onnx_export,
+    )
+
+    first_entered = threading.Event()
+    release_first = threading.Event()
+    second_entered = threading.Event()
+
+    def first() -> None:
+        with _serialized_heal_lidar_onnx_export():
+            first_entered.set()
+            assert release_first.wait(timeout=2.0)
+
+    def second() -> None:
+        assert first_entered.wait(timeout=2.0)
+        with _serialized_heal_lidar_onnx_export():
+            second_entered.set()
+
+    first_thread = threading.Thread(target=first)
+    second_thread = threading.Thread(target=second)
+    first_thread.start()
+    second_thread.start()
+    assert first_entered.wait(timeout=2.0)
+    time.sleep(0.05)
+    assert not second_entered.is_set()
+    release_first.set()
+    first_thread.join(timeout=2.0)
+    second_thread.join(timeout=2.0)
+    assert second_entered.is_set()
 
 
 def test_explicit_qdq_preserves_fcooper_functional_island(tmp_path: Path) -> None:

@@ -6,11 +6,12 @@ model:
   max_agents: 2
 
 runtime:
-  gpu_id: 5
+  gpu_id: 0
   exclude_gpu_ids: []
-  parallel_gpu_ids: [5, 6, 7]
-  stage1_gpu_ids: [5, 6, 7]
-  stage2_gpu_ids: [5, 6, 7]
+  # Share the dedicated search pool serially with F-Cooper and keep 5/6/7 free.
+  parallel_gpu_ids: [0, 3, 4]
+  stage1_gpu_ids: [0, 3, 4]
+  stage2_gpu_ids: [0, 3, 4]
   parallel_gpu_min_free_mib: 60000
   parallel_gpu_max_utilization_pct: 10
   stage1_minimum_workers: 3

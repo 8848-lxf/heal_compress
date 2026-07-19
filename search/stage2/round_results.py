@@ -171,11 +171,15 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]], winner: dict[str, An
 def _copy_winner_artifacts(round_dir: Path, winner: dict[str, Any]) -> None:
     source = Path(str(winner["artifact_dir"]))
     copies = {
-        ("pruned_checkpoint.pth",): "round_best_pruned_model.pth",
-        ("pruned_fp32.onnx",): "round_best_pruned.onnx",
-        ("pruned_qdq.onnx",): "round_best_qdq.onnx",
-        ("engine.plan",): "round_best.engine.plan",
-        ("evaluation_300.json", "evaluation.json"): "round_best_evaluation_300.json",
+        ("pruned_checkpoint.pth", "physical/pruned_checkpoint.pth"): "round_best_pruned_model.pth",
+        ("pruned_fp32.onnx", "export/physical_fp32.onnx"): "round_best_pruned.onnx",
+        ("pruned_qdq.onnx", "qdq/explicit_qdq.onnx"): "round_best_qdq.onnx",
+        ("engine.plan", "deployment/candidate.plan"): "round_best.engine.plan",
+        (
+            "evaluation_300.json",
+            "evaluation.json",
+            "evaluation/evaluation.json",
+        ): "round_best_evaluation_300.json",
     }
     for source_names, dst_name in copies.items():
         src = next((source / name for name in source_names if (source / name).is_file()), None)

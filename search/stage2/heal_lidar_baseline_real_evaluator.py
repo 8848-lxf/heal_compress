@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -423,7 +424,17 @@ class HealLidarBaselineCandidateEvaluator:
         self._write_json(output_dir / "physical_plan.json", result["plan"].to_dict())
         self._write_json(output_dir / "physical_ledger.json", result["ledger"].to_dict())
         self._write_json(output_dir / "physical_snapshot.json", result["snapshot"].to_dict())
+        __import__("torch").save(
+            result["model"].state_dict(),
+            output_dir / "pruned_checkpoint.pth",
+        )
         return result
+
+    def _write_candidate_result(self, destination: Path, result: Mapping[str, Any]) -> None:
+        """Publish both family-native and generic Stage-2 score contracts."""
+
+        self._write_json(destination / "candidate_stage2_result.json", result)
+        self._write_json(destination / "stage2_score.json", result)
 
     @staticmethod
     def _write_json(path: Path, payload: Any) -> None:
@@ -615,17 +626,18 @@ class HealLidarBaselineCandidateEvaluator:
                 **evaluation,
                 **score,
             }
-            self._write_json(destination / "candidate_stage2_result.json", result)
+            self._write_candidate_result(destination, result)
             return result
         except Exception as exc:  # noqa: BLE001
             result = {
                 "status": "evaluation_failed",
                 "failure_reason": f"{type(exc).__name__}:{exc}",
+                "failure_traceback": traceback.format_exc(),
                 "F2": float("inf"),
                 "candidate_hash": candidate_hash,
                 "artifact_dir": str(destination),
             }
-            self._write_json(destination / "candidate_stage2_result.json", result)
+            self._write_candidate_result(destination, result)
             return result
 
     def reevaluate_existing_candidate_engine(

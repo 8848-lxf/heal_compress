@@ -120,3 +120,47 @@ def test_round_stage2_results_accepts_formal_evaluator_filename(tmp_path: Path) 
 
     copied = json.loads((round_dir / "round_best_evaluation_300.json").read_text(encoding="utf-8"))
     assert copied["num_evaluated_frames"] == 300
+
+
+def test_round_stage2_results_accepts_heal_lidar_nested_artifacts(tmp_path: Path) -> None:
+    from search.stage2.round_results import write_round_stage2_results
+
+    run_dir = tmp_path / "run"
+    round_dir = run_dir / "round_000"
+    candidate_hash = "heal-lidar"
+    candidate_dir = round_dir / "stage2" / candidate_hash
+    candidate_dir.mkdir(parents=True)
+    (round_dir / "repaired_top5_manifest.json").write_text(
+        json.dumps({"candidates": [{
+            "candidate_rank": 0,
+            "repaired_phenotype_hash": candidate_hash,
+            "repaired_F1": 0.1,
+        }]}),
+        encoding="utf-8",
+    )
+    (candidate_dir / "stage2_score.json").write_text(
+        json.dumps({"status": "ok", "F2": 0.2, "artifact_dir": str(candidate_dir)}),
+        encoding="utf-8",
+    )
+    nested = {
+        "physical/pruned_checkpoint.pth": b"checkpoint",
+        "export/physical_fp32.onnx": b"onnx",
+        "qdq/explicit_qdq.onnx": b"qdq",
+        "deployment/candidate.plan": b"engine",
+    }
+    for name, content in nested.items():
+        path = candidate_dir / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    evaluation = candidate_dir / "evaluation/evaluation.json"
+    evaluation.parent.mkdir(parents=True, exist_ok=True)
+    evaluation.write_text(json.dumps({"status": "ok", "num_evaluated_frames": 500}))
+
+    result = write_round_stage2_results(run_dir, round_index=0)
+
+    assert result["winner"]["candidate_hash"] == candidate_hash
+    assert (round_dir / "round_best_pruned_model.pth").read_bytes() == b"checkpoint"
+    assert (round_dir / "round_best_pruned.onnx").read_bytes() == b"onnx"
+    assert (round_dir / "round_best_qdq.onnx").read_bytes() == b"qdq"
+    assert (round_dir / "round_best.engine.plan").read_bytes() == b"engine"
+    assert json.loads((round_dir / "round_best_evaluation_300.json").read_text())["num_evaluated_frames"] == 500

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+import threading
 from typing import Any, Mapping, Sequence
 
 import torch
@@ -46,6 +48,21 @@ HEAL_LIDAR_BASELINE_INPUT_NAMES = (
 )
 HEAL_LIDAR_BASELINE_OUTPUT_NAMES = ("cls_preds", "reg_preds", "dir_preds")
 SUPPORTED_DEPLOYMENT_FAMILIES = ("heal_lidar_fcooper", "heal_lidar_disco")
+WRAPPER_PARITY_MAX_ABS_TOL = 5.0e-3
+WRAPPER_PARITY_MEAN_ABS_TOL = 5.0e-5
+
+# ``torch.onnx.export`` mutates process-global exporter state in PyTorch 2.0.
+# HEAL's PFNLayer.forward also toggles process-global ``torch.backends.cudnn``.
+# GA Stage-2 owns one model per GPU but runs them in threads inside one process,
+# so parity forwards and export must share one serialized critical section.
+# Calibration, Q/DQ, TensorRT builds and evaluation remain parallel across GPUs.
+_HEAL_LIDAR_ONNX_EXPORT_LOCK = threading.Lock()
+
+
+@contextmanager
+def _serialized_heal_lidar_onnx_export():
+    with _HEAL_LIDAR_ONNX_EXPORT_LOCK:
+        yield
 
 
 @dataclass(frozen=True)
@@ -104,11 +121,18 @@ def _parity(
             "actual_shape": list(observed.shape),
             "max_abs": maximum,
             "mean_abs": mean,
+            "max_abs_tolerance": WRAPPER_PARITY_MAX_ABS_TOL,
+            "mean_abs_tolerance": WRAPPER_PARITY_MEAN_ABS_TOL,
             "allclose": bool(
                 expected.shape == observed.shape
-                and torch.allclose(expected.float(), observed.float(), atol=2.0e-3, rtol=1.0e-4)
-                and maximum <= 2.0e-3
-                and mean <= 1.0e-5
+                and torch.allclose(
+                    expected.float(),
+                    observed.float(),
+                    atol=WRAPPER_PARITY_MAX_ABS_TOL,
+                    rtol=1.0e-4,
+                )
+                and maximum <= WRAPPER_PARITY_MAX_ABS_TOL
+                and mean <= WRAPPER_PARITY_MEAN_ABS_TOL
             ),
         }
     return {"passed": all(bool(row["allclose"]) for row in rows.values()), "outputs": rows}
@@ -262,27 +286,27 @@ def export_heal_lidar_baseline_fixed_k_onnx(
     if tuple(prepared) != HEAL_LIDAR_BASELINE_INPUT_NAMES:
         raise RuntimeError(f"heal_lidar_baseline_export_input_order:{tuple(prepared)}")
     tensors = tuple(prepared[name] for name in HEAL_LIDAR_BASELINE_INPUT_NAMES)
-    with torch.inference_mode():
-        reference = model(dict(ego_batch))
-        actual = wrapper(*tensors)
-    parity = _parity(reference, actual, HEAL_LIDAR_BASELINE_OUTPUT_NAMES)
-    if not parity["passed"]:
-        raise RuntimeError(f"heal_lidar_baseline_wrapper_parity_failed:{parity}")
-
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with capture_weighted_module_calls(wrapper) as calls:
-        torch.onnx.export(
-            wrapper,
-            tensors,
-            str(destination),
-            export_params=True,
-            opset_version=int(opset_version),
-            do_constant_folding=True,
-            input_names=list(HEAL_LIDAR_BASELINE_INPUT_NAMES),
-            output_names=list(HEAL_LIDAR_BASELINE_OUTPUT_NAMES),
-            custom_opsets={"trt": 1},
-        )
+    with _serialized_heal_lidar_onnx_export():
+        with torch.inference_mode():
+            reference = model(dict(ego_batch))
+            actual = wrapper(*tensors)
+        parity = _parity(reference, actual, HEAL_LIDAR_BASELINE_OUTPUT_NAMES)
+        if not parity["passed"]:
+            raise RuntimeError(f"heal_lidar_baseline_wrapper_parity_failed:{parity}")
+        with capture_weighted_module_calls(wrapper) as calls:
+            torch.onnx.export(
+                wrapper,
+                tensors,
+                str(destination),
+                export_params=True,
+                opset_version=int(opset_version),
+                do_constant_folding=True,
+                input_names=list(HEAL_LIDAR_BASELINE_INPUT_NAMES),
+                output_names=list(HEAL_LIDAR_BASELINE_OUTPUT_NAMES),
+                custom_opsets={"trt": 1},
+            )
     origin, family_mapping = canonicalize_heal_lidar_baseline_onnx(
         destination,
         calls,

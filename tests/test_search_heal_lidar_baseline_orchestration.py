@@ -27,11 +27,8 @@ def test_formal_baseline_configs_preserve_six_budget_and_h800_protocol() -> None
         assert config["model"]["family_id"] in {"heal_lidar_fcooper", "heal_lidar_disco"}
         assert config["model"]["fixed_k"] == 29696
         assert config["model"]["max_agents"] == 2
-        expected_gpu_ids = (
-            [0, 3, 4]
-            if config["model"]["family_id"] == "heal_lidar_fcooper"
-            else [5, 6, 7]
-        )
+        # Both families run serially on the dedicated pool; 5/6/7 stay free.
+        expected_gpu_ids = [0, 3, 4]
         assert config["runtime"]["stage1_gpu_ids"] == expected_gpu_ids
         assert config["runtime"]["stage2_gpu_ids"] == expected_gpu_ids
         assert config["runtime"]["stage1_minimum_workers"] == 3
