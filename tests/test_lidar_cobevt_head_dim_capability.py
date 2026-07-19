@@ -1304,9 +1304,51 @@ def test_real_matrix_accepts_provider_evaluation_completion_schema(tmp_path):
 
     rows = assemble_real_cobevt_matrix(output)
     fp32 = next(row for row in rows if row["precision_profile"] == "P0_strict_fp32")
+    assert fp32["structure_family"] == "uniform"
+    assert fp32["profile"] == "P0_strict_fp32"
+    assert fp32["graph_variant"] == "real_cobevt"
     assert fp32["fixed50_complete"] is True
     assert fp32["fixed500_complete"] is True
     assert fp32["smoke10_complete"] is True
+
+
+def test_capability_report_writers_preserve_support_boundaries(tmp_path):
+    from search.reporting.cobevt_head_dim_capability import (
+        write_empirical_vs_tensorrt_documentation,
+        write_root_conclusion,
+    )
+
+    row = {
+        "graph_variant": "projection_attention",
+        "structure_family": "uniform",
+        "d_qk": 16,
+        "d_v": 16,
+        "precision_profile": "P1_strict_fp16_native",
+        "support_class": "supported_fused_mha",
+        "runtime_success": True,
+        "precision_identity": True,
+        "numerical_safe": True,
+        "fused_mha_detected": True,
+    }
+    root = write_root_conclusion(
+        tmp_path,
+        rows=[row],
+        hardware_scope={
+            "gpu_model": "RTX 4090",
+            "compute_capability": "8.9",
+            "tensorrt_version": "10.9.0.34",
+            "cuda_version": "11.8",
+            "driver_version": "test",
+        },
+        contract={"uniform_attention": {}, "qk_only": {}, "v_only": {}},
+    )
+    docs = write_empirical_vs_tensorrt_documentation(
+        tmp_path,
+        rows=[row],
+        hardware_scope={"gpu_model": "RTX 4090"},
+    )
+    assert "supported_fused_mha" in root.read_text()
+    assert "transformers-fused-attention.html" in docs.read_text()
 
 
 def test_export_phase_writes_complete_candidate_provenance_without_engine(tmp_path):

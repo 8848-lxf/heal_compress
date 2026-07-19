@@ -186,3 +186,82 @@ Operational evidence:
 ---
 
 Round 2 completed at 2026-07-19 13:17:48 Asia/Shanghai.
+
+---
+
+## Round 3: full capability execution and real-model evidence
+
+Completed at 2026-07-19 17:06:27 Asia/Shanghai.
+
+This round resumed on `feature/cobevt-head-dim-trt-capability` after the user
+explicitly allowed relatively idle shared 4090 cards. Pyramid workers were not
+modified, paused, killed, or restarted. Because the cards were shared with
+other workloads, every synthetic and real latency field is marked
+`screening_shared_gpu`; no shared-card value is presented as isolated formal
+latency.
+
+### Synthetic matrix
+
+- Candidate definitions: 282 (uniform, QK-only, and V-only families; core and
+  projection graphs; P0-P4 profiles).
+- Production ONNX export: 282/282.
+- Diagnostic ONNX export: 282/282.
+- Production TensorRT build: 282/282.
+- Diagnostic TensorRT build: 282/282.
+- Runtime execution: 282/282, with finite-output and same-shape FP32 reference
+  gates applied independently to production and diagnostic graphs.
+- Support classes: 140 `supported_primitive`, 12 `supported_fused_mha`, and
+  130 `supported_with_fallback`.
+- Complete fused-MHA detection occurred in 15 rows; only 12 passed the
+  requested/realized identity and numerical gates. The three P4 fused-pattern
+  detections remain fallback/unsafe evidence and are not eligible INT8 search
+  actions.
+- Non-8-aligned widths built and ran through primitive paths. In the projection
+  uniform FP16 graph, complete fusion was observed at widths
+  16/24/32/40/48/56/64/80/96/128. This demonstrates that the observed
+  alignment rule is a fusion/tactic boundary rather than a universal ONNX or
+  primitive-build restriction in this SM89/TensorRT 10.9 run.
+- P2 F3 rows intentionally remain `supported_with_fallback` where the
+  requested profile and realized graph differ. They are not silently promoted
+  to exact F3 support.
+
+### Real CoBEVT matrix
+
+- Physical structures: 21 (uniform, QK-only, V-only).
+- Fresh full-model engines: 21 FP32 + 21 FP16 + 21 F3 = 63/63 builds.
+- Smoke10: 63/63 complete, 0 skipped.
+- Fixed50: 14/14 selected rows complete, 0 skipped. The generated fixed50
+  manifest overlaps the fixed500 source ordering; this is recorded in the
+  local manifest provenance.
+- Fixed500: six final uniform rows (d32/d48/d64, FP32 and F3), 6/6 complete,
+  0 skipped. Exact mAP/p50/p90/p99 values are in
+  `real_cobevt/real_cobevt_capability_matrix.csv` and
+  `root_conclusion.md`.
+- Same-shape FP32 references are used for precision deltas. This avoids
+  attributing structural width loss to the precision profile.
+- Real F3 fixed500 deltas versus same-shape FP32 were -0.000054 (d32),
+  -0.000043 (d48), and -0.000601 (d64). These are screening results on a
+  shared GPU, not a claim that all real widths are accuracy-safe.
+
+### Provenance and code changes
+
+- `search/orchestration/lidar_cobevt_head_dim_capability.py`: standardized
+  real-matrix family/profile fields, recorded engine/precision completion
+  provenance, and generated root/documentation reports during assemble.
+- `search/reporting/cobevt_head_dim_capability.py`: added deterministic root
+  conclusion and empirical-vs-documentation writers; deduplicated contract
+  forbidden pairs and excluded fused widths from primitive-only lists.
+- `tests/test_lidar_cobevt_head_dim_capability.py`: added report-writer and real
+  matrix schema assertions.
+- Output directory:
+  `/data/lxf/heal_data/outputs/cobevt_head_dim_trt_capability_20260719_122046/`.
+
+### Current limitations
+
+- No full-model INT8 CoBEVT AP was run; synthetic INT8 rows are capability
+  evidence only and several requested profiles fall back or fail numerical
+  safety.
+- Real fixed500 intentionally covers only the final d32/d48/d64 uniform FP32/F3
+  subset; other rows remain smoke10/fixed50 evidence.
+- A single isolated-GPU latency replay is still required before using latency
+  as a production width-selection criterion.

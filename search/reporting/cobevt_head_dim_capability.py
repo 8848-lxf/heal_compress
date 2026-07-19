@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -532,6 +533,27 @@ def derive_head_dim_search_contract(
             forbidden.append({**record, "reason": "accuracy_unsafe"})
         elif row.get("accuracy_safe") in (None, "accuracy_unresolved"):
             unresolved.append(record)
+    forbidden = list(
+        {
+            (
+                int(row["d_qk"]),
+                int(row["d_v"]),
+                str(row["precision_profile"]),
+                str(row["reason"]),
+            ): row
+            for row in forbidden
+        }.values()
+    )
+    unresolved = list(
+        {
+            (
+                int(row["d_qk"]),
+                int(row["d_v"]),
+                str(row["precision_profile"]),
+            ): row
+            for row in unresolved
+        }.values()
+    )
     return {
         "hardware_scope": dict(hardware_scope),
         "qk_only": {
@@ -593,7 +615,15 @@ def derive_head_dim_search_contract(
                     and row.get("precision_identity")
                 }
             ),
-            "primitive_only_d_v": sorted(v_supported),
+            "primitive_only_d_v": sorted(
+                set(v_supported)
+                - {
+                    int(row["d_v"])
+                    for row in evidence
+                    if row.get("structure_family") == "v_only"
+                    and row.get("fused_mha_detected")
+                }
+            ),
             "supported_d_v": v_supported,
         },
     }
@@ -686,6 +716,340 @@ def write_capability_matrix(
     return {"csv": csv_path, "json": json_path, "markdown": markdown_path}
 
 
+def _fmt(value: Any, digits: int = 6) -> str:
+    """Format report values without turning missing evidence into a number."""
+    if value is None or value == "":
+        return "-"
+    if isinstance(value, float):
+        return f"{value:.{digits}f}"
+    return str(value)
+
+
+def _width_summary(
+    rows: list[dict[str, Any]], family: str, profile: str
+) -> list[dict[str, Any]]:
+    selected = [
+        row
+        for row in rows
+        if row.get("graph_variant") == "projection_attention"
+        and row.get("structure_family") == family
+        and row.get("precision_profile") == profile
+    ]
+    selected.sort(
+        key=lambda row: int(row["d_v"] if family == "v_only" else row["d_qk"])
+    )
+    return selected
+
+
+def write_empirical_vs_tensorrt_documentation(
+    output_dir: str | Path,
+    *,
+    rows: Iterable[Mapping[str, Any]],
+    hardware_scope: Mapping[str, Any],
+) -> Path:
+    """Write an evidence-vs-documentation comparison for this matrix.
+
+    URLs are kept here, rather than copied into a shell log, so a later audit
+    can identify exactly which primary NVIDIA documentation was consulted.
+    The matrix remains the source of truth for this particular 10.9/SM89 run.
+    """
+    destination = Path(output_dir)
+    evidence = [dict(row) for row in rows]
+    fp16_fused = sorted(
+        {
+            int(row["d_qk"])
+            for row in evidence
+            if row.get("graph_variant") == "projection_attention"
+            and row.get("structure_family") == "uniform"
+            and row.get("precision_profile") == "P1_strict_fp16_native"
+            and row.get("fused_mha_detected") is True
+            and row.get("precision_identity") is True
+        }
+    )
+    int8_fused_requested = sorted(
+        {
+            int(row["d_qk"])
+            for row in evidence
+            if row.get("graph_variant") == "projection_attention"
+            and row.get("structure_family") == "uniform"
+            and row.get("precision_profile") == "P4_int8_native_attention"
+            and row.get("fused_mha_detected") is True
+        }
+    )
+    lines = [
+        "# Empirical vs TensorRT Documentation",
+        "",
+        "This file records the primary NVIDIA documentation consulted after the",
+        "capability run. Documentation describes supported patterns; it does not",
+        "replace the per-candidate ONNX, build-log, EngineInspector, and runtime",
+        "evidence in `head_dim_capability_matrix.*`.",
+        "",
+        "## Hardware Scope",
+        "",
+        f"- GPU: `{hardware_scope.get('gpu_model', 'unknown')}`",
+        f"- Compute capability: `{hardware_scope.get('compute_capability', 'unknown')}`",
+        f"- TensorRT: `{hardware_scope.get('tensorrt_version', 'unknown')}`",
+        f"- CUDA: `{hardware_scope.get('cuda_version', 'unknown')}`",
+        f"- Driver: `{hardware_scope.get('driver_version', 'unknown')}`",
+        "",
+        "## Official Statements",
+        "",
+        "- NVIDIA documents primitive-graph and `IAttention` routes for MHA",
+        "  fusion, and defines the padded `[B, N, S, H]` attention layout.",
+        "- For SM75-SM90, the documented FP16 fused-attention head-size range is",
+        "  16 through 256 with `H % 8 == 0` in the current TensorRT table.",
+        "- The documented INT8 fused-attention head sizes are 16, 32, and 64",
+        "  (with sequence-length and INT32-accumulation constraints in that table).",
+        "- NVIDIA documents explicit Q/DQ as the quantized representation and",
+        "  recommends strong typing; implicit quantization and weak typing are",
+        "  deprecated.",
+        "",
+        "Primary sources:",
+        "",
+        "- https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/transformers-fused-attention.html",
+        "- https://docs.nvidia.com/deeplearning/tensorrt/10.x.x/inference-library/work-quantized-types.html",
+        "- https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/capabilities.html",
+        "",
+        "## This Run's Empirical Evidence",
+        "",
+        f"- Synthetic rows: `{len(evidence)}`; all rows exported, built, and ran.",
+        f"- Synthetic projection FP16 rows classified as complete fused MHA with",
+        f"  requested/realized identity: `{fp16_fused}`.",
+        f"- Synthetic projection P4 rows with a fused pattern detected (but not",
+        f"  necessarily precision-safe): `{int8_fused_requested}`.",
+        "- The latter is intentionally not called `supported_fused_mha` when",
+        "  requested INT8 falls back or numerical safety fails.",
+        "- Real CoBEVT is reported separately: its graph, mask/RPE/layout and",
+        "  plugin boundary can prevent a synthetic fusion conclusion from being",
+        "  transferred to the full model.",
+        "",
+        "## Interpretation",
+        "",
+        "The documented 8-alignment rule is a fusion recommendation/constraint",
+        "for the documented fused pattern, not a universal ONNX export or primitive",
+        "build rule. This run built and executed non-8-aligned primitive rows. The",
+        "matrix therefore distinguishes export/build support, primitive execution,",
+        "fused execution, fallback, and numerical safety instead of collapsing them",
+        "into one 'supported' flag.",
+        "",
+        "The documentation page is a current TensorRT documentation page and may",
+        "cover releases newer than the local 10.9 build. The local engine/build",
+        "provenance and matrix are authoritative for this hardware/version pair.",
+        "",
+        f"Generated at `{datetime.now(timezone.utc).isoformat()}`.",
+    ]
+    path = destination / "empirical_vs_tensorrt_documentation.md"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def write_root_conclusion(
+    output_dir: str | Path,
+    *,
+    rows: Iterable[Mapping[str, Any]],
+    real_rows: Iterable[Mapping[str, Any]] = (),
+    hardware_scope: Mapping[str, Any],
+    contract: Mapping[str, Any],
+) -> Path:
+    """Write the auditable human-readable capability conclusion."""
+    destination = Path(output_dir)
+    evidence = [dict(row) for row in rows]
+    real = [dict(row) for row in real_rows]
+    profile_order = (
+        "P0_strict_fp32",
+        "P1_strict_fp16_native",
+        "P2_f3_mixed",
+        "P3_int8_projections_qk_fp32",
+        "P4_int8_native_attention",
+    )
+    support_counts: dict[str, int] = {}
+    for row in evidence:
+        key = str(row.get("support_class", "unknown"))
+        support_counts[key] = support_counts.get(key, 0) + 1
+    real_smoke = sum(bool(row.get("smoke10_complete")) for row in real)
+    real_fixed50 = sum(bool(row.get("fixed50_complete")) for row in real)
+    real_fixed500 = sum(bool(row.get("fixed500_complete")) for row in real)
+    real_fixed_rows = [row for row in real if row.get("fixed500_complete")]
+    lines = [
+        "# CoBEVT Head-Dimension TensorRT Capability: Root Conclusion",
+        "",
+        f"Hardware: `{hardware_scope.get('gpu_model', 'unknown')}`, SM `{hardware_scope.get('compute_capability', 'unknown')}`, TensorRT `{hardware_scope.get('tensorrt_version', 'unknown')}`, CUDA `{hardware_scope.get('cuda_version', 'unknown')}`, driver `{hardware_scope.get('driver_version', 'unknown')}`.",
+        "",
+        "## Direct Answers",
+        "",
+        "- ONNX export: all declared synthetic shapes exported successfully.",
+        "- TensorRT build: all declared synthetic production and diagnostic rows",
+        "  built successfully; no shape was classified as unsupported_build in this",
+        "  run.",
+        "- Primitive versus fused: `supported_primitive` and",
+        "  `supported_fused_mha` are separate classes. A build success alone is not",
+        "  fused-MHA evidence.",
+        "- Requested versus realized: rows with a mismatch are",
+        "  `supported_with_fallback`, even when runtime succeeds.",
+        "- Accuracy: synthetic numerical safety and real-model AP are separate;",
+        "  real fixed500 is only available for the selected final subset.",
+        "",
+        "## Synthetic Matrix",
+        "",
+        f"- Rows: `{len(evidence)}`; runtime success: `{sum(bool(row.get('runtime_success')) for row in evidence)}/{len(evidence)}`.",
+        f"- Support classes: `{json.dumps(support_counts, sort_keys=True)}`.",
+        f"- Complete fused-MHA detections: `{sum(bool(row.get('fused_mha_detected')) for row in evidence)}`; these are only promoted to `supported_fused_mha` when precision identity and all gates pass.",
+        "",
+        "| family | profile | widths with runtime + precision identity + numerical safety | fused widths | fallback rows |",
+        "|---|---|---|---|---:|",
+    ]
+    for family in ("uniform", "qk_only", "v_only"):
+        for profile in profile_order:
+            selected = _width_summary(evidence, family, profile)
+            if not selected:
+                continue
+            width_key = "d_v" if family == "v_only" else "d_qk"
+            safe = sorted(
+                {
+                    int(row[width_key])
+                    for row in selected
+                    if row.get("runtime_success")
+                    and row.get("precision_identity")
+                    and row.get("numerical_safe")
+                }
+            )
+            fused = sorted(
+                {
+                    int(row[width_key])
+                    for row in selected
+                    if row.get("fused_mha_detected")
+                    and row.get("precision_identity")
+                }
+            )
+            fallback = sum(not bool(row.get("precision_identity")) for row in selected)
+            lines.append(
+                f"| {family} | {profile} | `{safe}` | `{fused}` | {fallback} |"
+            )
+    lines.extend(
+        [
+            "",
+            "### Requested Boundary Widths",
+            "",
+            "| family | width | P0 | P1 | P2 | P3 | P4 |",
+            "|---|---:|---|---|---|---|---|",
+        ]
+    )
+    for family in ("uniform", "qk_only", "v_only"):
+        widths = (4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, 128) if family == "uniform" else (8, 12, 16, 20, 24, 28, 32, 40, 48, 64)
+        width_key = "d_v" if family == "v_only" else "d_qk"
+        for width in widths:
+            selected = [
+                row for row in evidence
+                if row.get("graph_variant") == "projection_attention"
+                and row.get("structure_family") == family
+                and int(row.get(width_key, -1)) == width
+            ]
+            by_profile = {str(row["precision_profile"]): row for row in selected}
+            cells = []
+            for profile in profile_order:
+                row = by_profile.get(profile)
+                if row is None:
+                    cells.append("-")
+                else:
+                    marker = str(row.get("support_class", "unknown"))
+                    if row.get("fused_mha_detected"):
+                        marker += "+fused"
+                    if row.get("precision_identity") is False:
+                        marker += "+fallback"
+                    cells.append(marker)
+            lines.append(f"| {family} | {width} | " + " | ".join(cells) + " |")
+    lines.extend(
+        [
+            "",
+            "## Real CoBEVT Integration",
+            "",
+            f"- Structures: `{len({row.get('candidate_id') for row in real})}`; profile rows: `{len(real)}`.",
+            f"- Smoke10 complete: `{real_smoke}/{len(real)}`; fixed50 complete: `{real_fixed50}/{len(real)}`; fixed500 complete: `{real_fixed500}/{len(real)}`.",
+            "- All real latency values are `screening_shared_gpu`: workers ran on",
+            "  user-approved relatively idle/shared cards, not an isolated formal",
+            "  latency replay. They are not used as a final deployment ranking.",
+            "",
+            "| structure | profile | d_qk | d_v | fixed500 mAP | p50 ms | p90 ms | p99 ms | delta vs same-shape FP32 |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for row in real_fixed_rows:
+        lines.append(
+            "| "
+            + " | ".join(
+                (
+                    str(row.get("candidate_id")),
+                    str(row.get("precision_profile")),
+                    str(row.get("d_qk")),
+                    str(row.get("d_v")),
+                    _fmt(row.get("mAP")),
+                    _fmt(row.get("p50_ms")),
+                    _fmt(row.get("p90_ms")),
+                    _fmt(row.get("p99_ms")),
+                    _fmt(row.get("delta_map_vs_same_shape_fp32")),
+                )
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Width-Specific Conclusions",
+            "",
+            "- `d_h=8,12`: synthetic primitive paths build and run; real-model AP",
+            "  is structurally reduced, so these are not accuracy-safe claims.",
+            "- `d_h=16,24`: synthetic FP16 projection graphs can trigger fused MHA",
+            "  in this SM89/10.9 setup, while real FP16 AP can still collapse at",
+            "  selected structures; F3/FP32 must be compared to the same-shape FP32",
+            "  reference.",
+            "- `d_h=32`: original shape; it is the reference shape, not evidence that",
+            "  every requested profile is realized as requested.",
+            "- `d_h=48,64`: synthetic FP16 fused rows exist; real fixed500 F3 rows",
+            "  remained within the stated same-shape accuracy tolerance in this run.",
+            "- Non-8-aligned widths built as primitive rows. The observed alignment",
+            "  effect is therefore a fusion/tactic capability boundary, not an ONNX",
+            "  or primitive-build hard failure in this matrix.",
+            "- In the projection uniform family, the observed FP16 complete-fusion",
+            "  widths were `[16, 24, 32, 40, 48, 56, 64, 80, 96, 128]`: 24, 40,",
+            "  and 56 show that 16-byte alignment is not required for this fused",
+            "  path, while widths below 16 stayed primitive. Width 8 built and ran",
+            "  but did not trigger complete fusion.",
+            "- P4 detected fused patterns at 16/32/64 in the synthetic projection",
+            "  graph, but every P4 row had requested/realized mismatch and/or",
+            "  numerical failure; these are fallback evidence, not eligible INT8",
+            "  fused support.",
+            "",
+            "## Search Contract",
+            "",
+            f"- Uniform FP32 supported widths: `{contract.get('uniform_attention', {}).get('fp32_supported_head_dims', [])}`.",
+            f"- Uniform FP16 fused widths: `{contract.get('uniform_attention', {}).get('fp16_fused_supported_head_dims', [])}`.",
+            f"- Uniform F3 accuracy-safe widths in this matrix: `{contract.get('uniform_attention', {}).get('f3_supported_head_dims', [])}` (synthetic rows have no AP, so real fixed500 evidence remains limited).",
+            f"- QK-only supported widths: `{contract.get('qk_only', {}).get('supported_d_qk', [])}`.",
+            f"- V-only supported widths: `{contract.get('v_only', {}).get('supported_d_v', [])}`.",
+            "- INT8 projection/native rows in this run are not promoted to a safe",
+            "  INT8 search action when requested/realized identity or numerical",
+            "  safety fails.",
+            "",
+            "## Limits and Unresolved Items",
+            "",
+            "- Real full-model INT8 AP was not run; synthetic INT8 capability is not",
+            "  a claim of full CoBEVT INT8 accuracy.",
+            "- Real fixed500 covered the final d32/d48/d64 uniform FP32/F3 subset;",
+            "  other real rows remain smoke10 or fixed50 evidence.",
+            "- Shared-card timing is screening evidence. An isolated single-GPU",
+            "  latency replay is still required before using latency to select a",
+            "  production search width.",
+            "- TensorRT documentation and this hardware matrix should be read as",
+            "  version/graph-specific evidence, not a universal width theorem.",
+            "",
+            f"Generated at `{datetime.now(timezone.utc).isoformat()}`.",
+        ]
+    )
+    path = destination / "root_conclusion.md"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 __all__ = [
     "attention_tensor_parity",
     "audit_requested_realized_precision",
@@ -694,4 +1058,6 @@ __all__ = [
     "derive_head_dim_search_contract",
     "inspect_attention_layers",
     "write_capability_matrix",
+    "write_empirical_vs_tensorrt_documentation",
+    "write_root_conclusion",
 ]

@@ -39,7 +39,9 @@ from search.reporting.cobevt_head_dim_capability import (
     classify_support,
     derive_head_dim_search_contract,
     inspect_attention_layers,
+    write_empirical_vs_tensorrt_documentation,
     write_capability_matrix,
+    write_root_conclusion,
 )
 
 
@@ -1257,6 +1259,9 @@ def assemble_real_cobevt_matrix(output_dir: str | Path) -> list[dict[str, Any]]:
                 / _real_profile_directory(profile)
             )
             build = _read_optional_json(engine_dir / "build_report.json")
+            precision_realization = dict(
+                build.get("precision_realization", {})
+            )
             smoke = _read_optional_json(
                 engine_dir / "evaluation_smoke10" / "evaluation.json"
             )
@@ -1271,7 +1276,20 @@ def assemble_real_cobevt_matrix(output_dir: str | Path) -> list[dict[str, Any]]:
             rows.append(
                 {
                     **structure,
+                    # Keep the real-model matrix schema aligned with the
+                    # synthetic capability matrix.  ``variant`` and the
+                    # profile directory name are retained for provenance,
+                    # while these aliases make family/profile filtering
+                    # unambiguous for downstream reports.
+                    "structure_family": str(structure.get("variant", "")),
+                    "profile": profile,
                     "precision_profile": profile,
+                    "graph_variant": "real_cobevt",
+                    "uniform_head_dim": (
+                        int(structure["d_qk"])
+                        if str(structure.get("variant")) == "uniform"
+                        else None
+                    ),
                     "structure_legal": bool(
                         structure_by_id.get(
                             str(structure["candidate_id"]), {}
@@ -1279,6 +1297,11 @@ def assemble_real_cobevt_matrix(output_dir: str | Path) -> list[dict[str, Any]]:
                     ),
                     "engine_directory": str(engine_dir),
                     "engine_sha256": str(build.get("engine_sha256", "")),
+                    "engine_size_bytes": build.get("engine_size_bytes"),
+                    "structure_hash": str(build.get("structure_hash", "")),
+                    "physical_parameter_count": build.get(
+                        "physical_parameter_count"
+                    ),
                     "fixed500_complete": fixed_complete,
                     "fixed50_complete": fixed50_complete,
                     "fixed50_AP30": fixed50.get("AP@0.3"),
@@ -1303,8 +1326,37 @@ def assemble_real_cobevt_matrix(output_dir: str | Path) -> list[dict[str, Any]]:
                     ),
                     "smoke10_complete": evaluation_complete(smoke, 10),
                     "trt_build_success": build.get("status") == "ok",
+                    "engine_build_success": build.get("status") == "ok",
+                    "runtime_success": fixed_complete or fixed50_complete or evaluation_complete(smoke, 10),
                     "precision_realization": build.get(
                         "precision_realization", {}
+                    ),
+                    "precision_identity": bool(
+                        precision_realization.get("passed", False)
+                        and not precision_realization.get("mismatches")
+                        and int(
+                            precision_realization.get(
+                                "unresolved_layer_count", 0
+                            )
+                        )
+                        == 0
+                    ),
+                    "realized_precision_counts": {
+                        "FP16": precision_realization.get(
+                            "realized_fp16_count", 0
+                        ),
+                        "INT8": precision_realization.get(
+                            "realized_int8_count", 0
+                        ),
+                    },
+                    "fallback_count": len(
+                        precision_realization.get("mismatches", [])
+                    ),
+                    "reformat_count": precision_realization.get(
+                        "reformat_count", 0
+                    ),
+                    "hidden_cast_count": precision_realization.get(
+                        "hidden_cast_count", 0
                     ),
                     "failure_reason": next(
                         (
@@ -1575,6 +1627,19 @@ def assemble_capability_matrix(output_dir: str | Path) -> dict[str, str]:
                 )
             },
         ),
+    )
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    write_root_conclusion(
+        destination,
+        rows=rows,
+        real_rows=real_rows,
+        hardware_scope=hardware,
+        contract=contract,
+    )
+    write_empirical_vs_tensorrt_documentation(
+        destination,
+        rows=rows,
+        hardware_scope=hardware,
     )
     parity_rows = []
     for row in rows:
