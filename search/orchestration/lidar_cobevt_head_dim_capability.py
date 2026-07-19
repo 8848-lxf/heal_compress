@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import os
@@ -21,11 +22,22 @@ from search.model_families.lidar_cobevt.head_dim_capability import (
     build_synthetic_candidate_matrix,
 )
 from search.model_families.lidar_cobevt.head_dim_synthetic import (
+    SYNTHETIC_INPUT_CASES,
+    applicable_requested_precision,
     export_synthetic_diagnostic_onnx,
     export_synthetic_onnx,
     requested_precision_manifest,
 )
-from search.reporting.cobevt_head_dim_capability import inspect_attention_layers
+from search.integration.lidar_cobevt_head_dim_runtime import (
+    evaluate_synthetic_runtime,
+)
+from search.reporting.cobevt_head_dim_capability import (
+    audit_requested_realized_precision,
+    classify_support,
+    derive_head_dim_search_contract,
+    inspect_attention_layers,
+    write_capability_matrix,
+)
 
 
 def _sha256(path: Path) -> str:
@@ -363,6 +375,21 @@ def candidate_input_shapes(
     }
 
 
+def candidate_ids_for_shard(
+    candidates: Any, *, shard_index: int, shard_count: int
+) -> set[str]:
+    if int(shard_count) <= 0:
+        raise ValueError("candidate_shard_count_must_be_positive")
+    if not 0 <= int(shard_index) < int(shard_count):
+        raise ValueError("candidate_shard_index_out_of_range")
+    ordered = sorted(str(row.candidate_id) for row in candidates)
+    return {
+        candidate_id
+        for index, candidate_id in enumerate(ordered)
+        if index % int(shard_count) == int(shard_index)
+    }
+
+
 def _shape_spec(candidate: HeadDimCandidate) -> str:
     shapes = candidate_input_shapes(candidate)
     dynamic_names = (
@@ -487,6 +514,148 @@ def prepare_capability_run(
         "candidate_count": len(candidate_rows),
         "candidate_matrix_hash": run_manifest["candidate_matrix_hash"],
         "output_dir": str(destination),
+    }
+
+
+def prepare_real_cobevt_integration(
+    output_dir: str | Path, source_experiment: str | Path
+) -> dict[str, Any]:
+    """Create a real-model inventory that reuses the validated fixedK protocol."""
+
+    destination = Path(output_dir).expanduser().resolve()
+    if destination.exists() and any(destination.iterdir()):
+        raise RuntimeError(f"real_capability_output_not_empty:{destination}")
+    destination.mkdir(parents=True, exist_ok=True)
+    source_root = Path(source_experiment).expanduser().resolve()
+    source = json.loads(
+        (source_root / "experiment_config.json").read_text(encoding="utf-8")
+    )
+    if int(source.get("fixed_k", 0)) != 29696:
+        raise RuntimeError("real_capability_requires_fixedk29696")
+    if not bool(source.get("fixed_k_validated")):
+        raise RuntimeError("real_capability_fixedk_not_validated")
+    if int(source.get("fixed_k_contract", {}).get("overflow_count", -1)) != 0:
+        raise RuntimeError("real_capability_fixedk_overflow_detected")
+    widths = (8, 12, 16, 24, 32, 48, 64)
+    candidates = []
+    for family in ("uniform", "qk_only", "v_only"):
+        for width in widths:
+            d_qk = width if family != "v_only" else 32
+            d_v = width if family != "qk_only" else 32
+            candidates.append(
+                {
+                    "candidate_id": f"{family}_qk{d_qk}_v{d_v}",
+                    "d_qk": int(d_qk),
+                    "d_v": int(d_v),
+                    "embed_dim": 256,
+                    "experiment": "capability",
+                    "heads": 8,
+                    "mask_path": "",
+                    "mask_sha256": "not_applicable_capability_resize",
+                    "variant": family,
+                }
+            )
+    config = {
+        "candidates": candidates,
+        "deployment_policy": dict(source.get("deployment_policy", {})),
+        "fixed_k": 29696,
+        "fixed_k_contract": dict(source["fixed_k_contract"]),
+        "fixed_k_validated": True,
+        "manifests": dict(source["manifests"]),
+        "protocol": dict(source.get("protocol", {})),
+        "source_experiment": str(source_root),
+        "structure_recipe": "capability_only_explicit_qk_v_resize_v1",
+    }
+    _write_json(destination / "experiment_config.json", config)
+    return {
+        "candidate_count": len(candidates),
+        "fixed_k": 29696,
+        "output_dir": str(destination),
+    }
+
+
+def audit_real_cobevt_structures(
+    output_dir: str | Path,
+    *,
+    checkpoint: str | Path,
+    config: str | Path,
+    heal_root: str | Path,
+) -> dict[str, int]:
+    """Materialize all representative real-model shapes without using CUDA."""
+
+    from dataclasses import asdict
+
+    import torch
+
+    from search.model_families.lidar_cobevt.head_dim_materializer import (
+        materialize_model_attention_for_capability,
+    )
+    from search.model_families.lidar_cobevt.model_capability import (
+        CobevtModelCapability,
+    )
+
+    destination = Path(output_dir).expanduser().resolve()
+    experiment = json.loads(
+        (destination / "experiment_config.json").read_text(encoding="utf-8")
+    )
+    report_path = destination / "structure_audit.json"
+    if report_path.exists():
+        raise RuntimeError("real_capability_structure_audit_not_fresh")
+    rows = []
+    for record in experiment["candidates"]:
+        try:
+            bundle = CobevtModelCapability(
+                Path(checkpoint), Path(config), Path(heal_root)
+            ).load(device=torch.device("cpu"))
+            report = materialize_model_attention_for_capability(
+                bundle.model,
+                d_qk=int(record["d_qk"]),
+                d_v=int(record["d_v"]),
+            )
+            modules = [
+                {
+                    "module_path": name,
+                    "q_weight_shape": list(module.q_proj.weight.shape),
+                    "k_weight_shape": list(module.k_proj.weight.shape),
+                    "v_weight_shape": list(module.v_proj.weight.shape),
+                    "out_weight_shape": list(module.out_proj.weight.shape),
+                    "scale": float(module.scale),
+                }
+                for name, module in bundle.model.named_modules()
+                if module.__class__.__name__ == "PrunableCobevtAttention"
+            ]
+            row = {
+                **record,
+                "actual_parameter_count": sum(
+                    parameter.numel() for parameter in bundle.model.parameters()
+                ),
+                "checkpoint_strict_load": True,
+                "modules": modules,
+                "report": asdict(report),
+                "structure_legal": bool(report.passed),
+            }
+        except Exception as exc:  # noqa: BLE001
+            row = {
+                **record,
+                "failure_reason": f"{type(exc).__name__}:{exc}",
+                "structure_legal": False,
+            }
+        rows.append(row)
+    _write_json(report_path, rows)
+    fieldnames = sorted(
+        {key for row in rows for key in row if key not in {"modules", "report"}}
+    )
+    with (destination / "structure_audit.csv").open(
+        "w", encoding="utf-8", newline=""
+    ) as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: row.get(key, "") for key in fieldnames})
+    return {
+        "attempted": len(rows),
+        "failed": sum(not row["structure_legal"] for row in rows),
+        "succeeded": sum(bool(row["structure_legal"]) for row in rows),
     }
 
 
@@ -761,6 +930,334 @@ def build_capability_candidates(
     return {"attempted": attempted, "failed": failed, "succeeded": succeeded}
 
 
+def run_capability_candidates(
+    output_dir: str | Path,
+    *,
+    environment: dict[str, Any],
+    physical_gpu: int,
+    only_candidate_ids: set[str] | None = None,
+    runner_factory: Any | None = None,
+    warmup_iterations: int = 20,
+    measured_iterations: int = 100,
+) -> dict[str, int]:
+    """Run production latency and diagnostic parity for built candidates."""
+
+    import torch
+
+    destination = Path(output_dir).expanduser().resolve()
+    records = json.loads(
+        (destination / "candidate_matrix.json").read_text(encoding="utf-8")
+    )
+    candidates = {
+        candidate.candidate_id: candidate
+        for candidate in (_candidate_from_record(dict(row)) for row in records)
+    }
+    candidate_dirs = {
+        candidate.candidate_id: _candidate_directory(destination, candidate)
+        for candidate in candidates.values()
+    }
+    if runner_factory is None:
+        from search.orchestration.lidar_cobevt_attention_microbenchmark import (
+            load_tensorrt_runtime,
+        )
+        from tests.quant_deploy.deployment_equivalence import (
+            TensorRTEngineRunner,
+        )
+
+        load_tensorrt_runtime(
+            Path(str(environment["tensorrt_root"])).expanduser().resolve()
+        )
+        device = torch.device("cuda", int(physical_gpu))
+        if not torch.cuda.is_available():
+            raise RuntimeError("capability_runtime_cuda_unavailable")
+        torch.cuda.set_device(device)
+        runner_factory = lambda path: TensorRTEngineRunner(str(path), device)
+
+    attempted = succeeded = failed = 0
+    runtime_reports: dict[str, dict[str, Any]] = {}
+    cached_reference_id = ""
+    cached_reference_runner: Any | None = None
+    for candidate_id, candidate in candidates.items():
+        if only_candidate_ids and candidate_id not in only_candidate_ids:
+            continue
+        candidate_dir = candidate_dirs[candidate_id]
+        production_build_path = candidate_dir / "build_report.json"
+        diagnostic_build_path = candidate_dir / "diagnostic_build_report.json"
+        if not (production_build_path.is_file() and diagnostic_build_path.is_file()):
+            continue
+        production_build = json.loads(
+            production_build_path.read_text(encoding="utf-8")
+        )
+        diagnostic_build = json.loads(
+            diagnostic_build_path.read_text(encoding="utf-8")
+        )
+        if not (
+            production_build.get("trt_build_success")
+            and diagnostic_build.get("trt_build_success")
+        ):
+            continue
+        attempted += 1
+        report_path = candidate_dir / "runtime_report.json"
+        if report_path.exists():
+            raise RuntimeError(
+                f"capability_candidate_runtime_not_fresh:{candidate_id}"
+            )
+        reference_id = candidate.same_shape_fp32_reference_id
+        reference_dir = candidate_dirs.get(reference_id)
+        try:
+            if reference_dir is None:
+                raise RuntimeError("same_shape_fp32_reference_missing")
+            reference_build_path = reference_dir / "diagnostic_build_report.json"
+            if not reference_build_path.is_file() or not json.loads(
+                reference_build_path.read_text(encoding="utf-8")
+            ).get("trt_build_success"):
+                raise RuntimeError("same_shape_fp32_reference_not_built")
+            production_runner = runner_factory(candidate_dir / "engine.plan")
+            diagnostic_runner = runner_factory(
+                candidate_dir / "diagnostic_engine.plan"
+            )
+            if reference_id == candidate_id:
+                reference_runner = diagnostic_runner
+            else:
+                if cached_reference_id != reference_id:
+                    cached_reference_runner = runner_factory(
+                        reference_dir / "diagnostic_engine.plan"
+                    )
+                    cached_reference_id = reference_id
+                reference_runner = cached_reference_runner
+            report = evaluate_synthetic_runtime(
+                candidate,
+                production_runner=production_runner,
+                diagnostic_runner=diagnostic_runner,
+                reference_diagnostic_runner=reference_runner,
+                input_cases=SYNTHETIC_INPUT_CASES,
+                warmup_iterations=int(warmup_iterations),
+                measured_iterations=int(measured_iterations),
+            )
+            report.update(
+                {
+                    "candidate_hash": candidate.candidate_hash,
+                    "candidate_id": candidate_id,
+                    "physical_gpu": int(physical_gpu),
+                    "same_shape_fp32_reference_id": reference_id,
+                }
+            )
+            succeeded += 1
+        except Exception as exc:  # noqa: BLE001
+            report = {
+                "candidate_hash": candidate.candidate_hash,
+                "candidate_id": candidate_id,
+                "failure_reason": f"{type(exc).__name__}:{exc}",
+                "physical_gpu": int(physical_gpu),
+                "runtime_success": False,
+                "same_shape_fp32_reference_id": reference_id,
+            }
+            failed += 1
+            _write_json(
+                destination / "failures" / f"{candidate.candidate_hash}_runtime.json",
+                report,
+            )
+        runtime_reports[candidate_id] = report
+        _write_json(report_path, report)
+
+    for candidate_id, report in runtime_reports.items():
+        if not report.get("runtime_success"):
+            continue
+        reference = runtime_reports.get(
+            str(report["same_shape_fp32_reference_id"])
+        )
+        if reference and reference.get("runtime_success"):
+            reference_p50 = float(reference["p50_ms"])
+            candidate_p50 = float(report["p50_ms"])
+            report["same_shape_fp32_p50_ms"] = reference_p50
+            report["same_shape_fp32_speedup"] = reference_p50 / candidate_p50
+            _write_json(candidate_dirs[candidate_id] / "runtime_report.json", report)
+    return {"attempted": attempted, "failed": failed, "succeeded": succeeded}
+
+
+def _read_optional_json(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    return dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+def assemble_capability_matrix(output_dir: str | Path) -> dict[str, str]:
+    """Assemble one evidence row per declared candidate without inventing facts."""
+
+    destination = Path(output_dir).expanduser().resolve()
+    records = json.loads(
+        (destination / "candidate_matrix.json").read_text(encoding="utf-8")
+    )
+    hardware = _read_optional_json(destination / "hardware_manifest.json")
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        candidate = _candidate_from_record(dict(record))
+        candidate_dir = _candidate_directory(destination, candidate)
+        export = _read_optional_json(candidate_dir / "export_report.json")
+        build = _read_optional_json(candidate_dir / "build_report.json")
+        runtime = _read_optional_json(candidate_dir / "runtime_report.json")
+        requested_manifest = requested_precision_manifest(
+            candidate.precision_profile
+        )
+        requested = applicable_requested_precision(
+            candidate, requested_manifest
+        )
+        realized = dict(build.get("realized_precision", {}))
+        precision_audit = (
+            audit_requested_realized_precision(requested, realized)
+            if build.get("trt_build_success")
+            else {
+                "fallback_count": 0,
+                "fallback_roles": [],
+                "precision_identity": False,
+                "requested_precision": requested,
+                "realized_precision": realized,
+            }
+        )
+        executed = bool(runtime.get("runtime_success"))
+        if export.get("onnx_export_success") is False:
+            support_class = "unsupported_export"
+        elif build and not build.get("trt_build_success"):
+            support_class = "unsupported_build"
+        elif runtime:
+            support_class = classify_support(
+                {
+                    "onnx_export_success": bool(
+                        export.get("onnx_export_success")
+                    ),
+                    "trt_build_success": bool(build.get("trt_build_success")),
+                    "runtime_success": executed,
+                    "precision_identity": bool(
+                        precision_audit["precision_identity"]
+                    ),
+                    "fused_mha_detected": bool(
+                        build.get("fused_mha_detected")
+                    ),
+                }
+            )
+        else:
+            support_class = "pending_not_executed"
+        failure_reason = next(
+            (
+                str(payload.get("failure_reason"))
+                for payload in (runtime, build, export)
+                if payload.get("failure_reason")
+            ),
+            "",
+        )
+        row = {
+            **candidate.to_dict(),
+            "accuracy_safe": runtime.get(
+                "accuracy_safe", "accuracy_unresolved"
+            ),
+            "av_accumulator_precision": build.get(
+                "av_accumulator_precision", "unknown"
+            ),
+            "build_status": support_class,
+            "cast_count": int(build.get("cast_count", 0)),
+            "compute_capability": str(
+                hardware.get("compute_capability", "unknown")
+            ),
+            "cuda_version": str(hardware.get("cuda_version", "unknown")),
+            "engine_sha256": str(build.get("engine_sha256", "")),
+            "evidence_directory": str(candidate_dir),
+            "failure_reason": failure_reason,
+            "fallback_count": int(precision_audit["fallback_count"]),
+            "fallback_roles": list(precision_audit["fallback_roles"]),
+            "fused_mha_detected": bool(build.get("fused_mha_detected", False)),
+            "fusion_kind": str(build.get("fusion_kind", "unknown")),
+            "gpu_model": str(hardware.get("gpu_model", "unknown")),
+            "hardware_id": str(hardware.get("hardware_id", "unknown")),
+            "numerical_safe": runtime.get("numerical_safe"),
+            "onnx_export_success": bool(export.get("onnx_export_success", False)),
+            "onnx_sha256": str(export.get("onnx_sha256", "")),
+            "p50_ms": runtime.get("p50_ms"),
+            "p90_ms": runtime.get("p90_ms"),
+            "p99_ms": runtime.get("p99_ms"),
+            "plugin_used": bool(build.get("plugin_used", False)),
+            "precision_identity": bool(precision_audit["precision_identity"]),
+            "qk_accumulator_precision": build.get(
+                "qk_accumulator_precision", "unknown"
+            ),
+            "realized_av_precision": realized.get("av_matmul", "unknown"),
+            "realized_qk_precision": realized.get("qk_matmul", "unknown"),
+            "realized_qkv_precision": {
+                role: realized.get(role, "not_applicable")
+                for role in ("q_projection", "k_projection", "v_projection")
+            },
+            "realized_softmax_precision": realized.get("softmax", "unknown"),
+            "reformat_count": int(build.get("reformat_count", 0)),
+            "requested_av_precision": requested.get("av_matmul", "not_applicable"),
+            "requested_qk_precision": requested.get("qk_matmul", "not_applicable"),
+            "requested_qkv_precision": {
+                role: requested.get(role, "not_applicable")
+                for role in ("q_projection", "k_projection", "v_projection")
+            },
+            "requested_softmax_precision": requested.get(
+                "softmax", "not_applicable"
+            ),
+            "runtime_success": executed,
+            "same_shape_fp32_speedup": runtime.get(
+                "same_shape_fp32_speedup"
+            ),
+            "support_class": support_class,
+            "trt_build_success": bool(build.get("trt_build_success", False)),
+        }
+        rows.append(row)
+    paths = write_capability_matrix(destination, rows)
+    contract_path = destination / "final_head_dim_search_contract.json"
+    _write_json(
+        contract_path,
+        derive_head_dim_search_contract(
+            rows,
+            hardware_scope={
+                key: hardware.get(key)
+                for key in (
+                    "gpu_model",
+                    "compute_capability",
+                    "tensorrt_version",
+                    "cuda_version",
+                    "driver_version",
+                )
+            },
+        ),
+    )
+    parity_rows = []
+    for row in rows:
+        runtime = _read_optional_json(
+            Path(str(row["evidence_directory"])) / "runtime_report.json"
+        )
+        parity_rows.extend(
+            {"candidate_id": row["candidate_id"], **dict(metrics)}
+            for metrics in runtime.get("parity", [])
+        )
+    parity_json = destination / "synthetic_numerical_parity.json"
+    _write_json(parity_json, parity_rows)
+    parity_csv = destination / "synthetic_numerical_parity.csv"
+    parity_fields = sorted({key for row in parity_rows for key in row})
+    with parity_csv.open("w", encoding="utf-8", newline="") as handle:
+        if parity_fields:
+            writer = csv.DictWriter(handle, fieldnames=parity_fields)
+            writer.writeheader()
+            for row in parity_rows:
+                writer.writerow(
+                    {
+                        key: (
+                            json.dumps(row.get(key), sort_keys=True)
+                            if isinstance(row.get(key), (dict, list, tuple))
+                            else row.get(key)
+                        )
+                        for key in parity_fields
+                    }
+                )
+    return {
+        **{key: str(value) for key, value in paths.items()},
+        "contract": str(contract_path),
+        "parity_csv": str(parity_csv),
+        "parity_json": str(parity_json),
+    }
+
+
 def _git_commit() -> str:
     completed = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -778,7 +1275,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--phase",
-        choices=("prepare", "export", "build", "build-diagnostic"),
+        choices=(
+            "prepare",
+            "prepare-real",
+            "audit-real-structure",
+            "export",
+            "build",
+            "build-diagnostic",
+            "runtime",
+            "assemble",
+        ),
         required=True,
     )
     parser.add_argument("--output-dir", required=True)
@@ -796,7 +1302,33 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--physical-gpu", type=int, default=2)
     parser.add_argument("--only-candidate", action="append", default=[])
     parser.add_argument("--trace-window-groups", type=int, default=1)
+    parser.add_argument(
+        "--source-real-experiment",
+        default=(
+            "/data/lxf/heal_data/outputs/"
+            "cobevt_attention_dim_pruning_20260718_085644"
+        ),
+    )
+    parser.add_argument("--shard-index", type=int)
+    parser.add_argument("--shard-count", type=int)
     parser.add_argument("--allow-shared-gpu", action="store_true")
+    parser.add_argument(
+        "--checkpoint",
+        default=(
+            "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/"
+            "dairv2s/LiDAROnly/lidar_cobevt/net_epoch_bestval_at19.pth"
+        ),
+    )
+    parser.add_argument(
+        "--config",
+        default=(
+            "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/"
+            "dairv2s/LiDAROnly/lidar_cobevt/config.yaml"
+        ),
+    )
+    parser.add_argument(
+        "--heal-root", default="/home/lixingfeng/UniAD_examine/HEAL"
+    )
     return parser
 
 
@@ -804,6 +1336,19 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     output_dir = Path(args.output_dir).expanduser().resolve()
     only = set(str(value) for value in args.only_candidate) or None
+    if (args.shard_index is None) != (args.shard_count is None):
+        raise ValueError("candidate_shard_index_and_count_required_together")
+    if args.shard_index is not None:
+        records = json.loads(
+            (output_dir / "candidate_matrix.json").read_text(encoding="utf-8")
+        )
+        candidates = [_candidate_from_record(dict(row)) for row in records]
+        shard = candidate_ids_for_shard(
+            candidates,
+            shard_index=int(args.shard_index),
+            shard_count=int(args.shard_count),
+        )
+        only = shard if only is None else only & shard
     if args.phase == "prepare":
         environment = discover_capability_environment(
             previous_output=args.previous_output,
@@ -815,12 +1360,26 @@ def main(argv: list[str] | None = None) -> int:
             environment=environment,
             code_commit=_git_commit(),
         )
+    elif args.phase == "prepare-real":
+        result = prepare_real_cobevt_integration(
+            output_dir / "real_cobevt",
+            args.source_real_experiment,
+        )
+    elif args.phase == "audit-real-structure":
+        result = audit_real_cobevt_structures(
+            output_dir / "real_cobevt",
+            checkpoint=args.checkpoint,
+            config=args.config,
+            heal_root=args.heal_root,
+        )
     elif args.phase == "export":
         result = export_capability_candidates(
             output_dir,
             only_candidate_ids=only,
             trace_window_groups=int(args.trace_window_groups),
         )
+    elif args.phase == "assemble":
+        result = assemble_capability_matrix(output_dir)
     else:
         manifest = json.loads(
             (output_dir / "run_manifest.json").read_text(encoding="utf-8")
@@ -833,25 +1392,38 @@ def main(argv: list[str] | None = None) -> int:
             )
         if any(row.get("is_pyramid") for row in gpu_audit["compute_processes"]):
             raise RuntimeError("capability_refuses_pyramid_gpu")
-        result = build_capability_candidates(
-            output_dir,
-            environment=environment,
-            physical_gpu=int(args.physical_gpu),
-            only_candidate_ids=only,
-            diagnostic=args.phase == "build-diagnostic",
-        )
+        if args.phase == "runtime":
+            result = run_capability_candidates(
+                output_dir,
+                environment=environment,
+                physical_gpu=int(args.physical_gpu),
+                only_candidate_ids=only,
+            )
+        else:
+            result = build_capability_candidates(
+                output_dir,
+                environment=environment,
+                physical_gpu=int(args.physical_gpu),
+                only_candidate_ids=only,
+                diagnostic=args.phase == "build-diagnostic",
+            )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if int(result.get("failed", 0)) == 0 else 2
 
 
 __all__ = [
+    "assemble_capability_matrix",
+    "audit_real_cobevt_structures",
     "build_trtexec_command",
     "build_capability_candidates",
+    "candidate_ids_for_shard",
     "candidate_input_shapes",
     "capability_build_signature",
     "export_capability_candidates",
     "prepare_capability_run",
+    "prepare_real_cobevt_integration",
     "resolve_tensorrt_evidence",
+    "run_capability_candidates",
 ]
 
 

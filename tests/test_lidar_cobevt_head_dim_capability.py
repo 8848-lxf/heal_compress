@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+import sys
 
 import torch
+
+
+HEAL_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL")
 
 
 def test_candidate_matrix_covers_requested_shape_families_and_profiles():
@@ -61,6 +65,31 @@ def test_candidate_matrix_covers_requested_shape_families_and_profiles():
     }
 
 
+def test_candidate_shards_are_disjoint_and_cover_the_declared_matrix():
+    from search.model_families.lidar_cobevt.head_dim_capability import (
+        build_synthetic_candidate_matrix,
+    )
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        candidate_ids_for_shard,
+    )
+
+    candidates = build_synthetic_candidate_matrix(
+        tensorrt_version="10.9.0.34", gpu_architecture="sm89"
+    )
+    shards = [
+        candidate_ids_for_shard(candidates, shard_index=index, shard_count=8)
+        for index in range(8)
+    ]
+
+    assert sum(len(values) for values in shards) == len(candidates)
+    assert set().union(*shards) == {row.candidate_id for row in candidates}
+    assert all(
+        left.isdisjoint(right)
+        for index, left in enumerate(shards)
+        for right in shards[index + 1 :]
+    )
+
+
 def test_candidate_shape_semantics_and_same_shape_reference_are_explicit():
     from search.model_families.lidar_cobevt.head_dim_capability import (
         HeadDimCandidate,
@@ -85,6 +114,40 @@ def test_candidate_shape_semantics_and_same_shape_reference_are_explicit():
     assert row.out_projection_out == 256
     assert row.same_shape_fp32_reference_id.endswith("__P0_strict_fp32")
     assert len(row.candidate_hash) == 64
+
+
+def test_capability_resizer_expands_head_dims_without_changing_d32_function():
+    if str(HEAL_ROOT) not in sys.path:
+        sys.path.insert(0, str(HEAL_ROOT))
+    from opencood.models.fuse_modules.swap_fusion_modules import Attention
+
+    from search.model_families.lidar_cobevt.head_dim_materializer import (
+        resize_stock_attention_for_capability,
+    )
+
+    torch.manual_seed(19)
+    stock = Attention(
+        dim=256,
+        dim_head=32,
+        dropout=0.0,
+        agent_size=2,
+        window_size=2,
+    ).eval()
+    expanded = resize_stock_attention_for_capability(
+        stock, d_qk=48, d_v=48
+    ).eval()
+    x = torch.randn(1, 2, 2, 2, 2, 2, 256)
+    mask = torch.ones(1, 2, 2, 2, 2, 1, 2)
+
+    with torch.no_grad():
+        expected = stock(x, mask)
+        actual = expanded(x, mask)
+
+    assert expanded.q_proj.weight.shape == (384, 256)
+    assert expanded.v_proj.weight.shape == (384, 256)
+    assert expanded.out_proj.weight.shape == (256, 384)
+    assert expanded.scale == 48**-0.5
+    torch.testing.assert_close(actual, expected, rtol=2.0e-4, atol=2.0e-5)
 
 
 def test_candidate_hash_owns_shape_precision_trt_and_gpu_architecture():
@@ -183,6 +246,32 @@ def test_f3_manifest_keeps_only_qk_scale_and_matmul_fp32():
     assert manifest["av_matmul"] == "FP16"
     assert manifest["out_projection"] == "FP16"
     assert manifest["qk_input_cast"] == "FP16_TO_FP32"
+
+
+def test_core_attention_precision_audit_excludes_nonexistent_projections():
+    from search.model_families.lidar_cobevt.head_dim_synthetic import (
+        applicable_requested_precision,
+        requested_precision_manifest,
+    )
+
+    candidate = replace(
+        _small_candidate(
+            d_qk=16,
+            d_v=16,
+            family="uniform",
+            profile="P1_strict_fp16_native",
+        ),
+        graph_variant="core_attention",
+    )
+    requested = applicable_requested_precision(
+        candidate, requested_precision_manifest(candidate.precision_profile)
+    )
+
+    assert requested == {
+        "qk_matmul": "FP16",
+        "softmax": "FP16",
+        "av_matmul": "FP16",
+    }
 
 
 def test_explicit_int8_profiles_export_real_qdq(tmp_path):
@@ -529,6 +618,90 @@ def test_parity_metrics_cover_general_qk_softmax_and_av_signals():
     assert av["channel_energy_relative_error"] > 0.0
 
 
+def test_qk_parity_ignores_matching_negative_infinity_mask_positions():
+    from search.reporting.cobevt_head_dim_capability import (
+        attention_tensor_parity,
+    )
+
+    reference = torch.tensor(
+        [[[[2.0, float("-inf"), 1.0], [0.0, 1.0, float("-inf")]]]]
+    )
+    candidate = reference.clone()
+
+    metrics = attention_tensor_parity(reference, candidate, role="qk_score")
+
+    assert metrics["finite"] is True
+    assert metrics["matching_negative_infinity_count"] == 2
+    assert metrics["max_absolute_error"] == 0.0
+    assert metrics["cosine_similarity"] == 1.0
+
+
+def test_synthetic_runtime_keeps_diagnostic_outputs_out_of_latency():
+    from search.integration.lidar_cobevt_head_dim_runtime import (
+        evaluate_synthetic_runtime,
+    )
+
+    candidate = _small_candidate(
+        d_qk=4,
+        d_v=4,
+        family="uniform",
+        profile="P1_strict_fp16_native",
+    )
+
+    class FakeRunner:
+        def __init__(self, outputs, timings):
+            self.outputs = outputs
+            self.timings = iter(timings)
+            self.profiled_calls = 0
+            self.run_calls = 0
+
+        def run(self, inputs):
+            del inputs
+            self.run_calls += 1
+            return {name: value.clone() for name, value in self.outputs.items()}
+
+        def run_profiled(self, inputs):
+            del inputs
+            self.profiled_calls += 1
+            return (
+                {name: value.clone() for name, value in self.outputs.items()},
+                {"execute_async_ms": float(next(self.timings))},
+            )
+
+    output = torch.ones(3, 4, 16)
+    qk = torch.ones(3, 2, 4, 4)
+    probability = torch.softmax(qk, dim=-1)
+    av = torch.ones(3, 2, 4, 4)
+    diagnostic_outputs = {
+        "output": output,
+        "qk_score": qk,
+        "softmax_output": probability,
+        "av_output": av,
+    }
+    production = FakeRunner({"output": output}, [1.0, 2.0, 3.0])
+    diagnostic = FakeRunner(diagnostic_outputs, [])
+    reference = FakeRunner(diagnostic_outputs, [])
+
+    result = evaluate_synthetic_runtime(
+        candidate,
+        production_runner=production,
+        diagnostic_runner=diagnostic,
+        reference_diagnostic_runner=reference,
+        input_cases=("deterministic",),
+        warmup_iterations=1,
+        measured_iterations=2,
+    )
+
+    assert result["runtime_success"] is True
+    assert result["latency_source"] == "production_engine"
+    assert result["diagnostic_latency_eligible"] is False
+    assert result["p50_ms"] == 2.5
+    assert production.profiled_calls == 3
+    assert diagnostic.profiled_calls == 0
+    assert reference.profiled_calls == 0
+    assert result["numerical_safe"] is True
+
+
 def test_search_contract_uses_only_runtime_precision_identity_evidence():
     from search.reporting.cobevt_head_dim_capability import (
         derive_head_dim_search_contract,
@@ -605,6 +778,36 @@ def test_search_contract_uses_only_runtime_precision_identity_evidence():
     ]
 
 
+def test_accuracy_unresolved_capability_is_not_promoted_to_accuracy_safe():
+    from search.reporting.cobevt_head_dim_capability import (
+        derive_head_dim_search_contract,
+    )
+
+    contract = derive_head_dim_search_contract(
+        [
+            {
+                "structure_family": "uniform",
+                "d_qk": 24,
+                "d_v": 24,
+                "precision_profile": "P2_f3_mixed",
+                "runtime_success": True,
+                "precision_identity": True,
+                "numerical_safe": True,
+                "accuracy_safe": "accuracy_unresolved",
+                "support_class": "supported_primitive",
+                "fused_mha_detected": False,
+            }
+        ],
+        hardware_scope={},
+    )
+
+    assert contract["uniform_attention"]["f3_supported_head_dims"] == [24]
+    assert contract["search_space_recommendation"][
+        "f3_accuracy_safe_widths"
+    ] == []
+    assert contract["search_space_recommendation"]["unresolved_pairs"]
+
+
 def test_capability_matrix_writer_preserves_failures_and_machine_readable_rows(
     tmp_path,
 ):
@@ -640,6 +843,81 @@ def test_capability_matrix_writer_preserves_failures_and_machine_readable_rows(
     assert "no tactic" in paths["csv"].read_text()
     assert "supported_primitive" in paths["markdown"].read_text()
     assert "unsupported_build" in paths["markdown"].read_text()
+
+
+def test_matrix_assembly_binds_requested_realized_and_runtime_evidence(tmp_path):
+    import json
+
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        assemble_capability_matrix,
+        export_capability_candidates,
+        prepare_capability_run,
+    )
+
+    output = tmp_path / "run"
+    prepare_capability_run(
+        output,
+        environment={
+            "hardware_id": "hardware",
+            "tensorrt_version": "10.9.0.34",
+            "gpu_architecture": "sm89",
+            "gpu_model": "NVIDIA GeForce RTX 4090",
+            "compute_capability": "8.9",
+            "cuda_version": "11.8",
+            "driver_version": "580.105.08",
+        },
+        code_commit="a9c5151",
+    )
+    candidate_id = "projection_attention__uniform__qk24_v24__P2_f3_mixed"
+    export_capability_candidates(output, only_candidate_ids={candidate_id})
+    candidate_path = next((output / "synthetic").rglob("candidate.json"))
+    candidate_dir = candidate_path.parent
+    (candidate_dir / "build_report.json").write_text(
+        json.dumps(
+            {
+                "trt_build_success": True,
+                "engine_sha256": "engine",
+                "fused_mha_detected": False,
+                "fusion_kind": "primitive",
+                "realized_precision": {
+                    "q_projection": "FP16",
+                    "k_projection": "FP16",
+                    "v_projection": "FP16",
+                    "qk_matmul": "FP32",
+                    "softmax": "FP16",
+                    "av_matmul": "FP16",
+                    "out_projection": "FP16",
+                },
+                "cast_count": 2,
+                "reformat_count": 0,
+                "qk_accumulator_precision": "unknown",
+                "av_accumulator_precision": "unknown",
+            }
+        )
+    )
+    (candidate_dir / "runtime_report.json").write_text(
+        json.dumps(
+            {
+                "runtime_success": True,
+                "numerical_safe": True,
+                "p50_ms": 1.0,
+                "p90_ms": 1.1,
+                "p99_ms": 1.2,
+                "same_shape_fp32_speedup": 1.5,
+            }
+        )
+    )
+
+    result = assemble_capability_matrix(output)
+    rows = json.loads(Path(result["json"]).read_text())
+    selected = next(row for row in rows if row["candidate_id"] == candidate_id)
+
+    assert len(rows) == 282
+    assert selected["precision_identity"] is True
+    assert selected["fallback_count"] == 0
+    assert selected["support_class"] == "supported_primitive"
+    assert selected["accuracy_safe"] == "accuracy_unresolved"
+    assert selected["same_shape_fp32_speedup"] == 1.5
 
 
 def test_trtexec_command_is_strongly_typed_detailed_and_fresh(tmp_path):
@@ -717,6 +995,55 @@ def test_prepare_run_writes_all_candidates_and_rejects_nonempty_output(tmp_path)
             },
             code_commit="a9c5151",
         )
+
+
+def test_real_integration_inventory_covers_three_families_and_fixedk29696(
+    tmp_path,
+):
+    import json
+
+    from search.orchestration.lidar_cobevt_head_dim_capability import (
+        prepare_real_cobevt_integration,
+    )
+
+    source = tmp_path / "source"
+    source.mkdir()
+    manifest = {
+        "path": str(source / "manifest.json"),
+        "manifest_hash": "manifest",
+    }
+    (source / "experiment_config.json").write_text(
+        json.dumps(
+            {
+                "fixed_k": 29696,
+                "fixed_k_validated": True,
+                "fixed_k_contract": {"overflow_count": 0},
+                "manifests": {"smoke10": manifest, "fixed500": manifest},
+                "protocol": {"dataloader_workers": 8},
+            }
+        )
+    )
+    destination = tmp_path / "real"
+    result = prepare_real_cobevt_integration(destination, source)
+    config = json.loads((destination / "experiment_config.json").read_text())
+
+    assert result["candidate_count"] == 21
+    assert config["fixed_k"] == 29696
+    assert config["fixed_k_validated"] is True
+    assert {row["variant"] for row in config["candidates"]} == {
+        "uniform",
+        "qk_only",
+        "v_only",
+    }
+    assert {row["d_qk"] for row in config["candidates"]} >= {
+        8,
+        12,
+        16,
+        24,
+        32,
+        48,
+        64,
+    }
 
 
 def test_export_phase_writes_complete_candidate_provenance_without_engine(tmp_path):

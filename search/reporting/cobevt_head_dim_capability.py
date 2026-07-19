@@ -249,10 +249,24 @@ def attention_tensor_parity(
         raise ValueError("attention_parity_shape_mismatch")
     reference64 = reference.detach().double().cpu()
     candidate64 = candidate.detach().double().cpu()
-    finite = bool(torch.isfinite(reference64).all() and torch.isfinite(candidate64).all())
-    difference = candidate64 - reference64
-    reference_flat = reference64.reshape(-1)
-    candidate_flat = candidate64.reshape(-1)
+    matching_negative_infinity = torch.isneginf(reference64) & torch.isneginf(
+        candidate64
+    )
+    allowed_nonfinite = matching_negative_infinity if role == "qk_score" else torch.zeros_like(
+        matching_negative_infinity
+    )
+    valid_values = torch.isfinite(reference64) & torch.isfinite(candidate64)
+    unexpected_nonfinite = ~(valid_values | allowed_nonfinite)
+    finite = not bool(unexpected_nonfinite.any())
+    difference = torch.where(
+        allowed_nonfinite,
+        torch.zeros_like(candidate64),
+        candidate64 - reference64,
+    )
+    reference_flat = reference64[valid_values].reshape(-1)
+    candidate_flat = candidate64[valid_values].reshape(-1)
+    if reference_flat.numel() == 0:
+        raise ValueError("attention_parity_no_finite_elements")
     exact = torch.equal(reference64, candidate64)
     denominator = float(torch.linalg.vector_norm(reference_flat).item())
     relative_l2 = float(torch.linalg.vector_norm(difference.reshape(-1)).item()) / max(
@@ -269,21 +283,24 @@ def attention_tensor_parity(
     )
     result: dict[str, Any] = {
         "candidate_dtype": str(candidate.dtype),
-        "candidate_max": float(candidate64.max().item()),
-        "candidate_mean": float(candidate64.mean().item()),
-        "candidate_min": float(candidate64.min().item()),
-        "candidate_std": float(candidate64.std(unbiased=False).item()),
+        "candidate_max": float(candidate_flat.max().item()),
+        "candidate_mean": float(candidate_flat.mean().item()),
+        "candidate_min": float(candidate_flat.min().item()),
+        "candidate_std": float(candidate_flat.std(unbiased=False).item()),
         "cosine_similarity": cosine,
         "finite": finite,
         "max_absolute_error": float(difference.abs().max().item()),
         "mean_absolute_error": float(difference.abs().mean().item()),
         "nan_count": int(torch.isnan(candidate64).sum().item()),
         "inf_count": int(torch.isinf(candidate64).sum().item()),
+        "matching_negative_infinity_count": int(
+            matching_negative_infinity.sum().item()
+        ),
         "reference_dtype": str(reference.dtype),
-        "reference_max": float(reference64.max().item()),
-        "reference_mean": float(reference64.mean().item()),
-        "reference_min": float(reference64.min().item()),
-        "reference_std": float(reference64.std(unbiased=False).item()),
+        "reference_max": float(reference_flat.max().item()),
+        "reference_mean": float(reference_flat.mean().item()),
+        "reference_min": float(reference_flat.min().item()),
+        "reference_std": float(reference_flat.std(unbiased=False).item()),
         "relative_l2_error": relative_l2,
         "role": str(role),
         "shape": list(reference.shape),
@@ -376,6 +393,7 @@ def _safe_widths(
     family: str,
     profile: str,
     fused: bool | None = None,
+    require_accuracy: bool = False,
 ) -> list[int]:
     values = set()
     for row in rows:
@@ -389,7 +407,7 @@ def _safe_widths(
             continue
         if not bool(row.get("numerical_safe")):
             continue
-        if row.get("accuracy_safe") is False:
+        if require_accuracy and row.get("accuracy_safe") is not True:
             continue
         if fused is not None and bool(row.get("fused_mha_detected")) != fused:
             continue
@@ -522,7 +540,12 @@ def derive_head_dim_search_contract(
             "supported_d_qk": qk_supported,
         },
         "search_space_recommendation": {
-            "f3_accuracy_safe_widths": uniform["f3_supported_head_dims"],
+            "f3_accuracy_safe_widths": _safe_widths(
+                evidence,
+                family="uniform",
+                profile="P2_f3_mixed",
+                require_accuracy=True,
+            ),
             "forbidden_precision_shape_pairs": sorted(
                 forbidden,
                 key=lambda row: (
@@ -589,24 +612,58 @@ def write_capability_matrix(
             )
     columns = (
         "candidate_id",
+        "graph_variant",
         "structure_family",
         "d_qk",
         "d_v",
         "precision_profile",
         "support_class",
+        "fused_mha_detected",
+        "precision_identity",
+        "numerical_safe",
+        "accuracy_safe",
+        "p50_ms",
         "failure_reason",
     )
-    lines = [
-        "# CoBEVT Head-Dimension TensorRT Capability Matrix",
-        "",
-        "| " + " | ".join(columns) + " |",
-        "|" + "|".join("---" for _ in columns) + "|",
-    ]
-    for row in records:
-        lines.append(
-            "| "
-            + " | ".join(str(row.get(column, "")) for column in columns)
-            + " |"
+    lines = ["# CoBEVT Head-Dimension TensorRT Capability Matrix", ""]
+
+    def add_table(title: str, selected: list[dict[str, Any]]) -> None:
+        lines.extend(
+            [
+                f"## {title}",
+                "",
+                "| " + " | ".join(columns) + " |",
+                "|" + "|".join("---" for _ in columns) + "|",
+            ]
+        )
+        for row in selected:
+            lines.append(
+                "| "
+                + " | ".join(str(row.get(column, "")) for column in columns)
+                + " |"
+            )
+        lines.append("")
+
+    profile_titles = {
+        "P0_strict_fp32": "FP32",
+        "P1_strict_fp16_native": "FP16",
+        "P2_f3_mixed": "F3 Mixed",
+        "P3_int8_projections_qk_fp32": "INT8 Projection Mixed",
+        "P4_int8_native_attention": "INT8 Native or Fused",
+    }
+    for profile, title in profile_titles.items():
+        add_table(
+            title,
+            [row for row in records if row.get("precision_profile") == profile],
+        )
+    for family, title in (
+        ("uniform", "Uniform Family"),
+        ("qk_only", "QK-only Family"),
+        ("v_only", "V-only Family"),
+    ):
+        add_table(
+            title,
+            [row for row in records if row.get("structure_family") == family],
         )
     markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return {"csv": csv_path, "json": json_path, "markdown": markdown_path}

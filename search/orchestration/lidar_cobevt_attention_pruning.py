@@ -653,6 +653,19 @@ def materialize_candidate(
     bundle = _load_bundle(
         checkpoint=checkpoint, config=config, heal_root=heal_root, device=device
     )
+    if spec.experiment == "capability":
+        from search.model_families.lidar_cobevt.head_dim_materializer import (
+            materialize_model_attention_for_capability,
+        )
+
+        report = materialize_model_attention_for_capability(
+            bundle.model, d_qk=spec.d_qk, d_v=spec.d_v
+        )
+        if not report.passed:
+            raise RuntimeError(
+                f"candidate_capability_materialization_failed:{report.issues}"
+            )
+        return bundle, report
     masks = load_attention_masks(mask_path)
     if spec.experiment == "b2":
         keep = stratified_embedding_keep_indices(
@@ -1291,6 +1304,7 @@ def run_trt500(
     engine_precision: str = "FP16",
     candidate_ids: Iterable[str] | None = None,
     diagnostic_profile: str = "",
+    attention_boundary_profile_name: str = "",
     smoke_only: bool = False,
 ) -> dict[str, Any]:
     from search.integration.lidar_cobevt_evaluation_provider import (
@@ -1303,12 +1317,18 @@ def run_trt500(
     fixed_k = int(experiment["fixed_k"])
     normalized_precision = str(engine_precision).strip().upper()
     profile_name = str(diagnostic_profile).strip().lower()
+    boundary_profile_name = str(attention_boundary_profile_name).strip()
+    if profile_name and boundary_profile_name:
+        raise ValueError(
+            "diagnostic_and_attention_boundary_profiles_are_mutually_exclusive"
+        )
+    effective_profile_name = boundary_profile_name or profile_name
     selected_ids = {str(value) for value in (candidate_ids or ())}
     smoke_manifest = Path(experiment["manifests"]["smoke10"]["path"])
     manifest = Path(experiment["manifests"]["fixed500"]["path"])
     suffix = _precision_result_suffix(
         engine_precision=normalized_precision,
-        diagnostic_profile=profile_name,
+        diagnostic_profile=effective_profile_name,
     )
     result_prefix = "trt_smoke10_results" if smoke_only else "trt_ap500_results"
     results_path = output_dir / f"{result_prefix}{suffix}.json"
@@ -1333,7 +1353,7 @@ def run_trt500(
             spec.candidate_id,
             fixed_k,
             precision=normalized_precision,
-            profile_name=profile_name,
+            profile_name=effective_profile_name,
         )
         build_report = candidate / "build_report.json"
         if not build_report.is_file():
@@ -1387,6 +1407,7 @@ def run_trt500(
                 **smoke,
                 "status": "ok",
                 "diagnostic_precision_profile": profile_name,
+                "attention_boundary_profile": boundary_profile_name,
                 "engine_sha256": build.get("engine_sha256", ""),
                 "structure_hash": build.get("structure_hash", ""),
             }
@@ -1527,6 +1548,7 @@ def main(argv: list[str] | None = None) -> int:
             engine_precision=str(args.engine_precision),
             candidate_ids=tuple(args.candidate_id),
             diagnostic_profile=str(args.diagnostic_profile),
+            attention_boundary_profile_name=str(args.attention_boundary_profile),
             smoke_only=bool(args.smoke_only),
         )
     print(json.dumps(result, indent=2, sort_keys=True))

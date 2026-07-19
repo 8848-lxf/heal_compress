@@ -89,6 +89,22 @@ def requested_precision_manifest(profile: str) -> dict[str, str]:
         raise ValueError(f"unsupported_synthetic_precision_profile:{profile}") from exc
 
 
+def applicable_requested_precision(
+    candidate: HeadDimCandidate, manifest: dict[str, str]
+) -> dict[str, str]:
+    roles = {"qk_matmul", "softmax", "av_matmul"}
+    if candidate.graph_variant == "projection_attention":
+        roles.update(
+            {
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "out_projection",
+            }
+        )
+    return {role: str(manifest[role]) for role in sorted(roles)}
+
+
 def _safe_scale(value: torch.Tensor) -> torch.Tensor:
     flat = value.detach().float().abs()
     return torch.clamp(flat.amax() / 127.0, min=torch.finfo(torch.float32).eps)
@@ -690,6 +706,7 @@ def export_synthetic_diagnostic_onnx(
 
 __all__ = [
     "SYNTHETIC_INPUT_CASES",
+    "applicable_requested_precision",
     "build_synthetic_inputs",
     "build_synthetic_graph",
     "build_synthetic_diagnostic_graph",
