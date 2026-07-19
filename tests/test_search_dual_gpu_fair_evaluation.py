@@ -7,9 +7,11 @@ import pytest
 
 from search.integration.dual_gpu_fair_evaluation import (
     ablation_contribution_rows,
+    aggregate_repeated_results,
     build_evaluation_inventory,
     build_method_ablation_inventory,
     cross_gpu_differences,
+    evaluation_frame_latency_rows,
     ensure_evaluation_only_output,
     summarize_results,
     validate_evaluation_result,
@@ -211,3 +213,48 @@ def test_ablation_contribution_uses_assigned_fp32_baseline() -> None:
     )[0]
     assert result["prune_quant_delta_vs_fp32"] == pytest.approx(-0.05)
     assert result["pq_interaction_mAP"] == pytest.approx(0.01)
+
+
+def test_per_frame_latency_excludes_warmup_and_preserves_components() -> None:
+    rows = evaluation_frame_latency_rows(
+        {
+            "num_evaluated_frames": 2,
+            "latency_rows": [
+                {"frame_id": "warmup", "warmup": True, "forward_ms": 1, "postprocess_ms": 2, "total_ms": 3},
+                {"frame_id": "a", "warmup": False, "forward_ms": 4, "postprocess_ms": 5, "total_ms": 9},
+                {"frame_id": "b", "warmup": False, "forward_ms": 6, "postprocess_ms": 7, "total_ms": 13},
+            ],
+        },
+        metadata={"engine": "test"},
+    )
+    assert [row["frame_id"] for row in rows] == ["a", "b"]
+    assert rows[0]["forward_ms"] == 4.0
+    assert rows[0]["postprocess_ms"] == 5.0
+    assert rows[0]["total_ms"] == 9.0
+
+
+def test_repeat_aggregation_reports_mean_and_std() -> None:
+    rows = []
+    for repeat_index, value in enumerate((1.0, 2.0)):
+        row = {
+            "assigned_method": "ga",
+            "variant": "fp32",
+            "budget": None,
+            "gpu_id": 0,
+            "repeat_index": repeat_index,
+            "engine_sha256": "engine",
+            "frame_order_hash": "frames",
+            "actual_bops": 1.0,
+        }
+        for metric in (
+            "AP@0.3", "AP@0.5", "AP@0.7", "mAP", "forward_mean_ms",
+            "forward_p50_ms", "forward_p90_ms", "forward_p99_ms",
+            "postprocess_mean_ms", "postprocess_p50_ms", "postprocess_p90_ms",
+            "postprocess_p99_ms", "total_mean_ms", "total_p50_ms",
+            "total_p90_ms", "total_p99_ms", "speedup_vs_same_gpu_fp32",
+        ):
+            row[metric] = value
+        rows.append(row)
+    result = aggregate_repeated_results(rows, repeat_count=2)[0]
+    assert result["mAP_across_runs_mean"] == 1.5
+    assert result["mAP_across_runs_std"] == 0.5

@@ -1,0 +1,21 @@
+{
+  "columns": [
+    "repeat_index",
+    "gpu_id",
+    "assigned_method",
+    "item_id",
+    "budget",
+    "actual_bops",
+    "variant",
+    "engine_sha256",
+    "frame_id",
+    "forward_ms",
+    "postprocess_ms",
+    "total_ms"
+  ],
+  "path": "/home/lixingfeng/UniAD_examine/heal_compress/outputs/h800_lidar_pyramid_split_gpu_ablation_repeat5_20260718_181347/per_frame_latency.csv",
+  "row_count": 339910,
+  "sha256": "a46d8594d9d7a457cc454bb39a9a081992840746ef49fb69534a4e58674fd258",
+  "source_csv_count": 190,
+  "warmup_rows_included": false
+}

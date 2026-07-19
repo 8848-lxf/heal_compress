@@ -1471,3 +1471,31 @@ Corrected split-GPU implementation/results commit:
 Completed checkpoint: 2026-07-19 08:51:38 +0800 CST
 
 ---
+
+## Five-repeat split-GPU latency acceptance
+
+Repeated the corrected assignment five complete times: GPU 0 evaluated the GA
+FP32/P+Q/P-only/Q-only inventory, while GPU 1 evaluated the corresponding
+greedy inventory. All 190 evaluations completed 1789/1789 with zero skips,
+identical frame order, and passing post-item GPU cleanup. No engine was built
+or modified.
+
+The evaluator now reports arithmetic mean in addition to p50/p90/p99 and
+writes formal per-frame forward, CUDA-postprocess, and total latency. The
+consolidated CSV contains exactly 339,910 non-warmup rows with SHA256
+`a46d8594d9d7a457cc454bb39a9a081992840746ef49fb69534a4e58674fd258`.
+
+Five-repeat FP32 forward mean/p50 is `8.8726/7.1696 ms` on GA GPU 0 and
+`8.8556/7.1454 ms` on greedy GPU 1. Complete five-repeat AP and latency means,
+standard deviations, raw per-run summaries, and provenance are recorded at:
+
+```text
+outputs/h800_lidar_pyramid_split_gpu_ablation_repeat5_20260718_181347/
+docs/codex_handoffs/H800_LIDAR_PYRAMID_SPLIT_GPU_REPEAT5_LATENCY_20260719.md
+```
+
+Relevant tests pass with `14 passed`; `git diff --check` also passes.
+
+Completed checkpoint: 2026-07-19 11:53:13 +0800 CST
+
+---

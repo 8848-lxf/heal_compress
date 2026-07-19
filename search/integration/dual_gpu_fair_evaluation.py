@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import statistics
 import subprocess
 import time
 from typing import Any, Iterable, Mapping
@@ -515,23 +516,78 @@ def run_one_evaluation(
 
 
 def frame_order_hash(result: Mapping[str, Any]) -> str:
+    existing = str(result.get("frame_order_hash", ""))
+    if existing:
+        return existing
     return canonical_json_hash(list(result.get("evaluated_frame_ids") or []))
+
+
+def compact_evaluation_result(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Drop bulky per-frame arrays after preserving their identity hash."""
+
+    compact = {
+        key: value
+        for key, value in result.items()
+        if key
+        not in {
+            "latency_rows",
+            "evaluated_frame_ids",
+            "skipped_frame_ids",
+            "skipped_warmup_frame_ids",
+        }
+    }
+    compact["frame_order_hash"] = frame_order_hash(result)
+    compact["latency_row_count"] = len(list(result.get("latency_rows") or []))
+    return compact
+
+
+def evaluation_frame_latency_rows(
+    result: Mapping[str, Any], *, metadata: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """Extract non-warmup per-frame forward/postprocess/total latency rows."""
+
+    output: list[dict[str, Any]] = []
+    for row in list(result.get("latency_rows") or []):
+        if bool(row.get("warmup", False)) or row.get("success") is False:
+            continue
+        forward = float(row["forward_ms"])
+        postprocess = float(row["postprocess_ms"])
+        total = float(row.get("total_ms", forward + postprocess))
+        output.append(
+            {
+                **dict(metadata),
+                "frame_id": str(row["frame_id"]),
+                "forward_ms": forward,
+                "postprocess_ms": postprocess,
+                "total_ms": total,
+            }
+        )
+    expected = int(result.get("num_evaluated_frames", -1))
+    if len(output) != expected:
+        raise RuntimeError(
+            f"per_frame_latency_count_mismatch:{len(output)}:{expected}"
+        )
+    return output
 
 
 def summarize_results(results: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     rows = [dict(row) for row in results]
     baselines = {
-        int(row["gpu_id"]): float(row["forward_p50_ms"])
+        (int(row["gpu_id"]), int(row.get("repeat_index", 0))): float(
+            row["forward_p50_ms"]
+        )
         for row in rows
         if row["method"] == "fp32"
     }
     summary: list[dict[str, Any]] = []
     for row in rows:
         p50 = float(row["forward_p50_ms"])
-        baseline = baselines[int(row["gpu_id"])]
+        repeat_index = int(row.get("repeat_index", 0))
+        baseline = baselines[(int(row["gpu_id"]), repeat_index)]
         summary.append(
             {
                 "gpu_id": int(row["gpu_id"]),
+                "repeat_index": repeat_index,
                 "sequence_index": int(row["sequence_index"]),
                 "item_id": row["item_id"],
                 "method": row["method"],
@@ -547,8 +603,17 @@ def summarize_results(results: Iterable[Mapping[str, Any]]) -> list[dict[str, An
                 "AP@0.7": row.get("AP@0.7"),
                 "mAP": row.get("mAP"),
                 "forward_p50_ms": p50,
+                "forward_mean_ms": row.get("forward_mean_ms"),
                 "forward_p90_ms": row.get("forward_p90_ms"),
                 "forward_p99_ms": row.get("forward_p99_ms"),
+                "postprocess_mean_ms": row.get("postprocess_mean_ms"),
+                "postprocess_p50_ms": row.get("postprocess_p50_ms"),
+                "postprocess_p90_ms": row.get("postprocess_p90_ms"),
+                "postprocess_p99_ms": row.get("postprocess_p99_ms"),
+                "total_mean_ms": row.get("total_mean_ms"),
+                "total_p50_ms": row.get("total_p50_ms"),
+                "total_p90_ms": row.get("total_p90_ms"),
+                "total_p99_ms": row.get("total_p99_ms"),
                 "speedup_vs_same_gpu_fp32": baseline / p50,
                 "int8_count": row.get("int8_count"),
                 "fp16_count": row.get("fp16_count"),
@@ -564,6 +629,96 @@ def summarize_results(results: Iterable[Mapping[str, Any]]) -> list[dict[str, An
             }
         )
     return summary
+
+
+REPEATED_NUMERIC_METRICS = (
+    "AP@0.3",
+    "AP@0.5",
+    "AP@0.7",
+    "mAP",
+    "forward_mean_ms",
+    "forward_p50_ms",
+    "forward_p90_ms",
+    "forward_p99_ms",
+    "postprocess_mean_ms",
+    "postprocess_p50_ms",
+    "postprocess_p90_ms",
+    "postprocess_p99_ms",
+    "total_mean_ms",
+    "total_p50_ms",
+    "total_p90_ms",
+    "total_p99_ms",
+    "speedup_vs_same_gpu_fp32",
+)
+
+
+def aggregate_repeated_results(
+    rows: Iterable[Mapping[str, Any]], *, repeat_count: int
+) -> list[dict[str, Any]]:
+    """Aggregate per-run summaries into arithmetic five-run means/stds."""
+
+    grouped: dict[
+        tuple[str, str, float | None], list[dict[str, Any]]
+    ] = {}
+    for source in rows:
+        row = dict(source)
+        budget = row.get("budget")
+        key = (
+            str(row["assigned_method"]),
+            str(row["variant"]),
+            None if budget is None else round(float(budget), 2),
+        )
+        grouped.setdefault(key, []).append(row)
+    output: list[dict[str, Any]] = []
+    for (method, variant, budget), values in sorted(
+        grouped.items(),
+        key=lambda item: (
+            METHOD_ORDER[item[0][0]],
+            0 if item[0][2] is None else 1,
+            0.0 if item[0][2] is None else -float(item[0][2]),
+            -1 if item[0][1] == "fp32" else ABLATION_VARIANT_ORDER[item[0][1]],
+        ),
+    ):
+        repeats = sorted(int(row["repeat_index"]) for row in values)
+        if len(values) != int(repeat_count) or repeats != list(range(int(repeat_count))):
+            raise RuntimeError(
+                f"repeat_result_count_mismatch:{method}:{variant}:{budget}:{repeats}"
+            )
+        engine_hashes = {str(row["engine_sha256"]) for row in values}
+        frame_hashes = {str(row["frame_order_hash"]) for row in values}
+        if len(engine_hashes) != 1 or len(frame_hashes) != 1:
+            raise RuntimeError(
+                f"repeat_identity_mismatch:{method}:{variant}:{budget}"
+            )
+        first = values[0]
+        aggregated: dict[str, Any] = {
+            "assigned_method": method,
+            "gpu_id": int(first["gpu_id"]),
+            "budget": budget,
+            "variant": variant,
+            "actual_bops": first.get("actual_bops"),
+            "repeat_count": int(repeat_count),
+            "engine_sha256": next(iter(engine_hashes)),
+            "frame_order_hash": next(iter(frame_hashes)),
+            "int8_count": first.get("int8_count"),
+            "fp16_count": first.get("fp16_count"),
+            "fp32_count": first.get("fp32_count"),
+            "parameter_count_base": first.get("parameter_count_base"),
+            "parameter_count_pruned": first.get("parameter_count_pruned"),
+            "parameter_reduction": first.get("parameter_reduction"),
+        }
+        for metric in REPEATED_NUMERIC_METRICS:
+            metric_values = [float(row[metric]) for row in values]
+            aggregated[f"{metric}_across_runs_mean"] = statistics.fmean(
+                metric_values
+            )
+            aggregated[f"{metric}_across_runs_std"] = statistics.pstdev(
+                metric_values
+            )
+            aggregated[f"{metric}_across_runs_min"] = min(metric_values)
+            aggregated[f"{metric}_across_runs_max"] = max(metric_values)
+        output.append(aggregated)
+    return output
 
 
 def ablation_contribution_rows(
