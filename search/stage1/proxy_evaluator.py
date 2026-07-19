@@ -12,7 +12,7 @@ from ..canonicalization import (
     canonicalize_candidate,
     canonicalize_legal_width_candidate,
 )
-from ..hashing import candidate_hash
+from ..hashing import candidate_hash, canonical_json_hash
 from ..proxy.objective import ProxyObjective
 
 
@@ -57,6 +57,21 @@ class Stage1ProxyEvaluator:
             return canonicalize_legal_width_candidate(genotype, self.space)
         return canonicalize_candidate(genotype, self.space)
 
+    @staticmethod
+    def _compact_cache_payload(row: dict[str, Any]) -> dict[str, Any]:
+        """Persist metrics and identity without duplicating the full phenotype."""
+
+        payload = {
+            key: value
+            for key, value in row.items()
+            if key not in {"candidate_hash", "proxy_cache_key", "phenotype"}
+        }
+        phenotype = row.get("phenotype")
+        if isinstance(phenotype, dict):
+            payload["phenotype_archive_hash"] = canonical_json_hash(phenotype)
+        payload["deployment_candidate_hash"] = str(row.get("candidate_hash", ""))
+        return payload
+
     def evaluate(self, genotype: CandidateGenotype, *, generation: int = 0, outer_round: int = 0) -> dict[str, Any]:
         self.scalar_evaluate_call_count += 1
         phenotype = self._canonicalize(genotype)
@@ -79,10 +94,16 @@ class Stage1ProxyEvaluator:
         cached = self.cache.get(key)
         if cached is not None:
             self.cache_hit_count += 1
-            return {**cached, "candidate_hash": deploy_key, "proxy_cache_key": key, "cache_hit": True}
+            return {
+                **cached,
+                "candidate_hash": deploy_key,
+                "proxy_cache_key": key,
+                "phenotype": phenotype.to_dict(),
+                "cache_hit": True,
+            }
         self.cache_miss_count += 1
         result = compute()
-        self.cache.put(key, {k: v for k, v in result.items() if k not in {"candidate_hash", "proxy_cache_key"}})
+        self.cache.put(key, self._compact_cache_payload(result))
         return result
 
     def evaluate_batch(
@@ -155,7 +176,7 @@ class Stage1ProxyEvaluator:
                 }
                 metrics_by_key[key] = row
                 if self.cache is not None:
-                    self.cache.put(key, {k: v for k, v in row.items() if k not in {"candidate_hash", "proxy_cache_key"}})
+                    self.cache.put(key, self._compact_cache_payload(row))
 
         final = []
         for deploy_key, key, phenotype in zip(deploy_keys, cache_keys, phenotypes):
@@ -164,7 +185,7 @@ class Stage1ProxyEvaluator:
             row["proxy_cache_key"] = key
             row["generation"] = generation
             row["outer_round"] = outer_round
-            row.setdefault("phenotype", phenotype.to_dict())
+            row["phenotype"] = phenotype.to_dict()
             row.setdefault("proxy_backend", self.proxy_backend)
             row.setdefault("proxy_device", self.proxy_device)
             final.append(row)

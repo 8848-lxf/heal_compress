@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -137,6 +138,53 @@ def test_stage1_batch_cache_hits_use_current_generation(tmp_path) -> None:
 
     assert cached.metrics[0]["cache_hit"] is True
     assert cached.metrics[0]["generation"] == 4
+
+
+def test_stage1_proxy_cache_persists_hash_not_redundant_phenotype(
+    tmp_path,
+) -> None:
+    from search.cache.proxy_cache import ProxyCache
+    from search.candidate import CandidateGenotype
+    from search.canonicalization import SearchSpaceSpec
+    from search.stage1.proxy_evaluator import BatchProxyResult, Stage1ProxyEvaluator
+
+    class FakeBatchScorer:
+        def evaluate_batch(self, phenotypes, *, generation: int, outer_round: int):
+            return BatchProxyResult(
+                metrics=[{"F1": 1.0} for _phenotype in phenotypes]
+            )
+
+    cache_path = tmp_path / "proxy.jsonl"
+    space = SearchSpaceSpec(
+        pruning_unit_ids=["a"],
+        precision_layer_ids=["m"],
+        default_precision="FP16",
+    )
+    evaluator = Stage1ProxyEvaluator(
+        space,
+        cache=ProxyCache(cache_path),
+        batch_scorer=FakeBatchScorer(),
+        proxy_backend="cuda_batched",
+        proxy_device="cuda:0",
+        proxy_batch_size=128,
+    )
+    candidate = CandidateGenotype(
+        pruning_genes={"a": 1},
+        precision_genes={"m": "FP16"},
+        meta={"group_mask": {f"unit_{index:05d}": 1 for index in range(1000)}},
+    )
+
+    first = evaluator.evaluate_batch([candidate], generation=0).metrics[0]
+    cached = evaluator.evaluate_batch([candidate], generation=1).metrics[0]
+    disk_row = json.loads(cache_path.read_text(encoding="utf-8").splitlines()[0])
+
+    assert "phenotype" not in disk_row
+    assert len(disk_row["phenotype_archive_hash"]) == 64
+    assert disk_row["deployment_candidate_hash"] == first["candidate_hash"]
+    assert cached["phenotype"] == first["phenotype"]
+    assert cached["phenotype"]["metadata"]["group_mask"] == {
+        f"unit_{index:05d}": 1 for index in range(1000)
+    }
 
 
 def test_lidar_large_population_requires_cuda_batched_backend() -> None:

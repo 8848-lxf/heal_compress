@@ -63,6 +63,10 @@ def _identity_hash(payload: dict[str, Any]) -> str:
     )
 
 
+def _archive_hash(payload: dict[str, Any]) -> str:
+    return canonical_json_hash(_phenotype_dict(payload))
+
+
 def _unit_universe(run_dir: Path) -> list[str]:
     domains_path = run_dir / "local_pruning_domains.json"
     if not domains_path.is_file():
@@ -92,12 +96,16 @@ def _metrics_from_proxy_archive(run_dir: Path, phenotype: dict[str, Any]) -> dic
     if not archive.is_file():
         return None
     target = _identity_hash(phenotype)
+    target_archive = _archive_hash(phenotype)
     match: dict[str, Any] | None = None
     with archive.open(encoding="utf-8") as handle:
         for line in handle:
             if not line.strip():
                 continue
             row = json.loads(line)
+            if str(row.get("phenotype_archive_hash", "")) == target_archive:
+                match = row
+                continue
             archived = row.get("phenotype")
             if isinstance(archived, dict) and _identity_hash(archived) == target:
                 match = row
@@ -109,12 +117,20 @@ def _proxy_archive_metric_index(run_dir: Path, phenotypes: list[dict[str, Any]])
     if not archive.is_file():
         return {}
     wanted = {_identity_hash(phenotype) for phenotype in phenotypes}
+    wanted_archive = {
+        _archive_hash(phenotype): _identity_hash(phenotype)
+        for phenotype in phenotypes
+    }
     matches: dict[str, dict[str, Any]] = {}
     with archive.open(encoding="utf-8") as handle:
         for line in handle:
             if not line.strip():
                 continue
             row = json.loads(line)
+            archive_hash = str(row.get("phenotype_archive_hash", ""))
+            if archive_hash in wanted_archive:
+                matches[wanted_archive[archive_hash]] = row
+                continue
             archived = row.get("phenotype")
             if not isinstance(archived, dict):
                 continue

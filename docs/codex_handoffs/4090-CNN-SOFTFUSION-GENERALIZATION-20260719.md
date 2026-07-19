@@ -571,3 +571,53 @@ The readiness output occupies 1.2 GiB under `/var/tmp`; no ONNX, engine,
 calibration cache, or checkpoint is added to Git.
 
 --- ROUND 10 | 2026-07-19 19:35:51 +0800 ---
+
+## Round 11: compact Stage-1 proxy cache records
+
+The first DiscoNet Greedy Stage-1 run was stopped after a storage audit found:
+
+```text
+proxy rows written = 7,756
+incomplete run size = 2.1 GiB
+representative row = 216,060 bytes
+phenotype field = 199,999 bytes
+repeated group_mask entries per row = 4,265
+```
+
+The cache embedded the full legal-width phenotype in every JSONL row even
+though the evaluator always has the current phenotype in memory. This repeated
+the deterministic group mask, domain maps, and group contracts thousands of
+times.
+
+Implemented:
+
+- `search/stage1/proxy_evaluator.py`
+  - disk cache stores scalar metrics, deployment candidate identity, and a
+    canonical phenotype archive hash;
+  - full phenotype is restored from the current candidate on cache hits;
+  - in-memory evaluator and generation Top-K records remain complete.
+- `search/stage2/repaired_topk_manifest.py`
+  - reads new compact hash rows;
+  - retains backward compatibility with old embedded-phenotype archives;
+  - still scans the archive once for multiple Top-K candidates.
+
+Measured on a real DiscoNet row:
+
+```text
+old row bytes = 216,060
+new row bytes =   1,128
+reduction     = 99.48%
+```
+
+Verification:
+
+```text
+proxy/cache/Top-K/joint-proxy tests = 19 passed
+py_compile                          = passed
+git diff --check                    = passed
+```
+
+The incomplete 2.1-GiB run contains no endpoint or deployment result and is
+removed after this audit is committed. The Greedy search restarts fresh.
+
+--- ROUND 11 | 2026-07-19 19:52:53 +0800 ---

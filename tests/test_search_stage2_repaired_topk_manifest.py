@@ -135,3 +135,49 @@ def test_repaired_top5_manifest_scans_proxy_archive_once_for_multiple_archive_hi
 
     assert [row["R_Fisher"] for row in manifest["candidates"]] == [0.01, 0.02]
     assert archive_open_count["value"] == 1
+
+
+def test_repaired_top5_manifest_reads_compact_proxy_hash_rows(tmp_path: Path) -> None:
+    from search.candidate import CandidatePhenotype
+    from search.hashing import canonical_json_hash
+    from search.stage2.repaired_topk_manifest import build_repaired_topk_manifest
+
+    run_dir = tmp_path / "run"
+    round_dir = run_dir / "round_000"
+    phenotype = {
+        "pruned_unit_ids": ["u0"],
+        "precision_profile": {
+            "conv": {
+                "requested_precision": "INT8",
+                "realized_precision": "INT8",
+            }
+        },
+        "metadata": {"stage1_legalized_group_profile": {"pg0": "INT8"}},
+    }
+    _write_json(
+        round_dir / "stage1_topk.json",
+        [{"role": "repaired", "candidate_hash": "aaa", "F1": 0.2, "phenotype": phenotype}],
+    )
+    archive = run_dir / "archives" / "proxy_archive.jsonl"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    canonical = CandidatePhenotype.from_dict(phenotype).to_dict()
+    archive.write_text(
+        json.dumps(
+            {
+                "candidate_hash": "proxy-key",
+                "phenotype_archive_hash": canonical_json_hash(canonical),
+                "deployment_candidate_hash": "aaa",
+                "F1": 0.2,
+                "L_fisher": 0.03,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    manifest = build_repaired_topk_manifest(run_dir, round_index=0)
+
+    assert manifest["candidates"][0]["R_Fisher"] == 0.03
+    assert manifest["candidates"][0]["metric_source"] == (
+        "proxy_archive_identity_match"
+    )
