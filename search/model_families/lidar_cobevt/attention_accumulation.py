@@ -237,6 +237,8 @@ def classify_attention_precision_row(
     profile_contract_id: str,
     role: str,
     layer_info: Mapping[str, Any],
+    onnx_compute_precision: str = "unknown",
+    explicit_onnx_boundary: bool = False,
 ) -> dict[str, Any]:
     """Classify one Attention role from its explicit contract and TRT evidence."""
 
@@ -252,6 +254,9 @@ def classify_attention_precision_row(
     dtype_precision = _engine_tensor_precision(layer_info)
     tactic_name = str(layer_info.get("TacticName", ""))
     tactic_precision = _tactic_precision(tactic_name)
+    normalized_onnx_precision = str(onnx_compute_precision).upper()
+    if normalized_onnx_precision not in {"FP32", "FP16", "INT8"}:
+        normalized_onnx_precision = "unknown"
     conflict = (
         dtype_precision != "unknown"
         and tactic_precision != "unknown"
@@ -272,6 +277,10 @@ def classify_attention_precision_row(
     elif tactic_precision != "unknown":
         realized = tactic_precision
         realized_source = "tactic"
+        confidence = "medium"
+    elif explicit_onnx_boundary and normalized_onnx_precision != "unknown":
+        realized = normalized_onnx_precision
+        realized_source = "onnx_explicit_boundary"
         confidence = "medium"
     else:
         realized = "unknown"
@@ -300,6 +309,8 @@ def classify_attention_precision_row(
                 for value in layer_info.get("Outputs", ())
             ],
             "tactic": tactic_name,
+            "onnx_compute_precision": normalized_onnx_precision,
+            "explicit_onnx_boundary": bool(explicit_onnx_boundary),
         },
         "profile_contract_id": str(profile_contract_id),
         "requested_contract_role": normalized_role,

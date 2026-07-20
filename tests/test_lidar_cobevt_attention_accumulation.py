@@ -272,3 +272,23 @@ def test_precision_parser_fails_closed_on_dtype_tactic_conflict():
     assert row["realized_precision"] == "unknown"
     assert row["classification_conflict"] is True
     assert row["requested_realized_match"] is False
+
+
+def test_precision_parser_uses_explicit_onnx_boundary_only_without_engine_evidence():
+    from search.model_families.lidar_cobevt.attention_accumulation import (
+        classify_attention_precision_row,
+    )
+
+    row = classify_attention_precision_row(
+        profile_contract_id="F3_rest_fp16_qk_fp32_minimal_island",
+        role="softmax",
+        layer_info={},
+        onnx_compute_precision="FP16",
+        explicit_onnx_boundary=True,
+    )
+
+    assert row["requested_precision"] == "FP16"
+    assert row["realized_precision"] == "FP16"
+    assert row["realized_precision_source"] == "onnx_explicit_boundary"
+    assert row["classification_confidence"] == "medium"
+    assert row["requested_realized_match"] is True

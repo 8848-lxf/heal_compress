@@ -107,3 +107,84 @@ The CoBEVT precision-boundary regression suite plus the new audit tests passed:
 ---
 
 `2026-07-20T09:30:00+08:00 | round=1 | accumulation audit evidence and API conclusions recorded`
+
+## Round 2: 2026-07-20
+
+### Scope
+
+This follow-up only reconciles the historical low-precision Attention build
+evidence with the failed R1 graph and corrects requested/realized precision
+provenance. It does not add a search profile, run fixed50/fixed500, or touch
+Pyramid GA.
+
+### R1 root cause and fix
+
+Historical `attention_fp16`, `M2_projection_qk_av_fp16_softmax_fp32`, and
+`M4_projection_boundary_qk_av_fp16` engines were all TensorRT 10.9 strongly
+typed builds with symmetric FP16/FP16 QK operands in all six Attention blocks.
+They realized six complete `_gemm_mha_v2` layers and produced smoke10 mAP in
+the 0.11605-0.11686 range.
+
+The failed R1 graph was not equivalent: its first QK Einsum received Half on
+input 0 and Float on input 1. A recovered FP32 K projection passed through
+Reshape/Transpose nodes while stale pre-rewrite value-info still labeled the
+branch FP16, so only the Q operand received the required Cast. TensorRT failed
+at parser validation before tactic selection.
+
+The boundary rewriter now propagates updated types through pass-through nodes
+and validates both QK data operand dtypes after ONNX inference. Mixed or
+unresolved QK operands fail during export. Unit tests cover stale type-info,
+window/grid symmetry, one-sided rewrite failure, F3 preservation, and AV
+isolation.
+
+Fresh fixed R1 evidence:
+
+- profile: `R1_fp16_operands_default_accum_fixed`
+- ONNX SHA256: `1c6388520ce0c3d519b663a920bd5544822d42ed6dbed3aeb11e5cb6d84f37f0`
+- engine SHA256: `d19bbfbea966a550699fe9644dc89cb5687b93808ba23acc310cef2a77094a92`
+- all six QK nodes: FP16 / FP16, validated before build
+- build/runtime: success, 10/10, 0 skip
+- AP30/AP50/AP70/mAP: 0.167243587 / 0.141195565 / 0.039307246 / 0.115915466
+- realization: six complete `_gemm_mha_v2` layers
+- accumulator precision: `unknown` because the fused tactic does not expose
+  reliable accumulator metadata
+- search policy: `not_allowed_for_formal_search`
+
+### Precision parser correction
+
+Requested precision is now taken from the F3 role contract, never from a
+coarse profile-name label. Realized precision uses EngineInspector dtype and
+tactic first; explicit typed-ONNX boundaries are accepted only as secondary
+evidence when a functional role is absorbed into a local fusion. Conflicting
+evidence returns `unknown`.
+
+The corrected F3 inventory has 72 rows and zero conflicts. Across all six
+blocks, Q/K/V projections and output projections are FP16 `h16816gemm`, QK is
+FP32 `f32f32...f32` with FP32 accumulator evidence, and AV is FP16
+`h16816gemm`. Q/K recovery Casts explicitly produce FP32. F3 remains separate
+primitive QK/AV GEMMs, not complete fused MHA.
+
+### Files
+
+Code and tests:
+
+- `search/model_families/lidar_cobevt/attention_precision_boundaries.py`
+- `search/model_families/lidar_cobevt/attention_accumulation.py`
+- `search/orchestration/lidar_cobevt_attention_pruning.py`
+- `tests/test_lidar_cobevt_attention_precision_boundaries.py`
+- `tests/test_lidar_cobevt_attention_accumulation.py`
+
+Evidence:
+
+`/data/lxf/heal_data/outputs/cobevt_attention_accumulation_followup_20260720_112146/`
+
+Key files are `historical_fp16_profile_inventory.csv/json`,
+`strict_fp16_vs_r1_qk_dtype_matrix.csv/json`,
+`requested_realized_precision_corrected.csv/json`,
+`r1_fixed_build_report.json`, `r1_fixed_fusion_tactic_inventory.csv`,
+`strict_fp16_vs_r1_provenance_diff.md`, and
+`r1_reconciliation_conclusion.md`.
+
+---
+
+`2026-07-20T11:48:57-07:00 | round=2 | R1 provenance reconciled and F3 precision parser corrected`
