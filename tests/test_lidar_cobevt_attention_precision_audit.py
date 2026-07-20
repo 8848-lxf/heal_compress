@@ -106,7 +106,9 @@ def test_prepare_boundary_audit_isolates_baseline_and_creates_fixed50(tmp_path: 
     assert fixed50["evaluation_frame_ids"] == [f"f{index}" for index in range(50)]
     assert fixed50["warmup_frame_ids"] == ["w0", "w1"]
     assert fixed50["num_frames"] == 50
-    assert len(list((output / "profiles").iterdir())) == 16
+    profile_names = {path.name for path in (output / "profiles").iterdir()}
+    assert len(profile_names) == 17
+    assert "P0_rest_fp16_attention_fp32" in profile_names
     assert not list(output.rglob("*.plan"))
 
 

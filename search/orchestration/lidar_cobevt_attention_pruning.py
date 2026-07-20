@@ -13,7 +13,7 @@ from collections import Counter, OrderedDict
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 from zoneinfo import ZoneInfo
 
 import torch
@@ -1048,6 +1048,8 @@ def run_export_build(
     candidate_ids: Iterable[str] | None = None,
     diagnostic_profile: str = "",
     attention_boundary_profile_name: str = "",
+    pre_export_transform: Callable[[Any, AttentionCandidateSpec, Path], Mapping[str, Any]]
+    | None = None,
 ) -> dict[str, Any]:
     from search.integration.runtime_environment import discover_trt_environment
     from search.model_families.lidar_cobevt.deployment_recipe import CobevtDeploymentRecipe
@@ -1104,6 +1106,11 @@ def run_export_build(
                 heal_root=heal_root,
                 device=device,
             )
+            transform_report: Mapping[str, Any] = {}
+            if pre_export_transform is not None:
+                transform_report = dict(
+                    pre_export_transform(bundle, spec, destination)
+                )
             inputs = _export_inputs(bundle, config, device, fixed_k=fixed_k)
             source = destination / "source.onnx"
             export = CobevtExportRecipe(
@@ -1271,6 +1278,7 @@ def run_export_build(
                 "attention_precision_inventory": attention_inventory,
                 "attention_precision_inventory_summary": attention_inventory_summary,
                 "parser_report": parser_report,
+                "pre_export_transform_report": dict(transform_report),
             }
         except Exception as exc:  # noqa: BLE001
             result = {

@@ -44,6 +44,7 @@ COMBINATION_PROFILE_NAMES = (
 )
 
 FINAL_PROFILE_NAMES = (
+    "P0_rest_fp16_attention_fp32",
     "F1_rest_fp16_projection_fp16_core_fp32",
     "F2_rest_fp16_projection_av_fp16_qk_core_fp32",
     "F3_rest_fp16_qk_fp32_minimal_island",
@@ -168,6 +169,12 @@ _PROFILES = {
 }
 _PROFILES.update(
     {
+        "P0_rest_fp16_attention_fp32": _combination_profile(
+            "P0_rest_fp16_attention_fp32",
+            fp16_roles=(),
+            output_recovery_roles=(),
+            external_weighted_dtype="FP16",
+        ),
         "R1_attention_fp16_default": _combination_profile(
             "R1_attention_fp16_default",
             fp16_roles=ATTENTION_ROLES,
