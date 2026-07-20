@@ -72,6 +72,7 @@ DIAGNOSTIC_PRECISION_PROFILES = (
 ATTENTION_BOUNDARY_PROFILE_DIRECTORY_NAMES = tuple(
     name.lower() for name in ATTENTION_BOUNDARY_PROFILE_NAMES
 )
+EXTRA_ATTENTION_PROFILE_DIRECTORY_NAMES = ("r1_attention_fp16_default",)
 
 
 @dataclass(frozen=True)
@@ -259,6 +260,7 @@ def candidate_engine_directory(
     if profile and profile not in (
         *DIAGNOSTIC_PRECISION_PROFILES,
         *ATTENTION_BOUNDARY_PROFILE_DIRECTORY_NAMES,
+        *EXTRA_ATTENTION_PROFILE_DIRECTORY_NAMES,
     ):
         raise ValueError(f"unsupported_diagnostic_precision_profile:{profile_name}")
     directory_tag = profile or normalized.lower()

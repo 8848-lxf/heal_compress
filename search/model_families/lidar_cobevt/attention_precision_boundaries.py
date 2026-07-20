@@ -168,6 +168,12 @@ _PROFILES = {
 }
 _PROFILES.update(
     {
+        "R1_attention_fp16_default": _combination_profile(
+            "R1_attention_fp16_default",
+            fp16_roles=ATTENTION_ROLES,
+            output_recovery_roles=ATTENTION_ROLES,
+            external_weighted_dtype="FP16",
+        ),
         "M1_projection_fp16_core_fp32": _combination_profile(
             "M1_projection_fp16_core_fp32",
             fp16_roles=(
