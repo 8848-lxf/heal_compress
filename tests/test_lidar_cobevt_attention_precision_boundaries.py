@@ -528,3 +528,89 @@ def test_existing_graph_description_reads_types_without_rewriting(tmp_path: Path
     assert all(row["compute_dtype"] == "FP32" for row in report["node_records"])
     assert all(row["output_dtype"] == "FP32" for row in report["node_records"])
     assert report["graph_rewritten"] is False
+
+
+def test_r1_fixed_rewrites_both_qk_operands_after_projection_recovery(
+    tmp_path: Path,
+):
+    from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+        apply_attention_boundary_contract,
+    )
+
+    source = tmp_path / "r1_source.onnx"
+    destination = tmp_path / "r1_fixed.onnx"
+    entries = _minimal_attention_onnx(source)
+    model = onnx.load(str(source))
+    qk = next(node for node in model.graph.node if node.name.endswith("/fn/Einsum"))
+    k_input = str(qk.input[1])
+    qk_index = list(model.graph.node).index(qk)
+    model.graph.node.insert(
+        qk_index,
+        helper.make_node(
+            "Identity",
+            [k_input],
+            ["k_passthrough"],
+            name="k_passthrough_identity",
+        ),
+    )
+    qk.input[1] = "k_passthrough"
+    # Reproduce the stale pre-rewrite value_info seen in the original R1 graph.
+    model.graph.value_info.append(
+        helper.make_tensor_value_info("k_passthrough", TensorProto.FLOAT16, [1, 4])
+    )
+    onnx.save(model, str(source))
+
+    report = apply_attention_boundary_contract(
+        source,
+        destination,
+        entries,
+        "R1_fp16_operands_default_accum_fixed",
+        expected_block_count=1,
+    )
+    rewritten = onnx.load(str(destination))
+    qk = next(node for node in rewritten.graph.node if node.name.endswith("/fn/Einsum"))
+    producers = {output: node for node in rewritten.graph.node for output in node.output}
+
+    assert all(producers[value].op_type == "Cast" for value in qk.input)
+    assert all(
+        next(attribute.i for attribute in producers[value].attribute if attribute.name == "to")
+        == TensorProto.FLOAT16
+        for value in qk.input
+    )
+    assert report["qk_operand_dtype_audit"] == [
+        {
+            "block_id": "layers.0.window_attention",
+            "input_0_dtype": "FP16",
+            "input_1_dtype": "FP16",
+            "qk_node": "/layers.0/window_attention/fn/Einsum",
+            "validated": True,
+        }
+    ]
+
+
+def test_qk_dtype_validation_fails_before_tensorrt_on_mixed_operands(tmp_path: Path):
+    from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+        validate_qk_operand_dtypes,
+    )
+
+    source = tmp_path / "mixed_qk.onnx"
+    entries = _minimal_attention_onnx(source)
+    model = onnx.load(str(source))
+    qk = next(node for node in model.graph.node if node.name.endswith("/fn/Einsum"))
+    cast = helper.make_node(
+        "Cast",
+        [qk.input[0]],
+        ["q_half"],
+        name="q_only_half",
+        to=TensorProto.FLOAT16,
+    )
+    model.graph.node.insert(list(model.graph.node).index(qk), cast)
+    qk.input[0] = "q_half"
+    onnx.save(model, str(source))
+
+    with pytest.raises(ValueError, match="attention_qk_operand_dtype_mismatch"):
+        validate_qk_operand_dtypes(
+            model,
+            entries,
+            expected_block_count=1,
+        )

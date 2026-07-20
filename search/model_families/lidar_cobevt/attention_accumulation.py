@@ -207,6 +207,110 @@ def classify_qk_tactic(tactic_name: str) -> dict[str, Any]:
     }
 
 
+def _engine_tensor_precision(layer_info: Mapping[str, Any]) -> str:
+    values = []
+    for key in ("Inputs", "Outputs"):
+        for tensor in layer_info.get(key, ()):
+            value = str(tensor.get("Format/Datatype", "")).lower()
+            if "half" in value:
+                values.append("FP16")
+            elif "float" in value:
+                values.append("FP32")
+            elif "int8" in value:
+                values.append("INT8")
+    return next(iter(set(values))) if len(set(values)) == 1 else "unknown"
+
+
+def _tactic_precision(tactic_name: str) -> str:
+    tactic = str(tactic_name).lower()
+    if "h16816gemm" in tactic or "f16f16" in tactic:
+        return "FP16"
+    if "f32f32" in tactic:
+        return "FP32"
+    if "int8" in tactic or "i8i8" in tactic:
+        return "INT8"
+    return "unknown"
+
+
+def classify_attention_precision_row(
+    *,
+    profile_contract_id: str,
+    role: str,
+    layer_info: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Classify one Attention role from its explicit contract and TRT evidence."""
+
+    from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+        attention_boundary_profile,
+    )
+
+    normalized_role = str(role)
+    profile = attention_boundary_profile(profile_contract_id)
+    if normalized_role not in profile.role_dtypes:
+        raise ValueError(f"attention_precision_role_unknown:{normalized_role}")
+    requested = str(profile.role_dtypes[normalized_role])
+    dtype_precision = _engine_tensor_precision(layer_info)
+    tactic_name = str(layer_info.get("TacticName", ""))
+    tactic_precision = _tactic_precision(tactic_name)
+    conflict = (
+        dtype_precision != "unknown"
+        and tactic_precision != "unknown"
+        and dtype_precision != tactic_precision
+    )
+    if conflict:
+        realized = "unknown"
+        realized_source = "conflicting_engine_evidence"
+        confidence = "none"
+    elif dtype_precision != "unknown" and tactic_precision != "unknown":
+        realized = dtype_precision
+        realized_source = "engine_inspector+tactic"
+        confidence = "high"
+    elif dtype_precision != "unknown":
+        realized = dtype_precision
+        realized_source = "engine_inspector_dtype"
+        confidence = "medium"
+    elif tactic_precision != "unknown":
+        realized = tactic_precision
+        realized_source = "tactic"
+        confidence = "medium"
+    else:
+        realized = "unknown"
+        realized_source = "insufficient_evidence"
+        confidence = "none"
+    decoded_qk = classify_qk_tactic(tactic_name)
+    accumulator = (
+        str(decoded_qk["accumulator_precision"])
+        if normalized_role == "qk_matmul" and decoded_qk["evidence_sufficient"]
+        else "not_applicable" if normalized_role != "qk_matmul" else "unknown"
+    )
+    return {
+        "accumulator_precision": accumulator,
+        "classification_confidence": confidence,
+        "classification_conflict": conflict,
+        "conflict_reason": (
+            f"dtype={dtype_precision},tactic={tactic_precision}" if conflict else ""
+        ),
+        "precision_evidence": {
+            "input_dtypes": [
+                str(value.get("Format/Datatype", ""))
+                for value in layer_info.get("Inputs", ())
+            ],
+            "output_dtypes": [
+                str(value.get("Format/Datatype", ""))
+                for value in layer_info.get("Outputs", ())
+            ],
+            "tactic": tactic_name,
+        },
+        "profile_contract_id": str(profile_contract_id),
+        "requested_contract_role": normalized_role,
+        "requested_precision": requested,
+        "requested_precision_source": f"profile_contract.roles.{normalized_role}",
+        "realized_precision": realized,
+        "realized_precision_source": realized_source,
+        "requested_realized_match": bool(realized != "unknown" and requested == realized),
+    }
+
+
 def trt_accumulator_realization(
     *,
     profile_name: str,
@@ -489,6 +593,7 @@ __all__ = [
     "accumulation_profile",
     "accumulation_profile_manifest",
     "classify_int8_realization",
+    "classify_attention_precision_row",
     "classify_qk_tactic",
     "decompose_qk_error",
     "dynamic_quantize_api_verdict",

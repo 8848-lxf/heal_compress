@@ -72,7 +72,10 @@ DIAGNOSTIC_PRECISION_PROFILES = (
 ATTENTION_BOUNDARY_PROFILE_DIRECTORY_NAMES = tuple(
     name.lower() for name in ATTENTION_BOUNDARY_PROFILE_NAMES
 )
-EXTRA_ATTENTION_PROFILE_DIRECTORY_NAMES = ("r1_attention_fp16_default",)
+EXTRA_ATTENTION_PROFILE_DIRECTORY_NAMES = (
+    "r1_attention_fp16_default",
+    "r1_fp16_operands_default_accum_fixed",
+)
 
 
 @dataclass(frozen=True)

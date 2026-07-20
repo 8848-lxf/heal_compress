@@ -186,3 +186,89 @@ def test_accumulation_manifest_is_stable_and_complete():
     assert first == second
     assert set(first) == set(ACCUMULATION_PROFILE_NAMES)
     assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+
+
+def test_precision_parser_uses_role_contract_for_fused_fp16_projection():
+    from search.model_families.lidar_cobevt.attention_accumulation import (
+        classify_attention_precision_row,
+    )
+
+    row = classify_attention_precision_row(
+        profile_contract_id="F3_rest_fp16_qk_fp32_minimal_island",
+        role="q_projection",
+        layer_info={
+            "Name": "q+k+v_projection",
+            "LayerType": "gemm",
+            "Inputs": [{"Format/Datatype": "Half"}],
+            "Outputs": [{"Format/Datatype": "Half"}],
+            "TacticName": "ampere_h16816gemm_256x128_ldg8_nn_v1",
+        },
+    )
+
+    assert row["requested_precision"] == "FP16"
+    assert row["requested_precision_source"] == "profile_contract.roles.q_projection"
+    assert row["realized_precision"] == "FP16"
+    assert row["realized_precision_source"] == "engine_inspector+tactic"
+    assert row["requested_realized_match"] is True
+    assert row["classification_conflict"] is False
+
+
+def test_precision_parser_classifies_f3_qk_and_av_from_engine_evidence():
+    from search.model_families.lidar_cobevt.attention_accumulation import (
+        classify_attention_precision_row,
+    )
+
+    qk = classify_attention_precision_row(
+        profile_contract_id="F3_rest_fp16_qk_fp32_minimal_island",
+        role="qk_matmul",
+        layer_info={
+            "Name": "qk",
+            "LayerType": "gemm",
+            "Inputs": [
+                {"Format/Datatype": "Float"},
+                {"Format/Datatype": "Float"},
+            ],
+            "Outputs": [{"Format/Datatype": "Float"}],
+            "TacticName": "sm80_xmma_gemm_f32f32_f32f32_f32_nn",
+        },
+    )
+    av = classify_attention_precision_row(
+        profile_contract_id="F3_rest_fp16_qk_fp32_minimal_island",
+        role="av_matmul",
+        layer_info={
+            "Name": "av",
+            "LayerType": "gemm",
+            "Inputs": [
+                {"Format/Datatype": "Half"},
+                {"Format/Datatype": "Half"},
+            ],
+            "Outputs": [{"Format/Datatype": "Half"}],
+            "TacticName": "ampere_h16816gemm_64x64_ldg8_nn_v1",
+        },
+    )
+
+    assert qk["requested_precision"] == qk["realized_precision"] == "FP32"
+    assert qk["accumulator_precision"] == "FP32"
+    assert av["requested_precision"] == av["realized_precision"] == "FP16"
+
+
+def test_precision_parser_fails_closed_on_dtype_tactic_conflict():
+    from search.model_families.lidar_cobevt.attention_accumulation import (
+        classify_attention_precision_row,
+    )
+
+    row = classify_attention_precision_row(
+        profile_contract_id="F3_rest_fp16_qk_fp32_minimal_island",
+        role="output_projection",
+        layer_info={
+            "Name": "out",
+            "LayerType": "gemm",
+            "Inputs": [{"Format/Datatype": "Float"}],
+            "Outputs": [{"Format/Datatype": "Float"}],
+            "TacticName": "ampere_h16816gemm_256x128_ldg8_nn_v1",
+        },
+    )
+
+    assert row["realized_precision"] == "unknown"
+    assert row["classification_conflict"] is True
+    assert row["requested_realized_match"] is False

@@ -174,6 +174,12 @@ _PROFILES.update(
             output_recovery_roles=ATTENTION_ROLES,
             external_weighted_dtype="FP16",
         ),
+        "R1_fp16_operands_default_accum_fixed": _combination_profile(
+            "R1_fp16_operands_default_accum_fixed",
+            fp16_roles=ATTENTION_ROLES,
+            output_recovery_roles=ATTENTION_ROLES,
+            external_weighted_dtype="FP16",
+        ),
         "M1_projection_fp16_core_fp32": _combination_profile(
             "M1_projection_fp16_core_fp32",
             fp16_roles=(
@@ -532,6 +538,89 @@ def _set_tensor_type(model: Any, name: str, element_type: int) -> None:
     )
 
 
+def _propagate_node_output_types(node: Any, types: dict[str, int]) -> None:
+    """Refresh pass-through output types after an upstream boundary rewrite."""
+
+    from onnx import TensorProto
+
+    op_type = str(node.op_type)
+    output_type = None
+    if op_type == "Cast":
+        output_type = _cast_target(node)
+    elif op_type == "Where" and len(node.input) >= 3:
+        output_type = types.get(str(node.input[2]))
+    elif op_type in {
+        "Add",
+        "Concat",
+        "Einsum",
+        "Identity",
+        "LayerNormalization",
+        "MatMul",
+        "Mul",
+        "Reshape",
+        "Softmax",
+        "Squeeze",
+        "Transpose",
+        "Unsqueeze",
+    } and node.input:
+        output_type = types.get(str(node.input[0]))
+    elif op_type in {"Equal", "Greater", "Less"}:
+        output_type = int(TensorProto.BOOL)
+    if output_type is None:
+        return
+    for output in node.output:
+        types[str(output)] = int(output_type)
+
+
+def validate_qk_operand_dtypes(
+    model: Any,
+    entries_or_mapping: Any,
+    *,
+    expected_block_count: int = 6,
+) -> list[dict[str, object]]:
+    """Fail before TensorRT parsing when either QK operand has a different dtype."""
+
+    from onnx import TensorProto
+
+    blocks = discover_attention_nodes(
+        model, entries_or_mapping, expected_block_count=expected_block_count
+    )
+    nodes = {str(node.name): node for node in model.graph.node if str(node.name)}
+    types = _tensor_types(model)
+    precision_names = {
+        int(TensorProto.FLOAT): "FP32",
+        int(TensorProto.FLOAT16): "FP16",
+    }
+    rows: list[dict[str, object]] = []
+    for block in blocks:
+        node_name = block.role_nodes["qk_matmul"]
+        node = nodes[node_name]
+        if len(node.input) != 2:
+            raise ValueError(
+                f"attention_qk_operand_count_invalid:{node_name}:{len(node.input)}"
+            )
+        input_types = [types.get(str(value)) for value in node.input]
+        if input_types[0] is None or input_types[1] is None:
+            raise ValueError(
+                f"attention_qk_operand_dtype_unresolved:{node_name}:{input_types}"
+            )
+        if input_types[0] != input_types[1]:
+            raise ValueError(
+                "attention_qk_operand_dtype_mismatch:"
+                f"{node_name}:{input_types[0]}:{input_types[1]}"
+            )
+        rows.append(
+            {
+                "block_id": block.block_id,
+                "input_0_dtype": precision_names.get(int(input_types[0]), "OTHER"),
+                "input_1_dtype": precision_names.get(int(input_types[1]), "OTHER"),
+                "qk_node": node_name,
+                "validated": True,
+            }
+        )
+    return rows
+
+
 def _unique_cast_name(
     *, profile_name: str, block_id: str, role: str, boundary: str, index: int
 ) -> str:
@@ -591,6 +680,7 @@ def apply_attention_boundary_contract(
     for node in model.graph.node:
         owner = role_owner.get(str(node.name))
         if owner is None:
+            _propagate_node_output_types(node, types)
             rewritten.append(node)
             continue
         block, role = owner
@@ -602,6 +692,10 @@ def apply_attention_boundary_contract(
         )
         input_cast_nodes = []
         original_inputs = list(node.input)
+        if role == "qk_matmul" and len(node.input) != 2:
+            raise ValueError(
+                f"attention_qk_operand_count_invalid:{node.name}:{len(node.input)}"
+            )
         for input_index, source_value in enumerate(list(node.input)):
             source = str(source_value)
             source_type = types.get(source)
@@ -698,6 +792,11 @@ def apply_attention_boundary_contract(
         )
     except Exception:
         pass
+    qk_operand_dtype_audit = validate_qk_operand_dtypes(
+        model,
+        entries_or_mapping,
+        expected_block_count=expected_block_count,
+    )
     onnx.checker.check_model(model)
     destination = Path(output_onnx)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -714,6 +813,7 @@ def apply_attention_boundary_contract(
         "output_onnx": str(destination),
         "output_onnx_sha256": _file_sha256(destination),
         "profile": profile.to_dict(),
+        "qk_operand_dtype_audit": qk_operand_dtype_audit,
         "schema_version": "cobevt-attention-boundary-contract-v1",
     }
 
@@ -840,4 +940,5 @@ __all__ = [
     "describe_existing_attention_boundaries",
     "discover_attention_nodes",
     "requested_weighted_precision",
+    "validate_qk_operand_dtypes",
 ]
