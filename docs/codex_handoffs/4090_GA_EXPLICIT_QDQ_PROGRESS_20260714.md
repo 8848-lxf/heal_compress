@@ -1907,3 +1907,26 @@ Current state:
 - `STAGE_B_ALLOWED = false`.
 
 --- Round 33 completed: 2026-07-18 22:19:51 CST ---
+
+## Round 34 - consolidate full-validation budget winners
+
+Generated `docs/codex_handoffs/4090-pyramid-greedy-ga-budget-winners-full-validation.csv`.
+The table contains one strict FP32 reference, six greedy budget endpoints, and
+six GA budget winners (13 rows, 72 columns). Every row is tied to the same
+full-validation manifest, with `1789` evaluated frames and `0` skipped frames;
+the CSV also includes AP30/AP50/AP70/mAP, delta mAP, BOPS and parameter
+retention/reduction, realized precision counts, QDQ/reformat audits, engine and
+identity hashes, calibration/profile hashes, and forward/postprocess/total
+latency percentiles.
+
+GA rows are selected by the highest stored full-validation `F2` per budget and
+are marked `full_validation_F2_provisional`. Greedy rows are the single
+budget-endpoint results. The latency columns are explicitly marked
+`full_validation_parallel_screening`; they are not a replacement for the
+pending isolated same-GPU formal latency replay. No engine, ONNX, PTH, plan,
+or calibration binary was copied into Git.
+
+CSV validation completed: 13 rows, 72 columns, one validation-manifest hash,
+all rows `status=ok`, all `1789/0`, and all 13 referenced engine paths exist.
+
+--- Round 34 completed: 2026-07-20 09:32:36 CST ---
