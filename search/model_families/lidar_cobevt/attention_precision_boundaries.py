@@ -315,6 +315,25 @@ _PROFILES.update(
             ),
             external_weighted_dtype="FP16",
         ),
+        "N1_rest_fp16_qk_native_f16a32": _combination_profile(
+            "N1_rest_fp16_qk_native_f16a32",
+            fp16_roles=(
+                "q_projection",
+                "k_projection",
+                "v_projection",
+                "qk_matmul",
+                "softmax",
+                "av_matmul",
+                "output_projection",
+                "residual_add",
+            ),
+            output_recovery_roles=(
+                "q_projection",
+                "k_projection",
+                "residual_add",
+            ),
+            external_weighted_dtype="FP16",
+        ),
     }
 )
 
