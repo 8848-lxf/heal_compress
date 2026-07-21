@@ -51,7 +51,9 @@ def main() -> int:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--heal-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/HEAL"))
     parser.add_argument("--device", default="cuda:6")
-    parser.add_argument("--fixed-k", type=int, required=True)
+    fixed_k_source = parser.add_mutually_exclusive_group(required=True)
+    fixed_k_source.add_argument("--fixed-k", type=int)
+    fixed_k_source.add_argument("--fixed-k-manifest", type=Path)
     parser.add_argument("--max-agents", type=int, default=2)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--opset", type=int, default=17)
@@ -81,7 +83,14 @@ def main() -> int:
         family_id="heal_lidar_v2xvit",
         forward_smoke=True,
     )
-    policy = HealV2XViTExportPolicy(fixed_k=args.fixed_k, max_agents=args.max_agents)
+    if args.fixed_k_manifest is not None:
+        policy = HealV2XViTExportPolicy.from_frozen_train_manifest(args.fixed_k_manifest)
+        if int(args.max_agents) != policy.max_agents:
+            raise RuntimeError(
+                f"v2xvit_manifest_max_agents_mismatch:{args.max_agents}!={policy.max_agents}"
+            )
+    else:
+        policy = HealV2XViTExportPolicy(fixed_k=args.fixed_k, max_agents=args.max_agents)
     wrapper = build_heal_v2xvit_export_module(bundle.model, policy=policy).eval()
     prepared = prepare_v2xvit_fixed_k_inputs(bundle.example_batch, policy=policy)
     input_names = tuple(prepared)
@@ -113,6 +122,8 @@ def main() -> int:
             "checkpoint_sha256": bundle.checkpoint_hash,
             "strict_state_dict_load": True,
             "model_family_audit_hash": bundle.audit.to_dict()["audit_hash"],
+            "fixed_k_manifest": str(args.fixed_k_manifest.resolve()) if args.fixed_k_manifest else None,
+            "fixed_k_manifest_hash": policy.calibration_manifest_hash,
         },
         "input_contract": {
             "fixed_k": policy.fixed_k,

@@ -1,7 +1,9 @@
-"""Capability description for HEAL LiDAR-only V2X-ViT models.
+"""Audited capabilities for HEAL LiDAR-only V2X-ViT models.
 
-This module performs conservative introspection.  It does not patch HEAL,
-invoke the lidar_pyramid exporter, or claim an unverified TensorRT path.
+The production exporter remains model-family scoped and does not patch HEAL or
+reuse the lidar_pyramid exporter.  The capabilities below distinguish the
+fixed-K V2X-ViT path validated on H800 from intentionally protected Transformer
+INT8 and attention-pruning features.
 """
 
 from __future__ import annotations
@@ -163,12 +165,13 @@ def _pruning_domains(model: nn.Module) -> list[PruningDomainCapability]:
                         original_width=width,
                         legal_widths=_legal_aligned_widths(width),
                         ranking_unit="fixed_task_taylor_ordered_hidden_units",
-                        production_enabled=False,
-                        gate_reason="awaiting_dependency_and_physical_materialization_smoke",
+                        production_enabled=True,
+                        gate_reason="",
                         constraints={
                             "prune_first_linear_output": True,
                             "prune_second_linear_input": True,
                             "embedding_width_unchanged": True,
+                            "physical_materializer": "v2xvit_ffn_linear_pair_v1",
                         },
                     )
                 )
@@ -253,8 +256,8 @@ def _merge_boundaries(model: nn.Module) -> list[MergeBoundaryCapability]:
                     policy="FP16_merge",
                     scale_policy="branches_dequantized_to_fp16_before_add",
                     output_requantization="optional_post_add_qdq_owned_by_next_weighted_input",
-                    production_enabled=False,
-                    gate_reason="canonical_onnx_boundary_resolution_required",
+                    production_enabled=True,
+                    gate_reason="",
                 )
             )
         elif class_name == "FeedForward":
@@ -266,8 +269,8 @@ def _merge_boundaries(model: nn.Module) -> list[MergeBoundaryCapability]:
                     policy="FP16_merge",
                     scale_policy="feedforward_and_identity_dequantized_to_fp16_before_add",
                     output_requantization="optional_post_add_qdq_owned_by_next_layernorm_input",
-                    production_enabled=False,
-                    gate_reason="canonical_onnx_boundary_resolution_required",
+                    production_enabled=True,
+                    gate_reason="",
                 )
             )
         elif class_name == "SplitAttn":
@@ -279,8 +282,8 @@ def _merge_boundaries(model: nn.Module) -> list[MergeBoundaryCapability]:
                     policy="FP16_merge",
                     scale_policy="three_window_branches_share_fp16_weighted_sum_boundary",
                     output_requantization="optional_post_sum_qdq_owned_by_transformer_residual",
-                    production_enabled=False,
-                    gate_reason="canonical_onnx_boundary_resolution_required",
+                    production_enabled=True,
+                    gate_reason="",
                 )
             )
     return sorted(rows, key=lambda row: row.boundary_id)
@@ -295,8 +298,8 @@ def _deployment_operators() -> tuple[DeploymentOperatorCapability, ...]:
             deployment_mode="plugin_required_for_fixed_k_single_engine",
             precision_policy="FP16_boundary",
             plugin_key="pointpillar_scatter_trt",
-            production_enabled=False,
-            gate_reason="existing_plugin_must_be_revalidated_for_v2xvit_input_contract",
+            production_enabled=True,
+            gate_reason="",
         ),
         DeploymentOperatorCapability(
             capability_id="agent_affine_warp",
@@ -304,8 +307,8 @@ def _deployment_operators() -> tuple[DeploymentOperatorCapability, ...]:
             module_paths=("fusion_net",),
             deployment_mode="native_parser_probe_then_plugin_if_required",
             precision_policy="FP16_island",
-            production_enabled=False,
-            gate_reason="dynamic_agent_and_grid_sample_export_smoke_required",
+            production_enabled=True,
+            gate_reason="validated_for_frozen_max_agents_2_type0_export_contract",
         ),
         DeploymentOperatorCapability(
             capability_id="transformer_attention_einsum",
@@ -313,8 +316,8 @@ def _deployment_operators() -> tuple[DeploymentOperatorCapability, ...]:
             module_paths=("fusion_net.fusion_net.encoder",),
             deployment_mode="native_tensorrt_fp16_island",
             precision_policy="weighted_linear_may_be_int8_but_einsum_softmax_stays_fp16",
-            production_enabled=False,
-            gate_reason="strongly_typed_parser_and_tensor_parity_smoke_required",
+            production_enabled=True,
+            gate_reason="validated_as_strongly_typed_fp16_island",
         ),
         DeploymentOperatorCapability(
             capability_id="heterogeneous_type_dispatch",
@@ -331,8 +334,8 @@ def _deployment_operators() -> tuple[DeploymentOperatorCapability, ...]:
             module_paths=("fusion_net.fusion_net.encoder",),
             deployment_mode="native_shape_contract",
             precision_policy="FP16_merge_with_optional_weighted_int8_compute",
-            production_enabled=False,
-            gate_reason="window_divisibility_and_dynamic_shape_profile_required",
+            production_enabled=True,
+            gate_reason="validated_for_fixed_bev_and_max_agents_2_contract",
         ),
     )
 
@@ -370,7 +373,7 @@ class HealLidarV2XViTProvider:
             name for name, _parameter in model.named_parameters() if name.endswith("pos_embedding")
         )
         return ModelFamilyAudit(
-            schema_version="heal-model-family-audit-v1",
+            schema_version="heal-model-family-audit-v2",
             family_id=self.family_id,
             model_type=type(model).__name__,
             parameter_count=sum(int(parameter.numel()) for parameter in model.parameters()),
@@ -383,7 +386,7 @@ class HealLidarV2XViTProvider:
                     plugin_key="pointpillar_scatter_trt",
                     op_types=("PointPillarScatterTRT",),
                     required=True,
-                    compatibility_status="candidate_reuse_requires_validation",
+                    compatibility_status="validated_v2xvit_fixedk27904_h800_trt10_9",
                     reusable_implementation="quantization/plugins/pointpillar_scatter_trt",
                     compatibility_checks=(
                         "fixed_k_from_frozen_calibration_manifest",
@@ -404,13 +407,11 @@ class HealLidarV2XViTProvider:
                 "window_divisibility": [4, 8, 16],
             },
             blockers=(
-                "canonical_onnx_export_not_yet_smoked",
                 "representative_forward_does_not_cover_all_weighted_agent_type_branches",
-                "transformer_qdq_boundary_resolution_not_yet_verified",
-                "pointpillar_scatter_plugin_contract_not_yet_revalidated",
                 "hgt_functional_einsum_weights_not_yet_quantizable",
                 "attention_pruning_materializers_not_yet_implemented",
-                "strongly_typed_tensorrt_parser_not_yet_smoked",
+                "transformer_parameterized_int8_remains_accuracy_protected",
+                "heterogeneous_type_dispatch_only_validated_for_type0_specialization",
             ),
             metadata={
                 "module_weighted_op_count": len(module_rows),

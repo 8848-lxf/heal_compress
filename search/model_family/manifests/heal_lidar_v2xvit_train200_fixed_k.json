@@ -1,0 +1,7121 @@
+{
+  "schema_version": "heal_lidar_v2xvit_train200_fixed_k_v1",
+  "family_id": "heal_lidar_v2xvit",
+  "model_name": "HeterBaseline_DAIR_lidar_v2xvit",
+  "purpose": "entropy_activation_calibration_and_fixed_k_export_contract",
+  "split": "train",
+  "generated_at": "2026-07-17T13:02:44-07:00",
+  "source_control": {
+    "repo": "/home/lixingfeng/UniAD_examine/heal_compress",
+    "branch": "feature/heal-unified-search-h800",
+    "head": "55d04fde0069d6666224fba22e1d05a5b4691e16"
+  },
+  "provenance": {
+    "config": {
+      "path": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_v2xvit/config.yaml",
+      "sha256": "801729a29db46b634646ab0db450671c13ab3cc65c1e7224ec372274a8448d5a"
+    },
+    "checkpoint": {
+      "path": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_v2xvit/net_epoch_bestval_at27.pth",
+      "sha256": "890f7f4db7b92142c29789b4ee4649494004021eb521f94c345fbe439ca6e3ab",
+      "note": "identity provenance only; voxel counts do not depend on weights"
+    },
+    "heal_root": "/home/lixingfeng/UniAD_examine/HEAL",
+    "dataset_root": "/data/lxf_data/DAIR-V2X-C/Full_Dataset/cooperative-vehicle-infrastructure",
+    "train_split": {
+      "path": "/data/lxf_data/DAIR-V2X-C/Full_Dataset/cooperative-vehicle-infrastructure/train.json",
+      "sha256": "865e0ff2c788a67bede72a93984cc6b5f3e506fcb99c95571803322356f79051",
+      "raw_entry_count": 4811
+    },
+    "cooperative_data_info": {
+      "path": "/data/lxf_data/DAIR-V2X-C/Full_Dataset/cooperative-vehicle-infrastructure/cooperative/data_info.json",
+      "sha256": "30aa21051f56082cfb714bf8ad93bab8c018ae2ba1211b7873852c125f3e2659"
+    },
+    "dataset_class": "opencood.data_utils.datasets.intermediate_heter_fusion_dataset.getIntermediateheterFusionDataset.<locals>.IntermediateheterFusionDataset"
+  },
+  "selection": {
+    "policy": "evenly_spaced_valid_train_indices_v1",
+    "dataset_size_after_validation": 4811,
+    "sample_count": 200,
+    "base_seed": 20260717,
+    "per_sample_seed_formula": "uint32(base_seed + dataset_index)",
+    "order": "ascending_dataset_index",
+    "shuffle": false
+  },
+  "preprocessing": {
+    "dataset_train_mode": true,
+    "visualize": false,
+    "direct_indexed_loading": true,
+    "dataloader_workers": 0,
+    "determinism": "python_numpy_torch_rng_reset_before_each_dataset_index",
+    "voxel_size": [
+      0.4,
+      0.4,
+      4
+    ],
+    "max_points_per_voxel": 32,
+    "max_voxel_train_per_agent": 32000,
+    "project_first": false,
+    "ego_selection": "HEAL train-time seeded DAIR heterogeneous ego assignment"
+  },
+  "fixed_k_contract": {
+    "alignment": 256,
+    "padding_policy": "append_zero_voxels_and_explicit_valid_voxel_mask",
+    "overflow_policy": "fail_closed_no_truncation",
+    "value": 27904,
+    "observed_max_voxel_count": 27666,
+    "alignment_margin_voxels": 238,
+    "derivation": "ceil(max_observed_train200_voxel_count/256)*256",
+    "truncated_sample_count": 0,
+    "coverage_scope": "only_the_exact_frozen_train200_manifest",
+    "full_train_split_upper_bound_claimed": false
+  },
+  "input_contract": {
+    "max_points_per_voxel": 32,
+    "max_agents": 2,
+    "modality": "m1",
+    "fixed_k": 27904,
+    "voxel_features_shape": [
+      27904,
+      32,
+      4
+    ],
+    "voxel_coords_shape": [
+      27904,
+      4
+    ],
+    "voxel_num_points_shape": [
+      27904
+    ],
+    "valid_voxel_mask_shape": [
+      27904
+    ],
+    "pairwise_t_matrix_shape": [
+      1,
+      2,
+      2,
+      4,
+      4
+    ],
+    "agent_mask_shape": [
+      1,
+      2
+    ]
+  },
+  "replay_checks": [
+    {
+      "ordinal": 0,
+      "dataset_index": 0,
+      "fields": [
+        "vehicle_frame_id",
+        "record_len",
+        "agent_modalities",
+        "voxel_count",
+        "per_agent_voxel_counts"
+      ],
+      "passed": true
+    },
+    {
+      "ordinal": 100,
+      "dataset_index": 2417,
+      "fields": [
+        "vehicle_frame_id",
+        "record_len",
+        "agent_modalities",
+        "voxel_count",
+        "per_agent_voxel_counts"
+      ],
+      "passed": true
+    },
+    {
+      "ordinal": 199,
+      "dataset_index": 4810,
+      "fields": [
+        "vehicle_frame_id",
+        "record_len",
+        "agent_modalities",
+        "voxel_count",
+        "per_agent_voxel_counts"
+      ],
+      "passed": true
+    }
+  ],
+  "samples": [
+    {
+      "ordinal": 0,
+      "dataset_index": 0,
+      "vehicle_frame_id": "000010",
+      "infrastructure_frame_id": "006689",
+      "source_pair_id": "000010:006689",
+      "sample_seed": 20260717,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 10240,
+      "per_agent_voxel_counts": [
+        10240
+      ],
+      "voxel_features_shape_unpadded": [
+        10240,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 17664,
+      "padding_ratio": 0.6330275229357798
+    },
+    {
+      "ordinal": 1,
+      "dataset_index": 24,
+      "vehicle_frame_id": "000042",
+      "infrastructure_frame_id": "006721",
+      "source_pair_id": "000042:006721",
+      "sample_seed": 20260741,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17740,
+      "per_agent_voxel_counts": [
+        9182,
+        8558
+      ],
+      "voxel_features_shape_unpadded": [
+        17740,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10164,
+      "padding_ratio": 0.3642488532110092
+    },
+    {
+      "ordinal": 2,
+      "dataset_index": 48,
+      "vehicle_frame_id": "000085",
+      "infrastructure_frame_id": "006765",
+      "source_pair_id": "000085:006765",
+      "sample_seed": 20260765,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18228,
+      "per_agent_voxel_counts": [
+        8666,
+        9562
+      ],
+      "voxel_features_shape_unpadded": [
+        18228,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9676,
+      "padding_ratio": 0.3467603211009174
+    },
+    {
+      "ordinal": 3,
+      "dataset_index": 73,
+      "vehicle_frame_id": "000116",
+      "infrastructure_frame_id": "006796",
+      "source_pair_id": "000116:006796",
+      "sample_seed": 20260790,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20958,
+      "per_agent_voxel_counts": [
+        10658,
+        10300
+      ],
+      "voxel_features_shape_unpadded": [
+        20958,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6946,
+      "padding_ratio": 0.2489248853211009
+    },
+    {
+      "ordinal": 4,
+      "dataset_index": 97,
+      "vehicle_frame_id": "000181",
+      "infrastructure_frame_id": "006861",
+      "source_pair_id": "000181:006861",
+      "sample_seed": 20260814,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19986,
+      "per_agent_voxel_counts": [
+        11617,
+        8369
+      ],
+      "voxel_features_shape_unpadded": [
+        19986,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7918,
+      "padding_ratio": 0.2837586009174312
+    },
+    {
+      "ordinal": 5,
+      "dataset_index": 121,
+      "vehicle_frame_id": "000228",
+      "infrastructure_frame_id": "007427",
+      "source_pair_id": "000228:007427",
+      "sample_seed": 20260838,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20119,
+      "per_agent_voxel_counts": [
+        8191,
+        11928
+      ],
+      "voxel_features_shape_unpadded": [
+        20119,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7785,
+      "padding_ratio": 0.2789922591743119
+    },
+    {
+      "ordinal": 6,
+      "dataset_index": 145,
+      "vehicle_frame_id": "000263",
+      "infrastructure_frame_id": "007463",
+      "source_pair_id": "000263:007463",
+      "sample_seed": 20260862,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20855,
+      "per_agent_voxel_counts": [
+        8969,
+        11886
+      ],
+      "voxel_features_shape_unpadded": [
+        20855,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7049,
+      "padding_ratio": 0.2526161123853211
+    },
+    {
+      "ordinal": 7,
+      "dataset_index": 169,
+      "vehicle_frame_id": "000304",
+      "infrastructure_frame_id": "007502",
+      "source_pair_id": "000304:007502",
+      "sample_seed": 20260886,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22490,
+      "per_agent_voxel_counts": [
+        11930,
+        10560
+      ],
+      "voxel_features_shape_unpadded": [
+        22490,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5414,
+      "padding_ratio": 0.1940223623853211
+    },
+    {
+      "ordinal": 8,
+      "dataset_index": 193,
+      "vehicle_frame_id": "000342",
+      "infrastructure_frame_id": "007543",
+      "source_pair_id": "000342:007543",
+      "sample_seed": 20260910,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23849,
+      "per_agent_voxel_counts": [
+        10977,
+        12872
+      ],
+      "voxel_features_shape_unpadded": [
+        23849,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4055,
+      "padding_ratio": 0.14531966743119265
+    },
+    {
+      "ordinal": 9,
+      "dataset_index": 218,
+      "vehicle_frame_id": "000391",
+      "infrastructure_frame_id": "007591",
+      "source_pair_id": "000391:007591",
+      "sample_seed": 20260935,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23005,
+      "per_agent_voxel_counts": [
+        11973,
+        11032
+      ],
+      "voxel_features_shape_unpadded": [
+        23005,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4899,
+      "padding_ratio": 0.17556622706422018
+    },
+    {
+      "ordinal": 10,
+      "dataset_index": 242,
+      "vehicle_frame_id": "000439",
+      "infrastructure_frame_id": "006931",
+      "source_pair_id": "000439:006931",
+      "sample_seed": 20260959,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20826,
+      "per_agent_voxel_counts": [
+        11956,
+        8870
+      ],
+      "voxel_features_shape_unpadded": [
+        20826,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7078,
+      "padding_ratio": 0.25365538990825687
+    },
+    {
+      "ordinal": 11,
+      "dataset_index": 266,
+      "vehicle_frame_id": "000483",
+      "infrastructure_frame_id": "006974",
+      "source_pair_id": "000483:006974",
+      "sample_seed": 20260983,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20509,
+      "per_agent_voxel_counts": [
+        11534,
+        8975
+      ],
+      "voxel_features_shape_unpadded": [
+        20509,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7395,
+      "padding_ratio": 0.26501576834862384
+    },
+    {
+      "ordinal": 12,
+      "dataset_index": 290,
+      "vehicle_frame_id": "000541",
+      "infrastructure_frame_id": "007034",
+      "source_pair_id": "000541:007034",
+      "sample_seed": 20261007,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19466,
+      "per_agent_voxel_counts": [
+        11320,
+        8146
+      ],
+      "voxel_features_shape_unpadded": [
+        19466,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8438,
+      "padding_ratio": 0.30239392201834864
+    },
+    {
+      "ordinal": 13,
+      "dataset_index": 314,
+      "vehicle_frame_id": "000570",
+      "infrastructure_frame_id": "007063",
+      "source_pair_id": "000570:007063",
+      "sample_seed": 20261031,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19963,
+      "per_agent_voxel_counts": [
+        8321,
+        11642
+      ],
+      "voxel_features_shape_unpadded": [
+        19963,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7941,
+      "padding_ratio": 0.2845828555045872
+    },
+    {
+      "ordinal": 14,
+      "dataset_index": 338,
+      "vehicle_frame_id": "000611",
+      "infrastructure_frame_id": "007105",
+      "source_pair_id": "000611:007105",
+      "sample_seed": 20261055,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20417,
+      "per_agent_voxel_counts": [
+        11267,
+        9150
+      ],
+      "voxel_features_shape_unpadded": [
+        20417,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7487,
+      "padding_ratio": 0.26831278669724773
+    },
+    {
+      "ordinal": 15,
+      "dataset_index": 363,
+      "vehicle_frame_id": "000641",
+      "infrastructure_frame_id": "007135",
+      "source_pair_id": "000641:007135",
+      "sample_seed": 20261080,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20590,
+      "per_agent_voxel_counts": [
+        11274,
+        9316
+      ],
+      "voxel_features_shape_unpadded": [
+        20590,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7314,
+      "padding_ratio": 0.2621129587155963
+    },
+    {
+      "ordinal": 16,
+      "dataset_index": 387,
+      "vehicle_frame_id": "000693",
+      "infrastructure_frame_id": "007188",
+      "source_pair_id": "000693:007188",
+      "sample_seed": 20261104,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 21253,
+      "per_agent_voxel_counts": [
+        9762,
+        11491
+      ],
+      "voxel_features_shape_unpadded": [
+        21253,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6651,
+      "padding_ratio": 0.23835292431192662
+    },
+    {
+      "ordinal": 17,
+      "dataset_index": 411,
+      "vehicle_frame_id": "000717",
+      "infrastructure_frame_id": "007213",
+      "source_pair_id": "000717:007213",
+      "sample_seed": 20261128,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20653,
+      "per_agent_voxel_counts": [
+        11252,
+        9401
+      ],
+      "voxel_features_shape_unpadded": [
+        20653,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7251,
+      "padding_ratio": 0.25985521788990823
+    },
+    {
+      "ordinal": 18,
+      "dataset_index": 435,
+      "vehicle_frame_id": "000777",
+      "infrastructure_frame_id": "007274",
+      "source_pair_id": "000777:007274",
+      "sample_seed": 20261152,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20996,
+      "per_agent_voxel_counts": [
+        11193,
+        9803
+      ],
+      "voxel_features_shape_unpadded": [
+        20996,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6908,
+      "padding_ratio": 0.2475630733944954
+    },
+    {
+      "ordinal": 19,
+      "dataset_index": 459,
+      "vehicle_frame_id": "000802",
+      "infrastructure_frame_id": "007299",
+      "source_pair_id": "000802:007299",
+      "sample_seed": 20261176,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22252,
+      "per_agent_voxel_counts": [
+        10995,
+        11257
+      ],
+      "voxel_features_shape_unpadded": [
+        22252,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5652,
+      "padding_ratio": 0.20255160550458715
+    },
+    {
+      "ordinal": 20,
+      "dataset_index": 483,
+      "vehicle_frame_id": "000862",
+      "infrastructure_frame_id": "007360",
+      "source_pair_id": "000862:007360",
+      "sample_seed": 20261200,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 21831,
+      "per_agent_voxel_counts": [
+        9834,
+        11997
+      ],
+      "voxel_features_shape_unpadded": [
+        21831,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6073,
+      "padding_ratio": 0.21763904816513763
+    },
+    {
+      "ordinal": 21,
+      "dataset_index": 508,
+      "vehicle_frame_id": "001103",
+      "infrastructure_frame_id": "005013",
+      "source_pair_id": "001103:005013",
+      "sample_seed": 20261225,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18288,
+      "per_agent_voxel_counts": [
+        7378,
+        10910
+      ],
+      "voxel_features_shape_unpadded": [
+        18288,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9616,
+      "padding_ratio": 0.34461009174311924
+    },
+    {
+      "ordinal": 22,
+      "dataset_index": 532,
+      "vehicle_frame_id": "001166",
+      "infrastructure_frame_id": "005077",
+      "source_pair_id": "001166:005077",
+      "sample_seed": 20261249,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 21464,
+      "per_agent_voxel_counts": [
+        12636,
+        8828
+      ],
+      "voxel_features_shape_unpadded": [
+        21464,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6440,
+      "padding_ratio": 0.23079128440366972
+    },
+    {
+      "ordinal": 23,
+      "dataset_index": 556,
+      "vehicle_frame_id": "001201",
+      "infrastructure_frame_id": "005113",
+      "source_pair_id": "001201:005113",
+      "sample_seed": 20261273,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22852,
+      "per_agent_voxel_counts": [
+        13085,
+        9767
+      ],
+      "voxel_features_shape_unpadded": [
+        22852,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5052,
+      "padding_ratio": 0.1810493119266055
+    },
+    {
+      "ordinal": 24,
+      "dataset_index": 580,
+      "vehicle_frame_id": "001242",
+      "infrastructure_frame_id": "005154",
+      "source_pair_id": "001242:005154",
+      "sample_seed": 20261297,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24532,
+      "per_agent_voxel_counts": [
+        13512,
+        11020
+      ],
+      "voxel_features_shape_unpadded": [
+        24532,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3372,
+      "padding_ratio": 0.12084288990825688
+    },
+    {
+      "ordinal": 25,
+      "dataset_index": 604,
+      "vehicle_frame_id": "001273",
+      "infrastructure_frame_id": "005186",
+      "source_pair_id": "001273:005186",
+      "sample_seed": 20261321,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22607,
+      "per_agent_voxel_counts": [
+        9416,
+        13191
+      ],
+      "voxel_features_shape_unpadded": [
+        22607,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5297,
+      "padding_ratio": 0.18982941513761467
+    },
+    {
+      "ordinal": 26,
+      "dataset_index": 628,
+      "vehicle_frame_id": "001311",
+      "infrastructure_frame_id": "005234",
+      "source_pair_id": "001311:005234",
+      "sample_seed": 20261345,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 8412,
+      "per_agent_voxel_counts": [
+        8412
+      ],
+      "voxel_features_shape_unpadded": [
+        8412,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 19492,
+      "padding_ratio": 0.6985378440366973
+    },
+    {
+      "ordinal": 27,
+      "dataset_index": 653,
+      "vehicle_frame_id": "001353",
+      "infrastructure_frame_id": "005276",
+      "source_pair_id": "001353:005276",
+      "sample_seed": 20261370,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20685,
+      "per_agent_voxel_counts": [
+        11227,
+        9458
+      ],
+      "voxel_features_shape_unpadded": [
+        20685,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7219,
+      "padding_ratio": 0.2587084288990826
+    },
+    {
+      "ordinal": 28,
+      "dataset_index": 677,
+      "vehicle_frame_id": "001390",
+      "infrastructure_frame_id": "005314",
+      "source_pair_id": "001390:005314",
+      "sample_seed": 20261394,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22161,
+      "per_agent_voxel_counts": [
+        11641,
+        10520
+      ],
+      "voxel_features_shape_unpadded": [
+        22161,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5743,
+      "padding_ratio": 0.2058127866972477
+    },
+    {
+      "ordinal": 29,
+      "dataset_index": 701,
+      "vehicle_frame_id": "001443",
+      "infrastructure_frame_id": "005367",
+      "source_pair_id": "001443:005367",
+      "sample_seed": 20261418,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22638,
+      "per_agent_voxel_counts": [
+        12204,
+        10434
+      ],
+      "voxel_features_shape_unpadded": [
+        22638,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5266,
+      "padding_ratio": 0.1887184633027523
+    },
+    {
+      "ordinal": 30,
+      "dataset_index": 725,
+      "vehicle_frame_id": "001468",
+      "infrastructure_frame_id": "005394",
+      "source_pair_id": "001468:005394",
+      "sample_seed": 20261442,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24077,
+      "per_agent_voxel_counts": [
+        12340,
+        11737
+      ],
+      "voxel_features_shape_unpadded": [
+        24077,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3827,
+      "padding_ratio": 0.13714879587155962
+    },
+    {
+      "ordinal": 31,
+      "dataset_index": 749,
+      "vehicle_frame_id": "001890",
+      "infrastructure_frame_id": "005499",
+      "source_pair_id": "001890:005499",
+      "sample_seed": 20261466,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19372,
+      "per_agent_voxel_counts": [
+        6771,
+        12601
+      ],
+      "voxel_features_shape_unpadded": [
+        19372,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8532,
+      "padding_ratio": 0.3057626146788991
+    },
+    {
+      "ordinal": 32,
+      "dataset_index": 773,
+      "vehicle_frame_id": "001954",
+      "infrastructure_frame_id": "005635",
+      "source_pair_id": "001954:005635",
+      "sample_seed": 20261490,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22282,
+      "per_agent_voxel_counts": [
+        9077,
+        13205
+      ],
+      "voxel_features_shape_unpadded": [
+        22282,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5622,
+      "padding_ratio": 0.20147649082568808
+    },
+    {
+      "ordinal": 33,
+      "dataset_index": 798,
+      "vehicle_frame_id": "001997",
+      "infrastructure_frame_id": "005678",
+      "source_pair_id": "001997:005678",
+      "sample_seed": 20261515,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23756,
+      "per_agent_voxel_counts": [
+        11055,
+        12701
+      ],
+      "voxel_features_shape_unpadded": [
+        23756,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4148,
+      "padding_ratio": 0.14865252293577982
+    },
+    {
+      "ordinal": 34,
+      "dataset_index": 822,
+      "vehicle_frame_id": "002034",
+      "infrastructure_frame_id": "005716",
+      "source_pair_id": "002034:005716",
+      "sample_seed": 20261539,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22386,
+      "per_agent_voxel_counts": [
+        9845,
+        12541
+      ],
+      "voxel_features_shape_unpadded": [
+        22386,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5518,
+      "padding_ratio": 0.1977494266055046
+    },
+    {
+      "ordinal": 35,
+      "dataset_index": 846,
+      "vehicle_frame_id": "002453",
+      "infrastructure_frame_id": "008611",
+      "source_pair_id": "002453:008611",
+      "sample_seed": 20261563,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 26072,
+      "per_agent_voxel_counts": [
+        11969,
+        14103
+      ],
+      "voxel_features_shape_unpadded": [
+        26072,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 1832,
+      "padding_ratio": 0.06565366972477064
+    },
+    {
+      "ordinal": 36,
+      "dataset_index": 870,
+      "vehicle_frame_id": "002494",
+      "infrastructure_frame_id": "008652",
+      "source_pair_id": "002494:008652",
+      "sample_seed": 20261587,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24565,
+      "per_agent_voxel_counts": [
+        13494,
+        11071
+      ],
+      "voxel_features_shape_unpadded": [
+        24565,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3339,
+      "padding_ratio": 0.11966026376146789
+    },
+    {
+      "ordinal": 37,
+      "dataset_index": 894,
+      "vehicle_frame_id": "002518",
+      "infrastructure_frame_id": "008676",
+      "source_pair_id": "002518:008676",
+      "sample_seed": 20261611,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24702,
+      "per_agent_voxel_counts": [
+        12794,
+        11908
+      ],
+      "voxel_features_shape_unpadded": [
+        24702,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3202,
+      "padding_ratio": 0.11475057339449542
+    },
+    {
+      "ordinal": 38,
+      "dataset_index": 918,
+      "vehicle_frame_id": "003409",
+      "infrastructure_frame_id": "010418",
+      "source_pair_id": "003409:010418",
+      "sample_seed": 20261635,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22745,
+      "per_agent_voxel_counts": [
+        8539,
+        14206
+      ],
+      "voxel_features_shape_unpadded": [
+        22745,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5159,
+      "padding_ratio": 0.1848838876146789
+    },
+    {
+      "ordinal": 39,
+      "dataset_index": 943,
+      "vehicle_frame_id": "003434",
+      "infrastructure_frame_id": "010443",
+      "source_pair_id": "003434:010443",
+      "sample_seed": 20261660,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24628,
+      "per_agent_voxel_counts": [
+        14144,
+        10484
+      ],
+      "voxel_features_shape_unpadded": [
+        24628,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3276,
+      "padding_ratio": 0.11740252293577981
+    },
+    {
+      "ordinal": 40,
+      "dataset_index": 967,
+      "vehicle_frame_id": "003504",
+      "infrastructure_frame_id": "010514",
+      "source_pair_id": "003504:010514",
+      "sample_seed": 20261684,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 26567,
+      "per_agent_voxel_counts": [
+        14081,
+        12486
+      ],
+      "voxel_features_shape_unpadded": [
+        26567,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 1337,
+      "padding_ratio": 0.04791427752293578
+    },
+    {
+      "ordinal": 41,
+      "dataset_index": 991,
+      "vehicle_frame_id": "003528",
+      "infrastructure_frame_id": "010538",
+      "source_pair_id": "003528:010538",
+      "sample_seed": 20261708,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25980,
+      "per_agent_voxel_counts": [
+        11816,
+        14164
+      ],
+      "voxel_features_shape_unpadded": [
+        25980,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 1924,
+      "padding_ratio": 0.0689506880733945
+    },
+    {
+      "ordinal": 42,
+      "dataset_index": 1015,
+      "vehicle_frame_id": "003552",
+      "infrastructure_frame_id": "010562",
+      "source_pair_id": "003552:010562",
+      "sample_seed": 20261732,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24749,
+      "per_agent_voxel_counts": [
+        14174,
+        10575
+      ],
+      "voxel_features_shape_unpadded": [
+        24749,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3155,
+      "padding_ratio": 0.11306622706422019
+    },
+    {
+      "ordinal": 43,
+      "dataset_index": 1039,
+      "vehicle_frame_id": "003739",
+      "infrastructure_frame_id": "010772",
+      "source_pair_id": "003739:010772",
+      "sample_seed": 20261756,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24003,
+      "per_agent_voxel_counts": [
+        14139,
+        9864
+      ],
+      "voxel_features_shape_unpadded": [
+        24003,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3901,
+      "padding_ratio": 0.13980074541284404
+    },
+    {
+      "ordinal": 44,
+      "dataset_index": 1064,
+      "vehicle_frame_id": "003764",
+      "infrastructure_frame_id": "010797",
+      "source_pair_id": "003764:010797",
+      "sample_seed": 20261781,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25118,
+      "per_agent_voxel_counts": [
+        11092,
+        14026
+      ],
+      "voxel_features_shape_unpadded": [
+        25118,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2786,
+      "padding_ratio": 0.09984231651376146
+    },
+    {
+      "ordinal": 45,
+      "dataset_index": 1088,
+      "vehicle_frame_id": "004482",
+      "infrastructure_frame_id": "010906",
+      "source_pair_id": "004482:010906",
+      "sample_seed": 20261805,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24825,
+      "per_agent_voxel_counts": [
+        13658,
+        11167
+      ],
+      "voxel_features_shape_unpadded": [
+        24825,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3079,
+      "padding_ratio": 0.11034260321100918
+    },
+    {
+      "ordinal": 46,
+      "dataset_index": 1112,
+      "vehicle_frame_id": "004509",
+      "infrastructure_frame_id": "010933",
+      "source_pair_id": "004509:010933",
+      "sample_seed": 20261829,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25762,
+      "per_agent_voxel_counts": [
+        13557,
+        12205
+      ],
+      "voxel_features_shape_unpadded": [
+        25762,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2142,
+      "padding_ratio": 0.0767631880733945
+    },
+    {
+      "ordinal": 47,
+      "dataset_index": 1136,
+      "vehicle_frame_id": "004533",
+      "infrastructure_frame_id": "010957",
+      "source_pair_id": "004533:010957",
+      "sample_seed": 20261853,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 26203,
+      "per_agent_voxel_counts": [
+        13709,
+        12494
+      ],
+      "voxel_features_shape_unpadded": [
+        26203,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 1701,
+      "padding_ratio": 0.06095900229357798
+    },
+    {
+      "ordinal": 48,
+      "dataset_index": 1160,
+      "vehicle_frame_id": "004592",
+      "infrastructure_frame_id": "012023",
+      "source_pair_id": "004592:012023",
+      "sample_seed": 20261877,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23833,
+      "per_agent_voxel_counts": [
+        14278,
+        9555
+      ],
+      "voxel_features_shape_unpadded": [
+        23833,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4071,
+      "padding_ratio": 0.1458930619266055
+    },
+    {
+      "ordinal": 49,
+      "dataset_index": 1184,
+      "vehicle_frame_id": "004616",
+      "infrastructure_frame_id": "012047",
+      "source_pair_id": "004616:012047",
+      "sample_seed": 20261901,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24564,
+      "per_agent_voxel_counts": [
+        14255,
+        10309
+      ],
+      "voxel_features_shape_unpadded": [
+        24564,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3340,
+      "padding_ratio": 0.11969610091743119
+    },
+    {
+      "ordinal": 50,
+      "dataset_index": 1209,
+      "vehicle_frame_id": "004641",
+      "infrastructure_frame_id": "012072",
+      "source_pair_id": "004641:012072",
+      "sample_seed": 20261926,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25271,
+      "per_agent_voxel_counts": [
+        11092,
+        14179
+      ],
+      "voxel_features_shape_unpadded": [
+        25271,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2633,
+      "padding_ratio": 0.09435923165137615
+    },
+    {
+      "ordinal": 51,
+      "dataset_index": 1233,
+      "vehicle_frame_id": "004708",
+      "infrastructure_frame_id": "012140",
+      "source_pair_id": "004708:012140",
+      "sample_seed": 20261950,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 21015,
+      "per_agent_voxel_counts": [
+        7304,
+        13711
+      ],
+      "voxel_features_shape_unpadded": [
+        21015,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6889,
+      "padding_ratio": 0.24688216743119265
+    },
+    {
+      "ordinal": 52,
+      "dataset_index": 1257,
+      "vehicle_frame_id": "004732",
+      "infrastructure_frame_id": "012164",
+      "source_pair_id": "004732:012164",
+      "sample_seed": 20261974,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 21149,
+      "per_agent_voxel_counts": [
+        7937,
+        13212
+      ],
+      "voxel_features_shape_unpadded": [
+        21149,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6755,
+      "padding_ratio": 0.2420799885321101
+    },
+    {
+      "ordinal": 53,
+      "dataset_index": 1281,
+      "vehicle_frame_id": "004898",
+      "infrastructure_frame_id": "009119",
+      "source_pair_id": "004898:009119",
+      "sample_seed": 20261998,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 13422,
+      "per_agent_voxel_counts": [
+        13422
+      ],
+      "voxel_features_shape_unpadded": [
+        13422,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 14482,
+      "padding_ratio": 0.5189936926605505
+    },
+    {
+      "ordinal": 54,
+      "dataset_index": 1305,
+      "vehicle_frame_id": "004967",
+      "infrastructure_frame_id": "009189",
+      "source_pair_id": "004967:009189",
+      "sample_seed": 20262022,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 26067,
+      "per_agent_voxel_counts": [
+        13706,
+        12361
+      ],
+      "voxel_features_shape_unpadded": [
+        26067,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 1837,
+      "padding_ratio": 0.06583285550458716
+    },
+    {
+      "ordinal": 55,
+      "dataset_index": 1329,
+      "vehicle_frame_id": "004991",
+      "infrastructure_frame_id": "009213",
+      "source_pair_id": "004991:009213",
+      "sample_seed": 20262046,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25575,
+      "per_agent_voxel_counts": [
+        13589,
+        11986
+      ],
+      "voxel_features_shape_unpadded": [
+        25575,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2329,
+      "padding_ratio": 0.08346473623853211
+    },
+    {
+      "ordinal": 56,
+      "dataset_index": 1354,
+      "vehicle_frame_id": "005016",
+      "infrastructure_frame_id": "009238",
+      "source_pair_id": "005016:009238",
+      "sample_seed": 20262071,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25296,
+      "per_agent_voxel_counts": [
+        11888,
+        13408
+      ],
+      "voxel_features_shape_unpadded": [
+        25296,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2608,
+      "padding_ratio": 0.09346330275229357
+    },
+    {
+      "ordinal": 57,
+      "dataset_index": 1378,
+      "vehicle_frame_id": "005609",
+      "infrastructure_frame_id": "008353",
+      "source_pair_id": "005609:008353",
+      "sample_seed": 20262095,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20460,
+      "per_agent_voxel_counts": [
+        8150,
+        12310
+      ],
+      "voxel_features_shape_unpadded": [
+        20460,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7444,
+      "padding_ratio": 0.2667717889908257
+    },
+    {
+      "ordinal": 58,
+      "dataset_index": 1402,
+      "vehicle_frame_id": "005633",
+      "infrastructure_frame_id": "008377",
+      "source_pair_id": "005633:008377",
+      "sample_seed": 20262119,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22318,
+      "per_agent_voxel_counts": [
+        9861,
+        12457
+      ],
+      "voxel_features_shape_unpadded": [
+        22318,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5586,
+      "padding_ratio": 0.20018635321100917
+    },
+    {
+      "ordinal": 59,
+      "dataset_index": 1426,
+      "vehicle_frame_id": "005703",
+      "infrastructure_frame_id": "008448",
+      "source_pair_id": "005703:008448",
+      "sample_seed": 20262143,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24134,
+      "per_agent_voxel_counts": [
+        11978,
+        12156
+      ],
+      "voxel_features_shape_unpadded": [
+        24134,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3770,
+      "padding_ratio": 0.13510607798165136
+    },
+    {
+      "ordinal": 60,
+      "dataset_index": 1450,
+      "vehicle_frame_id": "005727",
+      "infrastructure_frame_id": "008472",
+      "source_pair_id": "005727:008472",
+      "sample_seed": 20262167,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23796,
+      "per_agent_voxel_counts": [
+        12328,
+        11468
+      ],
+      "voxel_features_shape_unpadded": [
+        23796,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4108,
+      "padding_ratio": 0.1472190366972477
+    },
+    {
+      "ordinal": 61,
+      "dataset_index": 1474,
+      "vehicle_frame_id": "005751",
+      "infrastructure_frame_id": "008496",
+      "source_pair_id": "005751:008496",
+      "sample_seed": 20262191,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24015,
+      "per_agent_voxel_counts": [
+        12275,
+        11740
+      ],
+      "voxel_features_shape_unpadded": [
+        24015,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3889,
+      "padding_ratio": 0.1393706995412844
+    },
+    {
+      "ordinal": 62,
+      "dataset_index": 1499,
+      "vehicle_frame_id": "005806",
+      "infrastructure_frame_id": "012207",
+      "source_pair_id": "005806:012207",
+      "sample_seed": 20262216,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22237,
+      "per_agent_voxel_counts": [
+        13523,
+        8714
+      ],
+      "voxel_features_shape_unpadded": [
+        22237,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5667,
+      "padding_ratio": 0.2030891628440367
+    },
+    {
+      "ordinal": 63,
+      "dataset_index": 1523,
+      "vehicle_frame_id": "005874",
+      "infrastructure_frame_id": "012276",
+      "source_pair_id": "005874:012276",
+      "sample_seed": 20262240,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25240,
+      "per_agent_voxel_counts": [
+        11895,
+        13345
+      ],
+      "voxel_features_shape_unpadded": [
+        25240,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2664,
+      "padding_ratio": 0.09547018348623854
+    },
+    {
+      "ordinal": 64,
+      "dataset_index": 1547,
+      "vehicle_frame_id": "005898",
+      "infrastructure_frame_id": "012300",
+      "source_pair_id": "005898:012300",
+      "sample_seed": 20262264,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25146,
+      "per_agent_voxel_counts": [
+        13762,
+        11384
+      ],
+      "voxel_features_shape_unpadded": [
+        25146,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2758,
+      "padding_ratio": 0.09883887614678899
+    },
+    {
+      "ordinal": 65,
+      "dataset_index": 1571,
+      "vehicle_frame_id": "006110",
+      "infrastructure_frame_id": "010260",
+      "source_pair_id": "006110:010260",
+      "sample_seed": 20262288,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23008,
+      "per_agent_voxel_counts": [
+        13670,
+        9338
+      ],
+      "voxel_features_shape_unpadded": [
+        23008,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4896,
+      "padding_ratio": 0.17545871559633028
+    },
+    {
+      "ordinal": 66,
+      "dataset_index": 1595,
+      "vehicle_frame_id": "006181",
+      "infrastructure_frame_id": "010332",
+      "source_pair_id": "006181:010332",
+      "sample_seed": 20262312,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25154,
+      "per_agent_voxel_counts": [
+        13847,
+        11307
+      ],
+      "voxel_features_shape_unpadded": [
+        25154,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2750,
+      "padding_ratio": 0.09855217889908256
+    },
+    {
+      "ordinal": 67,
+      "dataset_index": 1619,
+      "vehicle_frame_id": "006205",
+      "infrastructure_frame_id": "010356",
+      "source_pair_id": "006205:010356",
+      "sample_seed": 20262336,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23511,
+      "per_agent_voxel_counts": [
+        9433,
+        14078
+      ],
+      "voxel_features_shape_unpadded": [
+        23511,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4393,
+      "padding_ratio": 0.157432626146789
+    },
+    {
+      "ordinal": 68,
+      "dataset_index": 1644,
+      "vehicle_frame_id": "006271",
+      "infrastructure_frame_id": "008927",
+      "source_pair_id": "006271:008927",
+      "sample_seed": 20262361,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 12669,
+      "per_agent_voxel_counts": [
+        12669
+      ],
+      "voxel_features_shape_unpadded": [
+        12669,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 15235,
+      "padding_ratio": 0.5459790711009175
+    },
+    {
+      "ordinal": 69,
+      "dataset_index": 1668,
+      "vehicle_frame_id": "006295",
+      "infrastructure_frame_id": "008951",
+      "source_pair_id": "006295:008951",
+      "sample_seed": 20262385,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22990,
+      "per_agent_voxel_counts": [
+        11479,
+        11511
+      ],
+      "voxel_features_shape_unpadded": [
+        22990,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4914,
+      "padding_ratio": 0.17610378440366972
+    },
+    {
+      "ordinal": 70,
+      "dataset_index": 1692,
+      "vehicle_frame_id": "006319",
+      "infrastructure_frame_id": "008975",
+      "source_pair_id": "006319:008975",
+      "sample_seed": 20262409,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23246,
+      "per_agent_voxel_counts": [
+        11846,
+        11400
+      ],
+      "voxel_features_shape_unpadded": [
+        23246,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4658,
+      "padding_ratio": 0.16692947247706422
+    },
+    {
+      "ordinal": 71,
+      "dataset_index": 1716,
+      "vehicle_frame_id": "006385",
+      "infrastructure_frame_id": "009042",
+      "source_pair_id": "006385:009042",
+      "sample_seed": 20262433,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25101,
+      "per_agent_voxel_counts": [
+        11941,
+        13160
+      ],
+      "voxel_features_shape_unpadded": [
+        25101,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2803,
+      "padding_ratio": 0.10045154816513761
+    },
+    {
+      "ordinal": 72,
+      "dataset_index": 1740,
+      "vehicle_frame_id": "006410",
+      "infrastructure_frame_id": "009067",
+      "source_pair_id": "006410:009067",
+      "sample_seed": 20262457,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24745,
+      "per_agent_voxel_counts": [
+        13419,
+        11326
+      ],
+      "voxel_features_shape_unpadded": [
+        24745,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3159,
+      "padding_ratio": 0.1132095756880734
+    },
+    {
+      "ordinal": 73,
+      "dataset_index": 1764,
+      "vehicle_frame_id": "006434",
+      "infrastructure_frame_id": "009091",
+      "source_pair_id": "006434:009091",
+      "sample_seed": 20262481,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23920,
+      "per_agent_voxel_counts": [
+        10252,
+        13668
+      ],
+      "voxel_features_shape_unpadded": [
+        23920,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3984,
+      "padding_ratio": 0.14277522935779816
+    },
+    {
+      "ordinal": 74,
+      "dataset_index": 1789,
+      "vehicle_frame_id": "006460",
+      "infrastructure_frame_id": "008764",
+      "source_pair_id": "006460:008764",
+      "sample_seed": 20262506,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25099,
+      "per_agent_voxel_counts": [
+        11027,
+        14072
+      ],
+      "voxel_features_shape_unpadded": [
+        25099,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2805,
+      "padding_ratio": 0.10052322247706422
+    },
+    {
+      "ordinal": 75,
+      "dataset_index": 1813,
+      "vehicle_frame_id": "006488",
+      "infrastructure_frame_id": "008792",
+      "source_pair_id": "006488:008792",
+      "sample_seed": 20262530,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24958,
+      "per_agent_voxel_counts": [
+        13949,
+        11009
+      ],
+      "voxel_features_shape_unpadded": [
+        24958,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2946,
+      "padding_ratio": 0.10557626146788991
+    },
+    {
+      "ordinal": 76,
+      "dataset_index": 1837,
+      "vehicle_frame_id": "006553",
+      "infrastructure_frame_id": "008858",
+      "source_pair_id": "006553:008858",
+      "sample_seed": 20262554,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25457,
+      "per_agent_voxel_counts": [
+        14327,
+        11130
+      ],
+      "voxel_features_shape_unpadded": [
+        25457,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2447,
+      "padding_ratio": 0.08769352064220183
+    },
+    {
+      "ordinal": 77,
+      "dataset_index": 1861,
+      "vehicle_frame_id": "006577",
+      "infrastructure_frame_id": "008882",
+      "source_pair_id": "006577:008882",
+      "sample_seed": 20262578,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24512,
+      "per_agent_voxel_counts": [
+        14239,
+        10273
+      ],
+      "voxel_features_shape_unpadded": [
+        24512,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3392,
+      "padding_ratio": 0.12155963302752294
+    },
+    {
+      "ordinal": 78,
+      "dataset_index": 1885,
+      "vehicle_frame_id": "006604",
+      "infrastructure_frame_id": "010598",
+      "source_pair_id": "006604:010598",
+      "sample_seed": 20262602,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24476,
+      "per_agent_voxel_counts": [
+        10466,
+        14010
+      ],
+      "voxel_features_shape_unpadded": [
+        24476,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3428,
+      "padding_ratio": 0.12284977064220183
+    },
+    {
+      "ordinal": 79,
+      "dataset_index": 1909,
+      "vehicle_frame_id": "006670",
+      "infrastructure_frame_id": "010665",
+      "source_pair_id": "006670:010665",
+      "sample_seed": 20262626,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 26071,
+      "per_agent_voxel_counts": [
+        13955,
+        12116
+      ],
+      "voxel_features_shape_unpadded": [
+        26071,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 1833,
+      "padding_ratio": 0.06568950688073394
+    },
+    {
+      "ordinal": 80,
+      "dataset_index": 1934,
+      "vehicle_frame_id": "006695",
+      "infrastructure_frame_id": "010690",
+      "source_pair_id": "006695:010690",
+      "sample_seed": 20262651,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24224,
+      "per_agent_voxel_counts": [
+        10402,
+        13822
+      ],
+      "voxel_features_shape_unpadded": [
+        24224,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3680,
+      "padding_ratio": 0.13188073394495411
+    },
+    {
+      "ordinal": 81,
+      "dataset_index": 1958,
+      "vehicle_frame_id": "006721",
+      "infrastructure_frame_id": "015609",
+      "source_pair_id": "006721:015609",
+      "sample_seed": 20262675,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 12703,
+      "per_agent_voxel_counts": [
+        7957,
+        4746
+      ],
+      "voxel_features_shape_unpadded": [
+        12703,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 15201,
+      "padding_ratio": 0.5447606077981652
+    },
+    {
+      "ordinal": 82,
+      "dataset_index": 1982,
+      "vehicle_frame_id": "006745",
+      "infrastructure_frame_id": "015633",
+      "source_pair_id": "006745:015633",
+      "sample_seed": 20262699,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14561,
+      "per_agent_voxel_counts": [
+        9816,
+        4745
+      ],
+      "voxel_features_shape_unpadded": [
+        14561,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13343,
+      "padding_ratio": 0.47817517201834864
+    },
+    {
+      "ordinal": 83,
+      "dataset_index": 2006,
+      "vehicle_frame_id": "006769",
+      "infrastructure_frame_id": "015657",
+      "source_pair_id": "006769:015657",
+      "sample_seed": 20262723,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14400,
+      "per_agent_voxel_counts": [
+        4754,
+        9646
+      ],
+      "voxel_features_shape_unpadded": [
+        14400,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13504,
+      "padding_ratio": 0.48394495412844035
+    },
+    {
+      "ordinal": 84,
+      "dataset_index": 2030,
+      "vehicle_frame_id": "006793",
+      "infrastructure_frame_id": "015681",
+      "source_pair_id": "006793:015681",
+      "sample_seed": 20262747,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14017,
+      "per_agent_voxel_counts": [
+        4773,
+        9244
+      ],
+      "voxel_features_shape_unpadded": [
+        14017,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13887,
+      "padding_ratio": 0.4976705848623853
+    },
+    {
+      "ordinal": 85,
+      "dataset_index": 2055,
+      "vehicle_frame_id": "006818",
+      "infrastructure_frame_id": "015706",
+      "source_pair_id": "006818:015706",
+      "sample_seed": 20262772,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 13769,
+      "per_agent_voxel_counts": [
+        8993,
+        4776
+      ],
+      "voxel_features_shape_unpadded": [
+        13769,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 14135,
+      "padding_ratio": 0.5065581995412844
+    },
+    {
+      "ordinal": 86,
+      "dataset_index": 2079,
+      "vehicle_frame_id": "006900",
+      "infrastructure_frame_id": "019559",
+      "source_pair_id": "006900:019559",
+      "sample_seed": 20262796,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 12625,
+      "per_agent_voxel_counts": [
+        7921,
+        4704
+      ],
+      "voxel_features_shape_unpadded": [
+        12625,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 15279,
+      "padding_ratio": 0.5475559059633027
+    },
+    {
+      "ordinal": 87,
+      "dataset_index": 2103,
+      "vehicle_frame_id": "006924",
+      "infrastructure_frame_id": "019583",
+      "source_pair_id": "006924:019583",
+      "sample_seed": 20262820,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 13940,
+      "per_agent_voxel_counts": [
+        4581,
+        9359
+      ],
+      "voxel_features_shape_unpadded": [
+        13940,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13964,
+      "padding_ratio": 0.5004300458715596
+    },
+    {
+      "ordinal": 88,
+      "dataset_index": 2127,
+      "vehicle_frame_id": "006948",
+      "infrastructure_frame_id": "019607",
+      "source_pair_id": "006948:019607",
+      "sample_seed": 20262844,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14153,
+      "per_agent_voxel_counts": [
+        9535,
+        4618
+      ],
+      "voxel_features_shape_unpadded": [
+        14153,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13751,
+      "padding_ratio": 0.49279673165137616
+    },
+    {
+      "ordinal": 89,
+      "dataset_index": 2151,
+      "vehicle_frame_id": "006972",
+      "infrastructure_frame_id": "019631",
+      "source_pair_id": "006972:019631",
+      "sample_seed": 20262868,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14397,
+      "per_agent_voxel_counts": [
+        9647,
+        4750
+      ],
+      "voxel_features_shape_unpadded": [
+        14397,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13507,
+      "padding_ratio": 0.48405246559633025
+    },
+    {
+      "ordinal": 90,
+      "dataset_index": 2175,
+      "vehicle_frame_id": "006996",
+      "infrastructure_frame_id": "019655",
+      "source_pair_id": "006996:019655",
+      "sample_seed": 20262892,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 13751,
+      "per_agent_voxel_counts": [
+        9081,
+        4670
+      ],
+      "voxel_features_shape_unpadded": [
+        13751,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 14153,
+      "padding_ratio": 0.5072032683486238
+    },
+    {
+      "ordinal": 91,
+      "dataset_index": 2200,
+      "vehicle_frame_id": "007505",
+      "infrastructure_frame_id": "016435",
+      "source_pair_id": "007505:016435",
+      "sample_seed": 20262917,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 15315,
+      "per_agent_voxel_counts": [
+        5452,
+        9863
+      ],
+      "voxel_features_shape_unpadded": [
+        15315,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 12589,
+      "padding_ratio": 0.45115395642201833
+    },
+    {
+      "ordinal": 92,
+      "dataset_index": 2224,
+      "vehicle_frame_id": "007531",
+      "infrastructure_frame_id": "016461",
+      "source_pair_id": "007531:016461",
+      "sample_seed": 20262941,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 15433,
+      "per_agent_voxel_counts": [
+        5353,
+        10080
+      ],
+      "voxel_features_shape_unpadded": [
+        15433,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 12471,
+      "padding_ratio": 0.44692517201834864
+    },
+    {
+      "ordinal": 93,
+      "dataset_index": 2248,
+      "vehicle_frame_id": "007558",
+      "infrastructure_frame_id": "016488",
+      "source_pair_id": "007558:016488",
+      "sample_seed": 20262965,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14477,
+      "per_agent_voxel_counts": [
+        9446,
+        5031
+      ],
+      "voxel_features_shape_unpadded": [
+        14477,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13427,
+      "padding_ratio": 0.48118549311926606
+    },
+    {
+      "ordinal": 94,
+      "dataset_index": 2272,
+      "vehicle_frame_id": "007588",
+      "infrastructure_frame_id": "016518",
+      "source_pair_id": "007588:016518",
+      "sample_seed": 20262989,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14761,
+      "per_agent_voxel_counts": [
+        4926,
+        9835
+      ],
+      "voxel_features_shape_unpadded": [
+        14761,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13143,
+      "padding_ratio": 0.4710077408256881
+    },
+    {
+      "ordinal": 95,
+      "dataset_index": 2296,
+      "vehicle_frame_id": "007614",
+      "infrastructure_frame_id": "016544",
+      "source_pair_id": "007614:016544",
+      "sample_seed": 20263013,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14247,
+      "per_agent_voxel_counts": [
+        9272,
+        4975
+      ],
+      "voxel_features_shape_unpadded": [
+        14247,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13657,
+      "padding_ratio": 0.4894280389908257
+    },
+    {
+      "ordinal": 96,
+      "dataset_index": 2320,
+      "vehicle_frame_id": "007639",
+      "infrastructure_frame_id": "016569",
+      "source_pair_id": "007639:016569",
+      "sample_seed": 20263037,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 12639,
+      "per_agent_voxel_counts": [
+        7718,
+        4921
+      ],
+      "voxel_features_shape_unpadded": [
+        12639,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 15265,
+      "padding_ratio": 0.5470541857798165
+    },
+    {
+      "ordinal": 97,
+      "dataset_index": 2345,
+      "vehicle_frame_id": "007777",
+      "infrastructure_frame_id": "018377",
+      "source_pair_id": "007777:018377",
+      "sample_seed": 20263062,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14640,
+      "per_agent_voxel_counts": [
+        8857,
+        5783
+      ],
+      "voxel_features_shape_unpadded": [
+        14640,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13264,
+      "padding_ratio": 0.47534403669724773
+    },
+    {
+      "ordinal": 98,
+      "dataset_index": 2369,
+      "vehicle_frame_id": "007805",
+      "infrastructure_frame_id": "018405",
+      "source_pair_id": "007805:018405",
+      "sample_seed": 20263086,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 14539,
+      "per_agent_voxel_counts": [
+        5807,
+        8732
+      ],
+      "voxel_features_shape_unpadded": [
+        14539,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 13365,
+      "padding_ratio": 0.47896358944954126
+    },
+    {
+      "ordinal": 99,
+      "dataset_index": 2393,
+      "vehicle_frame_id": "008810",
+      "infrastructure_frame_id": "019830",
+      "source_pair_id": "008810:019830",
+      "sample_seed": 20263110,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 15925,
+      "per_agent_voxel_counts": [
+        9332,
+        6593
+      ],
+      "voxel_features_shape_unpadded": [
+        15925,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 11979,
+      "padding_ratio": 0.4292932912844037
+    },
+    {
+      "ordinal": 100,
+      "dataset_index": 2417,
+      "vehicle_frame_id": "008834",
+      "infrastructure_frame_id": "019854",
+      "source_pair_id": "008834:019854",
+      "sample_seed": 20263134,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17047,
+      "per_agent_voxel_counts": [
+        6613,
+        10434
+      ],
+      "voxel_features_shape_unpadded": [
+        17047,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10857,
+      "padding_ratio": 0.389084002293578
+    },
+    {
+      "ordinal": 101,
+      "dataset_index": 2441,
+      "vehicle_frame_id": "008858",
+      "infrastructure_frame_id": "019878",
+      "source_pair_id": "008858:019878",
+      "sample_seed": 20263158,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 16839,
+      "per_agent_voxel_counts": [
+        10185,
+        6654
+      ],
+      "voxel_features_shape_unpadded": [
+        16839,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 11065,
+      "padding_ratio": 0.39653813073394495
+    },
+    {
+      "ordinal": 102,
+      "dataset_index": 2465,
+      "vehicle_frame_id": "008882",
+      "infrastructure_frame_id": "019902",
+      "source_pair_id": "008882:019902",
+      "sample_seed": 20263182,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17516,
+      "per_agent_voxel_counts": [
+        6979,
+        10537
+      ],
+      "voxel_features_shape_unpadded": [
+        17516,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10388,
+      "padding_ratio": 0.372276376146789
+    },
+    {
+      "ordinal": 103,
+      "dataset_index": 2490,
+      "vehicle_frame_id": "008907",
+      "infrastructure_frame_id": "019927",
+      "source_pair_id": "008907:019927",
+      "sample_seed": 20263207,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17867,
+      "per_agent_voxel_counts": [
+        6948,
+        10919
+      ],
+      "voxel_features_shape_unpadded": [
+        17867,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10037,
+      "padding_ratio": 0.35969753440366975
+    },
+    {
+      "ordinal": 104,
+      "dataset_index": 2514,
+      "vehicle_frame_id": "008931",
+      "infrastructure_frame_id": "019951",
+      "source_pair_id": "008931:019951",
+      "sample_seed": 20263231,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 9963,
+      "per_agent_voxel_counts": [
+        9963
+      ],
+      "voxel_features_shape_unpadded": [
+        9963,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 17941,
+      "padding_ratio": 0.6429544151376146
+    },
+    {
+      "ordinal": 105,
+      "dataset_index": 2538,
+      "vehicle_frame_id": "008996",
+      "infrastructure_frame_id": "016046",
+      "source_pair_id": "008996:016046",
+      "sample_seed": 20263255,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 6989,
+      "per_agent_voxel_counts": [
+        6989
+      ],
+      "voxel_features_shape_unpadded": [
+        6989,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 20915,
+      "padding_ratio": 0.7495341169724771
+    },
+    {
+      "ordinal": 106,
+      "dataset_index": 2562,
+      "vehicle_frame_id": "009027",
+      "infrastructure_frame_id": "016077",
+      "source_pair_id": "009027:016077",
+      "sample_seed": 20263279,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17538,
+      "per_agent_voxel_counts": [
+        10509,
+        7029
+      ],
+      "voxel_features_shape_unpadded": [
+        17538,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10366,
+      "padding_ratio": 0.3714879587155963
+    },
+    {
+      "ordinal": 107,
+      "dataset_index": 2586,
+      "vehicle_frame_id": "009051",
+      "infrastructure_frame_id": "016101",
+      "source_pair_id": "009051:016101",
+      "sample_seed": 20263303,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17998,
+      "per_agent_voxel_counts": [
+        11060,
+        6938
+      ],
+      "voxel_features_shape_unpadded": [
+        17998,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9906,
+      "padding_ratio": 0.35500286697247707
+    },
+    {
+      "ordinal": 108,
+      "dataset_index": 2610,
+      "vehicle_frame_id": "009075",
+      "infrastructure_frame_id": "016126",
+      "source_pair_id": "009075:016126",
+      "sample_seed": 20263327,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17050,
+      "per_agent_voxel_counts": [
+        10080,
+        6970
+      ],
+      "voxel_features_shape_unpadded": [
+        17050,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10854,
+      "padding_ratio": 0.3889764908256881
+    },
+    {
+      "ordinal": 109,
+      "dataset_index": 2635,
+      "vehicle_frame_id": "009100",
+      "infrastructure_frame_id": "016155",
+      "source_pair_id": "009100:016155",
+      "sample_seed": 20263352,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 15653,
+      "per_agent_voxel_counts": [
+        8720,
+        6933
+      ],
+      "voxel_features_shape_unpadded": [
+        15653,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 12251,
+      "padding_ratio": 0.439040997706422
+    },
+    {
+      "ordinal": 110,
+      "dataset_index": 2659,
+      "vehicle_frame_id": "009128",
+      "infrastructure_frame_id": "016192",
+      "source_pair_id": "009128:016192",
+      "sample_seed": 20263376,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 15218,
+      "per_agent_voxel_counts": [
+        6891,
+        8327
+      ],
+      "voxel_features_shape_unpadded": [
+        15218,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 12686,
+      "padding_ratio": 0.45463016055045874
+    },
+    {
+      "ordinal": 111,
+      "dataset_index": 2683,
+      "vehicle_frame_id": "009156",
+      "infrastructure_frame_id": "016220",
+      "source_pair_id": "009156:016220",
+      "sample_seed": 20263400,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 16109,
+      "per_agent_voxel_counts": [
+        7075,
+        9034
+      ],
+      "voxel_features_shape_unpadded": [
+        16109,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 11795,
+      "padding_ratio": 0.42269925458715596
+    },
+    {
+      "ordinal": 112,
+      "dataset_index": 2707,
+      "vehicle_frame_id": "009216",
+      "infrastructure_frame_id": "016280",
+      "source_pair_id": "009216:016280",
+      "sample_seed": 20263424,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17378,
+      "per_agent_voxel_counts": [
+        10277,
+        7101
+      ],
+      "voxel_features_shape_unpadded": [
+        17378,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10526,
+      "padding_ratio": 0.37722190366972475
+    },
+    {
+      "ordinal": 113,
+      "dataset_index": 2731,
+      "vehicle_frame_id": "009320",
+      "infrastructure_frame_id": "017885",
+      "source_pair_id": "009320:017885",
+      "sample_seed": 20263448,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 15120,
+      "per_agent_voxel_counts": [
+        7584,
+        7536
+      ],
+      "voxel_features_shape_unpadded": [
+        15120,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 12784,
+      "padding_ratio": 0.4581422018348624
+    },
+    {
+      "ordinal": 114,
+      "dataset_index": 2755,
+      "vehicle_frame_id": "009344",
+      "infrastructure_frame_id": "017909",
+      "source_pair_id": "009344:017909",
+      "sample_seed": 20263472,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17456,
+      "per_agent_voxel_counts": [
+        7672,
+        9784
+      ],
+      "voxel_features_shape_unpadded": [
+        17456,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10448,
+      "padding_ratio": 0.3744266055045872
+    },
+    {
+      "ordinal": 115,
+      "dataset_index": 2780,
+      "vehicle_frame_id": "009369",
+      "infrastructure_frame_id": "017934",
+      "source_pair_id": "009369:017934",
+      "sample_seed": 20263497,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18380,
+      "per_agent_voxel_counts": [
+        7530,
+        10850
+      ],
+      "voxel_features_shape_unpadded": [
+        18380,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9524,
+      "padding_ratio": 0.3413130733944954
+    },
+    {
+      "ordinal": 116,
+      "dataset_index": 2804,
+      "vehicle_frame_id": "009393",
+      "infrastructure_frame_id": "017958",
+      "source_pair_id": "009393:017958",
+      "sample_seed": 20263521,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18592,
+      "per_agent_voxel_counts": [
+        7443,
+        11149
+      ],
+      "voxel_features_shape_unpadded": [
+        18592,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9312,
+      "padding_ratio": 0.33371559633027525
+    },
+    {
+      "ordinal": 117,
+      "dataset_index": 2828,
+      "vehicle_frame_id": "009417",
+      "infrastructure_frame_id": "017982",
+      "source_pair_id": "009417:017982",
+      "sample_seed": 20263545,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19222,
+      "per_agent_voxel_counts": [
+        7654,
+        11568
+      ],
+      "voxel_features_shape_unpadded": [
+        19222,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8682,
+      "padding_ratio": 0.3111381880733945
+    },
+    {
+      "ordinal": 118,
+      "dataset_index": 2852,
+      "vehicle_frame_id": "009441",
+      "infrastructure_frame_id": "018006",
+      "source_pair_id": "009441:018006",
+      "sample_seed": 20263569,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19526,
+      "per_agent_voxel_counts": [
+        7652,
+        11874
+      ],
+      "voxel_features_shape_unpadded": [
+        19526,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8378,
+      "padding_ratio": 0.30024369266055045
+    },
+    {
+      "ordinal": 119,
+      "dataset_index": 2876,
+      "vehicle_frame_id": "009465",
+      "infrastructure_frame_id": "018030",
+      "source_pair_id": "009465:018030",
+      "sample_seed": 20263593,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 7432,
+      "per_agent_voxel_counts": [
+        7432
+      ],
+      "voxel_features_shape_unpadded": [
+        7432,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 20472,
+      "padding_ratio": 0.7336582568807339
+    },
+    {
+      "ordinal": 120,
+      "dataset_index": 2901,
+      "vehicle_frame_id": "010184",
+      "infrastructure_frame_id": "017819",
+      "source_pair_id": "010184:017819",
+      "sample_seed": 20263618,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19919,
+      "per_agent_voxel_counts": [
+        11258,
+        8661
+      ],
+      "voxel_features_shape_unpadded": [
+        19919,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7985,
+      "padding_ratio": 0.2861596903669725
+    },
+    {
+      "ordinal": 121,
+      "dataset_index": 2925,
+      "vehicle_frame_id": "010219",
+      "infrastructure_frame_id": "017854",
+      "source_pair_id": "010219:017854",
+      "sample_seed": 20263642,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 15495,
+      "per_agent_voxel_counts": [
+        8812,
+        6683
+      ],
+      "voxel_features_shape_unpadded": [
+        15495,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 12409,
+      "padding_ratio": 0.44470326834862384
+    },
+    {
+      "ordinal": 122,
+      "dataset_index": 2949,
+      "vehicle_frame_id": "010245",
+      "infrastructure_frame_id": "018450",
+      "source_pair_id": "010245:018450",
+      "sample_seed": 20263666,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17559,
+      "per_agent_voxel_counts": [
+        9155,
+        8404
+      ],
+      "voxel_features_shape_unpadded": [
+        17559,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10345,
+      "padding_ratio": 0.37073537844036697
+    },
+    {
+      "ordinal": 123,
+      "dataset_index": 2973,
+      "vehicle_frame_id": "010269",
+      "infrastructure_frame_id": "018474",
+      "source_pair_id": "010269:018474",
+      "sample_seed": 20263690,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19582,
+      "per_agent_voxel_counts": [
+        9172,
+        10410
+      ],
+      "voxel_features_shape_unpadded": [
+        19582,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8322,
+      "padding_ratio": 0.2982368119266055
+    },
+    {
+      "ordinal": 124,
+      "dataset_index": 2997,
+      "vehicle_frame_id": "010293",
+      "infrastructure_frame_id": "018498",
+      "source_pair_id": "010293:018498",
+      "sample_seed": 20263714,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20920,
+      "per_agent_voxel_counts": [
+        11724,
+        9196
+      ],
+      "voxel_features_shape_unpadded": [
+        20920,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6984,
+      "padding_ratio": 0.2502866972477064
+    },
+    {
+      "ordinal": 125,
+      "dataset_index": 3021,
+      "vehicle_frame_id": "010317",
+      "infrastructure_frame_id": "018522",
+      "source_pair_id": "010317:018522",
+      "sample_seed": 20263738,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20735,
+      "per_agent_voxel_counts": [
+        11639,
+        9096
+      ],
+      "voxel_features_shape_unpadded": [
+        20735,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7169,
+      "padding_ratio": 0.2569165711009174
+    },
+    {
+      "ordinal": 126,
+      "dataset_index": 3046,
+      "vehicle_frame_id": "010342",
+      "infrastructure_frame_id": "018547",
+      "source_pair_id": "010342:018547",
+      "sample_seed": 20263763,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20756,
+      "per_agent_voxel_counts": [
+        9194,
+        11562
+      ],
+      "voxel_features_shape_unpadded": [
+        20756,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7148,
+      "padding_ratio": 0.2561639908256881
+    },
+    {
+      "ordinal": 127,
+      "dataset_index": 3070,
+      "vehicle_frame_id": "010366",
+      "infrastructure_frame_id": "018571",
+      "source_pair_id": "010366:018571",
+      "sample_seed": 20263787,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 21149,
+      "per_agent_voxel_counts": [
+        12045,
+        9104
+      ],
+      "voxel_features_shape_unpadded": [
+        21149,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6755,
+      "padding_ratio": 0.2420799885321101
+    },
+    {
+      "ordinal": 128,
+      "dataset_index": 3094,
+      "vehicle_frame_id": "010390",
+      "infrastructure_frame_id": "018595",
+      "source_pair_id": "010390:018595",
+      "sample_seed": 20263811,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20972,
+      "per_agent_voxel_counts": [
+        9243,
+        11729
+      ],
+      "voxel_features_shape_unpadded": [
+        20972,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6932,
+      "padding_ratio": 0.24842316513761467
+    },
+    {
+      "ordinal": 129,
+      "dataset_index": 3118,
+      "vehicle_frame_id": "010414",
+      "infrastructure_frame_id": "018619",
+      "source_pair_id": "010414:018619",
+      "sample_seed": 20263835,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 10804,
+      "per_agent_voxel_counts": [
+        10804
+      ],
+      "voxel_features_shape_unpadded": [
+        10804,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 17100,
+      "padding_ratio": 0.6128153669724771
+    },
+    {
+      "ordinal": 130,
+      "dataset_index": 3142,
+      "vehicle_frame_id": "010440",
+      "infrastructure_frame_id": "015805",
+      "source_pair_id": "010440:015805",
+      "sample_seed": 20263859,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 9713,
+      "per_agent_voxel_counts": [
+        9713
+      ],
+      "voxel_features_shape_unpadded": [
+        9713,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 18191,
+      "padding_ratio": 0.6519137041284404
+    },
+    {
+      "ordinal": 131,
+      "dataset_index": 3166,
+      "vehicle_frame_id": "010464",
+      "infrastructure_frame_id": "015829",
+      "source_pair_id": "010464:015829",
+      "sample_seed": 20263883,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 8800,
+      "per_agent_voxel_counts": [
+        8800
+      ],
+      "voxel_features_shape_unpadded": [
+        8800,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 19104,
+      "padding_ratio": 0.6846330275229358
+    },
+    {
+      "ordinal": 132,
+      "dataset_index": 3191,
+      "vehicle_frame_id": "010489",
+      "infrastructure_frame_id": "015854",
+      "source_pair_id": "010489:015854",
+      "sample_seed": 20263908,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20328,
+      "per_agent_voxel_counts": [
+        11153,
+        9175
+      ],
+      "voxel_features_shape_unpadded": [
+        20328,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7576,
+      "padding_ratio": 0.27150229357798167
+    },
+    {
+      "ordinal": 133,
+      "dataset_index": 3215,
+      "vehicle_frame_id": "010513",
+      "infrastructure_frame_id": "015878",
+      "source_pair_id": "010513:015878",
+      "sample_seed": 20263932,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 21612,
+      "per_agent_voxel_counts": [
+        12044,
+        9568
+      ],
+      "voxel_features_shape_unpadded": [
+        21612,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6292,
+      "padding_ratio": 0.2254873853211009
+    },
+    {
+      "ordinal": 134,
+      "dataset_index": 3239,
+      "vehicle_frame_id": "010537",
+      "infrastructure_frame_id": "015902",
+      "source_pair_id": "010537:015902",
+      "sample_seed": 20263956,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 21197,
+      "per_agent_voxel_counts": [
+        11767,
+        9430
+      ],
+      "voxel_features_shape_unpadded": [
+        21197,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6707,
+      "padding_ratio": 0.24035980504587157
+    },
+    {
+      "ordinal": 135,
+      "dataset_index": 3263,
+      "vehicle_frame_id": "010561",
+      "infrastructure_frame_id": "015926",
+      "source_pair_id": "010561:015926",
+      "sample_seed": 20263980,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20926,
+      "per_agent_voxel_counts": [
+        11414,
+        9512
+      ],
+      "voxel_features_shape_unpadded": [
+        20926,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6978,
+      "padding_ratio": 0.2500716743119266
+    },
+    {
+      "ordinal": 136,
+      "dataset_index": 3287,
+      "vehicle_frame_id": "010585",
+      "infrastructure_frame_id": "015950",
+      "source_pair_id": "010585:015950",
+      "sample_seed": 20264004,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20575,
+      "per_agent_voxel_counts": [
+        10721,
+        9854
+      ],
+      "voxel_features_shape_unpadded": [
+        20575,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7329,
+      "padding_ratio": 0.26265051605504586
+    },
+    {
+      "ordinal": 137,
+      "dataset_index": 3311,
+      "vehicle_frame_id": "010609",
+      "infrastructure_frame_id": "015974",
+      "source_pair_id": "010609:015974",
+      "sample_seed": 20264028,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17113,
+      "per_agent_voxel_counts": [
+        7587,
+        9526
+      ],
+      "voxel_features_shape_unpadded": [
+        17113,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10791,
+      "padding_ratio": 0.38671875
+    },
+    {
+      "ordinal": 138,
+      "dataset_index": 3336,
+      "vehicle_frame_id": "010638",
+      "infrastructure_frame_id": "018074",
+      "source_pair_id": "010638:018074",
+      "sample_seed": 20264053,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 16457,
+      "per_agent_voxel_counts": [
+        6957,
+        9500
+      ],
+      "voxel_features_shape_unpadded": [
+        16457,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 11447,
+      "padding_ratio": 0.4102279243119266
+    },
+    {
+      "ordinal": 139,
+      "dataset_index": 3360,
+      "vehicle_frame_id": "010663",
+      "infrastructure_frame_id": "018099",
+      "source_pair_id": "010663:018099",
+      "sample_seed": 20264077,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 16370,
+      "per_agent_voxel_counts": [
+        6685,
+        9685
+      ],
+      "voxel_features_shape_unpadded": [
+        16370,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 11534,
+      "padding_ratio": 0.41334575688073394
+    },
+    {
+      "ordinal": 140,
+      "dataset_index": 3384,
+      "vehicle_frame_id": "010687",
+      "infrastructure_frame_id": "018123",
+      "source_pair_id": "010687:018123",
+      "sample_seed": 20264101,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17088,
+      "per_agent_voxel_counts": [
+        9102,
+        7986
+      ],
+      "voxel_features_shape_unpadded": [
+        17088,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10816,
+      "padding_ratio": 0.3876146788990826
+    },
+    {
+      "ordinal": 141,
+      "dataset_index": 3408,
+      "vehicle_frame_id": "010711",
+      "infrastructure_frame_id": "018147",
+      "source_pair_id": "010711:018147",
+      "sample_seed": 20264125,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19845,
+      "per_agent_voxel_counts": [
+        10328,
+        9517
+      ],
+      "voxel_features_shape_unpadded": [
+        19845,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8059,
+      "padding_ratio": 0.28881163990825687
+    },
+    {
+      "ordinal": 142,
+      "dataset_index": 3432,
+      "vehicle_frame_id": "010741",
+      "infrastructure_frame_id": "018177",
+      "source_pair_id": "010741:018177",
+      "sample_seed": 20264149,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 21240,
+      "per_agent_voxel_counts": [
+        10020,
+        11220
+      ],
+      "voxel_features_shape_unpadded": [
+        21240,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 6664,
+      "padding_ratio": 0.23881880733944955
+    },
+    {
+      "ordinal": 143,
+      "dataset_index": 3456,
+      "vehicle_frame_id": "010767",
+      "infrastructure_frame_id": "018203",
+      "source_pair_id": "010767:018203",
+      "sample_seed": 20264173,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20419,
+      "per_agent_voxel_counts": [
+        10597,
+        9822
+      ],
+      "voxel_features_shape_unpadded": [
+        20419,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7485,
+      "padding_ratio": 0.2682411123853211
+    },
+    {
+      "ordinal": 144,
+      "dataset_index": 3481,
+      "vehicle_frame_id": "010793",
+      "infrastructure_frame_id": "018229",
+      "source_pair_id": "010793:018229",
+      "sample_seed": 20264198,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 9920,
+      "per_agent_voxel_counts": [
+        9920
+      ],
+      "voxel_features_shape_unpadded": [
+        9920,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 17984,
+      "padding_ratio": 0.6444954128440367
+    },
+    {
+      "ordinal": 145,
+      "dataset_index": 3505,
+      "vehicle_frame_id": "011295",
+      "infrastructure_frame_id": "013849",
+      "source_pair_id": "011295:013849",
+      "sample_seed": 20264222,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18743,
+      "per_agent_voxel_counts": [
+        10418,
+        8325
+      ],
+      "voxel_features_shape_unpadded": [
+        18743,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9161,
+      "padding_ratio": 0.3283041857798165
+    },
+    {
+      "ordinal": 146,
+      "dataset_index": 3529,
+      "vehicle_frame_id": "011319",
+      "infrastructure_frame_id": "013873",
+      "source_pair_id": "011319:013873",
+      "sample_seed": 20264246,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19158,
+      "per_agent_voxel_counts": [
+        10643,
+        8515
+      ],
+      "voxel_features_shape_unpadded": [
+        19158,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8746,
+      "padding_ratio": 0.31343176605504586
+    },
+    {
+      "ordinal": 147,
+      "dataset_index": 3553,
+      "vehicle_frame_id": "011365",
+      "infrastructure_frame_id": "013920",
+      "source_pair_id": "011365:013920",
+      "sample_seed": 20264270,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20165,
+      "per_agent_voxel_counts": [
+        11336,
+        8829
+      ],
+      "voxel_features_shape_unpadded": [
+        20165,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7739,
+      "padding_ratio": 0.27734375
+    },
+    {
+      "ordinal": 148,
+      "dataset_index": 3577,
+      "vehicle_frame_id": "011417",
+      "infrastructure_frame_id": "013973",
+      "source_pair_id": "011417:013973",
+      "sample_seed": 20264294,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19613,
+      "per_agent_voxel_counts": [
+        10892,
+        8721
+      ],
+      "voxel_features_shape_unpadded": [
+        19613,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8291,
+      "padding_ratio": 0.29712586009174313
+    },
+    {
+      "ordinal": 149,
+      "dataset_index": 3601,
+      "vehicle_frame_id": "011442",
+      "infrastructure_frame_id": "013998",
+      "source_pair_id": "011442:013998",
+      "sample_seed": 20264318,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18935,
+      "per_agent_voxel_counts": [
+        10183,
+        8752
+      ],
+      "voxel_features_shape_unpadded": [
+        18935,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8969,
+      "padding_ratio": 0.3214234518348624
+    },
+    {
+      "ordinal": 150,
+      "dataset_index": 3626,
+      "vehicle_frame_id": "011611",
+      "infrastructure_frame_id": "014436",
+      "source_pair_id": "011611:014436",
+      "sample_seed": 20264343,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 8499,
+      "per_agent_voxel_counts": [
+        8499
+      ],
+      "voxel_features_shape_unpadded": [
+        8499,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 19405,
+      "padding_ratio": 0.6954200114678899
+    },
+    {
+      "ordinal": 151,
+      "dataset_index": 3650,
+      "vehicle_frame_id": "011658",
+      "infrastructure_frame_id": "014484",
+      "source_pair_id": "011658:014484",
+      "sample_seed": 20264367,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19630,
+      "per_agent_voxel_counts": [
+        9095,
+        10535
+      ],
+      "voxel_features_shape_unpadded": [
+        19630,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8274,
+      "padding_ratio": 0.29651662844036697
+    },
+    {
+      "ordinal": 152,
+      "dataset_index": 3674,
+      "vehicle_frame_id": "011683",
+      "infrastructure_frame_id": "014509",
+      "source_pair_id": "011683:014509",
+      "sample_seed": 20264391,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20542,
+      "per_agent_voxel_counts": [
+        9209,
+        11333
+      ],
+      "voxel_features_shape_unpadded": [
+        20542,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7362,
+      "padding_ratio": 0.26383314220183485
+    },
+    {
+      "ordinal": 153,
+      "dataset_index": 3698,
+      "vehicle_frame_id": "011729",
+      "infrastructure_frame_id": "012603",
+      "source_pair_id": "011729:012603",
+      "sample_seed": 20264415,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19999,
+      "per_agent_voxel_counts": [
+        10903,
+        9096
+      ],
+      "voxel_features_shape_unpadded": [
+        19999,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7905,
+      "padding_ratio": 0.28329271788990823
+    },
+    {
+      "ordinal": 154,
+      "dataset_index": 3722,
+      "vehicle_frame_id": "011753",
+      "infrastructure_frame_id": "012627",
+      "source_pair_id": "011753:012627",
+      "sample_seed": 20264439,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18626,
+      "per_agent_voxel_counts": [
+        9333,
+        9293
+      ],
+      "voxel_features_shape_unpadded": [
+        18626,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9278,
+      "padding_ratio": 0.33249713302752293
+    },
+    {
+      "ordinal": 155,
+      "dataset_index": 3746,
+      "vehicle_frame_id": "012454",
+      "infrastructure_frame_id": "012545",
+      "source_pair_id": "012454:012545",
+      "sample_seed": 20264463,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18580,
+      "per_agent_voxel_counts": [
+        8311,
+        10269
+      ],
+      "voxel_features_shape_unpadded": [
+        18580,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9324,
+      "padding_ratio": 0.33414564220183485
+    },
+    {
+      "ordinal": 156,
+      "dataset_index": 3771,
+      "vehicle_frame_id": "012479",
+      "infrastructure_frame_id": "014107",
+      "source_pair_id": "012479:014107",
+      "sample_seed": 20264488,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18668,
+      "per_agent_voxel_counts": [
+        8343,
+        10325
+      ],
+      "voxel_features_shape_unpadded": [
+        18668,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9236,
+      "padding_ratio": 0.33099197247706424
+    },
+    {
+      "ordinal": 157,
+      "dataset_index": 3795,
+      "vehicle_frame_id": "012520",
+      "infrastructure_frame_id": "014149",
+      "source_pair_id": "012520:014149",
+      "sample_seed": 20264512,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19290,
+      "per_agent_voxel_counts": [
+        8521,
+        10769
+      ],
+      "voxel_features_shape_unpadded": [
+        19290,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8614,
+      "padding_ratio": 0.3087012614678899
+    },
+    {
+      "ordinal": 158,
+      "dataset_index": 3819,
+      "vehicle_frame_id": "012562",
+      "infrastructure_frame_id": "014192",
+      "source_pair_id": "012562:014192",
+      "sample_seed": 20264536,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18319,
+      "per_agent_voxel_counts": [
+        9757,
+        8562
+      ],
+      "voxel_features_shape_unpadded": [
+        18319,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9585,
+      "padding_ratio": 0.34349913990825687
+    },
+    {
+      "ordinal": 159,
+      "dataset_index": 3843,
+      "vehicle_frame_id": "012594",
+      "infrastructure_frame_id": "014224",
+      "source_pair_id": "012594:014224",
+      "sample_seed": 20264560,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 9375,
+      "per_agent_voxel_counts": [
+        9375
+      ],
+      "voxel_features_shape_unpadded": [
+        9375,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 18529,
+      "padding_ratio": 0.6640266628440367
+    },
+    {
+      "ordinal": 160,
+      "dataset_index": 3867,
+      "vehicle_frame_id": "013074",
+      "infrastructure_frame_id": "014277",
+      "source_pair_id": "013074:014277",
+      "sample_seed": 20264584,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19563,
+      "per_agent_voxel_counts": [
+        10456,
+        9107
+      ],
+      "voxel_features_shape_unpadded": [
+        19563,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8341,
+      "padding_ratio": 0.29891771788990823
+    },
+    {
+      "ordinal": 161,
+      "dataset_index": 3892,
+      "vehicle_frame_id": "013101",
+      "infrastructure_frame_id": "014304",
+      "source_pair_id": "013101:014304",
+      "sample_seed": 20264609,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19534,
+      "per_agent_voxel_counts": [
+        8830,
+        10704
+      ],
+      "voxel_features_shape_unpadded": [
+        19534,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8370,
+      "padding_ratio": 0.29995699541284404
+    },
+    {
+      "ordinal": 162,
+      "dataset_index": 3916,
+      "vehicle_frame_id": "013141",
+      "infrastructure_frame_id": "014345",
+      "source_pair_id": "013141:014345",
+      "sample_seed": 20264633,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19285,
+      "per_agent_voxel_counts": [
+        10375,
+        8910
+      ],
+      "voxel_features_shape_unpadded": [
+        19285,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8619,
+      "padding_ratio": 0.3088804472477064
+    },
+    {
+      "ordinal": 163,
+      "dataset_index": 3940,
+      "vehicle_frame_id": "013187",
+      "infrastructure_frame_id": "014392",
+      "source_pair_id": "013187:014392",
+      "sample_seed": 20264657,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18816,
+      "per_agent_voxel_counts": [
+        10318,
+        8498
+      ],
+      "voxel_features_shape_unpadded": [
+        18816,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9088,
+      "padding_ratio": 0.3256880733944954
+    },
+    {
+      "ordinal": 164,
+      "dataset_index": 3964,
+      "vehicle_frame_id": "013552",
+      "infrastructure_frame_id": "013634",
+      "source_pair_id": "013552:013634",
+      "sample_seed": 20264681,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 9675,
+      "per_agent_voxel_counts": [
+        9675
+      ],
+      "voxel_features_shape_unpadded": [
+        9675,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 18229,
+      "padding_ratio": 0.6532755160550459
+    },
+    {
+      "ordinal": 165,
+      "dataset_index": 3988,
+      "vehicle_frame_id": "013576",
+      "infrastructure_frame_id": "013658",
+      "source_pair_id": "013576:013658",
+      "sample_seed": 20264705,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18948,
+      "per_agent_voxel_counts": [
+        9587,
+        9361
+      ],
+      "voxel_features_shape_unpadded": [
+        18948,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8956,
+      "padding_ratio": 0.32095756880733944
+    },
+    {
+      "ordinal": 166,
+      "dataset_index": 4012,
+      "vehicle_frame_id": "013620",
+      "infrastructure_frame_id": "013703",
+      "source_pair_id": "013620:013703",
+      "sample_seed": 20264729,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 17658,
+      "per_agent_voxel_counts": [
+        9575,
+        8083
+      ],
+      "voxel_features_shape_unpadded": [
+        17658,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 10246,
+      "padding_ratio": 0.3671875
+    },
+    {
+      "ordinal": 167,
+      "dataset_index": 4037,
+      "vehicle_frame_id": "013667",
+      "infrastructure_frame_id": "013752",
+      "source_pair_id": "013667:013752",
+      "sample_seed": 20264754,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 18265,
+      "per_agent_voxel_counts": [
+        9615,
+        8650
+      ],
+      "voxel_features_shape_unpadded": [
+        18265,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 9639,
+      "padding_ratio": 0.34543434633027525
+    },
+    {
+      "ordinal": 168,
+      "dataset_index": 4061,
+      "vehicle_frame_id": "013691",
+      "infrastructure_frame_id": "013776",
+      "source_pair_id": "013691:013776",
+      "sample_seed": 20264778,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19419,
+      "per_agent_voxel_counts": [
+        9959,
+        9460
+      ],
+      "voxel_features_shape_unpadded": [
+        19419,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8485,
+      "padding_ratio": 0.30407826834862384
+    },
+    {
+      "ordinal": 169,
+      "dataset_index": 4085,
+      "vehicle_frame_id": "014103",
+      "infrastructure_frame_id": "012393",
+      "source_pair_id": "014103:012393",
+      "sample_seed": 20264802,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20894,
+      "per_agent_voxel_counts": [
+        9670,
+        11224
+      ],
+      "voxel_features_shape_unpadded": [
+        20894,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7010,
+      "padding_ratio": 0.25121846330275227
+    },
+    {
+      "ordinal": 170,
+      "dataset_index": 4109,
+      "vehicle_frame_id": "014148",
+      "infrastructure_frame_id": "012439",
+      "source_pair_id": "014148:012439",
+      "sample_seed": 20264826,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20470,
+      "per_agent_voxel_counts": [
+        10906,
+        9564
+      ],
+      "voxel_features_shape_unpadded": [
+        20470,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7434,
+      "padding_ratio": 0.2664134174311927
+    },
+    {
+      "ordinal": 171,
+      "dataset_index": 4133,
+      "vehicle_frame_id": "014172",
+      "infrastructure_frame_id": "012463",
+      "source_pair_id": "014172:012463",
+      "sample_seed": 20264850,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19348,
+      "per_agent_voxel_counts": [
+        9861,
+        9487
+      ],
+      "voxel_features_shape_unpadded": [
+        19348,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8556,
+      "padding_ratio": 0.30662270642201833
+    },
+    {
+      "ordinal": 172,
+      "dataset_index": 4157,
+      "vehicle_frame_id": "014687",
+      "infrastructure_frame_id": "001001",
+      "source_pair_id": "014687:001001",
+      "sample_seed": 20264874,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24286,
+      "per_agent_voxel_counts": [
+        14700,
+        9586
+      ],
+      "voxel_features_shape_unpadded": [
+        24286,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3618,
+      "padding_ratio": 0.12965883027522937
+    },
+    {
+      "ordinal": 173,
+      "dataset_index": 4182,
+      "vehicle_frame_id": "014731",
+      "infrastructure_frame_id": "001047",
+      "source_pair_id": "014731:001047",
+      "sample_seed": 20264899,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 27241,
+      "per_agent_voxel_counts": [
+        14353,
+        12888
+      ],
+      "voxel_features_shape_unpadded": [
+        27241,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 663,
+      "padding_ratio": 0.023760034403669725
+    },
+    {
+      "ordinal": 174,
+      "dataset_index": 4206,
+      "vehicle_frame_id": "014953",
+      "infrastructure_frame_id": "000935",
+      "source_pair_id": "014953:000935",
+      "sample_seed": 20264923,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25879,
+      "per_agent_voxel_counts": [
+        11665,
+        14214
+      ],
+      "voxel_features_shape_unpadded": [
+        25879,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2025,
+      "padding_ratio": 0.07257024082568807
+    },
+    {
+      "ordinal": 175,
+      "dataset_index": 4230,
+      "vehicle_frame_id": "014992",
+      "infrastructure_frame_id": "000109",
+      "source_pair_id": "014992:000109",
+      "sample_seed": 20264947,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25217,
+      "per_agent_voxel_counts": [
+        14550,
+        10667
+      ],
+      "voxel_features_shape_unpadded": [
+        25217,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2687,
+      "padding_ratio": 0.0962944380733945
+    },
+    {
+      "ordinal": 176,
+      "dataset_index": 4254,
+      "vehicle_frame_id": "015025",
+      "infrastructure_frame_id": "000143",
+      "source_pair_id": "015025:000143",
+      "sample_seed": 20264971,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 26717,
+      "per_agent_voxel_counts": [
+        14655,
+        12062
+      ],
+      "voxel_features_shape_unpadded": [
+        26717,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 1187,
+      "padding_ratio": 0.042538704128440366
+    },
+    {
+      "ordinal": 177,
+      "dataset_index": 4278,
+      "vehicle_frame_id": "015070",
+      "infrastructure_frame_id": "000190",
+      "source_pair_id": "015070:000190",
+      "sample_seed": 20264995,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 27052,
+      "per_agent_voxel_counts": [
+        15096,
+        11956
+      ],
+      "voxel_features_shape_unpadded": [
+        27052,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 852,
+      "padding_ratio": 0.030533256880733946
+    },
+    {
+      "ordinal": 178,
+      "dataset_index": 4302,
+      "vehicle_frame_id": "015110",
+      "infrastructure_frame_id": "000285",
+      "source_pair_id": "015110:000285",
+      "sample_seed": 20265019,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23148,
+      "per_agent_voxel_counts": [
+        13431,
+        9717
+      ],
+      "voxel_features_shape_unpadded": [
+        23148,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4756,
+      "padding_ratio": 0.17044151376146788
+    },
+    {
+      "ordinal": 179,
+      "dataset_index": 4327,
+      "vehicle_frame_id": "015146",
+      "infrastructure_frame_id": "000322",
+      "source_pair_id": "015146:000322",
+      "sample_seed": 20265044,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24741,
+      "per_agent_voxel_counts": [
+        11119,
+        13622
+      ],
+      "voxel_features_shape_unpadded": [
+        24741,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3163,
+      "padding_ratio": 0.1133529243119266
+    },
+    {
+      "ordinal": 180,
+      "dataset_index": 4351,
+      "vehicle_frame_id": "015190",
+      "infrastructure_frame_id": "000368",
+      "source_pair_id": "015190:000368",
+      "sample_seed": 20265068,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25451,
+      "per_agent_voxel_counts": [
+        11548,
+        13903
+      ],
+      "voxel_features_shape_unpadded": [
+        25451,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2453,
+      "padding_ratio": 0.08790854357798165
+    },
+    {
+      "ordinal": 181,
+      "dataset_index": 4375,
+      "vehicle_frame_id": "015223",
+      "infrastructure_frame_id": "000402",
+      "source_pair_id": "015223:000402",
+      "sample_seed": 20265092,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24974,
+      "per_agent_voxel_counts": [
+        14122,
+        10852
+      ],
+      "voxel_features_shape_unpadded": [
+        24974,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2930,
+      "padding_ratio": 0.10500286697247706
+    },
+    {
+      "ordinal": 182,
+      "dataset_index": 4399,
+      "vehicle_frame_id": "015388",
+      "infrastructure_frame_id": "000032",
+      "source_pair_id": "015388:000032",
+      "sample_seed": 20265116,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24436,
+      "per_agent_voxel_counts": [
+        13485,
+        10951
+      ],
+      "voxel_features_shape_unpadded": [
+        24436,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3468,
+      "padding_ratio": 0.12428325688073394
+    },
+    {
+      "ordinal": 183,
+      "dataset_index": 4423,
+      "vehicle_frame_id": "015434",
+      "infrastructure_frame_id": "000080",
+      "source_pair_id": "015434:000080",
+      "sample_seed": 20265140,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 23817,
+      "per_agent_voxel_counts": [
+        9434,
+        14383
+      ],
+      "voxel_features_shape_unpadded": [
+        23817,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 4087,
+      "padding_ratio": 0.14646645642201836
+    },
+    {
+      "ordinal": 184,
+      "dataset_index": 4447,
+      "vehicle_frame_id": "015469",
+      "infrastructure_frame_id": "001180",
+      "source_pair_id": "015469:001180",
+      "sample_seed": 20265164,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25697,
+      "per_agent_voxel_counts": [
+        11153,
+        14544
+      ],
+      "voxel_features_shape_unpadded": [
+        25697,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2207,
+      "padding_ratio": 0.07909260321100918
+    },
+    {
+      "ordinal": 185,
+      "dataset_index": 4472,
+      "vehicle_frame_id": "015514",
+      "infrastructure_frame_id": "001227",
+      "source_pair_id": "015514:001227",
+      "sample_seed": 20265189,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 27428,
+      "per_agent_voxel_counts": [
+        14806,
+        12622
+      ],
+      "voxel_features_shape_unpadded": [
+        27428,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 476,
+      "padding_ratio": 0.01705848623853211
+    },
+    {
+      "ordinal": 186,
+      "dataset_index": 4496,
+      "vehicle_frame_id": "015547",
+      "infrastructure_frame_id": "001261",
+      "source_pair_id": "015547:001261",
+      "sample_seed": 20265213,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 27666,
+      "per_agent_voxel_counts": [
+        14711,
+        12955
+      ],
+      "voxel_features_shape_unpadded": [
+        27666,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 238,
+      "padding_ratio": 0.008529243119266054
+    },
+    {
+      "ordinal": 187,
+      "dataset_index": 4520,
+      "vehicle_frame_id": "015590",
+      "infrastructure_frame_id": "001306",
+      "source_pair_id": "015590:001306",
+      "sample_seed": 20265237,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 25860,
+      "per_agent_voxel_counts": [
+        14386,
+        11474
+      ],
+      "voxel_features_shape_unpadded": [
+        25860,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 2044,
+      "padding_ratio": 0.07325114678899082
+    },
+    {
+      "ordinal": 188,
+      "dataset_index": 4544,
+      "vehicle_frame_id": "015880",
+      "infrastructure_frame_id": "001109",
+      "source_pair_id": "015880:001109",
+      "sample_seed": 20265261,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24885,
+      "per_agent_voxel_counts": [
+        14185,
+        10700
+      ],
+      "voxel_features_shape_unpadded": [
+        24885,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3019,
+      "padding_ratio": 0.10819237385321101
+    },
+    {
+      "ordinal": 189,
+      "dataset_index": 4568,
+      "vehicle_frame_id": "015913",
+      "infrastructure_frame_id": "001143",
+      "source_pair_id": "015913:001143",
+      "sample_seed": 20265285,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 24375,
+      "per_agent_voxel_counts": [
+        14530,
+        9845
+      ],
+      "voxel_features_shape_unpadded": [
+        24375,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 3529,
+      "padding_ratio": 0.1264693233944954
+    },
+    {
+      "ordinal": 190,
+      "dataset_index": 4592,
+      "vehicle_frame_id": "020006",
+      "infrastructure_frame_id": "003833",
+      "source_pair_id": "020006:003833",
+      "sample_seed": 20265309,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 19347,
+      "per_agent_voxel_counts": [
+        6753,
+        12594
+      ],
+      "voxel_features_shape_unpadded": [
+        19347,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 8557,
+      "padding_ratio": 0.30665854357798167
+    },
+    {
+      "ordinal": 191,
+      "dataset_index": 4617,
+      "vehicle_frame_id": "020069",
+      "infrastructure_frame_id": "003897",
+      "source_pair_id": "020069:003897",
+      "sample_seed": 20265334,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22028,
+      "per_agent_voxel_counts": [
+        9451,
+        12577
+      ],
+      "voxel_features_shape_unpadded": [
+        22028,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5876,
+      "padding_ratio": 0.21057912844036697
+    },
+    {
+      "ordinal": 192,
+      "dataset_index": 4641,
+      "vehicle_frame_id": "020093",
+      "infrastructure_frame_id": "003921",
+      "source_pair_id": "020093:003921",
+      "sample_seed": 20265358,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 22337,
+      "per_agent_voxel_counts": [
+        12572,
+        9765
+      ],
+      "voxel_features_shape_unpadded": [
+        22337,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 5567,
+      "padding_ratio": 0.1995054472477064
+    },
+    {
+      "ordinal": 193,
+      "dataset_index": 4665,
+      "vehicle_frame_id": "020157",
+      "infrastructure_frame_id": "003986",
+      "source_pair_id": "020157:003986",
+      "sample_seed": 20265382,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 9021,
+      "per_agent_voxel_counts": [
+        9021
+      ],
+      "voxel_features_shape_unpadded": [
+        9021,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 18883,
+      "padding_ratio": 0.6767130160550459
+    },
+    {
+      "ordinal": 194,
+      "dataset_index": 4689,
+      "vehicle_frame_id": "020185",
+      "infrastructure_frame_id": "004024",
+      "source_pair_id": "020185:004024",
+      "sample_seed": 20265406,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 5793,
+      "per_agent_voxel_counts": [
+        5793
+      ],
+      "voxel_features_shape_unpadded": [
+        5793,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 22111,
+      "padding_ratio": 0.7923953555045872
+    },
+    {
+      "ordinal": 195,
+      "dataset_index": 4713,
+      "vehicle_frame_id": "020238",
+      "infrastructure_frame_id": "004078",
+      "source_pair_id": "020238:004078",
+      "sample_seed": 20265430,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 12022,
+      "per_agent_voxel_counts": [
+        12022
+      ],
+      "voxel_features_shape_unpadded": [
+        12022,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 15882,
+      "padding_ratio": 0.5691657110091743
+    },
+    {
+      "ordinal": 196,
+      "dataset_index": 4737,
+      "vehicle_frame_id": "020262",
+      "infrastructure_frame_id": "004102",
+      "source_pair_id": "020262:004102",
+      "sample_seed": 20265454,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 7002,
+      "per_agent_voxel_counts": [
+        7002
+      ],
+      "voxel_features_shape_unpadded": [
+        7002,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 20902,
+      "padding_ratio": 0.7490682339449541
+    },
+    {
+      "ordinal": 197,
+      "dataset_index": 4762,
+      "vehicle_frame_id": "020287",
+      "infrastructure_frame_id": "004127",
+      "source_pair_id": "020287:004127",
+      "sample_seed": 20265479,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20624,
+      "per_agent_voxel_counts": [
+        12442,
+        8182
+      ],
+      "voxel_features_shape_unpadded": [
+        20624,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7280,
+      "padding_ratio": 0.26089449541284404
+    },
+    {
+      "ordinal": 198,
+      "dataset_index": 4786,
+      "vehicle_frame_id": "020350",
+      "infrastructure_frame_id": "004191",
+      "source_pair_id": "020350:004191",
+      "sample_seed": 20265503,
+      "record_len": 2,
+      "active_cav_ids": [
+        0,
+        1
+      ],
+      "agent_modalities": [
+        "m1",
+        "m1"
+      ],
+      "voxel_count": 20591,
+      "per_agent_voxel_counts": [
+        12452,
+        8139
+      ],
+      "voxel_features_shape_unpadded": [
+        20591,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 7313,
+      "padding_ratio": 0.26207712155963303
+    },
+    {
+      "ordinal": 199,
+      "dataset_index": 4810,
+      "vehicle_frame_id": "020374",
+      "infrastructure_frame_id": "004215",
+      "source_pair_id": "020374:004215",
+      "sample_seed": 20265527,
+      "record_len": 1,
+      "active_cav_ids": [
+        0
+      ],
+      "agent_modalities": [
+        "m1"
+      ],
+      "voxel_count": 12132,
+      "per_agent_voxel_counts": [
+        12132
+      ],
+      "voxel_features_shape_unpadded": [
+        12132,
+        32,
+        4
+      ],
+      "voxel_coords_dtype": "int32",
+      "voxel_features_dtype": "float32",
+      "voxel_num_points_dtype": "int32",
+      "fixed_k": 27904,
+      "padding_voxels": 15772,
+      "padding_ratio": 0.565223623853211
+    }
+  ],
+  "selected_dataset_indices": [
+    0,
+    24,
+    48,
+    73,
+    97,
+    121,
+    145,
+    169,
+    193,
+    218,
+    242,
+    266,
+    290,
+    314,
+    338,
+    363,
+    387,
+    411,
+    435,
+    459,
+    483,
+    508,
+    532,
+    556,
+    580,
+    604,
+    628,
+    653,
+    677,
+    701,
+    725,
+    749,
+    773,
+    798,
+    822,
+    846,
+    870,
+    894,
+    918,
+    943,
+    967,
+    991,
+    1015,
+    1039,
+    1064,
+    1088,
+    1112,
+    1136,
+    1160,
+    1184,
+    1209,
+    1233,
+    1257,
+    1281,
+    1305,
+    1329,
+    1354,
+    1378,
+    1402,
+    1426,
+    1450,
+    1474,
+    1499,
+    1523,
+    1547,
+    1571,
+    1595,
+    1619,
+    1644,
+    1668,
+    1692,
+    1716,
+    1740,
+    1764,
+    1789,
+    1813,
+    1837,
+    1861,
+    1885,
+    1909,
+    1934,
+    1958,
+    1982,
+    2006,
+    2030,
+    2055,
+    2079,
+    2103,
+    2127,
+    2151,
+    2175,
+    2200,
+    2224,
+    2248,
+    2272,
+    2296,
+    2320,
+    2345,
+    2369,
+    2393,
+    2417,
+    2441,
+    2465,
+    2490,
+    2514,
+    2538,
+    2562,
+    2586,
+    2610,
+    2635,
+    2659,
+    2683,
+    2707,
+    2731,
+    2755,
+    2780,
+    2804,
+    2828,
+    2852,
+    2876,
+    2901,
+    2925,
+    2949,
+    2973,
+    2997,
+    3021,
+    3046,
+    3070,
+    3094,
+    3118,
+    3142,
+    3166,
+    3191,
+    3215,
+    3239,
+    3263,
+    3287,
+    3311,
+    3336,
+    3360,
+    3384,
+    3408,
+    3432,
+    3456,
+    3481,
+    3505,
+    3529,
+    3553,
+    3577,
+    3601,
+    3626,
+    3650,
+    3674,
+    3698,
+    3722,
+    3746,
+    3771,
+    3795,
+    3819,
+    3843,
+    3867,
+    3892,
+    3916,
+    3940,
+    3964,
+    3988,
+    4012,
+    4037,
+    4061,
+    4085,
+    4109,
+    4133,
+    4157,
+    4182,
+    4206,
+    4230,
+    4254,
+    4278,
+    4302,
+    4327,
+    4351,
+    4375,
+    4399,
+    4423,
+    4447,
+    4472,
+    4496,
+    4520,
+    4544,
+    4568,
+    4592,
+    4617,
+    4641,
+    4665,
+    4689,
+    4713,
+    4737,
+    4762,
+    4786,
+    4810
+  ],
+  "selected_vehicle_frame_ids": [
+    "000010",
+    "000042",
+    "000085",
+    "000116",
+    "000181",
+    "000228",
+    "000263",
+    "000304",
+    "000342",
+    "000391",
+    "000439",
+    "000483",
+    "000541",
+    "000570",
+    "000611",
+    "000641",
+    "000693",
+    "000717",
+    "000777",
+    "000802",
+    "000862",
+    "001103",
+    "001166",
+    "001201",
+    "001242",
+    "001273",
+    "001311",
+    "001353",
+    "001390",
+    "001443",
+    "001468",
+    "001890",
+    "001954",
+    "001997",
+    "002034",
+    "002453",
+    "002494",
+    "002518",
+    "003409",
+    "003434",
+    "003504",
+    "003528",
+    "003552",
+    "003739",
+    "003764",
+    "004482",
+    "004509",
+    "004533",
+    "004592",
+    "004616",
+    "004641",
+    "004708",
+    "004732",
+    "004898",
+    "004967",
+    "004991",
+    "005016",
+    "005609",
+    "005633",
+    "005703",
+    "005727",
+    "005751",
+    "005806",
+    "005874",
+    "005898",
+    "006110",
+    "006181",
+    "006205",
+    "006271",
+    "006295",
+    "006319",
+    "006385",
+    "006410",
+    "006434",
+    "006460",
+    "006488",
+    "006553",
+    "006577",
+    "006604",
+    "006670",
+    "006695",
+    "006721",
+    "006745",
+    "006769",
+    "006793",
+    "006818",
+    "006900",
+    "006924",
+    "006948",
+    "006972",
+    "006996",
+    "007505",
+    "007531",
+    "007558",
+    "007588",
+    "007614",
+    "007639",
+    "007777",
+    "007805",
+    "008810",
+    "008834",
+    "008858",
+    "008882",
+    "008907",
+    "008931",
+    "008996",
+    "009027",
+    "009051",
+    "009075",
+    "009100",
+    "009128",
+    "009156",
+    "009216",
+    "009320",
+    "009344",
+    "009369",
+    "009393",
+    "009417",
+    "009441",
+    "009465",
+    "010184",
+    "010219",
+    "010245",
+    "010269",
+    "010293",
+    "010317",
+    "010342",
+    "010366",
+    "010390",
+    "010414",
+    "010440",
+    "010464",
+    "010489",
+    "010513",
+    "010537",
+    "010561",
+    "010585",
+    "010609",
+    "010638",
+    "010663",
+    "010687",
+    "010711",
+    "010741",
+    "010767",
+    "010793",
+    "011295",
+    "011319",
+    "011365",
+    "011417",
+    "011442",
+    "011611",
+    "011658",
+    "011683",
+    "011729",
+    "011753",
+    "012454",
+    "012479",
+    "012520",
+    "012562",
+    "012594",
+    "013074",
+    "013101",
+    "013141",
+    "013187",
+    "013552",
+    "013576",
+    "013620",
+    "013667",
+    "013691",
+    "014103",
+    "014148",
+    "014172",
+    "014687",
+    "014731",
+    "014953",
+    "014992",
+    "015025",
+    "015070",
+    "015110",
+    "015146",
+    "015190",
+    "015223",
+    "015388",
+    "015434",
+    "015469",
+    "015514",
+    "015547",
+    "015590",
+    "015880",
+    "015913",
+    "020006",
+    "020069",
+    "020093",
+    "020157",
+    "020185",
+    "020238",
+    "020262",
+    "020287",
+    "020350",
+    "020374"
+  ],
+  "sample_count": 200,
+  "voxel_count_distribution": {
+    "min": 5793,
+    "p50": 20525.5,
+    "p90": 25243.1,
+    "p95": 25984.35,
+    "p99": 27242.87,
+    "max": 27666,
+    "mean": 19793.995
+  },
+  "padding_ratio_distribution": {
+    "min": 0.008529243119266054,
+    "p50": 0.26442445527522934,
+    "p90": 0.5448824541284404,
+    "p95": 0.6519817947247707,
+    "p99": 0.7490728927752294,
+    "max": 0.7923953555045872,
+    "mean": 0.2906395140481651
+  },
+  "record_len_distribution": {
+    "1": 19,
+    "2": 181
+  },
+  "manifest_hash_excluded_fields": [
+    "generated_at",
+    "manifest_hash",
+    "source_control"
+  ],
+  "manifest_hash": "03d038c0b8a4d900d247e7e06d245ce15a7614910b4254b6179d76adb1cbd000"
+}

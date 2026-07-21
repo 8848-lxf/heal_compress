@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -33,6 +34,7 @@ class HealV2XViTExportPolicy:
     max_agents: int = 2
     modality: str = "m1"
     output_names: tuple[str, ...] = ("cls_preds", "reg_preds", "dir_preds")
+    calibration_manifest_hash: str | None = None
 
     def __post_init__(self) -> None:
         if int(self.fixed_k) <= 0:
@@ -41,6 +43,19 @@ class HealV2XViTExportPolicy:
             raise ValueError("v2xvit_max_agents_must_be_positive")
         if not self.output_names:
             raise ValueError("v2xvit_output_names_must_not_be_empty")
+
+    @classmethod
+    def from_frozen_train_manifest(cls, path: str | Path) -> "HealV2XViTExportPolicy":
+        from search.model_family.calibration_manifest import load_v2xvit_train_manifest
+
+        manifest = load_v2xvit_train_manifest(path)
+        contract = manifest["input_contract"]
+        return cls(
+            fixed_k=int(manifest["fixed_k_contract"]["value"]),
+            max_agents=int(contract["max_agents"]),
+            modality=str(contract["modality"]),
+            calibration_manifest_hash=str(manifest["manifest_hash"]),
+        )
 
 
 def _base_grid(

@@ -386,3 +386,644 @@ The next quantization step must consume the 76 active weighted capability entrie
 Round 3 timestamp: 2026-07-17 12:50 server-local / artifact sequence `20260717_124907`
 
 ---
+
+## Round 4 — freeze the V2X-ViT train200 manifest and fixed-K contract
+
+### Scope and selection contract
+
+This round established a V2X-ViT-only calibration manifest. It did not reuse
+the LiDAR-pyramid train200 list or `fixedK29696`, and it did not generate NPZ,
+ONNX, Q/DQ, engine, evaluation, GA, or greedy-search artifacts.
+
+- Dataset: real HEAL DAIR-V2X train split in train mode, `visualize=false`.
+- Raw/valid train count: 4,811/4,811 for the synchronized dataset.
+- Selection policy: `evenly_spaced_valid_train_indices_v1`.
+- Selection order: 200 ascending indices spanning `[0, 4810]`; no shuffle.
+- RNG contract: Python, NumPy, and PyTorch reset before each sample with
+  `uint32(20260717 + dataset_index)`.
+- Stable identity: DAIR vehicle frame ID, infrastructure frame ID, dataset
+  index, and source-pair ID are recorded for every sample.
+- Realized agent distribution: 19 one-agent frames and 181 two-agent frames.
+- All realized modalities are `m1`, consistent with the current LiDAR-only
+  mapping and active type-0 V2X-ViT export specialization.
+- Direct indexed loading with zero workers is deliberate for manifest
+  construction determinism; it does not change the previously requested
+  eight-worker evaluation-loader policy.
+
+### K statistics and frozen value
+
+`K` is the total unpadded `inputs_m1.voxel_features.shape[0]` after HEAL's real
+per-agent preprocessing and single-frame collate.
+
+| Statistic | K |
+|---|---:|
+| min | 5,793 |
+| p50 | 20,525.50 |
+| p90 | 25,243.10 |
+| p95 | 25,984.35 |
+| p99 | 27,242.87 |
+| max | 27,666 |
+| mean | 19,793.995 |
+
+The maximum is dataset index 4,496, vehicle frame `015547`, infrastructure
+frame `001261`, with per-agent K `[14711, 12955]`.
+
+The formal derivation is:
+
+```text
+fixed_K = ceil(max_observed_train200_K / 256) * 256
+        = ceil(27666 / 256) * 256
+        = 27904
+```
+
+- Alignment margin over the maximum sample: 238 voxels.
+- Frozen-manifest truncation count: 0/200.
+- Mean padding ratio: 0.2906395.
+- The contract fails closed when a future input exceeds 27,904; it never
+  silently truncates.
+- This is only a zero-truncation guarantee for the exact frozen train200
+  manifest. It is not claimed to upper-bound the remaining 4,611 train
+  samples, the validation split, or a different preprocessing contract.
+
+### Source and frozen artifact changes
+
+- `search/model_family/calibration_manifest.py`
+  - stable 200-frame selection;
+  - per-sample RNG ownership;
+  - K distribution and 256-aligned fixed-K derivation;
+  - canonical manifest identity hashing;
+  - fail-closed validation and frozen-manifest loading.
+- `scripts/build_heal_v2xvit_train200_manifest.py`
+  - builds the real HEAL train dataset without loading large calibration NPZ;
+  - records frame provenance, per-agent K, dtypes, preprocessing and source
+    hashes;
+  - replays samples 0/100/199 and refuses to overwrite existing evidence;
+  - only accepts exactly 200 samples for this schema.
+- `search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json`
+  - committed 160-KiB frozen manifest containing the ordered 200-frame list
+    and all observed K evidence.
+- `search/model_family/export/heal_v2xvit.py`
+  - `HealV2XViTExportPolicy.from_frozen_train_manifest(...)` validates the
+    manifest and imports fixed-K/max-agents/modality plus manifest hash.
+- `scripts/smoke_export_heal_v2xvit.py`
+  - supports mutually exclusive `--fixed-k` (synthetic diagnostic only) and
+    `--fixed-k-manifest` (formal real-manifest path);
+  - records manifest path/hash in export provenance.
+- `tests/test_search_model_family_v2xvit.py`
+  - deterministic selection, fixed-K formula, tamper detection, and export
+    policy manifest-consumption tests.
+
+Frozen identities:
+
+- Manifest identity hash:
+  `03d038c0b8a4d900d247e7e06d245ce15a7614910b4254b6179d76adb1cbd000`.
+- Frozen JSON file SHA256:
+  `5d5ce47fc333f027b09a23225ac1068a6b5ac15242a9db091e10db88e3453b55`.
+- Config SHA256:
+  `801729a29db46b634646ab0db450671c13ab3cc65c1e7224ec372274a8448d5a`.
+- Checkpoint SHA256:
+  `890f7f4db7b92142c29789b4ee4649494004021eb521f94c345fbe439ca6e3ab`.
+- Train split SHA256:
+  `865e0ff2c788a67bede72a93984cc6b5f3e506fcb99c95571803322356f79051`.
+- Cooperative data-info SHA256:
+  `30aa21051f56082cfb714bf8ad93bab8c018ae2ba1211b7873852c125f3e2659`.
+
+Ignored evidence directories:
+
+- `outputs/h800_heal_model_family_v2xvit_train200_manifest_20260717_130221/`
+- `outputs/h800_heal_model_family_v2xvit_train200_manifest_replay_20260717_130450/`
+
+The second independent build produced the same manifest identity and reported
+`frozen_status=already_identical`; it did not rewrite the frozen file.
+
+### Validation and reproduction
+
+```text
+tests/test_search_model_family_v2xvit.py: 10 passed
+model-family + legacy domain-width + greedy regression: 25 passed
+git diff --check: passed
+```
+
+```bash
+cd /home/lixingfeng/UniAD_examine/heal_compress
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+
+python scripts/build_heal_v2xvit_train200_manifest.py \
+  --output-dir outputs/<new-v2xvit-train200-audit-dir> \
+  --frozen-manifest \
+    search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json
+
+# Formal exporter use after the next real-frame export round:
+CUDA_VISIBLE_DEVICES=6 python scripts/smoke_export_heal_v2xvit.py \
+  --config /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_v2xvit/config.yaml \
+  --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_v2xvit/net_epoch_bestval_at27.pth \
+  --device cuda:0 \
+  --fixed-k-manifest search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json \
+  --output-dir outputs/<new-real-fixedk-export-dir>
+```
+
+### Readiness after this round
+
+```text
+v2xvit_train200_manifest_frozen: true
+v2xvit_train200_manifest_replay_deterministic: true
+v2xvit_fixed_k_27904_frozen: true
+v2xvit_fixed_k_zero_truncation_on_train200: true
+v2xvit_fixed_k_full_train_upper_bound_verified: false
+v2xvit_real_manifest_agent_type_policy_verified: true
+v2xvit_real_fixedk_onnx_export: false
+v2xvit_real_fixedk_scatter_plugin_runtime: false
+v2xvit_semantic_qdq_boundaries: false
+v2xvit_quantization_search_ready: false
+v2xvit_pruning_search_ready: false
+v2xvit_joint_search_ready: false
+v2xvit_ga_or_greedy_started: false
+```
+
+The next bounded task is one real train200 frame through the fixedK=27904
+PyTorch wrapper/ONNX/plugin path, followed by real-frame FP16 parity. Q/DQ and
+physical pruning remain gated.
+
+---
+
+Round 4 timestamp: 2026-07-18 04:05 CST (host shell: 2026-07-17 13:05 PDT) / artifact sequence `20260717_130450`
+
+---
+
+## Round 5 — real-data V2X-ViT GA and greedy framework smoke
+
+### Acceptance boundary
+
+Both search algorithms now pass a bounded end-to-end framework smoke using the
+real checkpoint, one frozen train200 frame, real HEAL task-loss gradients,
+GPU-batched Stage-1 scoring, candidate identity/cache logic, exact domain-width
+expansion, model-family physical FFN pruning, strict state reload, and a real
+PyTorch forward.
+
+This is intentionally **not** a TensorRT deployment acceptance:
+
+- mixed precision in the Stage-2 smoke is weight fake-quant only;
+- activation Q/DQ is not inserted;
+- no TensorRT engine is built;
+- no validation AP is measured;
+- BOPS covers the 70 active module-weighted paths and does not yet include the
+  six functional HGT relation weights or parameter-free attention operations.
+
+Therefore `framework_smoke_passed=true` and
+`deployment_search_ready=false` are both correct.
+
+### Added isolated model-family implementation
+
+- `search/model_family/search_space.py`
+  - builds 768 exact FFN hidden-channel atomic units across the three
+    Transformer feed-forward blocks;
+  - each unit couples first Linear output/bias with second Linear input;
+  - builds three legal retained-width genes with widths
+    `{64,80,...,240,256}`;
+  - imports fixed pruning-only first+second-order Taylor rankings;
+  - builds canonical precision groups from the real active module paths, not
+    pruning dependency scopes.
+- `search/model_family/pruning/heal_v2xvit.py`
+  - new model-family-specific FFN Linear-pair physical materializer;
+  - slices only the exact immutable `pruned_unit_ids` selected by width genes;
+  - validates width/mask equality and parameter reduction;
+  - emits a replayable snapshot/hash;
+  - adds weight fake-quant only for real-forward framework smoke, with an
+    explicit `not activation Q/DQ` marker.
+- `search/model_family/pruning/__init__.py`
+  - public V2X-ViT physical-pruning interface.
+- `search/model_family/search_smoke.py`
+  - replays exact frozen-manifest samples with their recorded RNG seeds;
+  - collects real HEAL task-loss gradient and empirical Fisher statistics;
+  - verifies K against the manifest;
+  - runs physical materialization, strict reload, fake-quant and real forward.
+- `scripts/smoke_search_heal_v2xvit.py`
+  - complete bounded GA + greedy framework smoke entry;
+  - uses the existing formal domain-width codec, joint Taylor objective,
+    hard-band BOPS semantics, GPU batched proxy, GA and greedy engines;
+  - runs GA winner, greedy candidate and forced nonzero structural control
+    through Stage-2 PyTorch smoke;
+  - repeats the structural control to prove Stage-2 identity reuse.
+- `search/model_family/heal_v2xvit.py`
+  - the three FFN hidden-width capabilities are now production-enabled for the
+    isolated physical materializer;
+  - HGT heads, window-attention heads and SplitAttn pruning remain blocked.
+- `tests/test_search_model_family_v2xvit.py`
+  - exact FFN mask/width materialization, parameter reduction and strict reload;
+  - canonical active precision-group semantics;
+  - readiness now exposes only the validated FFN domain when all required
+    pruning evidence is supplied.
+
+No existing LiDAR-pyramid tracer, pruning planner, legalizer, materializer,
+Q/DQ exporter, TensorRT builder, or evaluation source was changed.
+
+### Real calibration and search-space evidence
+
+Authoritative ignored artifact directory:
+
+`outputs/h800_heal_v2xvit_ga_greedy_smoke_authoritative_20260717_133212/`
+
+- Checkpoint strict load: passed, 13,453,197 parameters.
+- Frozen manifest hash:
+  `03d038c0b8a4d900d247e7e06d245ce15a7614910b4254b6179d76adb1cbd000`.
+- Fisher frame: manifest ordinal 1, dataset index 24, vehicle frame `000042`,
+  two agents, K=17,740, seed=20,260,741.
+- Real task loss: 0.4698578417.
+- Gradient/Fisher parameter tensors: 187/187, all finite.
+- Fisher identity hash:
+  `d47f0ba0b013987eadb93a65c838dbe121b48688b446320eb78b14df6a63bfd8`.
+- Runtime weighted calls: 82 across 70 unique parameterized modules.
+- Runtime module MAC proxy total: 53,465,711,232.
+- Precision genes: 70.
+  - Stage-1 INT8-capable Conv/ConvTranspose genes: 24.
+  - Current FP32/FP16-only PFN/Transformer/head genes: 46.
+- Functional HGT relation weights: six, fixed FP16 and excluded from current
+  BOPS denominator until their deployment mapping is admitted.
+- FFN atomic units: 768.
+- Legal FFN domain-width genes: three.
+- Scalar/GPU parity on the FP32 baseline:
+  - joint Taylor 0.0 versus 0.0;
+  - R_BOPS 1.0 versus 1.0.
+- Formal Stage-1 backend: `cuda_batched`; scalar evaluator call count 0.
+
+### GA smoke result
+
+Configuration:
+
+```text
+population=12
+generations=2
+hard BOPS target=0.25
+absolute tolerance=0.005
+constraint-first ranking=true
+```
+
+Result:
+
+- 24 evaluated rows, 23 unique candidates, eight BOPS-feasible rows.
+- Best candidate hash:
+  `546f25dcf75d77a8cfcb351ec836ad45de8b36658eebc4b8fcc6b6756d81b750`.
+- R_BOPS versus original FP32: 0.2500018477.
+- Absolute target delta: 0.0000018477; hard-band feasible.
+- Joint weight Taylor: 0.00017468065.
+- Widths: 256/256/256; no physical pruning in the GA winner.
+- Precision count: 2 FP32 / 68 FP16 / 0 INT8.
+
+The absence of pruning in this very small two-generation winner is an observed
+search result, not a framework failure; the independent forced structural
+control below proves the physical pruning path.
+
+### Greedy smoke result
+
+- Formal target: 0.25 with absolute tolerance 0.005.
+- Termination: `minimum_target_reached`.
+- Steps: 22.
+- Evaluated neighbors: 1,601, all through the GPU batch proxy/cache path.
+- Selected budget R_BOPS: 0.2534842193.
+- Absolute target delta: 0.0034842193; hard-band feasible.
+- Joint weight Taylor: 0.00005113509.
+- Parameter retention: 1.0; widths remain 256/256/256.
+- Gene precision count: 51 FP32 / 18 FP16 / 1 INT8.
+- INT8 MAC ratio: 0.321325.
+- A second one-step target at the exact first-action BOPS value verified the
+  generic greedy budget-capture implementation without changing the formal
+  0.25 result.
+
+### Physical Stage-2 PyTorch smoke
+
+GA and greedy selected candidates both passed strict reload and real forward.
+The nonzero structural control selected width 240 in all three FFN domains:
+
+- exact pruned units: 48;
+- parameter count: 13,453,197 -> 13,428,573;
+- parameter reduction: 24,624;
+- physical snapshot hash:
+  `d6e0c416502958b4ac55bf9b5f3f0e37efe2f334af23ca7db5bc0c4277a98024`;
+- strict state reload: passed;
+- real cls/reg/dir forward: passed, all finite;
+- output cosine versus original:
+  - cls: 0.99999678;
+  - reg: 0.99994576;
+  - dir: 0.99992788.
+
+The repeated structural candidate hit the Stage-2 identity cache instead of
+being materialized again. The shared Stage-1 proxy also recorded 77 cache hits.
+
+The reported ~19–20 ms timings are three-round PyTorch smoke timings only and
+must not be used as TensorRT latency or as a speedup result.
+
+### Tests and authoritative acceptance
+
+```text
+58 passed in 5.01s
+```
+
+Covered files:
+
+```text
+tests/test_search_model_family_v2xvit.py
+tests/test_search_domain_width_genes.py
+tests/test_search_greedy_budget.py
+tests/test_search_gpu_batch_integration.py
+tests/test_search_final_contract.py
+tests/test_two_stage_joint_search.py
+```
+
+Authoritative `acceptance.json` SHA256:
+
+`15a3b3e3f6bbdc99b9fdb6e2522652fd19a78a2ae748fc001185d9c17b817aca`
+
+```text
+checkpoint_strict_load: true
+frozen_train200_manifest_verified: true
+real_task_loss_fisher_collected: true
+gpu_batched_proxy_verified: true
+scalar_gpu_proxy_parity: true
+ga_framework_smoke_passed: true
+greedy_framework_smoke_passed: true
+nonzero_physical_pruning_smoke_passed: true
+physical_checkpoint_strict_reload: true
+real_pytorch_forward: true
+proxy_cache_verified: true
+stage2_identity_cache_verified: true
+framework_smoke_passed: true
+
+explicit_qdq_complete: false
+tensorrt_engine_complete: false
+full_accuracy_evaluation_complete: false
+deployment_search_ready: false
+```
+
+### Reproduction
+
+```bash
+cd /home/lixingfeng/UniAD_examine/heal_compress
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+
+CUDA_VISIBLE_DEVICES=6 python scripts/smoke_search_heal_v2xvit.py \
+  --device cuda:0 \
+  --output-dir outputs/<new-v2xvit-ga-greedy-smoke-dir>
+
+PYTHONPATH=.:.. python -m pytest -q \
+  tests/test_search_model_family_v2xvit.py \
+  tests/test_search_domain_width_genes.py \
+  tests/test_search_greedy_budget.py \
+  tests/test_search_gpu_batch_integration.py \
+  tests/test_search_final_contract.py \
+  tests/test_two_stage_joint_search.py
+```
+
+### Next gate
+
+Do not start broad GA/greedy experiments yet. The next deployment gate remains:
+
+1. real fixedK=27904 base ONNX and scatter-plugin parity;
+2. semantic post-activation/post-merge Q/DQ boundaries for V2X-ViT;
+3. entropy train200 activation calibration;
+4. strongly typed TensorRT precision realization;
+5. small real AP gate.
+
+Only after those pass may the 24 INT8-capable genes be treated as deployable
+precision decisions rather than Stage-1 capability smoke variables.
+
+---
+
+Round 5 timestamp: 2026-07-18 04:33 CST (host shell: 2026-07-17 13:33 PDT) / authoritative artifact sequence `20260717_133212`
+
+---
+
+## Round 6: real searched subnet deployment and TensorRT evaluation
+
+This round supersedes the Round 5 deployment gate.  The V2X-ViT production
+path has now built and evaluated both a genuinely searched explicit-Q/DQ
+candidate and a genuinely searched, nonzero physically pruned candidate.  No
+lidar_pyramid search/export implementation was replaced.
+
+### Production implementation
+
+New production files:
+
+- `search/model_family/deployment.py`
+  - loads an immutable greedy budget winner or an exact GA archive hash;
+  - replays the serialized legal domain-width/Taylor ranking rather than
+    selecting new channel indices;
+  - snapshots physical weighted shapes and parameter count;
+  - canonicalizes every realized parameterized ONNX call;
+  - expands 70 module precision genes to 82 realized weighted calls;
+  - owns semantic FP16 boundaries for the BEV Concat, Transformer residual
+    Adds and SplitAttn sums;
+  - performs frozen train200 two-pass streaming entropy/KL calibration;
+  - derives layout-aware per-channel weight scales from the final physical
+    ONNX initializer;
+  - inserts input-owned requantization and does not insert activation-output
+    Q/DQ directly on raw Conv/ConvTranspose outputs.
+- `scripts/deploy_searched_heal_v2xvit.py`
+  - one production entry for candidate identity -> exact physical FFN
+    materialization -> checkpoint strict reload -> real wrapper parity ->
+    fixedK=27904 ONNX -> explicit Q/DQ/FP16 typed graph -> strongly typed TRT
+    build -> structure/precision validation -> real AP/latency evaluation;
+  - writes every run to a new directory and refuses artifact overwrite.
+- `search/model_family/evaluation.py` and
+  `search/model_family/evaluation_worker.py`
+  - isolate TensorRT inference in `modelopt`;
+  - fixed manifest frame IDs/order, warmup then iterator reset;
+  - dataloader workers=8 and CUDA NMS/AP backend;
+  - zero skipped frames is mandatory.
+
+Updated production files:
+
+- `quantization/precision/qdq_inserter.py`
+  - closes TensorRT strongly typed input types for LayerNormalization and
+    Einsum; this fixed the real Transformer parser failures that weak typing
+    had hidden.
+- `search/model_family/heal_v2xvit.py`
+  - records the now-validated fixedK scatter, FP16 merge, fixed-shape warp,
+    multi-window and Transformer FP16-island contracts;
+  - retains explicit blockers for unobserved agent-type branches, functional
+    HGT INT8 weights, attention pruning materializers and protected
+    Transformer parameter INT8.
+- `search/model_family/search_space.py`
+  - marks only the 24 admitted backbone/deblock genes as production strongly
+    typed Q/DQ; PFN/Transformer/head genes remain mapped FP16/FP32 and
+    protected from INT8.
+
+The strongly typed builder uses no `--fp16`, `--int8` or layer-precision weak
+hints.  Types come from explicit Q/DQ and Cast nodes.  The successful build
+manifest records:
+
+```text
+TensorRT: 10.9.0.34
+GPU: NVIDIA H800, compute capability 9.0
+modelopt python: /home/lixingfeng/miniconda3/envs/modelopt/bin/python
+modelopt nvcc: /home/lixingfeng/miniconda3/envs/modelopt/bin/nvcc (CUDA 11.8)
+modelopt gcc/g++: Anaconda 11.2.0
+plugin SHA256: 61d9adf44855ab2a595220718270d361c993f9ff281e986cdf8a62d5ca317ecd
+system_toolchain_used: false
+```
+
+Use `search.integration.runtime_environment.modelopt_subprocess_env()` for
+reproduction.  A bare interactive `conda activate modelopt` on this host can
+retain `/usr/local/cuda/bin` ahead of the environment compiler; the production
+launcher deliberately reconstructs and records the isolated PATH.
+
+### Real searched greedy explicit-Q/DQ candidate
+
+Artifact (ignored by Git, do not copy through the source remote):
+
+`outputs/h800_heal_v2xvit_searched_deployment_20260717_1450/`
+
+```text
+algorithm: greedy
+candidate: 0058614e876270c7e7e3d02ca906c436be5e972238ed307d4efae5fdabeacd53
+target BOPS retention: 0.25
+actual BOPS retention: 0.25348421931266785 (within +/-0.005)
+physical structure: all keep, 13,453,197 parameters
+precision genes: 1 INT8 / 18 FP16 / 51 FP32
+requested and realized INT8 weighted calls: 1 / 1
+canonical mapped weighted calls: 82; unresolved: 0
+train200 entropy: 200 frames, two streaming passes
+Q/DQ: per-channel weight, semantic input-owned activation boundary
+engine structure validation: passed
+precision realization validation: passed
+engine SHA256: a3132aa4c4c58469cd5c796970ec043d68b84896031e4b5d004bf607a8d782a6
+engine size: 52,040,628 bytes
+evaluated/skipped: 20/0
+AP@0.30 / AP@0.50 / AP@0.70: 0.642339 / 0.527196 / 0.408982
+mAP: 0.526172
+forward p50/p90/p99 ms: 14.6756 / 14.7948 / 14.8677
+```
+
+This is a genuine searched mixed-precision deployment, but it is all-keep and
+therefore is not the physical-pruning proof.
+
+### Real searched GA nonzero physical subnet
+
+Artifact:
+
+`outputs/h800_heal_v2xvit_ga_pruned_deployment_20260717_1530/`
+
+```text
+algorithm: GA exact archive member
+candidate: 9412a9a23d093d5e2dfcb7e866a15a03cad34df57f436d2a945f6885184708a4
+target BOPS retention: 0.25
+actual BOPS retention: 0.249999538064003 (within +/-0.005)
+three FFN hidden domains: 256 -> 192
+exact fixed-ranked pruned units: 192
+parameters: 13,453,197 -> 13,354,701 (reduction 98,496)
+precision genes: 0 INT8 / 70 FP16 / 0 FP32
+canonical mapped weighted calls: 82; unresolved: 0
+requested and realized FP16 weighted calls: 82 / 82
+physical checkpoint strict reload: exact
+real wrapper parity: passed
+engine structure validation: passed, including changed physical shapes
+precision realization validation: passed
+engine SHA256: f05784ad380c24f914057772b69f755e2c58ea365f1508d529508a3406737e19
+engine size: 57,108,228 bytes
+evaluated/skipped: 20/0
+AP@0.30 / AP@0.50 / AP@0.70: 0.650478 / 0.535488 / 0.356677
+mAP: 0.514214
+forward p50/p90/p99 ms: 9.7172 / 9.8409 / 9.8897
+```
+
+This is the required real searched subnet proof: its model shapes and
+parameter count changed, the fixed GA mask was replayed exactly, and the
+engine was built from that physical ONNX rather than from the original model.
+
+The 23-member bounded GA archive contains ten candidates with both nonzero
+pruning and INT8 genes, but none is inside the formal 0.25 +/-0.005 BOPS band.
+They were not promoted merely to manufacture a combined proof.  The closest
+is at 0.24158135 and is correctly rejected by the hard admission rule.  The
+single production orchestrator has nevertheless exercised both its physical
+pruning branch and its entropy/QDQ branch on immutable searched candidates.
+
+### Root causes encountered and fixed
+
+1. Strongly typed LayerNormalization rejected FP16 activation with FP32
+   scale/bias.  The compatibility closure now casts all normalization inputs
+   to the declared activation type.
+2. Strongly typed Einsum requires all operands to share one floating type.
+   The same closure now types its constant/activation operands consistently.
+3. Parameter-free affine-grid MatMul nodes were initially treated as one
+   ambiguous weighted precision entry.  They remain in the canonical operator
+   audit but are excluded from the parameterized structure/precision checker.
+4. The production acceptance schema now reports entropy/per-channel Q/DQ as
+   `not_applicable_no_int8` for an FP16-only candidate rather than claiming a
+   quantization step that did not run.
+
+Failed intermediate directories (`..._1425`, `..._1430`, `..._1440`, and
+`..._1520`) are retained as read-only debugging evidence.  The two directories
+above are the accepted results.
+
+### Tests
+
+```text
+93 passed, 1 warning:
+  tests/test_search_model_family_v2xvit.py
+  tests/test_formal_packages_cpu.py
+  tests/test_search_strongly_typed_merge_realization.py
+
+46 passed:
+  tests/test_search_domain_width_genes.py
+  tests/test_search_greedy_budget.py
+  tests/test_search_gpu_batch_integration.py
+  tests/test_search_final_contract.py
+  tests/test_two_stage_joint_search.py
+```
+
+New tests cover exact GA archive identity replay, physical weighted-shape
+snapshotting, validated provider status, and LayerNorm/Einsum strongly typed
+closure.  Use `python -m pytest`; invoking a stale standalone pytest entry can
+lose the repository import root.
+
+### Reproduction commands
+
+```bash
+cd /home/lixingfeng/UniAD_examine/heal_compress
+source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+conda activate univ2x-opt
+
+# Greedy searched explicit-Q/DQ candidate (new output directory required).
+CUDA_VISIBLE_DEVICES=6 python scripts/deploy_searched_heal_v2xvit.py \
+  --device cuda:0 --physical-gpu 6 \
+  --output-dir outputs/<new-greedy-v2xvit-deployment-dir>
+
+# Exact GA nonzero physical candidate.
+CUDA_VISIBLE_DEVICES=6 python scripts/deploy_searched_heal_v2xvit.py \
+  --device cuda:0 --physical-gpu 6 \
+  --search-artifact \
+    outputs/h800_heal_v2xvit_ga_greedy_smoke_authoritative_20260717_133212/ga_smoke.json \
+  --candidate-hash \
+    9412a9a23d093d5e2dfcb7e866a15a03cad34df57f436d2a945f6885184708a4 \
+  --output-dir outputs/<new-ga-pruned-v2xvit-deployment-dir>
+```
+
+### Acceptance boundary
+
+```text
+real_searched_mixed_precision_engine_complete: true
+real_searched_nonzero_physical_subnet_engine_complete: true
+physical_checkpoint_strict_reload_complete: true
+physical_onnx_structure_validation_complete: true
+strongly_typed_tensorrt_complete: true
+precision_realization_complete: true
+real_fixed_manifest_smoke_evaluation_complete: true
+unresolved_weighted_calls: 0
+
+full_validation_complete: false
+broad_budget_pareto_search_complete: false
+transformer_int8_enabled: false
+attention_head_pruning_enabled: false
+```
+
+The 20-frame runs are real AP/latency smoke evaluations, not full-validation
+accuracy claims.  They are sufficient to close the requested end-to-end smoke
+gate and permit later bounded GA/greedy expansion; they do not establish a
+final Pareto frontier.
+
+---
+
+Round 6 timestamp: 2026-07-18 05:38 CST / accepted artifact sequences `20260717_1450`, `20260717_1530`
+
+---
