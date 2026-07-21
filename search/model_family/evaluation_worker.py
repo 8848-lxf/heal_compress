@@ -188,10 +188,17 @@ def main(argv: list[str] | None = None) -> int:
                         {
                             "frame_id": frame_id,
                             "phase": role,
+                            # Keep the family worker compatible with the common
+                            # fairness/latency audit contract.  Older artifacts
+                            # only carried ``phase``; consumers had to infer the
+                            # warmup split and could accidentally include warmup
+                            # samples in the per-frame CSV.
+                            "warmup": role == "warmup",
                             "input_prepare_ms": prepare_ms,
                             "host_to_device_ms": h2d_ms,
                             "forward_ms": forward_ms,
                             "postprocess_ms": post_ms,
+                            "total_ms": forward_ms + post_ms,
                         }
                     )
                     if role == "warmup":

@@ -192,6 +192,87 @@ def test_fcooper_precision_mapping_keeps_int8_compute_output_and_max_island_fp16
     assert island["weighted_fusion_int8_forbidden"] is True
 
 
+def test_prune_only_auxiliary_fp32_contract_is_propagated_and_realized(
+    tmp_path: Path,
+) -> None:
+    from search.model_family import (
+        build_heal_lidar_baseline_precision_mapping,
+        insert_heal_lidar_baseline_explicit_qdq,
+        validate_heal_lidar_precision_realization,
+    )
+
+    path = tmp_path / "fcooper.onnx"
+    qdq_path = tmp_path / "fcooper_fp32_qdq.onnx"
+    _write_island_onnx(path, "heal_lidar_fcooper", include_weighted=True)
+    audit = _audit("heal_lidar_fcooper", [_capability("backbone.conv")])
+    origin = _origin(["backbone.conv"])
+    prune_only, contract = build_heal_lidar_baseline_precision_mapping(
+        origin,
+        {"backbone.conv": "fp32"},
+        audit=audit,
+        canonical_onnx_path=path,
+        profile_id="prune-only",
+        auxiliary_precision="fp32",
+    )
+    normal, _ = build_heal_lidar_baseline_precision_mapping(
+        origin,
+        {"backbone.conv": "fp32"},
+        audit=audit,
+        canonical_onnx_path=path,
+        profile_id="normal",
+    )
+
+    assert set(prune_only.auxiliary_layer_precisions.values()) == {"fp32"}
+    assert set(prune_only.auxiliary_layer_output_types.values()) == {"fp32"}
+    assert set(normal.auxiliary_layer_precisions.values()) == {"fp16"}
+    assert contract["auxiliary_precision"] == "fp32"
+
+    weighted = {
+        "Name": "weighted",
+        "LayerType": "Convolution",
+        "Inputs": [{"Format/Datatype": "Float"}],
+        "Outputs": [{"Format/Datatype": "Float"}],
+        "Metadata": "[ONNX Layer: __canonical__0]",
+    }
+    auxiliary_metadata = "\x1f".join(
+        f"[ONNX Layer: {name}]"
+        for name in sorted(prune_only.auxiliary_layer_precisions)
+    )
+    auxiliary = {
+        "Name": "fused-auxiliary",
+        "LayerType": "kgen",
+        "Inputs": [{"Format/Datatype": "Float"}],
+        "Outputs": [{"Format/Datatype": "Float"}],
+        "Metadata": auxiliary_metadata,
+    }
+    rows = [weighted, auxiliary]
+
+    accepted = validate_heal_lidar_precision_realization(
+        rows, prune_only, family="heal_lidar_fcooper"
+    )
+    rejected = validate_heal_lidar_precision_realization(
+        rows, normal, family="heal_lidar_fcooper"
+    )
+    assert accepted["passed"] is True
+    assert accepted["fusion_island"]["required_precision"] == "fp32"
+    assert rejected["passed"] is False
+    assert any(
+        "not_fp16" in issue for issue in rejected["fusion_island"]["issues"]
+    )
+
+    _result, qdq_audit = insert_heal_lidar_baseline_explicit_qdq(
+        path,
+        qdq_path,
+        prune_only,
+        family="heal_lidar_fcooper",
+        scales={},
+    )
+    assert qdq_audit["passed"] is True
+    assert qdq_audit["auxiliary_precision"] == "fp32"
+    assert set(qdq_audit["inserted_auxiliary_precisions"].values()) == {"fp32"}
+    assert set(qdq_audit["inserted_auxiliary_output_types"].values()) == {"fp32"}
+
+
 def test_precision_mapping_rejects_origin_modules_missing_from_audit(tmp_path: Path) -> None:
     from search.model_family import build_heal_lidar_baseline_precision_mapping
 
@@ -419,6 +500,134 @@ def test_baseline_candidate_result_publishes_generic_stage2_score(tmp_path: Path
 
     assert json.loads((tmp_path / "candidate_stage2_result.json").read_text()) == result
     assert json.loads((tmp_path / "stage2_score.json").read_text()) == result
+
+
+def test_baseline_candidate_build_only_api_does_not_evaluate(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from types import SimpleNamespace
+
+    from search.candidate import CandidatePhenotype, PrecisionDecision
+    from search.stage2.heal_lidar_baseline_real_evaluator import (
+        HealLidarBaselineCandidateEvaluator,
+    )
+    from search.stage2 import heal_lidar_baseline_real_evaluator as evaluator_module
+
+    model = nn.Conv2d(1, 1, 1)
+
+    class Provider:
+        @staticmethod
+        def audit(*_args, **_kwargs):
+            return object()
+
+    context = SimpleNamespace(
+        model=model,
+        model_bundle=SimpleNamespace(provider=Provider(), config={}),
+        trace_example_inputs={},
+        family_id="heal_lidar_fcooper",
+    )
+    evaluator = object.__new__(HealLidarBaselineCandidateEvaluator)
+    evaluator.context = context
+
+    def fake_materialize(_phenotype, output_dir):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return {"model": model}
+
+    evaluator._materialize = fake_materialize
+    evaluator._calibration_scales = lambda **_kwargs: ({}, {"frame_count": 0})
+
+    source_onnx = tmp_path / "source.onnx"
+    source_onnx.write_bytes(b"onnx")
+    export = SimpleNamespace(
+        export=SimpleNamespace(origin_map=object(), onnx_path=source_onnx)
+    )
+
+    class Mapping:
+        entries = [SimpleNamespace(requested_precision="int8")]
+
+        @staticmethod
+        def to_dict():
+            return {"entries": [{"requested_precision": "int8"}]}
+
+    mapping = Mapping()
+    qdq_path = tmp_path / "qdq.onnx"
+
+    class QDQ:
+        output_onnx = str(qdq_path)
+
+        @staticmethod
+        def to_dict():
+            return {"output_onnx": str(qdq_path)}
+
+    class RealEvaluator:
+        @staticmethod
+        def export_candidate(*_args, **_kwargs):
+            return export
+
+        @staticmethod
+        def build_engine(_model, _qdq, *, output_dir):
+            output_dir.mkdir(parents=True, exist_ok=True)
+            engine = output_dir / "candidate.plan"
+            engine.write_bytes(b"engine")
+            acceptance = {
+                "passed": True,
+                "weighted_precision": {"realized_int8_count": 1},
+                "fusion_island": {"passed": True},
+            }
+            (output_dir / "precision_realization_acceptance.json").write_text(
+                json.dumps(acceptance), encoding="utf-8"
+            )
+            return {
+                "engine_path": engine,
+                "engine_sha256": "engine-hash",
+                "precision_acceptance": acceptance,
+            }
+
+        @staticmethod
+        def evaluate_existing_engine(*_args, **_kwargs):
+            raise AssertionError("build-only API must not evaluate")
+
+    evaluator._real_evaluator = lambda **_kwargs: RealEvaluator()
+    mapping_call = {}
+
+    def fake_mapping(*_args, **kwargs):
+        mapping_call.update(kwargs)
+        return mapping, {"policy": "fp32_fusion"}
+
+    monkeypatch.setattr(
+        evaluator_module,
+        "build_heal_lidar_baseline_precision_mapping",
+        fake_mapping,
+    )
+
+    def fake_insert(*_args, **_kwargs):
+        qdq_path.write_bytes(b"qdq")
+        return QDQ(), {"passed": True}
+
+    monkeypatch.setattr(
+        evaluator_module, "insert_heal_lidar_baseline_explicit_qdq", fake_insert
+    )
+    phenotype = CandidatePhenotype(
+        pruned_unit_ids=[],
+        precision_profile={"conv": PrecisionDecision("INT8", "INT8", "")},
+        pruning_policy_version="test",
+        precision_policy_version="test",
+        metadata={"heal_lidar_auxiliary_precision": "FP32"},
+    )
+
+    result = evaluator.build_candidate_artifacts(
+        phenotype,
+        output_dir=tmp_path / "candidate",
+        candidate_hash="candidate",
+    )
+
+    assert result["status"] == "ok"
+    assert result["engine_built_this_call"] is True
+    assert result["evaluation_invoked"] is False
+    assert result["auxiliary_precision"] == "fp32"
+    assert mapping_call["auxiliary_precision"] == "fp32"
+    assert (tmp_path / "candidate/candidate_build_result.json").is_file()
+    assert not (tmp_path / "candidate/evaluation").exists()
 
 
 def test_heal_lidar_onnx_export_critical_section_is_serialized() -> None:

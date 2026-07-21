@@ -400,6 +400,8 @@ def build_heal_lidar_baseline_quantization_groups(
 def _semantic_merge_nodes(
     canonical_onnx_path: str | Path,
     family_id: str,
+    *,
+    precision: str = "fp16",
 ) -> dict[str, str]:
     """Select feature merges explicitly; shape-construction Concats are excluded."""
 
@@ -417,12 +419,14 @@ def _semantic_merge_nodes(
     }
     if missing:
         raise RuntimeError(f"heal_lidar_semantic_merge_nodes_missing:{family_id}:{missing}")
-    return {name: "fp16" for name in required}
+    return {name: _normalize_auxiliary_precision(precision) for name in required}
 
 
 def _fusion_island_nodes(
     canonical_onnx_path: str | Path,
     family_id: str,
+    *,
+    precision: str = "fp16",
 ) -> dict[str, str]:
     import onnx
 
@@ -453,7 +457,16 @@ def _fusion_island_nodes(
     }
     if missing:
         raise RuntimeError(f"heal_lidar_fusion_island_nodes_missing:{family_id}:{missing}")
-    return {name: "fp16" for name in required}
+    return {name: _normalize_auxiliary_precision(precision) for name in required}
+
+
+def _normalize_auxiliary_precision(value: str) -> str:
+    precision = str(value).strip().lower()
+    if precision not in {"fp16", "fp32"}:
+        raise RuntimeError(
+            f"unsupported_heal_lidar_auxiliary_precision:{value}"
+        )
+    return precision
 
 
 def build_heal_lidar_baseline_precision_mapping(
@@ -463,10 +476,12 @@ def build_heal_lidar_baseline_precision_mapping(
     audit: ModelFamilyAudit,
     canonical_onnx_path: str | Path,
     profile_id: str,
+    auxiliary_precision: str = "fp16",
 ) -> tuple[CanonicalPrecisionMappingResult, dict[str, Any]]:
-    """Expand module genes and enforce family-specific FP16 fusion islands."""
+    """Expand module genes and enforce the family auxiliary precision contract."""
 
     family_id = _family_id(audit)
+    auxiliary_precision = _normalize_auxiliary_precision(auxiliary_precision)
     profile = {str(key): str(value).lower() for key, value in module_precision_profile.items()}
     origin_modules = {str(row.module_path) for row in origin_map.entries}
     missing = sorted(origin_modules - set(profile))
@@ -511,15 +526,26 @@ def build_heal_lidar_baseline_precision_mapping(
         origin_map_hash=str(origin_map.origin_map_hash),
         policy_version="heal-lidar-baseline-explicit-qdq-strong-type-v1",
     )
-    semantic_merges = _semantic_merge_nodes(canonical_onnx_path, family_id)
-    island_nodes = _fusion_island_nodes(canonical_onnx_path, family_id)
+    semantic_merges = _semantic_merge_nodes(
+        canonical_onnx_path,
+        family_id,
+        precision=auxiliary_precision,
+    )
+    island_nodes = _fusion_island_nodes(
+        canonical_onnx_path,
+        family_id,
+        precision=auxiliary_precision,
+    )
     auxiliary = {**semantic_merges, **island_nodes}
     mapping = CanonicalPrecisionMappingResult(
         entries=list(mapping.entries),
         profile_id=mapping.profile_id,
         profile_hash=mapping.profile_hash,
         origin_map_hash=mapping.origin_map_hash,
-        policy_version="heal-lidar-baseline-explicit-qdq-fp16-fusion-island-v1",
+        policy_version=(
+            "heal-lidar-baseline-explicit-qdq-"
+            f"{auxiliary_precision}-fusion-island-v1"
+        ),
         auxiliary_layer_precisions=auxiliary,
         auxiliary_layer_output_types=auxiliary,
     )
@@ -533,6 +559,7 @@ def build_heal_lidar_baseline_precision_mapping(
     report = {
         "schema_version": "heal-lidar-fusion-island-v1",
         "family_id": family_id,
+        "auxiliary_precision": auxiliary_precision,
         "fusion_nodes": island_nodes,
         "weighted_fusion_modules": sorted(
             module_path for module_path in profile if module_path.startswith("fusion_net.")
@@ -559,10 +586,49 @@ def insert_heal_lidar_baseline_explicit_qdq(
     """Insert exact Q/DQ and re-audit the semantic fusion island."""
 
     family_id = _family_id(family)
-    expected_nodes = _fusion_island_nodes(input_onnx, family_id)
-    missing_auxiliary = sorted(set(expected_nodes) - set(mapping.auxiliary_layer_precisions))
-    if missing_auxiliary:
-        raise RuntimeError(f"heal_lidar_fusion_island_missing_from_mapping:{missing_auxiliary}")
+    required_node_names = set(_semantic_merge_nodes(input_onnx, family_id)) | set(
+        _fusion_island_nodes(input_onnx, family_id)
+    )
+    missing_auxiliary = sorted(
+        required_node_names - set(mapping.auxiliary_layer_precisions)
+    )
+    missing_outputs = sorted(
+        required_node_names - set(mapping.auxiliary_layer_output_types)
+    )
+    if missing_auxiliary or missing_outputs:
+        raise RuntimeError(
+            "heal_lidar_fusion_island_missing_from_mapping:"
+            f"precision={missing_auxiliary}:output={missing_outputs}"
+        )
+    auxiliary_precisions = {
+        _normalize_auxiliary_precision(mapping.auxiliary_layer_precisions[name])
+        for name in required_node_names
+    }
+    if len(auxiliary_precisions) != 1:
+        raise RuntimeError(
+            "heal_lidar_auxiliary_precision_not_uniform:"
+            f"{sorted(auxiliary_precisions)}"
+        )
+    auxiliary_precision = next(iter(auxiliary_precisions))
+    auxiliary_outputs = {
+        _normalize_auxiliary_precision(mapping.auxiliary_layer_output_types[name])
+        for name in required_node_names
+    }
+    if auxiliary_outputs != {auxiliary_precision}:
+        raise RuntimeError(
+            "heal_lidar_auxiliary_output_precision_mismatch:"
+            f"compute={auxiliary_precision}:output={sorted(auxiliary_outputs)}"
+        )
+    expected_nodes = _fusion_island_nodes(
+        input_onnx,
+        family_id,
+        precision=auxiliary_precision,
+    )
+    expected_merges = _semantic_merge_nodes(
+        input_onnx,
+        family_id,
+        precision=auxiliary_precision,
+    )
     result = insert_explicit_qdq(
         input_onnx,
         output_onnx,
@@ -571,12 +637,46 @@ def insert_heal_lidar_baseline_explicit_qdq(
         config=config,
         calibration_metadata=calibration_metadata,
     )
-    realized_nodes = _fusion_island_nodes(output_onnx, family_id)
+    realized_nodes = _fusion_island_nodes(
+        output_onnx,
+        family_id,
+        precision=auxiliary_precision,
+    )
+    realized_merges = _semantic_merge_nodes(
+        output_onnx,
+        family_id,
+        precision=auxiliary_precision,
+    )
+    inserted_auxiliary = {
+        str(name): str(precision)
+        for name, precision in dict(
+            result.calibration_metadata.get("auxiliary_layer_precisions", {})
+        ).items()
+        if str(name) in required_node_names
+    }
+    inserted_outputs = {
+        str(name): str(precision)
+        for name, precision in dict(
+            result.calibration_metadata.get("auxiliary_layer_output_types", {})
+        ).items()
+        if str(name) in required_node_names
+    }
+    expected_auxiliary = {**expected_merges, **expected_nodes}
     audit = {
         "schema_version": "heal-lidar-qdq-fusion-island-audit-v1",
         "family_id": family_id,
-        "passed": realized_nodes == expected_nodes,
+        "passed": bool(
+            realized_nodes == expected_nodes
+            and realized_merges == expected_merges
+            and inserted_auxiliary == expected_auxiliary
+            and inserted_outputs == expected_auxiliary
+        ),
+        "auxiliary_precision": auxiliary_precision,
         "fusion_nodes": realized_nodes,
+        "semantic_merge_nodes": realized_merges,
+        "expected_auxiliary_precisions": expected_auxiliary,
+        "inserted_auxiliary_precisions": inserted_auxiliary,
+        "inserted_auxiliary_output_types": inserted_outputs,
         "inserted_int8_layer_count": int(result.inserted_layer_count),
         "requested_int8_count": int(result.requested_int8_count),
         "qdq_output_sha256": str(result.output_sha256),
@@ -594,19 +694,22 @@ def validate_heal_lidar_fusion_island_realization(
     *,
     family: str | ModelFamilyAudit,
     required_precision: str = "fp16",
+    required_nodes: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Prove fused TensorRT warp/fusion kernels did not realize as INT8."""
+    """Prove fused TensorRT warp/fusion kernels realize the mapping contract."""
 
     family_id = _family_id(family)
-    required_nodes = (
+    required_precision = _normalize_auxiliary_precision(required_precision)
+    default_nodes = (
         ("/GridSample", "/Mul_6", "/Where_2", "/ReduceMax")
         if family_id == "heal_lidar_fcooper"
         else ("/GridSample", "/Mul_6", "/Concat_5", "/Where_3", "/Softmax", "/Expand_2", "/Mul_9", "/ReduceSum")
     )
+    nodes_to_check = tuple(required_nodes) if required_nodes is not None else default_nodes
     rows = load_layer_info(layer_info)
     findings = []
     issues = []
-    for node_name in required_nodes:
+    for node_name in nodes_to_check:
         matches = [row for row in rows if has_canonical_identity(row, node_name)]
         precisions = sorted({precision_name(row) for row in matches if precision_name(row)})
         findings.append({
@@ -639,7 +742,34 @@ def validate_heal_lidar_precision_realization(
     family: str | ModelFamilyAudit,
 ) -> dict[str, Any]:
     weighted = validate_precision_realization(layer_info, mapping)
-    fusion = validate_heal_lidar_fusion_island_realization(layer_info, family=family)
+    family_id = _family_id(family)
+    auxiliary = {
+        str(name): _normalize_auxiliary_precision(precision)
+        for name, precision in mapping.auxiliary_layer_precisions.items()
+    }
+    if not auxiliary:
+        raise RuntimeError("heal_lidar_auxiliary_precision_mapping_missing")
+    auxiliary_outputs = {
+        str(name): _normalize_auxiliary_precision(precision)
+        for name, precision in mapping.auxiliary_layer_output_types.items()
+    }
+    if auxiliary_outputs != auxiliary:
+        raise RuntimeError(
+            "heal_lidar_auxiliary_output_precision_mismatch:"
+            f"compute={auxiliary}:output={auxiliary_outputs}"
+        )
+    required_precisions = set(auxiliary.values())
+    if len(required_precisions) != 1:
+        raise RuntimeError(
+            "heal_lidar_auxiliary_precision_not_uniform:"
+            f"{sorted(required_precisions)}"
+        )
+    required_precision = next(iter(required_precisions))
+    fusion = validate_heal_lidar_fusion_island_realization(
+        layer_info,
+        family=family_id,
+        required_precision=required_precision,
+    )
     return {
         "schema_version": "heal-lidar-trt-precision-acceptance-v1",
         "passed": bool(weighted.passed and fusion["passed"]),

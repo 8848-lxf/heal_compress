@@ -154,6 +154,7 @@ class HealLidarBaselineRealEvaluator:
         output_dir: str | Path,
         profile_id: str,
         calibration_metadata: Mapping[str, Any] | None = None,
+        auxiliary_precision: str = "fp16",
     ) -> dict[str, Any]:
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
@@ -164,6 +165,7 @@ class HealLidarBaselineRealEvaluator:
             audit=audit,
             canonical_onnx_path=export_artifact.export.onnx_path,
             profile_id=profile_id,
+            auxiliary_precision=auxiliary_precision,
         )
         qdq, qdq_island = insert_heal_lidar_baseline_explicit_qdq(
             export_artifact.export.onnx_path,
@@ -306,6 +308,7 @@ class HealLidarBaselineRealEvaluator:
         output_dir: str | Path,
         profile_id: str,
         calibration_metadata: Mapping[str, Any] | None = None,
+        auxiliary_precision: str = "fp16",
     ) -> dict[str, Any]:
         destination = Path(output_dir)
         export = self.export_candidate(model, ego_batch, audit, output_dir=destination / "export")
@@ -317,6 +320,7 @@ class HealLidarBaselineRealEvaluator:
             output_dir=destination / "qdq",
             profile_id=profile_id,
             calibration_metadata=calibration_metadata,
+            auxiliary_precision=auxiliary_precision,
         )
         engine = self.build_engine(model, qdq, output_dir=destination / "deployment")
         evaluation = self.evaluate_existing_engine(
@@ -541,6 +545,66 @@ class HealLidarBaselineCandidateEvaluator:
         destination.mkdir(parents=True, exist_ok=True)
         self._write_json(destination / "phenotype.json", phenotype.to_dict())
         try:
+            deployment = self.build_candidate_artifacts(
+                phenotype,
+                output_dir=destination,
+                candidate_hash=candidate_hash,
+            )
+            evaluator = self._real_evaluator(output_dir=destination)
+            evaluation = evaluator.evaluate_existing_engine(
+                deployment["engine_path"],
+                output_dir=destination / "evaluation",
+                expected_engine_sha256=deployment["engine_sha256"],
+            )
+            baseline = self._stage2_reference_baseline()
+            score = compute_stage2_score(
+                evaluation,
+                baseline=baseline,
+                config=self.objective_config,
+            )
+            result = {
+                **deployment,
+                "status": "ok",
+                "candidate_hash": candidate_hash,
+                "artifact_dir": str(destination),
+                "evaluation_acceptance": evaluation.get("status") == "ok",
+                **evaluation,
+                **score,
+                "evaluation_invoked": True,
+            }
+            self._write_candidate_result(destination, result)
+            return result
+        except Exception as exc:  # noqa: BLE001
+            result = {
+                "status": "evaluation_failed",
+                "failure_reason": f"{type(exc).__name__}:{exc}",
+                "failure_traceback": traceback.format_exc(),
+                "F2": float("inf"),
+                "candidate_hash": candidate_hash,
+                "artifact_dir": str(destination),
+            }
+            self._write_candidate_result(destination, result)
+            return result
+
+    def build_candidate_artifacts(
+        self,
+        phenotype: Any,
+        *,
+        output_dir: str | Path,
+        candidate_hash: str = "",
+    ) -> dict[str, Any]:
+        """Build physical/ONNX/QDQ/engine artifacts without evaluating them.
+
+        This is the formal build-only boundary used by P/Q ablations.  It lets
+        orchestration serialize engine construction independently from fresh
+        full-validation workers and makes it impossible to mistake a short
+        ``evaluate_candidate`` run for an engine-build phase.
+        """
+
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        self._write_json(destination / "phenotype.json", phenotype.to_dict())
+        try:
             physical = self._materialize(phenotype, destination / "physical")
             model = physical["model"]
             audit = self.context.model_bundle.provider.audit(
@@ -559,12 +623,16 @@ class HealLidarBaselineCandidateEvaluator:
                 module_path: precision.lower()
                 for module_path, precision in phenotype.realized_precision_profile.items()
             }
+            auxiliary_precision = str(
+                phenotype.metadata.get("heal_lidar_auxiliary_precision", "FP16")
+            ).lower()
             mapping, island = build_heal_lidar_baseline_precision_mapping(
                 export.export.origin_map,
                 profile,
                 audit=audit,
                 canonical_onnx_path=export.export.onnx_path,
                 profile_id=candidate_hash or "candidate",
+                auxiliary_precision=auxiliary_precision,
             )
             scales, calibration = self._calibration_scales(
                 model=model,
@@ -587,58 +655,73 @@ class HealLidarBaselineCandidateEvaluator:
                 "qdq_fusion_island": qdq_island,
                 "qdq_onnx_path": Path(qdq_result.output_onnx),
             }
-            self._write_json(destination / "qdq/canonical_precision_mapping.json", mapping.to_dict())
+            self._write_json(
+                destination / "qdq/canonical_precision_mapping.json", mapping.to_dict()
+            )
             self._write_json(destination / "qdq/fusion_island_contract.json", island)
-            self._write_json(destination / "qdq/qdq_insertion_acceptance.json", qdq_result.to_dict())
-            self._write_json(destination / "calibration/calibration_metadata.json", calibration)
-            engine = evaluator.build_engine(model, qdq, output_dir=destination / "deployment")
-            evaluation = evaluator.evaluate_existing_engine(
-                engine["engine_path"],
-                output_dir=destination / "evaluation",
-                expected_engine_sha256=engine["engine_sha256"],
+            self._write_json(
+                destination / "qdq/qdq_insertion_acceptance.json", qdq_result.to_dict()
             )
-            baseline = self._stage2_reference_baseline()
-            score = compute_stage2_score(
-                evaluation,
-                baseline=baseline,
-                config=self.objective_config,
+            self._write_json(
+                destination / "calibration/calibration_metadata.json", calibration
             )
-            before = sum(int(parameter.numel()) for parameter in self.context.model.parameters())
+            engine = evaluator.build_engine(
+                model, qdq, output_dir=destination / "deployment"
+            )
+            before = sum(
+                int(parameter.numel()) for parameter in self.context.model.parameters()
+            )
             after = sum(int(parameter.numel()) for parameter in model.parameters())
             result = {
+                "schema_version": "heal-lidar-candidate-build-only-v1",
                 "status": "ok",
                 "candidate_hash": candidate_hash,
-                "artifact_dir": str(destination),
+                "artifact_dir": str(destination.resolve()),
+                "engine_path": str(Path(engine["engine_path"]).resolve()),
+                "engine_sha256": engine["engine_sha256"],
+                "engine_built_this_call": True,
+                "evaluation_invoked": False,
                 "physical_parameter_count_before": before,
                 "physical_parameter_count_after": after,
                 "physical_parameter_pruning_ratio": 1.0 - after / max(before, 1),
-                "engine_sha256": engine["engine_sha256"],
                 "requested_int8_count": sum(
                     row.requested_precision == "int8" for row in mapping.entries
                 ),
-                "realized_int8_count": engine["precision_acceptance"]["weighted_precision"]["realized_int8_count"],
+                "realized_int8_count": engine["precision_acceptance"][
+                    "weighted_precision"
+                ]["realized_int8_count"],
                 "physical_acceptance": True,
                 "qdq_acceptance": bool(qdq_island["passed"]),
                 "engine_acceptance": True,
                 "precision_acceptance": bool(engine["precision_acceptance"]["passed"]),
-                "merge_acceptance": bool(engine["precision_acceptance"]["fusion_island"]["passed"]),
-                "evaluation_acceptance": evaluation.get("status") == "ok",
-                **evaluation,
-                **score,
+                "merge_acceptance": bool(
+                    engine["precision_acceptance"]["fusion_island"]["passed"]
+                ),
+                "auxiliary_precision": auxiliary_precision,
+                "calibration_metadata_path": str(
+                    (destination / "calibration/calibration_metadata.json").resolve()
+                ),
+                "precision_acceptance_path": str(
+                    (
+                        destination
+                        / "deployment/precision_realization_acceptance.json"
+                    ).resolve()
+                ),
             }
-            self._write_candidate_result(destination, result)
+            self._write_json(destination / "candidate_build_result.json", result)
             return result
-        except Exception as exc:  # noqa: BLE001
-            result = {
-                "status": "evaluation_failed",
+        except Exception as exc:
+            failure = {
+                "schema_version": "heal-lidar-candidate-build-only-v1",
+                "status": "build_failed",
+                "candidate_hash": candidate_hash,
+                "artifact_dir": str(destination.resolve()),
                 "failure_reason": f"{type(exc).__name__}:{exc}",
                 "failure_traceback": traceback.format_exc(),
-                "F2": float("inf"),
-                "candidate_hash": candidate_hash,
-                "artifact_dir": str(destination),
+                "evaluation_invoked": False,
             }
-            self._write_candidate_result(destination, result)
-            return result
+            self._write_json(destination / "candidate_build_result.json", failure)
+            raise
 
     def reevaluate_existing_candidate_engine(
         self,
