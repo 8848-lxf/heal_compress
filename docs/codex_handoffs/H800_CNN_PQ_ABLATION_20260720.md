@@ -225,3 +225,41 @@ whole-repeat sharding及三模型强校验汇总器。最终相关测试为 40 p
 ---
 时间戳：2026-07-21 18:47:07 CST｜轮次：Round 4
 ---
+
+## Round 5：P-only / Q-only 独立实际 BOPS 重算
+
+原三模型汇总中的 `source_actual_bops` 是联合 P+Q 源候选的 Stage-1
+BOPS provenance；它在同一候选的 P+Q、P-only、Q-only 三行相同，不能作为
+三种消融 engine 各自的资源成本。现已在汇总器新增
+`--recompute-variant-bops`，按以下固定口径重新计算：
+
+`physical ONNX weighted MACs × weight_bits × activation_bits / original strict-FP32 weighted BOPS`。
+
+- P+Q：该候选的物理 ONNX 与其 realized precision profile；
+- P-only：同一物理 ONNX，所有有权重层强制 W32A32；
+- Q-only：all-keep physical ONNX，保留该候选的 realized precision profile；
+- strict FP32：all-keep physical ONNX，所有有权重层 W32A32。
+
+MACs 采用与搜索 BOPS proxy 相同的 module-level 口径（Conv/ConvTranspose
+按固定 K runtime H/W 与物理通道数；Linear/weighted MatMul 按 C_in×C_out），
+无权重的 protected affine-grid MatMul group 明确不计入 weighted BOPS。每行
+记录 physical ONNX 与 canonical mapping SHA256；原 `source_actual_bops`
+保留为溯源，不再被误用为变体实际值。
+
+新产物（不覆盖旧汇总）：
+
+- `outputs/h800_three_model_pq_ablation_summary_variant_bops_20260721_190000/`
+- `three_model_pq_ablation_summary.csv`：114 行，新增
+  `variant_actual_bops`、`variant_bops_abs_delta_from_budget`、
+  `variant_bops_compression_x`、variant/original weighted MACs/BOPS、
+  BOPS accounting 与 ONNX/mapping hash。
+
+抽查 0.30：Pyramid GA 为 P+Q 0.304223 / P-only 0.568324 /
+Q-only 0.556565；F-Cooper GA 为 0.304923 / 0.536527 / 0.711151；
+DiscoNet GA 为 0.304401 / 0.423893 / 0.709520。全部 36 个方法×预算组均已
+验证三种 `variant_actual_bops` 不同。此重算仅读取已有 artifact，不重建
+engine，不重跑评估。
+
+---
+时间戳：2026-07-21 19:00:00 CST｜轮次：Round 5
+---

@@ -4,8 +4,10 @@
 The source evaluators intentionally use different schemas.  This script reads
 only their compact JSON/CSV reports, validates the complete 3-model matrix and
 the shared full-validation protocol, then writes small synchronized CSV/JSON/MD
-summaries.  It never reads or copies ONNX, checkpoint, calibration, or engine
-payloads.
+summaries. By default it does not read ONNX payloads. ``--recompute-variant-bops``
+additionally audits each variant from its physical FP32 ONNX and canonical
+precision map; this is necessary because the joint search BOPS is provenance,
+not the independent P-only/Q-only resource cost.
 """
 
 from __future__ import annotations
@@ -58,6 +60,285 @@ def _none_or_int(value: Any) -> int | None:
     if value in (None, "", "None"):
         return None
     return int(float(value))
+
+
+def _bits(precision: str) -> int:
+    value = str(precision).upper()
+    if value == "INT8":
+        return 8
+    if value == "FP16":
+        return 16
+    if value == "FP32":
+        return 32
+    raise RuntimeError(f"unified_bops_unknown_precision:{precision}")
+
+
+def _find_runtime_shapes(
+    source_artifact_dir: str | Path,
+) -> dict[tuple[str, int], dict[str, Any]]:
+    current = Path(source_artifact_dir).resolve()
+    for candidate in (current, *current.parents):
+        path = candidate / "runtime_layer_shapes.json"
+        if path.is_file():
+            rows = list(_read_json(path).get("layers") or [])
+            return {
+                (str(row["module_path"]), int(row["call_index"])): dict(row)
+                for row in rows
+            }
+        if candidate.name == "outputs":
+            break
+    raise RuntimeError(f"unified_bops_runtime_shapes_missing:{source_artifact_dir}")
+
+
+def _artifact_onnx_and_mapping(artifact_dir: str | Path) -> tuple[Path, Path]:
+    root = Path(artifact_dir).resolve()
+    onnx_path = next(
+        (
+            path
+            for path in (
+                root / "export/physical_fp32.onnx",
+                root / "physical_fp32.onnx",
+                root / "pruned_fp32.onnx",
+            )
+            if path.is_file()
+        ),
+        None,
+    )
+    mapping_path = next(
+        (
+            path
+            for path in (
+                root / "qdq/canonical_precision_mapping.json",
+                root / "canonical_precision_mapping.json",
+                root / "canonical_layer_map.json",
+            )
+            if path.is_file()
+        ),
+        None,
+    )
+    if onnx_path is None or mapping_path is None:
+        raise RuntimeError(
+            "unified_bops_artifact_incomplete:"
+            f"artifact={root}:onnx={onnx_path}:mapping={mapping_path}"
+        )
+    return onnx_path, mapping_path
+
+
+def _node_macs(
+    *,
+    node: Any,
+    weight: Any,
+    runtime: Mapping[tuple[str, int], Mapping[str, Any]],
+    entry: Mapping[str, Any],
+) -> float:
+    op_type = str(node.op_type)
+    dimensions = tuple(int(value) for value in weight.dims)
+    if op_type in {"Conv", "ConvTranspose"}:
+        key = (str(entry["module_path"]), int(entry["call_index"]))
+        shape = runtime.get(key)
+        if shape is None:
+            # Canonical ONNX call_index is graph-global, whereas the runtime
+            # profiler records an index local to each module. The HEAL weighted
+            # modules are single-call; resolve that intentional index mismatch
+            # only when the module path is unambiguous.
+            matches = [
+                value
+                for (module_path, _), value in runtime.items()
+                if module_path == key[0]
+            ]
+            if len(matches) != 1:
+                raise RuntimeError(
+                    f"unified_bops_runtime_shape_missing_or_ambiguous:{key}:{len(matches)}"
+                )
+            shape = matches[0]
+        groups = next(
+            (int(attribute.i) for attribute in node.attribute if attribute.name == "group"),
+            1,
+        )
+        if len(dimensions) != 4:
+            raise RuntimeError(f"unified_bops_conv_weight_rank:{node.name}:{dimensions}")
+        if op_type == "Conv":
+            c_out, c_in = dimensions[0], dimensions[1] * groups
+        else:
+            c_in, c_out = dimensions[0], dimensions[1] * groups
+        return float(
+            int(shape["H_out"])
+            * int(shape["W_out"])
+            * dimensions[2]
+            * dimensions[3]
+            * c_in
+            * c_out
+            / max(groups, 1)
+        )
+    if op_type in {"MatMul", "Gemm"}:
+        if len(dimensions) != 2:
+            raise RuntimeError(f"unified_bops_linear_weight_rank:{node.name}:{dimensions}")
+        # Matches the search BOPS proxy's per-module convention: C_in*C_out,
+        # without multiplying a dynamic pillar/token extent.
+        return float(dimensions[0] * dimensions[1])
+    raise RuntimeError(f"unified_bops_unsupported_weighted_op:{op_type}:{node.name}")
+
+
+def _deployment_graph_bops(
+    *,
+    artifact_dir: str | Path,
+    runtime: Mapping[tuple[str, int], Mapping[str, Any]],
+    force_fp32: bool,
+) -> dict[str, Any]:
+    """Calculate weighted physical-ONNX BOPS under the variant's own profile."""
+
+    import onnx
+
+    onnx_path, mapping_path = _artifact_onnx_and_mapping(artifact_dir)
+    model = onnx.load(str(onnx_path), load_external_data=False)
+    nodes = {str(node.name): node for node in model.graph.node}
+    initializers = {str(value.name): value for value in model.graph.initializer}
+    entries = list(_read_json(mapping_path).get("entries") or [])
+    if not entries:
+        raise RuntimeError(f"unified_bops_mapping_entries_missing:{mapping_path}")
+    total_macs = 0.0
+    total_bops = 0.0
+    weighted_count = 0
+    parameter_free_count = 0
+    for raw_entry in entries:
+        entry = dict(raw_entry)
+        initializer_name = str(entry.get("weight_initializer", ""))
+        if not initializer_name:
+            # Functional affine-grid MatMul is protected but parameter-free.
+            parameter_free_count += 1
+            continue
+        node_name = str(entry["canonical_node_name"])
+        node = nodes.get(node_name)
+        if node is None:
+            raise RuntimeError(f"unified_bops_canonical_node_missing:{node_name}")
+        weight = initializers.get(initializer_name)
+        if weight is None:
+            raise RuntimeError(
+                f"unified_bops_weight_initializer_missing:{node_name}:{initializer_name}"
+            )
+        precision = "FP32" if force_fp32 else str(
+            entry.get("realized_request_precision") or entry.get("requested_precision")
+        )
+        macs = _node_macs(node=node, weight=weight, runtime=runtime, entry=entry)
+        bits = _bits(precision)
+        total_macs += macs
+        total_bops += macs * bits * bits
+        weighted_count += 1
+    return {
+        "bops_accounting": "physical_onnx_weighted_mac_x_wbits_x_abits_v1",
+        "physical_onnx_sha256": _sha256(onnx_path),
+        "canonical_mapping_sha256": _sha256(mapping_path),
+        "weighted_node_count": weighted_count,
+        "parameter_free_canonical_entry_count": parameter_free_count,
+        "weighted_macs": total_macs,
+        "weighted_bops": total_bops,
+    }
+
+
+def _inventory_index(
+    manifest: Mapping[str, Any],
+) -> dict[tuple[str, float | None, str], dict[str, Any]]:
+    result: dict[tuple[str, float | None, str], dict[str, Any]] = {}
+    for method, values in dict(manifest.get("inventories") or {}).items():
+        for raw in list(values or []):
+            row = dict(raw)
+            budget = _none_or_float(row.get("budget"))
+            key = (
+                str(method),
+                None if budget is None else round(budget, 2),
+                str(row["variant"]),
+            )
+            if key in result:
+                raise RuntimeError(f"unified_bops_duplicate_inventory:{key}")
+            result[key] = row
+    return result
+
+
+def _runtime_for_inventory(item: Mapping[str, Any]) -> dict[tuple[str, int], dict[str, Any]]:
+    source = str(item.get("source_artifact_dir") or "")
+    if source:
+        return _find_runtime_shapes(source)
+    candidate_hash = str(item.get("source_candidate_hash") or "")
+    artifact = Path(str(item["artifact_dir"])).resolve()
+    outputs_root = next((parent for parent in artifact.parents if parent.name == "outputs"), None)
+    if outputs_root is None:
+        raise RuntimeError(f"unified_bops_source_runtime_unresolvable:{artifact}")
+    if candidate_hash:
+        candidates = [path for path in outputs_root.glob(f"**/{candidate_hash}") if path.is_dir()]
+        for candidate in candidates:
+            try:
+                return _find_runtime_shapes(candidate)
+            except RuntimeError:
+                continue
+    # Older Pyramid ablation manifests omitted the source artifact for a few
+    # replayed greedy rows. Resolve only a runtime profile covering every
+    # parameterized canonical module of that physical artifact.
+    _onnx_path, mapping_path = _artifact_onnx_and_mapping(artifact)
+    required_modules = {
+        str(entry["module_path"])
+        for entry in list(_read_json(mapping_path).get("entries") or [])
+        if str(entry.get("weight_initializer", ""))
+    }
+    for path in sorted(outputs_root.glob("**/runtime_layer_shapes.json")):
+        runtime = _find_runtime_shapes(path.parent)
+        if required_modules.issubset({key[0] for key in runtime}):
+            return runtime
+    raise RuntimeError(
+        f"unified_bops_source_runtime_not_found:{candidate_hash}:{outputs_root}"
+    )
+
+
+def _apply_variant_bops(
+    rows: list[dict[str, Any]], *, model: str, manifest: Mapping[str, Any]
+) -> None:
+    """Attach independent BOPS for P+Q, P-only, Q-only and strict FP32."""
+
+    inventory = _inventory_index(manifest)
+    qonly = next(row for key, row in inventory.items() if key[2] == "quant_only")
+    baseline_runtime = _runtime_for_inventory(qonly)
+    baseline = _deployment_graph_bops(
+        artifact_dir=str(qonly["artifact_dir"]),
+        runtime=baseline_runtime,
+        force_fp32=True,
+    )
+    baseline_bops = float(baseline["weighted_bops"])
+    if baseline_bops <= 0.0:
+        raise RuntimeError(f"unified_bops_nonpositive_baseline:{model}")
+    for row in rows:
+        budget = row["budget"]
+        key = (
+            str(row["method"]),
+            None if budget is None else round(float(budget), 2),
+            str(row["variant"]),
+        )
+        if row["variant"] == "fp32":
+            computed = baseline
+        else:
+            item = inventory.get(key)
+            if item is None:
+                raise RuntimeError(f"unified_bops_inventory_missing:{model}:{key}")
+            computed = _deployment_graph_bops(
+                artifact_dir=str(item["artifact_dir"]),
+                runtime=_runtime_for_inventory(item),
+                force_fp32=row["variant"] == "prune_only",
+            )
+        actual = float(computed["weighted_bops"]) / baseline_bops
+        row.update(
+            {
+                "variant_actual_bops": actual,
+                "variant_bops_abs_delta_from_budget": (
+                    None if budget is None else abs(actual - float(budget))
+                ),
+                "variant_bops_compression_x": 1.0 / actual,
+                "variant_weighted_macs": float(computed["weighted_macs"]),
+                "original_fp32_weighted_macs": float(baseline["weighted_macs"]),
+                "variant_weighted_bops": float(computed["weighted_bops"]),
+                "original_fp32_weighted_bops": baseline_bops,
+                "bops_accounting": str(computed["bops_accounting"]),
+                "bops_physical_onnx_sha256": str(computed["physical_onnx_sha256"]),
+                "bops_canonical_mapping_sha256": str(computed["canonical_mapping_sha256"]),
+            }
+        )
 
 
 def _raw_identity(row: Mapping[str, Any], *, family_schema: bool) -> tuple[Any, ...]:
@@ -381,8 +662,9 @@ def load_pyramid_root(root: str | Path) -> tuple[list[dict[str, Any]], dict[str,
     raw_audit = _validate_raw_repeats(
         repeat_rows, model="lidar_pyramid", family_schema=False
     )
+    manifest = _read_json(manifest_path)
     protocol = _manifest_protocol(
-        _read_json(manifest_path),
+        manifest,
         model="lidar_pyramid",
         family_schema=False,
         source_root=directory,
@@ -411,6 +693,7 @@ def load_pyramid_root(root: str | Path) -> tuple[list[dict[str, Any]], dict[str,
         "manifest_path": str(manifest_path),
         "manifest_sha256": _sha256(manifest_path),
         "protocol": protocol,
+        "_inventory_manifest": manifest,
         **raw_audit,
     }
 
@@ -457,6 +740,7 @@ def load_family_root(
         "manifest_path": str(manifest_path),
         "manifest_sha256": _sha256(manifest_path),
         "protocol": protocol,
+        "_inventory_manifest": manifest,
         **raw_audit,
     }
 
@@ -466,6 +750,7 @@ def aggregate_three_models(
     pyramid_root: str | Path,
     fcooper_root: str | Path,
     disco_root: str | Path,
+    recompute_variant_bops: bool = False,
 ) -> dict[str, Any]:
     loaders = (
         load_pyramid_root(pyramid_root),
@@ -478,8 +763,18 @@ def aggregate_three_models(
             disco_root, model="lidar_disco", family_id="heal_lidar_disco"
         ),
     )
+    if recompute_variant_bops:
+        for model_rows, source in loaders:
+            _apply_variant_bops(
+                model_rows,
+                model=str(source["model"]),
+                manifest=dict(source["_inventory_manifest"]),
+            )
     rows = [row for model_rows, _ in loaders for row in model_rows]
-    sources = [source for _, source in loaders]
+    sources = [
+        {key: value for key, value in source.items() if key != "_inventory_manifest"}
+        for _, source in loaders
+    ]
     if len(rows) != len(MODELS) * len(METHODS) * (
         1 + len(BUDGETS) * len(VARIANTS)
     ):
@@ -509,7 +804,7 @@ def aggregate_three_models(
         )
     )
     return {
-        "schema_version": "heal-three-model-pq-ablation-summary-v1",
+        "schema_version": "heal-three-model-pq-ablation-summary-v2",
         "status": "accepted",
         "model_count": len(MODELS),
         "row_count": len(rows),
@@ -519,6 +814,7 @@ def aggregate_three_models(
         "shared_eval_manifest_hash": next(iter(manifest_hashes)),
         "shared_eval_manifest_file_sha256": next(iter(manifest_file_hashes)),
         "shared_frame_order_hash": next(iter(frame_hashes)),
+        "variant_bops_recomputed": bool(recompute_variant_bops),
         "sources": sources,
         "rows": rows,
     }
@@ -556,7 +852,7 @@ def _markdown(payload: Mapping[str, Any]) -> str:
                 method=row["method"],
                 budget=budget,
                 variant=row["variant"],
-                bops=float(row["source_actual_bops"]),
+                bops=float(row.get("variant_actual_bops", row["source_actual_bops"])),
                 params=row["parameter_count_effective"],
                 prune=float(row["parameter_pruning_rate"]),
                 i8=row["int8_count"],
@@ -600,6 +896,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fcooper-root", type=Path, required=True)
     parser.add_argument("--disco-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--recompute-variant-bops",
+        action="store_true",
+        help="Audit each P+Q/P-only/Q-only physical ONNX with its own BOPS.",
+    )
     return parser.parse_args()
 
 
@@ -609,6 +910,7 @@ def main() -> int:
         pyramid_root=args.pyramid_root,
         fcooper_root=args.fcooper_root,
         disco_root=args.disco_root,
+        recompute_variant_bops=bool(args.recompute_variant_bops),
     )
     write_outputs(payload, args.output_dir)
     print(
