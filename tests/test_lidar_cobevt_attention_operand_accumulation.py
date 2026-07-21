@@ -639,3 +639,305 @@ def test_mixed_accum_plugin_context_lifecycle_initializes_cublaslt_handle():
     assert "ensureLtHandle();" in source
     assert "void QKMixedAccumPlugin::detachFromContext" in source
     assert "releaseLtHandle();" in source
+
+
+def _six_block_f3_einsum_model():
+    import onnx
+    from onnx import TensorProto, helper
+
+    nodes = []
+    inputs = []
+    outputs = []
+    initializers = []
+    value_info = []
+    for block in range(6):
+        prefix = f"/layers.{block // 2}/{'window' if block % 2 == 0 else 'grid'}_attention/fn"
+        q = f"q_half_{block}"
+        k = f"k_half_{block}"
+        p = f"p_half_{block}"
+        v = f"v_half_{block}"
+        inputs.extend(
+            helper.make_tensor_value_info(name, TensorProto.FLOAT16, [1, 8, 32, 32])
+            for name in (q, k, p, v)
+        )
+        q_float = f"q_float_{block}"
+        k_float = f"k_float_{block}"
+        q_reshape = f"q_reshape_{block}"
+        k_reshape = f"k_reshape_{block}"
+        q_transpose = f"q_transpose_{block}"
+        k_transpose = f"k_transpose_{block}"
+        scale = f"scale_{block}"
+        scale_half = f"scale_half_{block}"
+        scaled_q = f"scaled_q_{block}"
+        qk = f"qk_{block}"
+        av = f"av_{block}"
+        initializers.append(helper.make_tensor(scale_half, TensorProto.FLOAT16, [], [0.1768]))
+        nodes.extend(
+            (
+                helper.make_node("Cast", [q], [q_float], name=f"{prefix}/QCast", to=TensorProto.FLOAT),
+                helper.make_node("Cast", [k], [k_float], name=f"{prefix}/KCast", to=TensorProto.FLOAT),
+                helper.make_node("Reshape", [q_float, "shape"], [q_reshape], name=f"{prefix}/QReshape"),
+                helper.make_node("Reshape", [k_float, "shape"], [k_reshape], name=f"{prefix}/KReshape"),
+                helper.make_node("Transpose", [q_reshape], [q_transpose], name=f"{prefix}/QTranspose"),
+                helper.make_node("Transpose", [k_reshape], [k_transpose], name=f"{prefix}/KTranspose"),
+                helper.make_node("Cast", [scale_half], [scale], name=f"{prefix}/ScaleCast", to=TensorProto.FLOAT),
+                helper.make_node("Mul", [q_transpose, scale], [scaled_q], name=f"{prefix}/Mul_6"),
+                helper.make_node(
+                    "Einsum", [scaled_q, k_transpose], [qk], name=f"{prefix}/Einsum",
+                    equation="b h i d, b h j d -> b h i j",
+                ),
+                helper.make_node(
+                    "Einsum", [p, v], [av], name=f"{prefix}/Einsum_1",
+                    equation="b h i j, b h j d -> b h i d",
+                ),
+            )
+        )
+        value_info.extend(
+            (
+                helper.make_tensor_value_info(q_float, TensorProto.FLOAT, [1, 8, 32, 32]),
+                helper.make_tensor_value_info(k_float, TensorProto.FLOAT, [1, 8, 32, 32]),
+                helper.make_tensor_value_info(q_reshape, TensorProto.FLOAT, [1, 8, 32, 32]),
+                helper.make_tensor_value_info(k_reshape, TensorProto.FLOAT, [1, 8, 32, 32]),
+                helper.make_tensor_value_info(q_transpose, TensorProto.FLOAT, [1, 8, 32, 32]),
+                helper.make_tensor_value_info(k_transpose, TensorProto.FLOAT, [1, 8, 32, 32]),
+                helper.make_tensor_value_info(scaled_q, TensorProto.FLOAT, [1, 8, 32, 32]),
+                helper.make_tensor_value_info(qk, TensorProto.FLOAT, [1, 8, 32, 32]),
+            )
+        )
+        outputs.append(helper.make_tensor_value_info(av, TensorProto.FLOAT16, [1, 8, 32, 32]))
+    initializers.append(helper.make_tensor("shape", TensorProto.INT64, [4], [1, 8, 32, 32]))
+    graph = helper.make_graph(nodes, "f3", inputs, outputs, initializers, value_info=value_info)
+    return helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+
+
+def test_full_model_plugin_rewrite_replaces_exact_six_qk_and_av_nodes(tmp_path):
+    import onnx
+
+    from search.model_families.lidar_cobevt.attention_plugin_rewrite import (
+        rewrite_f3_attention_einsums,
+    )
+
+    source = tmp_path / "f3.onnx"
+    output = tmp_path / "plugin.onnx"
+    onnx.save(_six_block_f3_einsum_model(), source)
+
+    report = rewrite_f3_attention_einsums(source, output, families=("QK", "AV"))
+    rewritten = onnx.load(output)
+    plugins = [node for node in rewritten.graph.node if node.op_type == "QKMixedAccumPlugin"]
+
+    assert report["qk_replaced_count"] == 6
+    assert report["av_replaced_count"] == 6
+    assert len(report["ignored_node_names"]) == 6
+    assert all(name.endswith("/Mul_6") for name in report["ignored_node_names"])
+    assert len(plugins) == 12
+    assert all(not value.startswith(("q_float", "k_float", "scaled_q")) for node in plugins[:6] for value in node.input)
+    assert all(row["operand_dtype"] == "FP16" for row in report["replacement_records"])
+
+
+def test_full_model_plugin_rewrite_fails_closed_on_incomplete_attention_graph(tmp_path):
+    import onnx
+    import pytest
+
+    from search.model_families.lidar_cobevt.attention_plugin_rewrite import (
+        rewrite_f3_attention_einsums,
+    )
+
+    model = _six_block_f3_einsum_model()
+    del model.graph.node[-1]
+    source = tmp_path / "incomplete.onnx"
+    onnx.save(model, source)
+    with pytest.raises(RuntimeError, match="attention_plugin_rewrite_count_mismatch"):
+        rewrite_f3_attention_einsums(source, tmp_path / "out.onnx", families=("QK", "AV"))
+
+
+def test_cobevt_deployment_and_evaluation_accept_additional_plugin_paths(tmp_path):
+    from search.integration.lidar_cobevt_evaluation_provider import (
+        build_cobevt_evaluation_request,
+    )
+    from search.model_families.lidar_cobevt.deployment_recipe import (
+        append_static_plugins,
+    )
+
+    command = append_static_plugins(
+        ["trtexec", "--staticPlugins=scatter.so"], [tmp_path / "mixed.so"]
+    )
+    assert command[-1].endswith("mixed.so")
+    request = build_cobevt_evaluation_request(
+        engine_path="engine.plan", checkpoint="model.pth", model_config="config.yaml",
+        heal_root="HEAL", device="cuda:7", output_path="evaluation.json",
+        plugin_path="scatter.so", additional_plugin_paths=[tmp_path / "mixed.so"],
+        fixed_k=29696, num_frames=10, warmup_frames=20,
+        eval_manifest_path="smoke10.json", num_workers=8, ap_iou_backend="gpu",
+    )
+    assert request["additional_plugin_paths"] == [str(tmp_path / "mixed.so")]
+
+
+def test_cobevt_formal_latency_separates_warmup_and_timed_rounds(tmp_path):
+    from search.integration.lidar_cobevt_evaluation_provider import (
+        build_cobevt_evaluation_request,
+    )
+    from search.integration.lidar_cobevt_evaluation_worker import _execution_rounds
+
+    request = build_cobevt_evaluation_request(
+        engine_path="engine.plan", checkpoint="model.pth", model_config="config.yaml",
+        heal_root="HEAL", device="cuda:7", output_path="evaluation.json",
+        plugin_path="scatter.so", fixed_k=29696, num_frames=500, warmup_frames=20,
+        eval_manifest_path="fixed500.json", num_workers=8, ap_iou_backend="gpu",
+        latency_rounds=5, warmup_latency_rounds=10,
+    )
+    assert request["latency_rounds"] == 5
+    assert request["warmup_latency_rounds"] == 10
+    assert _execution_rounds("warmup", request) == 10
+    assert _execution_rounds("evaluation", request) == 5
+
+
+def test_full_model_accumulation_profiles_are_minimal_and_joint_is_gated():
+    from search.orchestration.lidar_cobevt_attention_accumulation_full_model import (
+        full_model_profile_matrix,
+        profile_evaluation_is_allowed,
+    )
+
+    profiles = {row.profile_id: row for row in full_model_profile_matrix()}
+    assert set(profiles) == {
+        "A0_F3_REFERENCE",
+        "A2_QK_F16A32_PLUGIN",
+        "B1_AV_F16A32_PLUGIN",
+        "C1_QK_AV_F16A32_PLUGIN",
+    }
+    assert profiles["A2_QK_F16A32_PLUGIN"].plugin_families == ("QK",)
+    assert profiles["B1_AV_F16A32_PLUGIN"].plugin_families == ("AV",)
+    assert profiles["C1_QK_AV_F16A32_PLUGIN"].plugin_families == ("QK", "AV")
+    assert not profile_evaluation_is_allowed(
+        "C1_QK_AV_F16A32_PLUGIN", {"A2_QK_F16A32_PLUGIN": True}
+    )
+    assert profile_evaluation_is_allowed(
+        "C1_QK_AV_F16A32_PLUGIN",
+        {"A2_QK_F16A32_PLUGIN": True, "B1_AV_F16A32_PLUGIN": True},
+    )
+
+
+def test_fixed500_safety_classification_uses_fresh_f3_delta():
+    from search.orchestration.lidar_cobevt_attention_accumulation_full_model import (
+        classify_fixed500_delta,
+    )
+
+    assert classify_fixed500_delta(-0.0029) == "SAFE_FIXED500"
+    assert classify_fixed500_delta(-0.0031) == "BORDERLINE_FIXED500"
+    assert classify_fixed500_delta(-0.0101) == "UNSAFE_FIXED500"
+
+
+def test_boundary_report_marks_plugin_oracle_experimental_even_with_level_a():
+    from search.reporting.cobevt_attention_accumulation_boundary import (
+        build_search_contract,
+    )
+
+    contract = build_search_contract(
+        [
+            {
+                "profile": "C1_QK_AV_F16A32_PLUGIN",
+                "implementation": "plugin_oracle",
+                "evidence_level": "Level A",
+                "fixed500_safety": "SAFE_FIXED500",
+                "formal_latency_gain": True,
+            },
+            {
+                "profile": "F3_REFERENCE",
+                "implementation": "native_tensorrt",
+                "evidence_level": "Level A",
+                "fixed500_safety": "SAFE_FIXED500",
+                "formal_latency_gain": True,
+            },
+        ]
+    )
+
+    assert "F3_REFERENCE" in contract["allowed"]
+    assert "C1_QK_AV_F16A32_PLUGIN" in contract["experimental"]
+    assert "C1_QK_AV_F16A32_PLUGIN" not in contract["allowed"]
+
+
+def test_boundary_report_rejects_unknown_accumulator_from_search_contract():
+    from search.reporting.cobevt_attention_accumulation_boundary import (
+        build_search_contract,
+    )
+
+    contract = build_search_contract(
+        [
+            {
+                "profile": "R1_NATIVE_FUSED_UNKNOWN",
+                "implementation": "native_tensorrt",
+                "evidence_level": "Level C",
+                "fixed500_safety": "SAFE_FIXED500",
+                "formal_latency_gain": True,
+            }
+        ]
+    )
+    assert contract["allowed"] == []
+    assert "R1_NATIVE_FUSED_UNKNOWN" in contract["rejected"]
+
+
+def test_boundary_root_conclusion_keeps_native_and_plugin_evidence_separate():
+    from search.reporting.cobevt_attention_accumulation_boundary import (
+        render_root_conclusion,
+    )
+
+    report = render_root_conclusion(
+        [
+            {
+                "profile": "A0_F3_REFERENCE",
+                "mAP": 0.6488,
+                "delta_mAP_vs_fresh_F3": 0.0,
+                "formal_forward_p50_ms": 5.08,
+                "formal_speedup_vs_A0": 1.0,
+                "fixed500_safety": "SAFE_FIXED500",
+            },
+            {
+                "profile": "C1_QK_AV_F16A32_PLUGIN",
+                "mAP": 0.6484,
+                "delta_mAP_vs_fresh_F3": -0.0004,
+                "formal_forward_p50_ms": 5.02,
+                "formal_speedup_vs_A0": 1.012,
+                "fixed500_safety": "SAFE_FIXED500",
+            },
+        ],
+        {
+            "allowed": ["A0_F3_REFERENCE"],
+            "experimental": ["C1_QK_AV_F16A32_PLUGIN"],
+            "rejected": [],
+            "unsupported": [],
+        },
+    )
+
+    assert "native TensorRT 10.9" in report
+    assert "plugin oracle" in report
+    assert "不等同于 native TensorRT" in report
+    assert "R1" in report
+    assert "INT8" in report
+
+
+def test_boundary_report_prefers_only_valid_strict_formal_replay(tmp_path):
+    import json
+
+    from search.reporting.cobevt_attention_accumulation_boundary import (
+        _select_formal_replay_root,
+    )
+
+    retry1 = tmp_path / "latency/formal_replay_retry1"
+    retry2 = tmp_path / "latency/formal_replay_retry2"
+    retry1.mkdir(parents=True)
+    retry2.mkdir(parents=True)
+    (retry2 / "formal_protocol.json").write_text(
+        json.dumps(
+            {
+                "status": "ok",
+                "warmup_executions": 200,
+                "timed_executions": 2500,
+                "latency_rounds": 5,
+            }
+        )
+    )
+    assert _select_formal_replay_root(tmp_path) == retry2
+
+    (retry2 / "formal_protocol.json").write_text(
+        json.dumps({"status": "ok", "warmup_executions": 100})
+    )
+    assert _select_formal_replay_root(tmp_path) == retry1

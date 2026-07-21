@@ -30,6 +30,7 @@ def build_cobevt_evaluation_request(
     device: str,
     output_path: str | Path,
     plugin_path: str | Path,
+    additional_plugin_paths: list[str | Path] | tuple[str | Path, ...] = (),
     fixed_k: int,
     num_frames: int,
     warmup_frames: int,
@@ -37,6 +38,7 @@ def build_cobevt_evaluation_request(
     num_workers: int = 8,
     ap_iou_backend: str = "gpu",
     latency_rounds: int = 1,
+    warmup_latency_rounds: int | None = None,
 ) -> dict[str, Any]:
     workers = int(num_workers)
     backend = str(ap_iou_backend).lower()
@@ -45,6 +47,10 @@ def build_cobevt_evaluation_request(
     if backend != "gpu":
         raise ValueError("cobevt_evaluation_gpu_ap_iou_required")
     visible, logical = _logical_device(device)
+    timed_rounds = max(1, int(latency_rounds))
+    warmup_rounds = timed_rounds if warmup_latency_rounds is None else max(
+        1, int(warmup_latency_rounds)
+    )
     return {
         "ap_iou_backend": backend,
         "checkpoint": str(checkpoint),
@@ -54,7 +60,8 @@ def build_cobevt_evaluation_request(
         "eval_manifest_path": str(eval_manifest_path),
         "fixed_k": int(fixed_k),
         "heal_root": str(heal_root),
-        "latency_rounds": int(latency_rounds),
+        "latency_rounds": timed_rounds,
+        "warmup_latency_rounds": warmup_rounds,
         "model_config": str(model_config),
         "model_family": "lidar_cobevt",
         "num_frames": int(num_frames),
@@ -62,6 +69,7 @@ def build_cobevt_evaluation_request(
         "output_path": str(output_path),
         "physical_device": str(device),
         "plugin_path": str(plugin_path),
+        "additional_plugin_paths": [str(value) for value in additional_plugin_paths],
         "strict_gpu_ap_iou": True,
         "warmup_frames": int(warmup_frames),
     }
@@ -77,6 +85,7 @@ def evaluate_cobevt_engine_modelopt(
     output_dir: str | Path,
     tensorrt_root: str | Path,
     plugin_path: str | Path,
+    additional_plugin_paths: list[str | Path] | tuple[str | Path, ...] = (),
     fixed_k: int,
     num_frames: int,
     warmup_frames: int,
@@ -85,6 +94,7 @@ def evaluate_cobevt_engine_modelopt(
     ap_iou_backend: str = "gpu",
     strict_gpu_ap_iou: bool = True,
     latency_rounds: int = 1,
+    warmup_latency_rounds: int | None = None,
     conda_env: str = "modelopt",
 ) -> dict[str, Any]:
     if not strict_gpu_ap_iou:
@@ -100,6 +110,7 @@ def evaluate_cobevt_engine_modelopt(
         device=device,
         output_path=output_path,
         plugin_path=plugin_path,
+        additional_plugin_paths=additional_plugin_paths,
         fixed_k=fixed_k,
         num_frames=num_frames,
         warmup_frames=warmup_frames,
@@ -107,6 +118,7 @@ def evaluate_cobevt_engine_modelopt(
         num_workers=num_workers,
         ap_iou_backend=ap_iou_backend,
         latency_rounds=latency_rounds,
+        warmup_latency_rounds=warmup_latency_rounds,
     )
     request_path = destination / "evaluation_request.json"
     request_path.write_text(

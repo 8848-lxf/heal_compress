@@ -1044,6 +1044,7 @@ def run_export_build(
     physical_gpu: int,
     trt_root: Path,
     plugin_path: Path,
+    additional_plugin_paths: Iterable[Path] = (),
     engine_precision: str = "FP16",
     candidate_ids: Iterable[str] | None = None,
     diagnostic_profile: str = "",
@@ -1219,6 +1220,17 @@ def run_export_build(
                 mapping=mapping,
                 layer_info_path=layer_info,
             )
+            from quantization.types import stable_json_hash
+            from search.model_families.lidar_cobevt.deployment_recipe import (
+                append_static_plugins,
+            )
+
+            extra_plugins = tuple(Path(value).expanduser().resolve() for value in additional_plugin_paths)
+            missing_plugins = [str(value) for value in extra_plugins if not value.is_file()]
+            if missing_plugins:
+                raise RuntimeError(f"cobevt_additional_plugins_missing:{missing_plugins}")
+            command.command = append_static_plugins(command.command, list(extra_plugins))
+            command.command_hash = stable_json_hash(command.command)
             from search.model_families.lidar_cobevt.conda_cuda_toolchain import (
                 sanitize_tensorrt_builder_environment,
             )
@@ -1267,6 +1279,12 @@ def run_export_build(
                     layer_info,
                     requested_precision_overrides=post_boundary_transform_report.get(
                         "precision_realization_overrides", {}
+                    ),
+                    node_name_overrides=post_boundary_transform_report.get(
+                        "attention_inventory_node_aliases", {}
+                    ),
+                    ignored_node_names=post_boundary_transform_report.get(
+                        "ignored_node_names", []
                     ),
                 )
                 attention_inventory_summary = write_attention_precision_inventory(
@@ -1321,6 +1339,7 @@ def run_export_build(
                 "post_attention_boundary_transform_report": dict(
                     post_boundary_transform_report
                 ),
+                "additional_plugin_paths": [str(value) for value in extra_plugins],
             }
         except Exception as exc:  # noqa: BLE001
             result = {
@@ -1356,6 +1375,7 @@ def run_trt500(
     physical_gpu: int,
     trt_root: Path,
     plugin_path: Path,
+    additional_plugin_paths: Iterable[Path] = (),
     engine_precision: str = "FP16",
     candidate_ids: Iterable[str] | None = None,
     diagnostic_profile: str = "",
@@ -1437,6 +1457,7 @@ def run_trt500(
                 output_dir=smoke_dir,
                 tensorrt_root=trt_root,
                 plugin_path=plugin_path,
+                additional_plugin_paths=tuple(additional_plugin_paths),
                 fixed_k=fixed_k,
                 num_frames=10,
                 warmup_frames=20,
@@ -1484,6 +1505,7 @@ def run_trt500(
                 output_dir=evaluation_dir,
                 tensorrt_root=trt_root,
                 plugin_path=plugin_path,
+                additional_plugin_paths=tuple(additional_plugin_paths),
                 fixed_k=fixed_k,
                 num_frames=500,
                 warmup_frames=20,

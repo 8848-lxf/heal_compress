@@ -44,6 +44,12 @@ def validate_request(request: Mapping[str, Any]) -> dict[str, Any]:
     return validated
 
 
+def _execution_rounds(role: str, request: Mapping[str, Any]) -> int:
+    key = "warmup_latency_rounds" if str(role) == "warmup" else "latency_rounds"
+    fallback = request.get("latency_rounds", 1)
+    return max(1, int(request.get(key, fallback)))
+
+
 def _load_manifest(
     request: Mapping[str, Any],
     *,
@@ -111,6 +117,11 @@ def main(argv: list[str] | None = None) -> int:
         if not plugin_path.is_file():
             raise RuntimeError(f"cobevt_scatter_plugin_missing:{plugin_path}")
         ctypes.CDLL(str(plugin_path), mode=ctypes.RTLD_GLOBAL)
+        for value in request.get("additional_plugin_paths", []):
+            additional_plugin = Path(str(value)).resolve()
+            if not additional_plugin.is_file():
+                raise RuntimeError(f"cobevt_additional_plugin_missing:{additional_plugin}")
+            ctypes.CDLL(str(additional_plugin), mode=ctypes.RTLD_GLOBAL)
 
         from adapters.heal_lidar_adapter import HEALLiDARAdapter
         from opencood.data_utils.datasets import build_dataset
@@ -149,7 +160,6 @@ def main(argv: list[str] | None = None) -> int:
             validation_split=Path(str(hypes["validate_dir"])),
         )
         runner = TensorRTEngineRunner(str(request["engine_path"]), device)
-        latency_rounds = max(1, int(request.get("latency_rounds", 1)))
         result_stat = {
             threshold: {"tp": [], "fp": [], "gt": 0, "score": []}
             for threshold in IOU_THRESHOLDS
@@ -164,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
 
         phases = (("warmup", set(warmup_ids)), ("evaluation", set(evaluation_ids)))
         for role, selected_ids in phases:
+            execution_rounds = _execution_rounds(role, request)
             for index, batch in enumerate(loader):
                 if index >= len(split_ids):
                     break
@@ -185,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     outputs: Mapping[str, torch.Tensor] = {}
                     profiles: list[dict[str, Any]] = []
-                    for _ in range(latency_rounds):
+                    for _ in range(execution_rounds):
                         outputs, profile = runner.run_profiled(inputs)
                         profiles.append(profile)
                     profile = _mean_profiles(profiles)
@@ -266,6 +277,8 @@ def main(argv: list[str] | None = None) -> int:
             "num_skipped_frames": int(sum(skip_reasons.values())),
             "skip_reason_counts": dict(skip_reasons),
             "warmup_frames": len(warmup_complete),
+            "warmup_latency_rounds": _execution_rounds("warmup", request),
+            "latency_rounds": _execution_rounds("evaluation", request),
             "evaluated_frame_ids": evaluated_ids,
             "latency_rows": latency_rows,
             "eval_manifest_hash": str(manifest.get("manifest_hash", "")),

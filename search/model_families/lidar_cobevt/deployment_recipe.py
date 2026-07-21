@@ -15,6 +15,23 @@ from quantization.types import (
 from search.hashing import canonical_json_hash
 
 
+def append_static_plugins(
+    command: list[str], plugin_paths: tuple[Path, ...] | list[Path]
+) -> list[str]:
+    result = list(command)
+    existing = {
+        value.split("=", 1)[1]
+        for value in result
+        if value.startswith("--staticPlugins=")
+    }
+    for value in plugin_paths:
+        path = str(Path(value).expanduser().resolve())
+        if path not in existing:
+            result.append(f"--staticPlugins={path}")
+            existing.add(path)
+    return result
+
+
 def model_family_deployment_identity(
     *,
     model_family: str,
@@ -138,4 +155,3 @@ class CobevtDeploymentRecipe:
 
 
 __all__ = ["CobevtDeploymentRecipe", "model_family_deployment_identity"]
-

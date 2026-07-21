@@ -99,6 +99,8 @@ def build_attention_precision_inventory(
     layer_info_path: str | Path | None = None,
     *,
     requested_precision_overrides: Mapping[str, str] | None = None,
+    node_name_overrides: Mapping[str, str] | None = None,
+    ignored_node_names: Sequence[str] | None = None,
 ) -> list[dict[str, Any]]:
     import onnx
 
@@ -120,6 +122,11 @@ def build_attention_precision_inventory(
         str(module_path): str(precision).upper()
         for module_path, precision in (requested_precision_overrides or {}).items()
     }
+    node_overrides = {
+        str(node_name): str(replacement)
+        for node_name, replacement in (node_name_overrides or {}).items()
+    }
+    ignored_nodes = {str(value) for value in (ignored_node_names or ())}
     weighted_roles = {
         "q_projection",
         "k_projection",
@@ -129,7 +136,10 @@ def build_attention_precision_inventory(
     for boundary in boundary_report.get("node_records", []):
         role = str(boundary["role"])
         module_path = _module_path(str(boundary["block_id"]), role)
-        node_name = str(boundary["node_name"])
+        original_node_name = str(boundary["node_name"])
+        if original_node_name in ignored_nodes:
+            continue
+        node_name = node_overrides.get(original_node_name, original_node_name)
         node = nodes.get(node_name)
         if node is None:
             raise ValueError(f"attention_inventory_onnx_node_missing:{node_name}")
@@ -240,6 +250,7 @@ def build_attention_precision_inventory(
                 "fused": fused,
                 "module_path": module_path,
                 "node_name": node_name,
+                "original_node_name": original_node_name,
                 "onnx_input_dtypes": onnx_inputs,
                 "onnx_input_tensors": list(node.input),
                 "onnx_output_dtypes": onnx_outputs,
