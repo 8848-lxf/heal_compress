@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 
@@ -547,3 +549,93 @@ def test_accumulator_tactic_parser_only_accepts_explicit_kernel_metadata():
     assert infer_accumulator_from_tactics(f32) == "FP32"
     assert infer_accumulator_from_tactics(opaque) is None
     assert infer_accumulator_from_tactics(conflict) is None
+
+
+def test_mixed_accum_plugin_contract_is_level_a_but_not_native_tensorrt():
+    from search.model_families.lidar_cobevt.attention_plugin_oracle import (
+        mixed_accum_plugin_contract,
+    )
+
+    qk = mixed_accum_plugin_contract("QK", output_precision="FP32", scale=0.125)
+
+    assert qk.input_precision == "FP16"
+    assert qk.multiplication_precision == "FP16"
+    assert qk.accumulator_precision == "FP32"
+    assert qk.phenotype == "F16A32"
+    assert qk.evidence_level == "A"
+    assert qk.implementation == "plugin_oracle"
+    assert qk.native_tensorrt is False
+
+
+def test_mixed_accum_plugin_serialization_and_shapes_are_deterministic():
+    from search.model_families.lidar_cobevt.attention_plugin_oracle import (
+        MixedAccumPluginContract,
+        mixed_accum_output_shape,
+    )
+
+    original = MixedAccumPluginContract("AV", "FP16", "FP16", "FP32", "FP16", 1.0)
+    restored = MixedAccumPluginContract.from_bytes(original.to_bytes())
+
+    assert restored == original
+    assert mixed_accum_output_shape("QK", (8, 8, 32, 32), (8, 8, 32, 32)) == (8, 8, 32, 32)
+    assert mixed_accum_output_shape("AV", (8, 8, 32, 32), (8, 8, 32, 24)) == (8, 8, 32, 24)
+    with pytest.raises(ValueError, match="mixed_accum_batch_shape_mismatch"):
+        mixed_accum_output_shape("QK", (8, 8, 32, 32), (7, 8, 32, 32))
+
+
+def test_plugin_oracle_matrix_has_qk_and_av_for_each_real_block():
+    from search.orchestration.lidar_cobevt_attention_plugin_oracle import (
+        plugin_candidate_matrix,
+    )
+
+    modules = tuple(f"layers.{layer}.{kind}" for layer in range(3) for kind in ("window", "grid"))
+    rows = plugin_candidate_matrix(modules)
+
+    assert len(rows) == 12
+    assert {row.family for row in rows} == {"QK", "AV"}
+    assert all(row.requested_phenotype == "F16A32" for row in rows)
+    assert all(row.implementation == "plugin_oracle" for row in rows)
+
+
+def test_plugin_creator_selection_uses_exact_registry_identity():
+    from types import SimpleNamespace
+
+    from search.orchestration.lidar_cobevt_attention_plugin_oracle import (
+        select_plugin_creator,
+    )
+
+    target = SimpleNamespace(
+        name="QKMixedAccumPlugin", plugin_version="1", plugin_namespace=""
+    )
+    other = SimpleNamespace(name="QKMixedAccumPlugin", plugin_version="2", plugin_namespace="")
+    assert select_plugin_creator([other, target]) is target
+    with pytest.raises(ValueError, match="qk_mixed_accum_plugin_creator_ambiguous"):
+        select_plugin_creator([target, target])
+
+
+def test_mixed_accum_plugin_workspace_contract_is_consistent():
+    root = Path(__file__).resolve().parents[1] / "plugins" / "qk_mixed_accum"
+    common = (root / "plugin_common.h").read_text()
+    plugin = (root / "qk_mixed_accum_plugin.cpp").read_text()
+    kernel = (root / "qk_mixed_accum_kernel.cu").read_text()
+
+    assert "kWorkspaceBytes" in common
+    assert "return kWorkspaceBytes;" in plugin
+    assert "outputs[0], workspace, kWorkspaceBytes" in plugin
+    assert "CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES" in kernel
+    assert "workspace, workspaceBytes, stream" in kernel
+
+
+def test_mixed_accum_plugin_context_lifecycle_initializes_cublaslt_handle():
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "plugins"
+        / "qk_mixed_accum"
+        / "qk_mixed_accum_plugin.cpp"
+    ).read_text()
+
+    assert "ensureLtHandle" in source
+    assert "void QKMixedAccumPlugin::attachToContext" in source
+    assert "ensureLtHandle();" in source
+    assert "void QKMixedAccumPlugin::detachFromContext" in source
+    assert "releaseLtHandle();" in source
