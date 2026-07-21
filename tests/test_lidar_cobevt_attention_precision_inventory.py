@@ -109,6 +109,45 @@ def test_inventory_joins_explicit_casts_with_realized_fused_gemm(tmp_path: Path)
     assert row["realization_status"] == "matched"
 
 
+def test_inventory_uses_node_level_smoothquant_int8_override(tmp_path: Path):
+    from search.reporting.cobevt_attention_precision_inventory import (
+        build_attention_precision_inventory,
+    )
+
+    typed = tmp_path / "typed.onnx"
+    layer_info = tmp_path / "layers.json"
+    _typed_projection(typed)
+    layer_info.write_text(
+        json.dumps(
+            {
+                "Layers": [
+                    {
+                        "Name": "q_canonical_int8",
+                        "LayerType": "gemm",
+                        "Metadata": "[ONNX Layer: q_canonical]",
+                        "Inputs": [{"Format/Datatype": "Int8"}],
+                        "Outputs": [{"Format/Datatype": "Float"}],
+                        "TacticName": "sm80_xmma_gemm_i8f32_i8i32_f32",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rows = build_attention_precision_inventory(
+        typed,
+        _boundary_report(),
+        layer_info,
+        requested_precision_overrides={
+            "fusion_net.layers.0.window_attention.fn.q_proj": "INT8"
+        },
+    )
+    assert rows[0]["requested_dtype"] == "INT8"
+    assert rows[0]["tactic_precision"] == "INT8"
+    assert rows[0]["realization_status"] == "matched"
+
+
 def test_inventory_fails_closed_when_engine_layer_is_unmapped(tmp_path: Path):
     from search.reporting.cobevt_attention_precision_inventory import (
         build_attention_precision_inventory,

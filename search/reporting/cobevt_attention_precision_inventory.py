@@ -84,6 +84,8 @@ def _primary_engine_layer(rows: Sequence[Mapping[str, Any]], op_type: str):
 
 def _tactic_precision(tactic: str) -> str:
     value = str(tactic).lower()
+    if "i8" in value or "int8" in value:
+        return "INT8"
     if "f16" in value or "half" in value:
         return "FP16"
     if "f32" in value or "float" in value:
@@ -95,6 +97,8 @@ def build_attention_precision_inventory(
     typed_onnx: str | Path,
     boundary_report: Mapping[str, Any],
     layer_info_path: str | Path | None = None,
+    *,
+    requested_precision_overrides: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     import onnx
 
@@ -112,6 +116,10 @@ def build_attention_precision_inventory(
         payload = json.loads(Path(layer_info_path).read_text(encoding="utf-8"))
         layer_rows = list(payload.get("Layers", payload if isinstance(payload, list) else []))
     records = []
+    requested_overrides = {
+        str(module_path): str(precision).upper()
+        for module_path, precision in (requested_precision_overrides or {}).items()
+    }
     weighted_roles = {
         "q_projection",
         "k_projection",
@@ -119,6 +127,8 @@ def build_attention_precision_inventory(
         "output_projection",
     }
     for boundary in boundary_report.get("node_records", []):
+        role = str(boundary["role"])
+        module_path = _module_path(str(boundary["block_id"]), role)
         node_name = str(boundary["node_name"])
         node = nodes.get(node_name)
         if node is None:
@@ -127,7 +137,9 @@ def build_attention_precision_inventory(
         primary = _primary_engine_layer(matched, str(node.op_type))
         metadata = " ".join(str(row.get("Metadata", "")) for row in matched)
         fused = metadata.count("[ONNX Layer:") > 1
-        requested = str(boundary["compute_dtype"])
+        requested = requested_overrides.get(
+            module_path, str(boundary["compute_dtype"])
+        )
         onnx_inputs = [_dtype_name(types.get(str(value))) for value in node.input]
         onnx_outputs = [_dtype_name(types.get(str(value))) for value in node.output]
         realized_inputs = []
@@ -216,7 +228,6 @@ def build_attention_precision_inventory(
                     "target_dtype": _dtype_name(target),
                 }
             )
-        role = str(boundary["role"])
         records.append(
             {
                 "block_id": str(boundary["block_id"]),
@@ -227,7 +238,7 @@ def build_attention_precision_inventory(
                 "explicit_output_cast": bool(boundary.get("output_cast_nodes", [])),
                 "functional_op": role not in weighted_roles,
                 "fused": fused,
-                "module_path": _module_path(str(boundary["block_id"]), role),
+                "module_path": module_path,
                 "node_name": node_name,
                 "onnx_input_dtypes": onnx_inputs,
                 "onnx_input_tensors": list(node.input),

@@ -186,20 +186,39 @@ def selective_smoothquant_config(
 
 def choose_smoothquant_alpha(
     rows: Iterable[Mapping[str, float]],
-) -> dict[str, float]:
+) -> dict[str, object]:
     candidates: list[dict[str, float]] = []
     for source in rows:
         row = {str(key): float(value) for key, value in source.items()}
-        required = (row.get("alpha"), row.get("relative_l2"), row.get("softmax_js"))
+        required = (
+            row.get("alpha"),
+            row.get("relative_l2"),
+            row.get("qk_relative_l2"),
+            row.get("softmax_js"),
+        )
         if any(value is None or not math.isfinite(value) for value in required):
             raise ValueError("smoothquant_metric_nonfinite")
-        row["selection_score"] = float(row["relative_l2"] + row["softmax_js"])
         candidates.append(row)
     if not candidates:
         raise ValueError("smoothquant_alpha_rows_empty")
+    metric_names = ("relative_l2", "qk_relative_l2", "softmax_js")
+    for metric in metric_names:
+        values = [row[metric] for row in candidates]
+        lower, upper = min(values), max(values)
+        denominator = upper - lower
+        for row in candidates:
+            normalized = 0.0 if denominator == 0 else (row[metric] - lower) / denominator
+            row.setdefault("normalized_metrics", {})[metric] = float(normalized)
+    for row in candidates:
+        row["selection_score"] = float(sum(row["normalized_metrics"].values()))
     return min(
         candidates,
-        key=lambda row: (row["selection_score"], row["relative_l2"], row["alpha"]),
+        key=lambda row: (
+            row["selection_score"],
+            row["qk_relative_l2"],
+            row["relative_l2"],
+            row["alpha"],
+        ),
     )
 
 

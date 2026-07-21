@@ -688,6 +688,14 @@ def apply_attention_boundary_contract(
         owner = role_owner.get(str(node.name))
         if owner is None:
             _propagate_node_output_types(node, types)
+            # ONNX shape inference preserves existing value_info instead of
+            # overwriting stale pre-rewrite dtypes.  Persist the fixed-point
+            # pass-through type now so TensorRT sees the same contract that
+            # validate_qk_operand_dtypes audits in memory.
+            for output in node.output:
+                output_type = types.get(str(output))
+                if output_type is not None:
+                    _set_tensor_type(model, str(output), int(output_type))
             rewritten.append(node)
             continue
         block, role = owner

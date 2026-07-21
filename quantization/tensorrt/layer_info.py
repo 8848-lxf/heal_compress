@@ -55,7 +55,17 @@ def is_weighted_compute_layer(row: Mapping[str, Any]) -> bool:
     """Return whether TensorRT metadata describes a weighted compute layer."""
 
     kind = str(row.get("LayerType") or row.get("type") or "").lower()
-    return any(token in kind for token in ("conv", "gemm", "matmul", "matrix", "fully"))
+    weighted_tokens = ("conv", "gemm", "matmul", "matrix", "fully")
+    if any(token in kind for token in weighted_tokens):
+        return True
+    if "fusion" not in kind:
+        return False
+    # A generic TensorRT fusion may be only pointwise/reformat work.  Admit it
+    # as weighted compute only when the reported tactic itself is a GEMM/conv.
+    tactic = str(
+        row.get("TacticName") or row.get("tactic") or row.get("Tactic") or ""
+    ).lower()
+    return any(token in tactic for token in weighted_tokens)
 
 
 def precision_name(row: Mapping[str, Any]) -> str:

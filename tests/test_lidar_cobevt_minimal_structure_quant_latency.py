@@ -105,14 +105,14 @@ def test_alpha_selection_is_deterministic_and_finite():
     )
 
     rows = [
-        {"alpha": 0.7, "relative_l2": 0.1, "softmax_js": 0.02},
-        {"alpha": 0.3, "relative_l2": 0.1, "softmax_js": 0.02},
-        {"alpha": 0.5, "relative_l2": 0.08, "softmax_js": 0.03},
+        {"alpha": 0.7, "relative_l2": 0.1, "qk_relative_l2": 0.01, "softmax_js": 0.02},
+        {"alpha": 0.3, "relative_l2": 0.1, "qk_relative_l2": 0.01, "softmax_js": 0.02},
+        {"alpha": 0.5, "relative_l2": 0.08, "qk_relative_l2": 0.01, "softmax_js": 0.03},
     ]
     assert choose_smoothquant_alpha(rows)["alpha"] == 0.5
     with pytest.raises(ValueError, match="smoothquant_metric_nonfinite"):
         choose_smoothquant_alpha(
-            [{"alpha": 0.5, "relative_l2": math.nan, "softmax_js": 0.0}]
+            [{"alpha": 0.5, "relative_l2": math.nan, "qk_relative_l2": 0.0, "softmax_js": 0.0}]
         )
 
 

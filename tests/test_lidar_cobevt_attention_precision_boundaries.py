@@ -614,3 +614,49 @@ def test_qk_dtype_validation_fails_before_tensorrt_on_mixed_operands(tmp_path: P
             entries,
             expected_block_count=1,
         )
+
+
+def test_f3_persists_refreshed_qk_passthrough_value_info(tmp_path: Path):
+    """The saved graph, not only the in-memory audit map, must be Float/Float."""
+
+    from search.model_families.lidar_cobevt.attention_precision_boundaries import (
+        apply_attention_boundary_contract,
+    )
+
+    source = tmp_path / "f3_stale_source.onnx"
+    destination = tmp_path / "f3_refreshed.onnx"
+    entries = _minimal_attention_onnx(source)
+    model = onnx.load(str(source))
+    qk = next(node for node in model.graph.node if node.name.endswith("/fn/Einsum"))
+    qk_index = list(model.graph.node).index(qk)
+    model.graph.node.insert(
+        qk_index,
+        helper.make_node(
+            "Identity",
+            [qk.input[1]],
+            ["k_stale_passthrough"],
+            name="k_stale_passthrough_identity",
+        ),
+    )
+    qk.input[1] = "k_stale_passthrough"
+    for value in qk.input:
+        model.graph.value_info.append(
+            helper.make_tensor_value_info(value, TensorProto.FLOAT16, [1, 4])
+        )
+    onnx.save(model, str(source))
+
+    apply_attention_boundary_contract(
+        source,
+        destination,
+        entries,
+        "F3_rest_fp16_qk_fp32_minimal_island",
+        expected_block_count=1,
+    )
+    rewritten = onnx.load(str(destination))
+    types = {
+        value.name: value.type.tensor_type.elem_type
+        for value in rewritten.graph.value_info
+    }
+    qk = next(node for node in rewritten.graph.node if node.name.endswith("/fn/Einsum"))
+
+    assert [types[value] for value in qk.input] == [TensorProto.FLOAT, TensorProto.FLOAT]

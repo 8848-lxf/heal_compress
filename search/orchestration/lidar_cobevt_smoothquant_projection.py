@@ -23,6 +23,13 @@ from search.model_families.lidar_cobevt.minimal_structure_quant_latency import (
     selective_smoothquant_config,
     smoothquant_profiles,
 )
+from search.model_families.lidar_cobevt.conda_cuda_toolchain import (
+    SMOOTHQUANT_ALPHA_GRID,
+    restore_projection_qdq_adjacency,
+    smoothquant_scale,
+    validate_pre_quant_scale,
+    validate_projection_qdq_adjacency,
+)
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -40,6 +47,59 @@ def _sha256(path: Path) -> str:
 
 def _safe(value: str) -> str:
     return value.replace(".", "__")
+
+
+def apply_smoothquant_projection_qdq_contract(
+    input_onnx: Path,
+    output_onnx: Path,
+    mapping: Any,
+    selected_module_paths: tuple[str, ...],
+) -> dict[str, Any]:
+    """Restore exact ModelOpt Q/DQ adjacency after the F3 dtype rewrite."""
+
+    import onnx
+
+    selected = set(str(value) for value in selected_module_paths)
+    projection_nodes = tuple(
+        str(row.canonical_node_name)
+        for row in mapping.entries
+        if str(row.module_path) in selected
+    )
+    f3_fp16_output_nodes = {
+        str(row.canonical_node_name): "FP16"
+        for row in mapping.entries
+        if str(row.module_path) in selected
+        and str(row.module_path).endswith((".v_proj", ".out_proj"))
+    }
+    if len(projection_nodes) != len(selected):
+        raise RuntimeError(
+            f"smoothquant_projection_mapping_incomplete:{len(projection_nodes)}:{len(selected)}"
+        )
+    model = onnx.load(str(input_onnx))
+    rewrite_records = restore_projection_qdq_adjacency(
+        model,
+        projection_nodes,
+        output_cast_precisions=f3_fp16_output_nodes,
+    )
+    adjacency_records = validate_projection_qdq_adjacency(model, projection_nodes)
+    onnx.checker.check_model(model)
+    output_onnx.parent.mkdir(parents=True, exist_ok=True)
+    onnx.save(model, str(output_onnx))
+    return {
+        "input_onnx": str(input_onnx),
+        "input_onnx_sha256": _sha256(input_onnx),
+        "output_onnx": str(output_onnx),
+        "output_onnx_sha256": _sha256(output_onnx),
+        "selected_module_paths": sorted(selected),
+        "precision_realization_overrides": {
+            module_path: "int8" for module_path in sorted(selected)
+        },
+        "selected_projection_count": len(projection_nodes),
+        "projection_nodes": list(projection_nodes),
+        "rewrite_records": rewrite_records,
+        "qdq_adjacency_records": adjacency_records,
+        "qdq_adjacency_pass": True,
+    }
 
 
 def _module_name(role: str) -> str:
@@ -181,6 +241,34 @@ def _metrics(reference: torch.Tensor, candidate: torch.Tensor) -> dict[str, floa
     }
 
 
+def resolve_alpha_sweep_profiles(
+    profile_ids: tuple[str, ...] | None = None,
+    *,
+    successful_profile_ids: tuple[str, ...] = (),
+) -> tuple[Any, ...]:
+    """Resolve the bounded alpha-sweep matrix and enforce profile prerequisites."""
+
+    requested = profile_ids or ("SQ1", "SQ2")
+    profiles = {row.profile_id: row for row in smoothquant_profiles()}
+    unknown = sorted(set(requested) - set(profiles))
+    if unknown:
+        raise ValueError(f"smoothquant_unknown_alpha_profiles:{unknown}")
+    successful = set(successful_profile_ids)
+    resolved = []
+    for profile_id in requested:
+        profile = profiles[profile_id]
+        if profile.profile_id == "SQ0":
+            raise ValueError("smoothquant_alpha_requires_int8_profile")
+        prerequisite = profile.requires_successful_profile
+        if prerequisite and prerequisite not in successful:
+            raise ValueError(
+                "smoothquant_alpha_prerequisite_failed:"
+                f"{profile.profile_id}:{prerequisite}"
+            )
+        resolved.append(profile)
+    return tuple(resolved)
+
+
 def run_alpha_sweep(
     *,
     output_dir: Path,
@@ -189,6 +277,8 @@ def run_alpha_sweep(
     heal_root: Path,
     manifest: Path,
     device: torch.device,
+    profile_ids: tuple[str, ...] | None = None,
+    successful_profile_ids: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     import modelopt.torch.quantization as mtq  # type: ignore
 
@@ -202,9 +292,11 @@ def run_alpha_sweep(
     )
     _write_json(output_dir / "capture_manifest.json", capture)
     rows: list[dict[str, Any]] = []
-    profiles = [row for row in smoothquant_profiles() if row.profile_id != "SQ0"]
+    profiles = resolve_alpha_sweep_profiles(
+        profile_ids, successful_profile_ids=successful_profile_ids
+    )
     for profile in profiles:
-        for alpha in (0.3, 0.5, 0.7):
+        for alpha in SMOOTHQUANT_ALPHA_GRID:
             bank = ProjectionBank(modules).to(device).eval()
             config_payload = selective_smoothquant_config(
                 profile.int8_projection_roles, alpha=alpha
@@ -246,18 +338,55 @@ def run_alpha_sweep(
                             )
                         quantizer = getattr(candidate, "input_quantizer", None)
                         pre_scale = getattr(quantizer, "pre_quant_scale", None)
+                        activation_values = torch.cat(
+                            [value.to(device) for value in captures[(block, role)]],
+                            dim=0,
+                        )
+                        activation_channel_max = activation_values.abs().amax(dim=0)
+                        weight_input_channel_max = baseline.weight.detach().abs().amax(dim=0)
+                        formula_scale = smoothquant_scale(
+                            activation_channel_max,
+                            weight_input_channel_max,
+                            alpha=alpha,
+                        )
+                        if torch.is_tensor(pre_scale):
+                            validate_pre_quant_scale(
+                                pre_scale, input_features=baseline.in_features
+                            )
+                            smoothed_activation = activation_values / pre_scale
+                            adjusted_weight = baseline.weight.detach() * pre_scale.reshape(1, -1)
+                        else:
+                            smoothed_activation = activation_values
+                            adjusted_weight = baseline.weight.detach()
                         scale_records.append(
                             {
                                 "block": block,
                                 "role": role,
                                 "pre_quant_scale_present": torch.is_tensor(pre_scale),
                                 "pre_quant_scale_shape": list(pre_scale.shape) if torch.is_tensor(pre_scale) else [],
+                                "pre_quant_scale_min": float(pre_scale.min()) if torch.is_tensor(pre_scale) else None,
+                                "pre_quant_scale_max": float(pre_scale.max()) if torch.is_tensor(pre_scale) else None,
+                                "pre_quant_scale_mean": float(pre_scale.float().mean()) if torch.is_tensor(pre_scale) else None,
+                                "formula_scale_min": float(formula_scale.min()),
+                                "formula_scale_max": float(formula_scale.max()),
+                                "formula_scale_mean": float(formula_scale.float().mean()),
+                                "activation_channel_max_min": float(activation_channel_max.min()),
+                                "activation_channel_max_max": float(activation_channel_max.max()),
+                                "weight_input_channel_max_min": float(weight_input_channel_max.min()),
+                                "weight_input_channel_max_max": float(weight_input_channel_max.max()),
+                                "smoothed_activation_abs_max": float(smoothed_activation.abs().max()),
+                                "adjusted_weight_abs_max": float(adjusted_weight.abs().max()),
                                 "activation_axis": getattr(quantizer, "axis", None),
                                 "weight_axis": getattr(getattr(candidate, "weight_quantizer", None), "axis", None),
+                                "activation_quantization": "static_per_tensor_symmetric_int8",
+                                "weight_quantization": "static_per_output_channel_symmetric_int8",
                             }
                         )
             qk_metrics = []
             softmax_js_values = []
+            softmax_kl_values = []
+            softmax_top1_values = []
+            softmax_top4_values = []
             for block in modules:
                 for frame_index in range(len(captures[(block, "q_projection")])):
                     q_reference, q_candidate = projection_outputs[
@@ -299,6 +428,26 @@ def run_alpha_sweep(
                         )
                     ).sum(dim=-1)
                     softmax_js_values.append(float(js.mean()))
+                    kl = (
+                        probability_ref
+                        * (
+                            probability_ref.clamp_min(epsilon).log()
+                            - probability_cand.clamp_min(epsilon).log()
+                        )
+                    ).sum(dim=-1)
+                    softmax_kl_values.append(float(kl.mean()))
+                    reference_order = probability_ref.argsort(dim=-1, descending=True)
+                    candidate_order = probability_cand.argsort(dim=-1, descending=True)
+                    softmax_top1_values.append(
+                        float((reference_order[..., 0] == candidate_order[..., 0]).double().mean())
+                    )
+                    reference_top4 = reference_order[..., :4]
+                    candidate_top4 = candidate_order[..., :4]
+                    overlap = (
+                        reference_top4.unsqueeze(-1)
+                        == candidate_top4.unsqueeze(-2)
+                    ).any(dim=-1).double().mean()
+                    softmax_top4_values.append(float(overlap))
             aggregate = {
                 "relative_l2": float(sum(row["relative_l2"] for row in role_metrics) / len(role_metrics)),
                 "cosine": float(sum(row["cosine"] for row in role_metrics) / len(role_metrics)),
@@ -311,6 +460,15 @@ def run_alpha_sweep(
                 ),
                 "softmax_js": float(
                     sum(softmax_js_values) / len(softmax_js_values)
+                ),
+                "softmax_kl": float(
+                    sum(softmax_kl_values) / len(softmax_kl_values)
+                ),
+                "softmax_top1_agreement": float(
+                    sum(softmax_top1_values) / len(softmax_top1_values)
+                ),
+                "softmax_top4_overlap": float(
+                    sum(softmax_top4_values) / len(softmax_top4_values)
                 ),
             }
             rows.append(
@@ -334,6 +492,7 @@ def run_alpha_sweep(
                 {
                     "alpha": row["alpha"],
                     "relative_l2": row["relative_l2"],
+                    "qk_relative_l2": row["qk_relative_l2"],
                     "softmax_js": row["softmax_js"],
                 }
                 for row in profile_rows
@@ -344,6 +503,8 @@ def run_alpha_sweep(
         )
     _write_json(output_dir / "smoothquant_alpha_sweep.json", rows)
     _write_json(output_dir / "smoothquant_selected_alpha.json", selected)
+    _write_json(output_dir / "alpha_sweep.json", rows)
+    _write_json(output_dir / "selected_alpha.json", selected)
     csv_rows = [
         {key: value for key, value in row.items() if not isinstance(value, (dict, list))}
         for row in rows
@@ -352,6 +513,30 @@ def run_alpha_sweep(
         writer = csv.DictWriter(handle, fieldnames=sorted(csv_rows[0]))
         writer.writeheader()
         writer.writerows(csv_rows)
+    with (output_dir / "alpha_sweep.csv").open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=sorted(csv_rows[0]))
+        writer.writeheader()
+        writer.writerows(csv_rows)
+    scale_rows = [
+        {"profile_id": row["profile_id"], "alpha": row["alpha"], **record}
+        for row in rows
+        for record in row["scale_records"]
+    ]
+    projection_rows = [
+        {"profile_id": row["profile_id"], "alpha": row["alpha"], **record}
+        for row in rows
+        for record in row["role_metrics"]
+    ]
+    for path, records in (
+        (output_dir / "smoothing_scale_statistics.csv", scale_rows),
+        (output_dir / "projection_parity.csv", projection_rows),
+        (output_dir / "qk_parity.csv", csv_rows),
+        (output_dir / "softmax_parity.csv", csv_rows),
+    ):
+        with path.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=sorted(records[0]))
+            writer.writeheader()
+            writer.writerows(records)
     return {"rows": len(rows), "selected": {key: value["alpha"] for key, value in selected.items()}}
 
 
@@ -494,6 +679,24 @@ def run_full_model_build(
         _write_json(destination / "smoothquant_transform_report.json", report)
         return report
 
+    def restore_qdq(
+        typed: Path,
+        transformed: Path,
+        mapping: Any,
+        transform_report: Mapping[str, Any],
+        _destination: Path,
+    ) -> Mapping[str, Any]:
+        selected_modules = tuple(
+            str(row["module"])
+            for row in transform_report["selected_projection_records"]
+        )
+        return apply_smoothquant_projection_qdq_contract(
+            typed,
+            transformed,
+            mapping,
+            selected_modules,
+        )
+
     result = run_export_build(
         output_dir=output_dir,
         checkpoint=checkpoint,
@@ -506,6 +709,7 @@ def run_full_model_build(
         candidate_ids=("S0",),
         attention_boundary_profile_name="F3_rest_fp16_qk_fp32_minimal_island",
         pre_export_transform=transform,
+        post_attention_boundary_transform=restore_qdq,
     )
     _write_json(output_dir / "smoothquant_full_build_summary.json", result)
     return {"profile_id": profile_id, **result}
@@ -522,6 +726,18 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="cuda:3")
     parser.add_argument("--experiment-root", default="")
     parser.add_argument("--profile-id", choices=("SQ1", "SQ2", "SQ3"), default="SQ1")
+    parser.add_argument(
+        "--alpha-profile-id",
+        choices=("SQ1", "SQ2", "SQ3"),
+        action="append",
+        default=None,
+    )
+    parser.add_argument(
+        "--successful-profile-id",
+        choices=("SQ1", "SQ2", "SQ3"),
+        action="append",
+        default=None,
+    )
     parser.add_argument("--physical-gpu", type=int, default=3)
     parser.add_argument("--trt-root", default="")
     parser.add_argument("--plugin", default="")
@@ -538,6 +754,8 @@ def main(argv: list[str] | None = None) -> int:
             heal_root=Path(args.heal_root),
             manifest=Path(args.manifest),
             device=torch.device(args.device),
+            profile_ids=tuple(args.alpha_profile_id) if args.alpha_profile_id else None,
+            successful_profile_ids=tuple(args.successful_profile_id or ()),
         )
     else:
         if not args.experiment_root or not args.trt_root or not args.plugin:

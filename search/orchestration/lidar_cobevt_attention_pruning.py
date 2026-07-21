@@ -1050,6 +1050,10 @@ def run_export_build(
     attention_boundary_profile_name: str = "",
     pre_export_transform: Callable[[Any, AttentionCandidateSpec, Path], Mapping[str, Any]]
     | None = None,
+    post_attention_boundary_transform: Callable[
+        [Path, Path, Any, Mapping[str, Any], Path], Mapping[str, Any]
+    ]
+    | None = None,
 ) -> dict[str, Any]:
     from search.integration.runtime_environment import discover_trt_environment
     from search.model_families.lidar_cobevt.deployment_recipe import CobevtDeploymentRecipe
@@ -1174,8 +1178,28 @@ def run_export_build(
                 typed_report = apply_strongly_typed_precision_contract(
                     source, typed, mapping, plugin_boundary="FP32"
                 )
+            post_boundary_transform_report: Mapping[str, Any] = {}
+            auxiliary_input = typed
+            if post_attention_boundary_transform is not None:
+                transformed = destination / "typed_post_boundary.onnx"
+                post_boundary_transform_report = dict(
+                    post_attention_boundary_transform(
+                        typed,
+                        transformed,
+                        mapping,
+                        transform_report,
+                        destination,
+                    )
+                )
+                auxiliary_input = Path(
+                    post_boundary_transform_report.get("output_onnx", transformed)
+                )
+                if not auxiliary_input.is_file():
+                    raise RuntimeError("post_boundary_transform_output_missing")
             typed_aux = destination / "typed_aux.onnx"
-            auxiliary = apply_cobevt_auxiliary_typed_contract(typed, typed_aux)
+            auxiliary = apply_cobevt_auxiliary_typed_contract(
+                auxiliary_input, typed_aux
+            )
             parser = destination / "typed_parser.onnx"
             parser_report = make_scatter_parser_compatible(typed_aux, parser)
             environment = discover_trt_environment(
@@ -1195,7 +1219,11 @@ def run_export_build(
                 mapping=mapping,
                 layer_info_path=layer_info,
             )
-            env = dict(environment.env)
+            from search.model_families.lidar_cobevt.conda_cuda_toolchain import (
+                sanitize_tensorrt_builder_environment,
+            )
+
+            env = sanitize_tensorrt_builder_environment(environment.env)
             env["CUDA_VISIBLE_DEVICES"] = str(physical_gpu)
             modelopt_lib = Path("/home/lixingfeng/anaconda3/envs/modelopt/lib")
             env["LD_LIBRARY_PATH"] = ":".join(
@@ -1221,14 +1249,25 @@ def run_export_build(
                 )
             if builder_returncode or not engine.is_file() or not layer_info.is_file():
                 raise RuntimeError(f"trtexec_build_failed_rc_{builder_returncode}")
-            realization = validate_precision_realization(layer_info, mapping)
+            realization = validate_precision_realization(
+                layer_info,
+                mapping,
+                expected_precision_overrides=post_boundary_transform_report.get(
+                    "precision_realization_overrides", {}
+                ),
+            )
             if not realization.passed:
                 raise RuntimeError(f"precision_realization_failed:{realization.mismatches}")
             attention_inventory: list[dict[str, Any]] = []
             attention_inventory_summary: dict[str, Any] = {}
             if boundary_profile_name:
                 attention_inventory = build_attention_precision_inventory(
-                    typed_aux, attention_boundary_report, layer_info
+                    typed_aux,
+                    attention_boundary_report,
+                    layer_info,
+                    requested_precision_overrides=post_boundary_transform_report.get(
+                        "precision_realization_overrides", {}
+                    ),
                 )
                 attention_inventory_summary = write_attention_precision_inventory(
                     attention_inventory,
@@ -1279,6 +1318,9 @@ def run_export_build(
                 "attention_precision_inventory_summary": attention_inventory_summary,
                 "parser_report": parser_report,
                 "pre_export_transform_report": dict(transform_report),
+                "post_attention_boundary_transform_report": dict(
+                    post_boundary_transform_report
+                ),
             }
         except Exception as exc:  # noqa: BLE001
             result = {
