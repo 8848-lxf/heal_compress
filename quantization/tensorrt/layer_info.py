@@ -55,15 +55,29 @@ def is_weighted_compute_layer(row: Mapping[str, Any]) -> bool:
     """Return whether TensorRT metadata describes a weighted compute layer."""
 
     kind = str(row.get("LayerType") or row.get("type") or "").lower()
-    return any(token in kind for token in ("conv", "gemm", "matmul", "matrix", "fully"))
+    weighted_tokens = ("conv", "gemm", "matmul", "matrix", "fully")
+    if any(token in kind for token in weighted_tokens):
+        return True
+    if "fusion" not in kind:
+        return False
+    # A generic TensorRT fusion may be only pointwise/reformat work.  Admit it
+    # as weighted compute only when the reported tactic itself is a GEMM/conv.
+    tactic = str(
+        row.get("TacticName") or row.get("tactic") or row.get("Tactic") or ""
+    ).lower()
+    return any(token in tactic for token in weighted_tokens)
 
 
 def precision_name(row: Mapping[str, Any]) -> str:
     direct = str(row.get("Precision") or row.get("precision") or "")
     text = direct or json.dumps(row, sort_keys=True, default=str)
     upper = text.upper()
+    if "FP8" in upper or "E4M3" in upper or "E5M2" in upper:
+        return "fp8"
     if "INT8" in upper or "KINT8" in upper:
         return "int8"
+    if "BF16" in upper or "BFLOAT16" in upper:
+        return "bf16"
     if "FP16" in upper or "HALF" in upper or "FLOAT16" in upper:
         return "fp16"
     if "FP32" in upper or "FLOAT32" in upper or '"FLOAT"' in upper or upper.strip() == "FLOAT":

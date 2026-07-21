@@ -24,6 +24,32 @@ def _dataloader_worker_init(_worker_id: int) -> None:
     torch.set_num_threads(1)
 
 
+# Compatibility name used by the Transformer model-family workers.  Keep one
+# implementation so CNN and Transformer evaluation obey the same CPU policy.
+_loader_worker_init = _dataloader_worker_init
+
+
+def _validate_ap_iou_protocol(backend: str, *, strict_gpu: bool) -> str:
+    normalized = str(backend).lower()
+    if normalized != "gpu" or not bool(strict_gpu):
+        raise RuntimeError("gpu_ap_iou_backend_required")
+    return normalized
+
+
+def _smoke_gpu_ap_iou(device: torch.device) -> dict[str, Any]:
+    from opencood.pcdet_utils.iou3d_nms.iou3d_nms_utils import boxes_iou_bev
+
+    box = torch.tensor(
+        [[0.0, 0.0, 0.0, 2.0, 2.0, 1.0, 0.0]],
+        device=device,
+        dtype=torch.float32,
+    )
+    value = float(boxes_iou_bev(box, box)[0, 0].item())
+    if abs(value - 1.0) > 1.0e-6:
+        raise RuntimeError(f"gpu_ap_iou_smoke_mismatch:{value}")
+    return {"backend": "gpu", "self_iou": value, "device": str(device)}
+
+
 def _fixed_manifest_subset(
     warmup_ids: list[str],
     evaluation_ids: list[str],

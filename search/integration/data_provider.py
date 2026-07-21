@@ -89,15 +89,21 @@ def write_eval_manifest(
     split: str = "val",
     available_frame_ids: Iterable[str] | None = None,
     reset_after_warmup: bool = False,
+    evaluation_offset: int = 0,
 ) -> EvaluationManifest:
+    offset = int(evaluation_offset)
+    if offset < 0:
+        raise ValueError("evaluation_offset_must_be_nonnegative")
+    if offset and not reset_after_warmup:
+        raise ValueError("evaluation_offset_requires_reset_after_warmup")
     total = int(num_frames) + int(warmup_frames)
-    required = max(int(num_frames), int(warmup_frames)) if reset_after_warmup else total
+    required = max(offset + int(num_frames), int(warmup_frames)) if reset_after_warmup else total
     available = [str(value) for value in available_frame_ids] if available_frame_ids is not None else [str(index) for index in range(required)]
     if len(available) < required:
         raise RuntimeError(f"insufficient_manifest_frames:{len(available)}<{required}")
     if reset_after_warmup:
         warmup_ids = available[: int(warmup_frames)]
-        evaluation_ids = available[: int(num_frames)]
+        evaluation_ids = available[offset : offset + int(num_frames)]
         frame_ids = list(evaluation_ids)
     else:
         frame_ids = available[:total]
@@ -122,6 +128,7 @@ def write_eval_manifest(
                 "warmup_frames": len(warmup_ids),
                 "num_frames": len(evaluation_ids),
                 "reset_after_warmup": bool(reset_after_warmup),
+                "evaluation_offset": offset,
                 "manifest_hash": manifest_hash,
             },
             indent=2,

@@ -52,12 +52,13 @@ def evaluate_v2xvit_engine_modelopt(
         "evaluation_protocol_version": "heal-v2xvit-fixed-manifest-gpu-postprocess-workers8-v1",
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
+    repo_root = Path(__file__).resolve().parents[2]
     env = modelopt_subprocess_env(
         tensorrt_root=tensorrt_root,
         conda_env="modelopt",
         pythonpath_entries=[
+            repo_root,
             "/home/lixingfeng/UniAD_examine",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
             "/home/lixingfeng/UniAD_examine/HEAL",
         ],
         cuda_visible_devices=int(physical_gpu_id),

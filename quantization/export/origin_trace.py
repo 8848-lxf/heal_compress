@@ -10,6 +10,12 @@ PASSTHROUGH_WEIGHT_OPS = frozenset(
     {
         "QuantizeLinear",
         "DequantizeLinear",
+        # ModelOpt 0.29 emits these TensorRT-domain operators for explicit
+        # E4M3 graphs.  For weight provenance they have the same root-preserving
+        # semantics as standard ONNX Q/DQ and must not turn real Linear weights
+        # into apparent functional MatMul nodes.
+        "TRT_FP8QuantizeLinear",
+        "TRT_FP8DequantizeLinear",
         "Cast",
         "Identity",
         "Transpose",

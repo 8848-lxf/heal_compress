@@ -31,11 +31,11 @@ def main(argv: list[str] | None = None) -> int:
     request = json.loads(Path(args.request).read_text(encoding="utf-8"))
     output = Path(request["output_path"])
     try:
+        repo_root = Path(__file__).resolve().parents[2]
         for path in (
             "/home/lixingfeng/UniAD_examine",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
             "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine/heal_compress/tests",
+            str(repo_root),
         ):
             if path not in sys.path:
                 sys.path.insert(0, path)
@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
         from opencood.utils import eval_utils
         from tests.quant_deploy.deployment_equivalence import TensorRTEngineRunner
         from tests.test_baseline_eval import calculate_tp_fp_for_threshold
-        from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
+        from adapters.heal_lidar_adapter import HEALLiDARAdapter
         from search.integration.evaluation_worker import (
             IOU_THRESHOLDS,
             _dataloader_worker_init,

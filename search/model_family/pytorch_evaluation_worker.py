@@ -133,11 +133,11 @@ def main(argv: list[str] | None = None) -> int:
     request = json.loads(Path(args.request).read_text(encoding="utf-8"))
     output = Path(request["output_path"])
     try:
+        repo_root = Path(__file__).resolve().parents[2]
         for path in (
             "/home/lixingfeng/UniAD_examine",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
             "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine/heal_compress/tests",
+            str(repo_root),
         ):
             if path not in sys.path:
                 sys.path.insert(0, path)

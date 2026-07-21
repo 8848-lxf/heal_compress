@@ -22,9 +22,9 @@ def _write_json(path: str | Path, payload: Any) -> None:
 
 def _mapping_from_dict(payload: dict[str, Any]) -> Any:
     try:
-        from heal_compress.quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
-    except ImportError:
         from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+    except ImportError:
+        from heal_compress.quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
     data = dict(payload)
     data["entries"] = [CanonicalPrecisionEntry(**dict(row)) for row in data.get("entries", [])]
     return CanonicalPrecisionMappingResult(**data)
@@ -152,11 +152,11 @@ def main(argv: list[str] | None = None) -> int:
         if ld:
             os.environ["LD_LIBRARY_PATH"] = str(ld) + ":" + os.environ.get("LD_LIBRARY_PATH", "")
         try:
-            from heal_compress.quantization.api import build_trt_engine, validate_engine_structure, validate_precision_realization
-            from heal_compress.quantization.config import TensorRTBuildConfig, TensorRTValidationConfig
-        except ImportError:
             from quantization.api import build_trt_engine, validate_engine_structure, validate_precision_realization
             from quantization.config import TensorRTBuildConfig, TensorRTValidationConfig
+        except ImportError:
+            from heal_compress.quantization.api import build_trt_engine, validate_engine_structure, validate_precision_realization
+            from heal_compress.quantization.config import TensorRTBuildConfig, TensorRTValidationConfig
         mapping = _mapping_from_dict(request["precision_mapping"])
         build_config = TensorRTBuildConfig.from_dict(request["build_config"])
         physical_snapshot = request.get("physical_snapshot")

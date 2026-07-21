@@ -51,12 +51,13 @@ def build_engine_modelopt(
         "tensorrt_root": str(root),
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True, default=str), encoding="utf-8")
+    repo_root = Path(__file__).resolve().parents[2]
     env = modelopt_subprocess_env(
         tensorrt_root=root,
         conda_env=conda_env,
         pythonpath_entries=[
+            repo_root,
             "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
             "/home/lixingfeng/UniAD_examine",
         ],
         cuda_visible_devices=gpu_id,
