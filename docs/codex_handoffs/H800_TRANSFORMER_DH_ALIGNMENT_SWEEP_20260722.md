@@ -67,7 +67,9 @@ Timestamp: 2026-07-22 18:19:30 CST — Round 1
 - Main queues resume CoBEVT window/grid and V2XViT agent-relation/window-w8 from their accepted artifacts.
 - Persistent disjoint-width follow-up queues cover V2XViT window-w16 d64...32 and window-w4 d16...8.
 - After all Phase-A queues exit, persistent follow-up tasks run both D0 identity-parity checks and all six family primitive microbenchmarks.
-- Formal latency remains intentionally unscheduled until an H800 satisfies the required five-minute external-process-free isolation gate.
+- Exact total/Transformer/QKV/Out/FFN physical parameter breakdowns are now included in the report matrix; model baselines are 10,500,260 total / 2,441,872 Transformer parameters for CoBEVT and 13,453,197 total / 5,394,809 Transformer parameters for V2XViT.
+- Evidence-gated Phase-B schedulers wait for all Phase-A and microbenchmark work, then select and run aligned-safe, nonaligned-safe and provisional-latency joint-family candidates. Fixed500 forward latency is used only to choose candidates and is never labelled formal.
+- A persistent formal-latency matrix waits for Phase-B, then fixes the first H800 that is continuously free of external compute processes for five minutes. All accepted family/profile/width engines are measured serially on that same GPU with 200 warmup, 2000 iterations and 5 repeats; external activity causes a wait-and-retry without killing any process.
 
 At this checkpoint the resumed progress journals had advanced beyond the old interruption, including CoBEVT window d30 and V2XViT window-w8 d28. The background queues and their logs are rooted under the same output directory and do not depend on a live Codex terminal session.
 

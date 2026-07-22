@@ -38,6 +38,7 @@ from search.orchestration.lidar_transformer_dh_microbenchmark import (
 )
 from search.orchestration.lidar_transformer_dh_identity_parity import _compare
 from search.orchestration.lidar_transformer_dh_joint import joint_id, parse_targets
+from search.orchestration.lidar_transformer_dh_phase_b import _choose_family_widths
 from search.reporting.transformer_dh_alignment import _parameter_breakdown
 
 
@@ -296,6 +297,21 @@ def test_parameter_breakdown_uses_unique_physical_modules_and_exact_reduction(
         "out_parameter_count": 80,
         "ffn_parameter_count": 200,
     }
+
+
+def test_phase_b_width_selection_separates_alignment_and_provisional_latency() -> None:
+    result = _choose_family_widths(
+        [
+            {"d_h": 32, "safe_all_profiles": True, "provisional_speedup_median": 1.0},
+            {"d_h": 31, "safe_all_profiles": True, "provisional_speedup_median": 1.04},
+            {"d_h": 30, "safe_all_profiles": False, "provisional_speedup_median": 1.20},
+            {"d_h": 24, "safe_all_profiles": True, "provisional_speedup_median": 1.02},
+        ]
+    )
+    assert result["aligned_safe"] == 24
+    assert result["nonaligned_safe"] == 31
+    assert result["provisional_latency"] == 31
+    assert result["safe_widths"] == [32, 31, 24]
 
 
 def test_v2x_odd_dimension_forward_preserves_external_shape() -> None:

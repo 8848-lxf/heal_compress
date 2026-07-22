@@ -241,6 +241,48 @@ def _write_precision_evidence(output_root: Path) -> dict[str, int]:
     return {"requested_realized_rows": len(realized_rows), "precision_conflicts": len(conflicts), "qdq_rows": len(qdq_rows)}
 
 
+def _collect_phase_b(output_root: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for path in sorted((output_root / "reports").glob("lidar_*_phase_b_result.json")):
+        payload = _read(path)
+        for candidate in payload.get("results", ()):
+            result = candidate.get("result", {})
+            evaluations = result.get("evaluations", ())
+            fixed_by_profile = {
+                str(row.get("profile")): row
+                for row in evaluations
+                if row.get("protocol") == "fixed500"
+            }
+            for build in result.get("builds", ()):
+                profile = str(build.get("profile", ""))
+                fixed = fixed_by_profile.get(profile, {})
+                rows.append(
+                    {
+                        "model": build.get("model"),
+                        "selection_label": candidate.get("selection_label"),
+                        "joint_id": build.get("joint_id"),
+                        "targets": candidate.get("targets"),
+                        "profile": profile,
+                        "build_status": build.get("status"),
+                        "requested_realized_conflict_count": build.get(
+                            "requested_realized_conflict_count"
+                        ),
+                        "alignment_status_by_family": build.get(
+                            "alignment_status_by_family"
+                        ),
+                        "fixed500_status": fixed.get("status"),
+                        "fixed500_AP30": fixed.get("AP@0.3"),
+                        "fixed500_AP50": fixed.get("AP@0.5"),
+                        "fixed500_AP70": fixed.get("AP@0.7"),
+                        "fixed500_mAP": fixed.get("mAP"),
+                        "formal_latency_used_for_selection": candidate.get(
+                            "formal_latency_used_for_selection", False
+                        ),
+                    }
+                )
+    return rows
+
+
 def collect(output_root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     families_by_model: dict[str, list[dict[str, Any]]] = {}
@@ -477,6 +519,7 @@ def write_reports(output_root: Path) -> dict[str, Any]:
     _write_inventory_contracts(output_root)
     precision_evidence = _write_precision_evidence(output_root)
     rows = collect(output_root)
+    phase_b_rows = _collect_phase_b(output_root)
     reports = output_root / "reports"
     _write_csv(reports / "dh_alignment_full_matrix.csv", rows)
     _write_csv(reports / "dh_alignment_build_support.csv", [{key: row.get(key) for key in ("model", "attention_family", "profile", "d_h", "engine_build", "requested_realized", "padding_status", "fallback", "tensor_core_hint", "tactic")} for row in rows])
@@ -484,6 +527,7 @@ def write_reports(output_root: Path) -> dict[str, Any]:
     _write_csv(reports / "dh_alignment_latency_boundary.csv", [{key: row.get(key) for key in ("model", "attention_family", "profile", "d_h", "p50_ms", "p90_ms", "p95_ms", "p99_ms", "speedup", "speedup_neighbor", "latency_beneficial")} for row in rows])
     _write_csv(reports / "dh_alignment_tactic_transitions.csv", [{key: row.get(key) for key in ("model", "attention_family", "profile", "d_h", "alignment_class", "padding_status", "tactic", "fusion", "cast_count", "reformat_count")} for row in rows])
     _write_csv(reports / "dh_alignment_precision_interaction.csv", [{key: row.get(key) for key in ("model", "attention_family", "profile", "d_h", "delta_mAP_structure", "delta_mAP_precision", "structure_precision_interaction")} for row in rows])
+    _write_csv(reports / "dh_alignment_phase_b_joint.csv", phase_b_rows)
     contract: dict[str, Any] = {
         "cobevt": {}, "v2xvit": {},
         "alignment_conclusion": {
@@ -506,6 +550,7 @@ def write_reports(output_root: Path) -> dict[str, Any]:
         model: _alignment_evidence(rows, model)
         for model in ("lidar_cobevt", "lidar_v2xvit")
     }
+    contract["phase_b_joint_candidates"] = phase_b_rows
     _write_json(reports / "transformer_dh_alignment_contract.json", contract)
     _write_json(output_root / "transformer_dh_alignment_contract.json", contract)
     for name in (
@@ -518,7 +563,13 @@ def write_reports(output_root: Path) -> dict[str, Any]:
         _write_csv(output_root / f"formal_latency_{short}.csv", [row for row in rows if row["model"] == model and row["p50_ms"] is not None])
     _write_root_conclusion(output_root, rows, contract)
     completed = sum(row["status"] != "not_yet_verified" for row in rows)
-    summary = {"matrix_rows": len(rows), "completed_rows": completed, **precision_evidence, "contract": contract}
+    summary = {
+        "matrix_rows": len(rows),
+        "completed_rows": completed,
+        "phase_b_rows": len(phase_b_rows),
+        **precision_evidence,
+        "contract": contract,
+    }
     _write_json(reports / "report_summary.json", summary)
     return summary
 
