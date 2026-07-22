@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,7 @@ from ..pruning_space.local_domains import build_local_pruning_domains
 from ..stage1.proxy_evaluator import Stage1ProxyEvaluator
 from ..stage2.heal_lidar_baseline_real_evaluator import HealLidarBaselineCandidateEvaluator
 from ..stage2.objective import Stage2ObjectiveConfig
+from ..resource_monitor import SearchResourceMonitor
 from .lidar_pyramid_search import (
     LidarPyramidTwoStageSearch,
     _load_candidate,
@@ -35,6 +37,129 @@ from .lidar_pyramid_search import (
     _write_json,
 )
 from ..hashing import candidate_hash, search_hash
+
+
+def _read_json_if_possible(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return dict(payload) if isinstance(payload, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def _write_search_cost_summary(
+    run_dir: Path,
+    *,
+    method: str,
+    proxy: Stage1ProxyEvaluator | None,
+    resource_summary: dict[str, Any],
+) -> dict[str, Any]:
+    engine_timings = [
+        _read_json_if_possible(path)
+        for path in run_dir.rglob("engine_build_phase_timings.json")
+    ]
+    engine_phase_totals: dict[str, float] = {}
+    for payload in engine_timings:
+        for name, value in dict(payload.get("timings", {}) or {}).items():
+            engine_phase_totals[str(name)] = (
+                engine_phase_totals.get(str(name), 0.0) + float(value or 0.0)
+            )
+    evaluations: list[tuple[Path, dict[str, Any]]] = [
+        (path, _read_json_if_possible(path))
+        for path in run_dir.rglob("evaluation_acceptance.json")
+    ]
+    candidate_frames = 0
+    reference_frames = 0
+    candidate_evaluations = 0
+    reference_evaluations = 0
+    for path, payload in evaluations:
+        identity = dict(payload.get("evaluator_identity", {}) or {})
+        frames = int(identity.get("num_frames", payload.get("num_frames", 0)) or 0)
+        if "reference" in path.parts or "baseline" in path.parts:
+            reference_evaluations += 1
+            reference_frames += frames
+        else:
+            candidate_evaluations += 1
+            candidate_frames += frames
+    greedy_payload = _read_json_if_possible(run_dir / "greedy/greedy_path.json")
+    greedy_neighbors = [
+        {
+            "step": int(row.get("step_index", index + 1)),
+            "neighbor_count": int(row.get("neighbor_count", 0)),
+        }
+        for index, row in enumerate(greedy_payload.get("steps", []) or [])
+    ]
+    ga_generation_rows = []
+    for path in sorted(run_dir.rglob("ga_generation_resource_stats.json")):
+        payload = _read_json_if_possible(path)
+        for row in payload.get("generations", []) or []:
+            ga_generation_rows.append(
+                {
+                    "round_index": int(payload.get("round_index", -1)),
+                    "bops_target": payload.get("bops_target"),
+                    **dict(row),
+                }
+            )
+    proxy_peak_bytes = int(
+        getattr(proxy, "last_batch_stats", {}).get("gpu_peak_memory_bytes", 0)
+        if proxy is not None
+        else 0
+    )
+    stage1_phases = {
+        name: row
+        for name, row in dict(resource_summary.get("phase_totals", {}) or {}).items()
+        if str(name).startswith("stage1.")
+    }
+    stage2_phases = {
+        name: row
+        for name, row in dict(resource_summary.get("phase_totals", {}) or {}).items()
+        if str(name).startswith("stage2.")
+    }
+    summary = {
+        "schema_version": "heal-lidar-search-cost-summary-v1",
+        "method": str(method),
+        "stage1_elapsed_seconds": sum(
+            float(row.get("elapsed_seconds", 0.0)) for row in stage1_phases.values()
+        ),
+        "stage1_allocated_gpu_hours": sum(
+            float(row.get("allocated_gpu_hours", 0.0))
+            for row in stage1_phases.values()
+        ),
+        "stage2_elapsed_gpu_seconds_sum": 3600.0
+        * sum(
+            float(row.get("allocated_gpu_hours", 0.0))
+            for row in stage2_phases.values()
+        ),
+        "stage2_allocated_gpu_hours": sum(
+            float(row.get("allocated_gpu_hours", 0.0))
+            for row in stage2_phases.values()
+        ),
+        "per_phase": dict(resource_summary.get("phase_totals", {}) or {}),
+        "proxy_evaluation_request_count": (
+            int(proxy.cache_hit_count + proxy.cache_miss_count) if proxy is not None else 0
+        ),
+        "proxy_evaluation_count": int(proxy.cache_miss_count) if proxy is not None else 0,
+        "unique_candidate_count": int(proxy.unique_phenotype_count) if proxy is not None else 0,
+        "cache_hit_count": int(proxy.cache_hit_count) if proxy is not None else 0,
+        "cache_miss_count": int(proxy.cache_miss_count) if proxy is not None else 0,
+        "gpu_batch_count": int(proxy.gpu_batch_count) if proxy is not None else 0,
+        "stage2_engine_build_attempt_count": len(engine_timings),
+        "stage2_candidate_evaluation_count": candidate_evaluations,
+        "stage2_reference_evaluation_count": reference_evaluations,
+        "stage2_candidate_frames": candidate_frames,
+        "stage2_reference_frames": reference_frames,
+        "stage2_total_frames": candidate_frames + reference_frames,
+        "peak_vram_mib": max(
+            float(resource_summary.get("peak_memory_used_mib", 0.0) or 0.0),
+            proxy_peak_bytes / (1024.0 * 1024.0),
+        ),
+        "engine_build_phase_totals_seconds": engine_phase_totals,
+        "greedy_neighbors_per_step": greedy_neighbors,
+        "ga_canonical_phenotypes_per_generation": ga_generation_rows,
+        "resource_monitor": resource_summary,
+    }
+    _write_json(run_dir / "search_cost_summary.json", summary)
+    return summary
 
 
 class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
@@ -239,6 +364,7 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
         baseline_only: bool = False,
         candidate_config: str | Path | list[str] | list[Path] | None = None,
     ) -> dict[str, Any]:
+        run_started = time.perf_counter()
         run_dir = self._run_dir()
         (run_dir / "archives").mkdir(parents=True, exist_ok=True)
         (run_dir / "baseline").mkdir(parents=True, exist_ok=True)
@@ -291,6 +417,12 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
                 dict(self.config.get("pruning", {}) or {}).get("dense_channel_alignment", 4)
             ),
             require_quant_calibration_manifest=not (stage1_only or baseline_only),
+            search_space_policy=str(
+                model_cfg.get(
+                    "search_space_policy",
+                    "legacy_family_static_dependency_closure_v1",
+                )
+            ),
         )
         _write_json(
             run_dir / "run_manifest.json",
@@ -318,6 +450,7 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
                 runtime, role="stage2", primary_gpu_id=context.physical_gpu_id
             )
         self._stage2_gpu_ids = stage2_gpu_ids
+        self._stage1_gpu_ids = stage1_gpu_ids
         self._runtime_config = runtime
         _write_json(run_dir / "gpu_parallelism_manifest.json", {
             "stage1_gpu_ids": stage1_gpu_ids,
@@ -328,6 +461,22 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
             "maximum_utilization_pct": int(runtime.get("parallel_gpu_max_utilization_pct", 10)),
             "selection_policy": "fail_closed",
         })
+        monitor = SearchResourceMonitor(
+            run_dir / "resources",
+            sorted(set(stage1_gpu_ids) | set(stage2_gpu_ids)),
+            sample_interval_seconds=float(
+                dict(self.config.get("resources", {}) or {}).get(
+                    "gpu_sample_interval_seconds", 0.5
+                )
+            ),
+        )
+        self._resource_recorder = monitor
+        monitor.record_completed_phase(
+            "setup.context_and_runtime_trace",
+            time.perf_counter() - run_started,
+            [int(context.physical_gpu_id)],
+            search_space_policy=str(context.search_space_policy),
+        )
         if baseline_only:
             evaluator = self._candidate_evaluator(
                 context,
@@ -336,8 +485,24 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
                 warmup_frames=int(stage2_cfg.get("warmup_frames", 200)),
                 latency_rounds=int(stage2_cfg.get("latency_rounds", 3)),
             )
-            baseline = evaluator._stage2_reference_baseline()
-            return {"run_dir": str(run_dir), "baseline_only": True, "baseline": baseline}
+            with self._resource_phase(
+                "stage2.reference_baseline",
+                [int(context.physical_gpu_id)],
+            ):
+                baseline = evaluator._stage2_reference_baseline()
+            resource_summary = monitor.close()
+            cost = _write_search_cost_summary(
+                run_dir,
+                method="baseline_only",
+                proxy=None,
+                resource_summary=resource_summary,
+            )
+            return {
+                "run_dir": str(run_dir),
+                "baseline_only": True,
+                "baseline": baseline,
+                "search_cost_summary": cost,
+            }
         if stage2_only:
             if candidate_config is None:
                 raise RuntimeError("baseline_stage2_only_requires_candidate_config")
@@ -358,19 +523,33 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
                     else canonicalize_candidate(loaded, context.search_space)
                 )
                 identity = candidate_hash(candidate, context.search_space)
-                results.append(evaluator.evaluate_candidate(
-                    candidate,
-                    output_dir=run_dir / "stage2_only" / identity,
+                with self._resource_phase(
+                    "stage2.candidate_evaluation",
+                    [int(context.physical_gpu_id)],
                     candidate_hash=identity,
-                ))
+                ):
+                    results.append(evaluator.evaluate_candidate(
+                        candidate,
+                        output_dir=run_dir / "stage2_only" / identity,
+                        candidate_hash=identity,
+                    ))
+            resource_summary = monitor.close()
+            cost = _write_search_cost_summary(
+                run_dir,
+                method="stage2_only",
+                proxy=None,
+                resource_summary=resource_summary,
+            )
             return {
                 "run_dir": str(run_dir),
                 "selected_gpu": context.physical_gpu_id,
                 "stage2_only": True,
                 "results": results,
                 "result": results[0] if results else None,
+                "search_cost_summary": cost,
             }
 
+        preparation_started = time.perf_counter()
         raw_unit_slices = build_unit_parameter_slices(
             context.model, context.atomic_prune_units
         )
@@ -471,6 +650,12 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
             warmup_frames=int(stage2_cfg.get("warmup_frames", 200)),
             latency_rounds=int(stage2_cfg.get("latency_rounds", 3)),
         )
+        monitor.record_completed_phase(
+            "stage1.preparation",
+            time.perf_counter() - preparation_started,
+            stage1_gpu_ids,
+            fisher_calibration_batches=int(context.fisher_calibration_batches),
+        )
         method = str(search_cfg.get("method", "ga")).lower()
         if method == "greedy":
             rows = self._run_greedy(
@@ -487,11 +672,28 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
             )
         else:
             raise RuntimeError(f"unsupported_baseline_search_method:{method}")
+        monitor.record_event(
+            "proxy_counters",
+            cache_hit_count=int(proxy.cache_hit_count),
+            cache_miss_count=int(proxy.cache_miss_count),
+            unique_candidate_count=int(proxy.unique_phenotype_count),
+            gpu_batch_count=int(proxy.gpu_batch_count),
+            scalar_evaluate_call_count=int(proxy.scalar_evaluate_call_count),
+            batch_evaluate_call_count=int(proxy.batch_evaluate_call_count),
+        )
+        resource_summary = monitor.close()
+        cost = _write_search_cost_summary(
+            run_dir,
+            method=method,
+            proxy=proxy,
+            resource_summary=resource_summary,
+        )
         return {
             "run_dir": str(run_dir),
             "selected_gpu": context.physical_gpu_id,
             "evaluated": len(rows),
             "best": min(rows, key=lambda row: float(row.get("F2", float("inf")))) if rows else None,
+            "search_cost_summary": cost,
         }
 
 

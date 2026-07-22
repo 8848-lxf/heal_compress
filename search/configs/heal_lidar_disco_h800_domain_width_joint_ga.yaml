@@ -4,14 +4,14 @@ model:
   config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_disco/config.yaml
   fixed_k: 29696
   max_agents: 2
+  search_space_policy: heal_runtime_graph_v1
 
 runtime:
-  gpu_id: 0
+  gpu_id: 5
   exclude_gpu_ids: []
-  # Share the dedicated search pool serially with F-Cooper and keep 5/6/7 free.
-  parallel_gpu_ids: [0, 3, 4]
-  stage1_gpu_ids: [0, 3, 4]
-  stage2_gpu_ids: [0, 3, 4]
+  parallel_gpu_ids: [5, 6, 7]
+  stage1_gpu_ids: [5, 6, 7]
+  stage2_gpu_ids: [5, 6, 7]
   parallel_gpu_min_free_mib: 60000
   parallel_gpu_max_utilization_pct: 10
   stage1_minimum_workers: 3
@@ -25,7 +25,7 @@ runtime:
   plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
 
 output:
-  experiment_name: h800_heal_lidar_disco_domain_width_joint_ga
+  experiment_name: h800_heal_lidar_disco_runtime_graph_joint_ga
 
 baselines:
   build_before_search: false
@@ -36,17 +36,17 @@ pruning:
   fixed_ranking: pruning_only_first_plus_second_order_fisher_taylor
   minimum_retained_ratio: 0.10
   dense_channel_alignment: 4
-  disco_protected_prelogit_width: 8
-  disco_scalar_logit_width: 1
 
 precision:
-  gene_type: audited_module_precision_group
+  gene_type: coupled_precision_group_with_merge_contract
   candidates: [FP32, FP16, INT8]
   default: FP32
-  weight_granularity: per_channel
+  weight_granularity: production_layout_aware_per_channel
   activation_calibration: tensorrt_entropy_calibration2
-  fusion_policy: disconet_concat_logits_softmax_weighted_sum_fp16_island
-  pixel_weight_convs: [FP32, FP16]
+  merge_policy: adaptive_equal_or_upcast_INT8_FP16_FP32
+
+resources:
+  gpu_sample_interval_seconds: 0.5
 
 proxy:
   objective_mode: joint_weight_taylor_hard_bops

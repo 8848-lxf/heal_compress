@@ -46,6 +46,7 @@ class Stage1ProxyEvaluator:
         self.initial_candidate_count = 0
         self.unique_phenotype_count = 0
         self.current_unique_phenotype_count = 0
+        self._seen_cache_keys: set[str] = set()
         self.last_batch_stats: dict[str, Any] = {}
 
     def evaluate(self, genotype: CandidateGenotype, *, generation: int = 0, outer_round: int = 0) -> dict[str, Any]:
@@ -53,6 +54,9 @@ class Stage1ProxyEvaluator:
         phenotype = canonicalize_candidate(genotype, self.space)
         deploy_key = candidate_hash(phenotype, self.space)
         key = self.cache_key_fn(phenotype, self.space) if self.cache_key_fn is not None else deploy_key
+        self._seen_cache_keys.add(str(key))
+        self.current_unique_phenotype_count = 1
+        self.unique_phenotype_count = len(self._seen_cache_keys)
 
         def compute() -> dict[str, Any]:
             metrics = self.objective.evaluate(phenotype)
@@ -104,7 +108,8 @@ class Stage1ProxyEvaluator:
         current_unique_count = len(set(cache_keys))
         if self.initial_candidate_count == 0:
             self.initial_candidate_count = len(genotypes_or_phenotypes)
-            self.unique_phenotype_count = current_unique_count
+        self._seen_cache_keys.update(str(key) for key in cache_keys)
+        self.unique_phenotype_count = len(self._seen_cache_keys)
         self.current_unique_phenotype_count = current_unique_count
 
         metrics_by_key: dict[str, dict[str, Any]] = {}

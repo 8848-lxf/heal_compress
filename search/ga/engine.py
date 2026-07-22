@@ -50,6 +50,7 @@ class GeneticSearchEngine:
         self.space = space
         self.config = config or GAConfig()
         self.rng = random.Random(self.config.random_seed)
+        self.generation_statistics: list[dict[str, Any]] = []
 
     def run(
         self,
@@ -140,6 +141,7 @@ class GeneticSearchEngine:
         all_scored: list[tuple[CandidateGenotype, float, dict[str, Any]]] = []
         elite_count = max(1, int(round(self.config.population_size * self.config.elite_ratio)))
         gene_count = len(self.space.pruning_gene_ids) + len(self.space.precision_gene_ids)
+        self.generation_statistics = []
         for generation in range(self.config.num_generations):
             scored = []
             if batch_evaluator is not None:
@@ -169,6 +171,32 @@ class GeneticSearchEngine:
                 scored.sort(key=lambda row: row[1])
             for rank, (_candidate, _score, metrics) in enumerate(scored):
                 metrics["ga_selection_rank"] = int(rank)
+            canonical_ids = {
+                str(metrics.get("candidate_hash", ""))
+                for _candidate, _score, metrics in scored
+                if str(metrics.get("candidate_hash", ""))
+            }
+            raw_ids = {
+                str(candidate_key_fn(candidate))
+                if candidate_key_fn is not None
+                else repr(candidate.to_dict())
+                for candidate, _score, _metrics in scored
+            }
+            self.generation_statistics.append(
+                {
+                    "generation": int(generation),
+                    "population_count": len(scored),
+                    "raw_genotype_count": len(raw_ids),
+                    "canonical_phenotype_count": len(canonical_ids),
+                    "canonicalization_collision_count": max(
+                        0, len(raw_ids) - len(canonical_ids)
+                    ),
+                    "cache_hit_count": sum(
+                        bool(metrics.get("cache_hit", False))
+                        for _candidate, _score, metrics in scored
+                    ),
+                }
+            )
             current_key = None
             if scored:
                 current_key = (

@@ -85,6 +85,7 @@ class GreedyStep:
     marginal_loss: float
     marginal_loss_per_bops: float
     candidate_hash: str
+    neighbor_count: int
     metrics: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -102,6 +103,7 @@ class GreedyStep:
             "marginal_loss": self.marginal_loss,
             "marginal_loss_per_bops": self.marginal_loss_per_bops,
             "candidate_hash": self.candidate_hash,
+            "neighbor_count": self.neighbor_count,
             "metrics": dict(self.metrics),
         }
 
@@ -495,6 +497,7 @@ class GreedyBudgetSearch:
                 marginal_loss=marginal,
                 marginal_loss_per_bops=ratio,
                 candidate_hash=candidate_id,
+                neighbor_count=len(neighbors),
                 metrics=dict(selected_metrics),
             )
             steps.append(step)

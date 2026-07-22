@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,6 +48,7 @@ class HealLidarBaselineEvaluationConfig:
     workspace_mib: int = 4096
     build_timeout_seconds: int = 3600
     conda_env: str = "modelopt"
+    search_space_policy: str = "legacy_family_static_dependency_closure_v1"
 
     def __post_init__(self) -> None:
         if self.family_id not in {"heal_lidar_fcooper", "heal_lidar_disco"}:
@@ -117,6 +119,7 @@ class HealLidarBaselineRealEvaluator:
             "num_frames": int(self.config.num_frames),
             "warmup_frames": int(self.config.warmup_frames),
             "latency_rounds": int(self.config.latency_rounds),
+            "search_space_policy": str(self.config.search_space_policy),
         }
         payload["evaluator_identity_hash"] = stable_json_hash(payload)
         return payload
@@ -155,6 +158,8 @@ class HealLidarBaselineRealEvaluator:
         profile_id: str,
         calibration_metadata: Mapping[str, Any] | None = None,
         auxiliary_precision: str = "fp16",
+        runtime_precision_relations: Any = (),
+        module_to_precision_group: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
@@ -166,6 +171,9 @@ class HealLidarBaselineRealEvaluator:
             canonical_onnx_path=export_artifact.export.onnx_path,
             profile_id=profile_id,
             auxiliary_precision=auxiliary_precision,
+            precision_policy=self.config.search_space_policy,
+            runtime_precision_relations=runtime_precision_relations,
+            module_to_precision_group=module_to_precision_group,
         )
         qdq, qdq_island = insert_heal_lidar_baseline_explicit_qdq(
             export_artifact.export.onnx_path,
@@ -235,11 +243,32 @@ class HealLidarBaselineRealEvaluator:
                 f"heal_lidar_candidate_engine_build_failed:{build.get('failure_reason', build.get('status'))}"
             )
         layer_info = destination / "engine_build/engine_layer_info.json"
-        precision = validate_heal_lidar_precision_realization(
-            layer_info,
-            qdq_artifact["mapping"],
-            family=self.config.family_id,
-        )
+        if self.config.search_space_policy in {
+            "heal_runtime_graph_v1",
+            "pyramid_runtime_tracer_v1",
+        }:
+            # The generic runtime policy accepts TensorRT's structure and
+            # weighted-op precision proofs without family-named node lists.
+            weighted = dict(build.get("precision_realization_validation", {}) or {})
+            structure = dict(build.get("engine_structure_validation", {}) or {})
+            precision = {
+                "schema_version": "heal-runtime-graph-precision-acceptance-v1",
+                "passed": bool(weighted.get("passed", False) and structure.get("passed", False)),
+                "weighted_precision": weighted,
+                "engine_structure": structure,
+                "fusion_island": {
+                    "passed": True,
+                    "validation_policy": "runtime_graph_generic_engine_acceptance",
+                    "manual_family_node_audit_used": False,
+                    "qdq_auxiliary_contract": "validated_before_engine_build",
+                },
+            }
+        else:
+            precision = validate_heal_lidar_precision_realization(
+                layer_info,
+                qdq_artifact["mapping"],
+                family=self.config.family_id,
+            )
         self._write_json(destination / "precision_realization_acceptance.json", precision)
         if not precision["passed"]:
             raise RuntimeError(f"heal_lidar_candidate_precision_realization_failed:{precision}")
@@ -396,6 +425,7 @@ class HealLidarBaselineCandidateEvaluator:
             latency_rounds=int(self.latency_rounds),
             dataloader_num_workers=int(self.dataloader_num_workers),
             conda_env=self.context.tensorrt.conda_env,
+            search_space_policy=str(self.context.search_space_policy),
         ))
 
     def _stage2_reference_baseline(self) -> dict[str, Any]:
@@ -604,20 +634,39 @@ class HealLidarBaselineCandidateEvaluator:
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
         self._write_json(destination / "phenotype.json", phenotype.to_dict())
+        timings: dict[str, float] = {}
+        total_started = time.perf_counter()
+
+        def timed(name: str, function: Any) -> Any:
+            started = time.perf_counter()
+            try:
+                return function()
+            finally:
+                timings[name] = time.perf_counter() - started
+
         try:
-            physical = self._materialize(phenotype, destination / "physical")
+            physical = timed(
+                "physical_materialization_seconds",
+                lambda: self._materialize(phenotype, destination / "physical"),
+            )
             model = physical["model"]
-            audit = self.context.model_bundle.provider.audit(
-                model,
-                self.context.model_bundle.config,
-                require_original_widths=False,
+            audit = timed(
+                "post_materialization_validation_seconds",
+                lambda: self.context.model_bundle.provider.audit(
+                    model,
+                    self.context.model_bundle.config,
+                    require_original_widths=False,
+                ),
             )
             evaluator = self._real_evaluator(output_dir=destination)
-            export = evaluator.export_candidate(
-                model,
-                self.context.trace_example_inputs,
-                audit,
-                output_dir=destination / "export",
+            export = timed(
+                "onnx_export_seconds",
+                lambda: evaluator.export_candidate(
+                    model,
+                    self.context.trace_example_inputs,
+                    audit,
+                    output_dir=destination / "export",
+                ),
             )
             profile = {
                 module_path: precision.lower()
@@ -626,27 +675,56 @@ class HealLidarBaselineCandidateEvaluator:
             auxiliary_precision = str(
                 phenotype.metadata.get("heal_lidar_auxiliary_precision", "FP16")
             ).lower()
-            mapping, island = build_heal_lidar_baseline_precision_mapping(
-                export.export.origin_map,
-                profile,
-                audit=audit,
-                canonical_onnx_path=export.export.onnx_path,
-                profile_id=candidate_hash or "candidate",
-                auxiliary_precision=auxiliary_precision,
+            module_to_precision_group = {
+                module_path: group.group_id
+                for group in getattr(
+                    getattr(self.context, "search_space", None),
+                    "quantization_groups",
+                    (),
+                )
+                for module_path in group.module_paths
+            }
+            mapping, island = timed(
+                "precision_mapping_seconds",
+                lambda: build_heal_lidar_baseline_precision_mapping(
+                    export.export.origin_map,
+                    profile,
+                    audit=audit,
+                    canonical_onnx_path=export.export.onnx_path,
+                    profile_id=candidate_hash or "candidate",
+                    auxiliary_precision=auxiliary_precision,
+                    precision_policy=str(getattr(
+                        self.context,
+                        "search_space_policy",
+                        "legacy_family_static_dependency_closure_v1",
+                    )),
+                    runtime_precision_relations=list(getattr(
+                        getattr(self.context, "precision_coupling_result", None),
+                        "relations",
+                        [],
+                    )),
+                    module_to_precision_group=module_to_precision_group,
+                ),
             )
-            scales, calibration = self._calibration_scales(
-                model=model,
-                export_artifact=export,
-                mapping=mapping,
-                output_dir=destination / "calibration",
+            scales, calibration = timed(
+                "activation_calibration_seconds",
+                lambda: self._calibration_scales(
+                    model=model,
+                    export_artifact=export,
+                    mapping=mapping,
+                    output_dir=destination / "calibration",
+                ),
             )
-            qdq_result, qdq_island = insert_heal_lidar_baseline_explicit_qdq(
-                export.export.onnx_path,
-                destination / "qdq/explicit_qdq.onnx",
-                mapping,
-                family=self.context.family_id,
-                scales=scales,
-                calibration_metadata=calibration,
+            qdq_result, qdq_island = timed(
+                "qdq_insertion_seconds",
+                lambda: insert_heal_lidar_baseline_explicit_qdq(
+                    export.export.onnx_path,
+                    destination / "qdq/explicit_qdq.onnx",
+                    mapping,
+                    family=self.context.family_id,
+                    scales=scales,
+                    calibration_metadata=calibration,
+                ),
             )
             qdq = {
                 "mapping": mapping,
@@ -665,8 +743,31 @@ class HealLidarBaselineCandidateEvaluator:
             self._write_json(
                 destination / "calibration/calibration_metadata.json", calibration
             )
-            engine = evaluator.build_engine(
-                model, qdq, output_dir=destination / "deployment"
+            engine = timed(
+                "tensorrt_engine_build_seconds",
+                lambda: evaluator.build_engine(
+                    model, qdq, output_dir=destination / "deployment"
+                ),
+            )
+            timings["total_build_pipeline_seconds"] = (
+                time.perf_counter() - total_started
+            )
+            self._write_json(
+                destination / "engine_build_phase_timings.json",
+                {
+                    "schema_version": "heal-lidar-engine-build-phase-timings-v1",
+                    "candidate_hash": candidate_hash,
+                    "physical_gpu_id": int(getattr(self.context, "physical_gpu_id", 0)),
+                    "timings": timings,
+                    "engine_build_gpu_hours": timings.get(
+                        "tensorrt_engine_build_seconds", 0.0
+                    )
+                    / 3600.0,
+                    "total_pipeline_gpu_hours": timings[
+                        "total_build_pipeline_seconds"
+                    ]
+                    / 3600.0,
+                },
             )
             before = sum(
                 int(parameter.numel()) for parameter in self.context.model.parameters()
@@ -707,10 +808,24 @@ class HealLidarBaselineCandidateEvaluator:
                         / "deployment/precision_realization_acceptance.json"
                     ).resolve()
                 ),
+                "engine_build_phase_timings": dict(timings),
             }
             self._write_json(destination / "candidate_build_result.json", result)
             return result
         except Exception as exc:
+            timings["total_build_pipeline_seconds"] = (
+                time.perf_counter() - total_started
+            )
+            self._write_json(
+                destination / "engine_build_phase_timings.json",
+                {
+                    "schema_version": "heal-lidar-engine-build-phase-timings-v1",
+                    "candidate_hash": candidate_hash,
+                    "physical_gpu_id": int(getattr(self.context, "physical_gpu_id", 0)),
+                    "status": "failed",
+                    "timings": timings,
+                },
+            )
             failure = {
                 "schema_version": "heal-lidar-candidate-build-only-v1",
                 "status": "build_failed",
@@ -718,6 +833,7 @@ class HealLidarBaselineCandidateEvaluator:
                 "artifact_dir": str(destination.resolve()),
                 "failure_reason": f"{type(exc).__name__}:{exc}",
                 "failure_traceback": traceback.format_exc(),
+                "engine_build_phase_timings": dict(timings),
                 "evaluation_invoked": False,
             }
             self._write_json(destination / "candidate_build_result.json", failure)

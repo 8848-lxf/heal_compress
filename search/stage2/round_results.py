@@ -188,13 +188,47 @@ def _copy_winner_artifacts(round_dir: Path, winner: dict[str, Any]) -> None:
         shutil.copy2(src, round_dir / dst_name)
 
 
-def write_round_stage2_results(run_dir: str | Path, *, round_index: int = 0) -> dict[str, Any]:
+def write_round_stage2_results(
+    run_dir: str | Path,
+    *,
+    round_index: int = 0,
+    allow_no_success: bool = False,
+) -> dict[str, Any]:
     root = Path(run_dir)
     round_dir = root / f"round_{int(round_index):03d}"
     rows = collect_round_stage2_results(root, round_index=round_index)
     ok_rows = [row for row in rows if row.get("status") == "ok"]
     if not ok_rows:
-        raise RuntimeError(f"no_successful_stage2_candidates:round_{int(round_index):03d}")
+        if not allow_no_success:
+            raise RuntimeError(f"no_successful_stage2_candidates:round_{int(round_index):03d}")
+        _write_csv(round_dir / "stage2_top5_results.csv", rows)
+        _write_json(
+            round_dir / "stage2_top5_results.json",
+            {
+                "round_index": int(round_index),
+                "winner": None,
+                "candidates": rows,
+                "status": "no_successful_stage2_candidate",
+            },
+        )
+        _write_markdown(round_dir / "stage2_top5_results.md", rows, {})
+        _write_json(
+            round_dir / "round_stage2_failure.json",
+            {
+                "round_index": int(round_index),
+                "status": "no_successful_stage2_candidate",
+                "candidate_count": len(rows),
+                "failure_reasons": [
+                    row.get("failure_reason", row.get("status", "")) for row in rows
+                ],
+            },
+        )
+        return {
+            "round_index": int(round_index),
+            "winner": None,
+            "candidates": rows,
+            "status": "no_successful_stage2_candidate",
+        }
     winner = ok_rows[0]
     _write_csv(round_dir / "stage2_top5_results.csv", rows)
     _write_json(round_dir / "stage2_top5_results.json", {"round_index": int(round_index), "winner": winner, "candidates": rows})

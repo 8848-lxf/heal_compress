@@ -175,6 +175,45 @@ def test_runtime_trace_fallback_handles_real_tensor_assignment_and_keeps_closure
     }
 
 
+def test_runtime_trace_canonicalizes_repeated_root_concat_aliases() -> None:
+    from tracer.api import trace_model
+    from tracer.config import TraceConfig
+
+    class RuntimeRepeatedRootConcat(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.stem = nn.Conv2d(4, 8, 1)
+            self.fuse = nn.Conv2d(16, 4, 1)
+
+        def forward(self, value):
+            # Tensor assignment deliberately selects the runtime fallback used
+            # by the HEAL LiDAR models.
+            value = value.clone()
+            value[:, 0] = value[:, 0] * 1.0
+            feature = self.stem(value)
+            return self.fuse(torch.cat((feature, feature), dim=1))
+
+    result = trace_model(
+        RuntimeRepeatedRootConcat().eval(),
+        torch.randn(1, 4, 3, 3),
+        config=TraceConfig(fail_on_fx_trace_error=False),
+    )
+    assert result.config["realized_backend"] == "runtime_tensor_flow"
+    scope = next(row for row in result.dependency_scopes if row.root_module_path == "stem")
+    assert scope.channel_count == 8
+    assert "repeated_root_alias_canonicalized" in scope.dependency_types
+    fuse = next(
+        member for member in scope.members
+        if member.module_path == "fuse" and member.axis == "in"
+    )
+    assert fuse.index_map == {index: [index, index + 8] for index in range(8)}
+    assert [
+        unit.root_channel_index
+        for unit in result.coupled_channel_units
+        if unit.scope_id == scope.stable_id
+    ] == list(range(8))
+
+
 def test_normalized_first_order_taylor_exact_formula() -> None:
     from pruning.api import score_pruning_units
 

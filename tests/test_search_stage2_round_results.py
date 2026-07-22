@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
@@ -164,3 +166,44 @@ def test_round_stage2_results_accepts_heal_lidar_nested_artifacts(tmp_path: Path
     assert (round_dir / "round_best_qdq.onnx").read_bytes() == b"qdq"
     assert (round_dir / "round_best.engine.plan").read_bytes() == b"engine"
     assert json.loads((round_dir / "round_best_evaluation_300.json").read_text())["num_evaluated_frames"] == 500
+
+
+def test_round_stage2_results_can_record_an_empty_success_set_without_aborting(tmp_path: Path) -> None:
+    from search.stage2.round_results import write_round_stage2_results
+
+    run_dir = tmp_path / "run"
+    round_dir = run_dir / "round_000"
+    candidate_hash = "failed-candidate"
+    candidate_dir = round_dir / "stage2" / candidate_hash
+    candidate_dir.mkdir(parents=True)
+    (round_dir / "repaired_top5_manifest.json").write_text(
+        json.dumps(
+            {
+                "candidates": [
+                    {
+                        "candidate_rank": 0,
+                        "repaired_phenotype_hash": candidate_hash,
+                        "repaired_F1": 0.1,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (candidate_dir / "stage2_score.json").write_text(
+        json.dumps({"status": "failed", "F2": float("inf")}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="no_successful_stage2_candidates"):
+        write_round_stage2_results(run_dir, round_index=0)
+
+    result = write_round_stage2_results(run_dir, round_index=0, allow_no_success=True)
+
+    assert result["winner"] is None
+    assert result["status"] == "no_successful_stage2_candidate"
+    assert (round_dir / "stage2_top5_results.csv").is_file()
+    assert (round_dir / "stage2_top5_results.md").is_file()
+    failure = json.loads((round_dir / "round_stage2_failure.json").read_text())
+    assert failure["candidate_count"] == 1
+    assert failure["failure_reasons"] == ["failed"]

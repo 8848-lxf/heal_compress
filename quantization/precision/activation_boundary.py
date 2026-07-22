@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 
-def resolve_activation_output_boundary(model: Any, weighted_node_name: str) -> dict[str, Any]:
+def resolve_activation_output_boundary(
+    model: Any,
+    weighted_node_name: str,
+    *,
+    stop_before_merge: bool = False,
+) -> dict[str, Any]:
     """Return the stable post-op boundary for one weighted ONNX node.
 
     A weighted op followed by a unique pre-activation chain (for example
@@ -81,7 +86,12 @@ def resolve_activation_output_boundary(model: Any, weighted_node_name: str) -> d
             if len(following_ops) == 1
             else "post_relu_semantic_boundary_via_unique_pre_activation_chain"
         )
-    elif len(direct) == 1 and str(direct[0].op_type) in {"Add", "Concat"} and len(direct[0].output) == 1:
+    elif (
+        not stop_before_merge
+        and len(direct) == 1
+        and str(direct[0].op_type) in {"Add", "Concat", "Mul", "Where", "MatMul"}
+        and len(direct[0].output) == 1
+    ):
         merge = direct[0]
         merge_output = str(merge.output[0])
         following_ops.append(

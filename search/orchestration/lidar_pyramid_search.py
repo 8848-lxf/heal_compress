@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from contextlib import nullcontext
 import json
 import random
 import time
@@ -160,6 +161,18 @@ class LidarPyramidTwoStageSearch:
         self.checkpoint = Path(checkpoint).expanduser().resolve()
         self.output_root = Path(output_root)
         self.resume = Path(resume).expanduser().resolve() if resume else None
+        self._resource_recorder = None
+
+    def _resource_phase(
+        self,
+        name: str,
+        gpu_ids: list[int] | tuple[int, ...],
+        **metadata: Any,
+    ) -> Any:
+        recorder = getattr(self, "_resource_recorder", None)
+        if recorder is None:
+            return nullcontext()
+        return recorder.phase(name, gpu_ids, **metadata)
 
     def _run_dir(self) -> Path:
         if self.resume is not None:
@@ -758,11 +771,16 @@ class LidarPyramidTwoStageSearch:
             for index, item, candidate_dir in queue:
                 record = item.record
                 try:
-                    result = evaluator.evaluate_candidate(
-                        record.phenotype,
-                        output_dir=candidate_dir,
+                    with self._resource_phase(
+                        "stage2.candidate_evaluation",
+                        [int(gpu_id)],
                         candidate_hash=record.candidate_hash,
-                    )
+                    ):
+                        result = evaluator.evaluate_candidate(
+                            record.phenotype,
+                            output_dir=candidate_dir,
+                            candidate_hash=record.candidate_hash,
+                        )
                 except Exception as exc:  # noqa: BLE001
                     result = {
                         "status": "stage2_worker_failed",
@@ -890,7 +908,11 @@ class LidarPyramidTwoStageSearch:
                 ),
             ),
         )
-        result = greedy.run(evaluate_batch)
+        with self._resource_phase(
+            "stage1.greedy_search",
+            list(getattr(self, "_stage1_gpu_ids", [getattr(context, "physical_gpu_id", 0)])),
+        ):
+            result = greedy.run(evaluate_batch)
         greedy_dir = run_dir / "greedy"
         _write_json(greedy_dir / "greedy_path.json", result.to_dict())
         _write_json(
@@ -935,11 +957,16 @@ class LidarPyramidTwoStageSearch:
         full_evaluator = self._full_validation_evaluator(context, run_dir)
         for identity, row in sorted(by_candidate_hash.items()):
             candidate_dir = greedy_dir / "stage2_full" / identity
-            evaluated = full_evaluator.evaluate_candidate(
-                row["phenotype"],
-                output_dir=candidate_dir,
+            with self._resource_phase(
+                "stage2.greedy_full_validation",
+                [int(context.physical_gpu_id)],
                 candidate_hash=identity,
-            )
+            ):
+                evaluated = full_evaluator.evaluate_candidate(
+                    row["phenotype"],
+                    output_dir=candidate_dir,
+                    candidate_hash=identity,
+                )
             metrics = dict(row["metrics"])
             r_bops = float(metrics.get("R_bops_vs_fp32", 0.0) or 0.0)
             r_size = float(metrics.get("R_size_vs_fp32", 0.0) or 0.0)
@@ -1317,9 +1344,13 @@ class LidarPyramidTwoStageSearch:
                         ),
                     ),
                 )
-                greedy_seed_result = greedy_seed_search.run(
-                    evaluate_greedy_seed_batch
-                )
+                with self._resource_phase(
+                    "stage1.ga_greedy_warm_start",
+                    list(getattr(self, "_stage1_gpu_ids", [getattr(context, "physical_gpu_id", 0)])),
+                ):
+                    greedy_seed_result = greedy_seed_search.run(
+                        evaluate_greedy_seed_batch
+                    )
                 _write_json(greedy_seed_path, greedy_seed_result.to_dict())
                 for target in configured_bops_targets:
                     rows = []
@@ -1464,7 +1495,11 @@ class LidarPyramidTwoStageSearch:
                         selected=resumed_selected,
                     )
                     evaluated_rows.extend(resumed_rows)
-                    write_round_stage2_results(run_dir, round_index=round_index)
+                    write_round_stage2_results(
+                        run_dir,
+                        round_index=round_index,
+                        allow_no_success=True,
+                    )
                     _write_json(
                         round_dir / "round_state.json",
                         {
@@ -1609,26 +1644,40 @@ class LidarPyramidTwoStageSearch:
                 batch.metrics = [annotate_metrics(genotype, metrics, generation) for genotype, metrics in zip(genotypes, batch.metrics)]
                 return batch
 
-            scored = ga.run(
-                evaluate_genotype if proxy_backend == "scalar_cpu" else None,
-                batch_evaluator=evaluate_genotypes_batch if proxy_backend != "scalar_cpu" else None,
-                previous_elite=(
-                    []
-                    if bool(search_cfg.get("independent_budget_rounds", True))
-                    else previous_elite
-                ),
-                previous_best=(
-                    None
-                    if bool(search_cfg.get("independent_budget_rounds", True))
-                    else previous_best
-                ),
-                seed_candidates=(
-                    budget_seed_candidates.get(float(round_bops_target), [])
-                    if round_bops_target is not None
-                    else []
-                ),
-                seen_candidate_keys=global_seen_raw_hashes,
-                candidate_key_fn=lambda genotype: self._raw_genotype_hash(genotype, context),
+            with self._resource_phase(
+                "stage1.ga_round",
+                list(getattr(self, "_stage1_gpu_ids", [getattr(context, "physical_gpu_id", 0)])),
+                round_index=int(round_index),
+                bops_target=round_bops_target,
+            ):
+                scored = ga.run(
+                    evaluate_genotype if proxy_backend == "scalar_cpu" else None,
+                    batch_evaluator=evaluate_genotypes_batch if proxy_backend != "scalar_cpu" else None,
+                    previous_elite=(
+                        []
+                        if bool(search_cfg.get("independent_budget_rounds", True))
+                        else previous_elite
+                    ),
+                    previous_best=(
+                        None
+                        if bool(search_cfg.get("independent_budget_rounds", True))
+                        else previous_best
+                    ),
+                    seed_candidates=(
+                        budget_seed_candidates.get(float(round_bops_target), [])
+                        if round_bops_target is not None
+                        else []
+                    ),
+                    seen_candidate_keys=global_seen_raw_hashes,
+                    candidate_key_fn=lambda genotype: self._raw_genotype_hash(genotype, context),
+                )
+            _write_json(
+                round_dir / "ga_generation_resource_stats.json",
+                {
+                    "round_index": int(round_index),
+                    "bops_target": round_bops_target,
+                    "generations": list(ga.generation_statistics),
+                },
             )
             global_seen_raw_hashes.update(self._raw_genotype_hash(genotype, context) for genotype, _score, _metrics in scored)
             _append_jsonl(
@@ -1815,7 +1864,11 @@ class LidarPyramidTwoStageSearch:
                     selected=selected,
                 )
                 evaluated_rows.extend(round_stage2_rows)
-                write_round_stage2_results(run_dir, round_index=round_index)
+                write_round_stage2_results(
+                    run_dir,
+                    round_index=round_index,
+                    allow_no_success=True,
+                )
             if not bool(search_cfg.get("independent_budget_rounds", True)):
                 previous_elite = [
                     record.genotype

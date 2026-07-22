@@ -14,7 +14,7 @@ from ..exceptions import QDQInsertionError
 from ..types import CanonicalPrecisionMappingResult, QDQInsertionRecord, QDQInsertionResult, stable_json_hash
 from ..export.origin_trace import build_weight_trace_index, trace_compute_node_weight
 from .activation_boundary import resolve_activation_output_boundary
-from .merge_contract import fp16_merge_cast_name
+from .merge_contract import adaptive_merge_cast_name, fp16_merge_cast_name
 
 
 def _positive_scale(value: Any, module_path: str, kind: str) -> float | list[float]:
@@ -56,14 +56,17 @@ def _scales_for(
 
 
 def _insert_output_qdq_for(entry: Any, metadata: Mapping[str, Any], policy: QDQConfig) -> bool:
-    """Resolve output-Q ownership, with FP16 merge contracts taking priority."""
+    """Resolve output-Q ownership, with promoted float contracts taking priority."""
 
-    fp16_output_contract = str(entry.realized_output_precision or "").lower() == "fp16"
+    promoted_float_output_contract = str(entry.realized_output_precision or "").lower() in {
+        "fp16",
+        "fp32",
+    }
     explicitly_requested = metadata.get("insert_activation_output_qdq")
-    if fp16_output_contract:
+    if promoted_float_output_contract:
         if explicitly_requested is True:
             raise QDQInsertionError(
-                f"activation output Q/DQ conflicts with FP16 output contract for {entry.module_path}"
+                f"activation output Q/DQ conflicts with promoted float output contract for {entry.module_path}"
             )
         return False
     if explicitly_requested is not None:
@@ -119,7 +122,7 @@ def _qdq_pair(
     )
 
 
-def _audit_fp16_merge_boundaries(
+def _audit_merge_boundaries(
     model: Any,
     merge_policy: str,
     mapping: CanonicalPrecisionMappingResult,
@@ -127,7 +130,7 @@ def _audit_fp16_merge_boundaries(
     import numpy as np
     from onnx import numpy_helper
 
-    if merge_policy != "fp16_merge":
+    if merge_policy not in {"fp16_merge", "adaptive_upcast_merge"}:
         raise QDQInsertionError(f"unsupported_explicit_qdq_merge_policy:{merge_policy}")
     producers = {
         str(output): node
@@ -207,14 +210,17 @@ def _audit_fp16_merge_boundaries(
         return [found[key] for key in sorted(found)]
     rows: list[dict[str, Any]] = []
     for node in model.graph.node:
-        if str(node.op_type) not in {"Add", "Concat"}:
+        if str(node.op_type) not in {"Add", "Concat", "Mul", "Where", "MatMul"}:
             continue
+        derived_precision = str(
+            mapping.auxiliary_layer_precisions.get(str(node.name), "fp16")
+        ).lower()
         branches = []
         for input_name in node.input:
             producer = producers.get(str(input_name))
             producer_type = str(producer.op_type) if producer is not None else "graph_input_or_initializer"
             if producer_type == "QuantizeLinear":
-                raise QDQInsertionError(f"fp16_merge_received_quantized_tensor:{node.name}:{input_name}")
+                raise QDQInsertionError(f"merge_received_quantized_tensor_without_dq:{node.name}:{input_name}")
             branches.append(
                 {
                     "tensor": str(input_name),
@@ -251,9 +257,16 @@ def _audit_fp16_merge_boundaries(
                 "merge_op_name": str(node.name),
                 "merge_op_type": str(node.op_type),
                 "output_tensors": [str(value) for value in node.output],
-                "policy": "A_fp16_merge",
+                "policy": (
+                    "adaptive_upcast_merge" if merge_policy == "adaptive_upcast_merge" else "A_fp16_merge"
+                ),
+                "derived_merge_precision": derived_precision,
                 "input_branches": branches,
-                "merge_scale_policy": "independent_branch_scales_then_DQ_to_float; optional_downstream_requantization",
+                "merge_scale_policy": (
+                    "equal_precision_kept_else_promote_INT8_to_FP16_to_FP32"
+                    if merge_policy == "adaptive_upcast_merge"
+                    else "independent_branch_scales_then_DQ_to_float; optional_downstream_requantization"
+                ),
                 "downstream": downstream,
                 "downstream_weighted_layers": downstream_weighted,
                 "partial_explicit_qdq_input_count": sum(
@@ -269,8 +282,8 @@ def _audit_fp16_merge_boundaries(
         row["merge_role"] = (
             "residual_activation_merge"
             if str(node.op_type) == "Add" and row["quantization_relevant_merge"]
-            else "concat_activation_merge"
-            if str(node.op_type) == "Concat" and row["quantization_relevant_merge"]
+            else f"{str(node.op_type).lower()}_activation_merge"
+            if row["quantization_relevant_merge"]
             else "non_activation_shape_or_functional_merge"
         )
         if row["quantization_relevant_merge"]:
@@ -314,6 +327,65 @@ def _insert_explicit_fp16_merge_casts(model: Any, mapping: CanonicalPrecisionMap
                     "cast_node": cast_name,
                     "cast_output_tensor": cast_output,
                     "cast_dtype": "FP16",
+                }
+            )
+        rewritten.append(node)
+    del model.graph.node[:]
+    model.graph.node.extend(rewritten)
+    return records
+
+
+def _insert_explicit_adaptive_merge_casts(
+    model: Any,
+    mapping: CanonicalPrecisionMappingResult,
+) -> list[dict[str, Any]]:
+    """Strongly type promoted FP16/FP32 merges; INT8 merges keep Q/DQ edges."""
+
+    from onnx import TensorProto, helper
+
+    target_merges = {
+        str(name): str(precision).lower()
+        for name, precision in mapping.auxiliary_layer_precisions.items()
+        if str(precision).lower() in {"int8", "fp16", "fp32"}
+    }
+    records: list[dict[str, Any]] = []
+    rewritten: list[Any] = []
+    supported = {"Add", "Concat", "Mul", "Where", "MatMul"}
+    for node in model.graph.node:
+        precision = target_merges.get(str(node.name))
+        if precision is None or str(node.op_type) not in supported:
+            rewritten.append(node)
+            continue
+        if precision == "int8":
+            rewritten.append(node)
+            continue
+        tensor_type = TensorProto.FLOAT16 if precision == "fp16" else TensorProto.FLOAT
+        for input_index, input_name in enumerate(list(node.input)):
+            # Where's condition is BOOL and is not a precision-bearing branch.
+            if str(node.op_type) == "Where" and input_index == 0:
+                continue
+            cast_name = adaptive_merge_cast_name(str(node.name), input_index, precision)
+            cast_output = f"{cast_name}__output"
+            rewritten.append(
+                helper.make_node(
+                    "Cast",
+                    [str(input_name)],
+                    [cast_output],
+                    name=cast_name,
+                    to=tensor_type,
+                )
+            )
+            node.input[input_index] = cast_output
+            records.append(
+                {
+                    "merge_op_name": str(node.name),
+                    "merge_op_type": str(node.op_type),
+                    "derived_merge_precision": precision.upper(),
+                    "input_index": int(input_index),
+                    "source_tensor": str(input_name),
+                    "cast_node": cast_name,
+                    "cast_output_tensor": cast_output,
+                    "cast_dtype": precision.upper(),
                 }
             )
         rewritten.append(node)
@@ -530,11 +602,11 @@ def _insert_explicit_fp32_compute_casts(
     return records
 
 
-def _insert_explicit_fp16_weighted_output_casts(
+def _insert_explicit_promoted_weighted_output_casts(
     model: Any,
     mapping: CanonicalPrecisionMappingResult,
 ) -> list[dict[str, Any]]:
-    """Encode an INT8-compute/FP16-output split without builder hints."""
+    """Encode an INT8-compute/promoted-float-output split without builder hints."""
 
     from onnx import TensorProto, helper
 
@@ -542,7 +614,7 @@ def _insert_explicit_fp16_weighted_output_casts(
         str(entry.canonical_node_name): entry
         for entry in mapping.entries
         if str(entry.realized_request_precision).lower() == "int8"
-        and str(entry.realized_output_precision).lower() == "fp16"
+        and str(entry.realized_output_precision).lower() in {"fp16", "fp32"}
         and not entry.constraint_node_names
     }
     records: list[dict[str, Any]] = []
@@ -555,11 +627,12 @@ def _insert_explicit_fp16_weighted_output_casts(
             continue
         seen.add(str(node.name))
         if len(node.output) != 1:
-            raise QDQInsertionError(f"fp16_weighted_output_arity_unsupported:{node.name}")
+            raise QDQInsertionError(f"promoted_weighted_output_arity_unsupported:{node.name}")
         public_output = str(node.output[0])
-        raw_output = f"{public_output}__before_strong_type_fp16"
+        output_precision = str(entry.realized_output_precision).lower()
+        raw_output = f"{public_output}__before_strong_type_{output_precision}"
         safe_node = str(node.name).replace("/", "_").replace(".", "_")
-        cast_name = f"{safe_node}__strong_type_output_fp16"
+        cast_name = f"{safe_node}__strong_type_output_{output_precision}"
         node.output[0] = raw_output
         rewritten.append(node)
         rewritten.append(
@@ -568,7 +641,7 @@ def _insert_explicit_fp16_weighted_output_casts(
                 [raw_output],
                 [public_output],
                 name=cast_name,
-                to=TensorProto.FLOAT16,
+                to=(TensorProto.FLOAT16 if output_precision == "fp16" else TensorProto.FLOAT),
             )
         )
         records.append(
@@ -579,12 +652,12 @@ def _insert_explicit_fp16_weighted_output_casts(
                 "cast_node": cast_name,
                 "cast_output_tensor": public_output,
                 "compute_precision": "INT8",
-                "output_precision": "FP16",
+                "output_precision": output_precision.upper(),
             }
         )
     missing = sorted(set(targets) - seen)
     if missing:
-        raise QDQInsertionError(f"fp16_weighted_output_targets_missing:{missing}")
+        raise QDQInsertionError(f"promoted_weighted_output_targets_missing:{missing}")
     del model.graph.node[:]
     model.graph.node.extend(rewritten)
     return records
@@ -977,7 +1050,14 @@ def insert_explicit_qdq(
             weight_axis = normalized_axis
         elif weight_axis is not None:
             raise QDQInsertionError(f"scalar weight scale must not declare an axis for {entry.module_path}")
-        output_boundary = resolve_activation_output_boundary(model, name)
+        output_boundary = resolve_activation_output_boundary(
+            model,
+            name,
+            stop_before_merge=(
+                policy.merge_policy == "adaptive_upcast_merge"
+                and str(entry.realized_output_precision).lower() == "int8"
+            ),
+        )
         insert_output_qdq = _insert_output_qdq_for(entry, metadata, policy)
         scale_owner = str(metadata.get("activation_output_tensor", ""))
         if insert_output_qdq and scale_owner and scale_owner != str(output_boundary["boundary_output_tensor"]):
@@ -1105,7 +1185,11 @@ def insert_explicit_qdq(
         )
     del model.graph.node[:]
     model.graph.node.extend(output_nodes)
-    merge_cast_records = _insert_explicit_fp16_merge_casts(model, mapping)
+    merge_cast_records = (
+        _insert_explicit_adaptive_merge_casts(model, mapping)
+        if policy.merge_policy == "adaptive_upcast_merge"
+        else _insert_explicit_fp16_merge_casts(model, mapping)
+    )
     fp16_compute_cast_records = (
         _insert_explicit_fp16_compute_casts(model, mapping)
         if policy.explicit_fp16_compute_casts
@@ -1116,8 +1200,8 @@ def insert_explicit_qdq(
         if policy.explicit_fp32_compute_casts
         else []
     )
-    fp16_output_cast_records = (
-        _insert_explicit_fp16_weighted_output_casts(model, mapping)
+    promoted_output_cast_records = (
+        _insert_explicit_promoted_weighted_output_casts(model, mapping)
         if policy.explicit_fp16_compute_casts
         else []
     )
@@ -1126,7 +1210,7 @@ def insert_explicit_qdq(
         if policy.explicit_fp16_compute_casts
         else []
     )
-    merge_audit = _audit_fp16_merge_boundaries(model, policy.merge_policy, mapping)
+    merge_audit = _audit_merge_boundaries(model, policy.merge_policy, mapping)
     boundary_audit, topology_hash = _audit_weighted_qdq_boundaries(
         model,
         mapping,
@@ -1165,17 +1249,25 @@ def insert_explicit_qdq(
     metadata = dict(calibration_metadata or {})
     metadata.setdefault("scale_modules", sorted(str(key) for key in scales))
     metadata["merge_policy"] = policy.merge_policy
-    metadata["fp16_merge_cast_records"] = merge_cast_records
+    metadata["fp16_merge_cast_records"] = (
+        merge_cast_records if policy.merge_policy == "fp16_merge" else []
+    )
+    metadata["adaptive_merge_cast_records"] = (
+        merge_cast_records if policy.merge_policy == "adaptive_upcast_merge" else []
+    )
     metadata["fp16_compute_cast_records"] = fp16_compute_cast_records
     metadata["fp32_compute_cast_records"] = fp32_compute_cast_records
-    metadata["fp16_output_cast_records"] = fp16_output_cast_records
+    metadata["fp16_output_cast_records"] = [
+        row for row in promoted_output_cast_records if row.get("output_precision") == "FP16"
+    ]
+    metadata["promoted_output_cast_records"] = promoted_output_cast_records
     metadata["strong_type_compatibility_cast_records"] = strong_type_compatibility_cast_records
     metadata["strong_typing_graph_contract_hash"] = stable_json_hash(
         {
             "fp16_compute_cast_records": fp16_compute_cast_records,
             "fp32_compute_cast_records": fp32_compute_cast_records,
-            "fp16_output_cast_records": fp16_output_cast_records,
-            "fp16_merge_cast_records": merge_cast_records,
+            "promoted_output_cast_records": promoted_output_cast_records,
+            "merge_cast_records": merge_cast_records,
             "strong_type_compatibility_cast_records": strong_type_compatibility_cast_records,
         }
     )

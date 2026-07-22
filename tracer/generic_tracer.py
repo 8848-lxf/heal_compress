@@ -66,6 +66,8 @@ class GenericTracer:
         ("torch.bmm", torch, "bmm"),
         ("torch.matmul", torch, "matmul"),
         ("F.relu", F, "relu"),
+        ("F.softmax", F, "softmax"),
+        ("F.sigmoid", F, "sigmoid"),
         ("F.interpolate", F, "interpolate"),
         ("F.grid_sample", F, "grid_sample"),
     )

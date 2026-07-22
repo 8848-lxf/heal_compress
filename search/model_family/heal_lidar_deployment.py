@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import threading
 from typing import Any, Mapping, Sequence
@@ -15,6 +15,7 @@ from quantization.config import QDQConfig
 from quantization.export.origin_mapping import apply_canonical_node_names, build_onnx_origin_map
 from quantization.export.signal_maxk import capture_weighted_module_calls
 from quantization.precision.qdq_inserter import insert_explicit_qdq
+from quantization.precision.merge_contract import apply_adaptive_merge_output_contract
 from quantization.tensorrt.layer_info import (
     has_canonical_identity,
     load_layer_info,
@@ -477,10 +478,24 @@ def build_heal_lidar_baseline_precision_mapping(
     canonical_onnx_path: str | Path,
     profile_id: str,
     auxiliary_precision: str = "fp16",
+    precision_policy: str = "legacy_family_static_dependency_closure_v1",
+    runtime_precision_relations: Sequence[Any] = (),
+    module_to_precision_group: Mapping[str, str] | None = None,
 ) -> tuple[CanonicalPrecisionMappingResult, dict[str, Any]]:
     """Expand module genes and enforce the family auxiliary precision contract."""
 
     family_id = _family_id(audit)
+    policy_name = str(precision_policy).strip().lower()
+    generic_runtime = policy_name in {
+        "heal_runtime_graph_v1",
+        "pyramid_runtime_tracer_v1",
+    }
+    if policy_name not in {
+        "legacy_family_static_dependency_closure_v1",
+        "heal_runtime_graph_v1",
+        "pyramid_runtime_tracer_v1",
+    }:
+        raise RuntimeError(f"unsupported_heal_lidar_precision_policy:{policy_name}")
     auxiliary_precision = _normalize_auxiliary_precision(auxiliary_precision)
     profile = {str(key): str(value).lower() for key, value in module_precision_profile.items()}
     origin_modules = {str(row.module_path) for row in origin_map.entries}
@@ -490,15 +505,26 @@ def build_heal_lidar_baseline_precision_mapping(
         raise RuntimeError(f"heal_lidar_precision_profile_origin_mismatch:missing={missing}:unknown={unknown}")
     capabilities = {row.module_path: row for row in audit.weighted_ops}
     unaudited = sorted(origin_modules - set(capabilities))
-    if unaudited:
+    if unaudited and not generic_runtime:
         raise RuntimeError(f"heal_lidar_precision_origin_modules_unaudited:{unaudited}")
     invalid: dict[str, str] = {}
     for module_path, precision in profile.items():
-        allowed = {str(value).lower() for value in capabilities[module_path].allowed_precisions}
+        allowed = (
+            {"fp32", "fp16", "int8"}
+            if generic_runtime
+            else {
+                str(value).lower()
+                for value in capabilities[module_path].allowed_precisions
+            }
+        )
         if precision not in allowed:
             invalid[module_path] = precision
     if invalid:
         raise RuntimeError(f"heal_lidar_precision_profile_capability_violation:{invalid}")
+    precision_groups = {
+        str(key): str(value)
+        for key, value in dict(module_to_precision_group or {}).items()
+    }
     entries = [
         CanonicalPrecisionEntry(
             module_path=str(origin.module_path),
@@ -507,14 +533,23 @@ def build_heal_lidar_baseline_precision_mapping(
             weight_initializer=str(origin.weight_initializer),
             onnx_op_type=str(origin.onnx_op_type),
             call_index=int(origin.call_index),
-            precision_group=f"heal_lidar_qg::module::{origin.module_path}",
+            precision_group=precision_groups.get(
+                str(origin.module_path),
+                f"heal_lidar_qg::module::{origin.module_path}",
+            ),
             requested_precision=profile[str(origin.module_path)],
             realized_request_precision=profile[str(origin.module_path)],
             realized_output_precision=(
-                "fp16" if profile[str(origin.module_path)] in {"fp16", "int8"} else "fp32"
+                profile[str(origin.module_path)]
+                if generic_runtime
+                else "fp16" if profile[str(origin.module_path)] in {"fp16", "int8"} else "fp32"
             ),
             protected_precision=(
-                "fp16" if "INT8" not in capabilities[str(origin.module_path)].allowed_precisions else ""
+                ""
+                if generic_runtime
+                else "fp16"
+                if "INT8" not in capabilities[str(origin.module_path)].allowed_precisions
+                else ""
             ),
         )
         for origin in sorted(origin_map.entries, key=lambda row: (row.call_index, row.graph_index))
@@ -526,6 +561,24 @@ def build_heal_lidar_baseline_precision_mapping(
         origin_map_hash=str(origin_map.origin_map_hash),
         policy_version="heal-lidar-baseline-explicit-qdq-strong-type-v1",
     )
+    if generic_runtime:
+        mapping, adaptive_report = apply_adaptive_merge_output_contract(
+            canonical_onnx_path,
+            mapping,
+            runtime_relations=runtime_precision_relations,
+        )
+        report = {
+            "schema_version": "heal-runtime-adaptive-merge-contract-v1",
+            "family_id": family_id,
+            "weighted_compute_precision_policy": "heal_runtime_graph_v1",
+            "family_audit_used_for_precision_protection": False,
+            "family_named_node_rules_used": False,
+            "adaptive_merge_contract": adaptive_report,
+            "mapping_hash": mapping.mapping_hash,
+        }
+        report["island_hash"] = stable_json_hash(report)
+        return mapping, report
+
     semantic_merges = _semantic_merge_nodes(
         canonical_onnx_path,
         family_id,
@@ -565,6 +618,7 @@ def build_heal_lidar_baseline_precision_mapping(
             module_path for module_path in profile if module_path.startswith("fusion_net.")
         ),
         "weighted_fusion_int8_forbidden": True,
+        "weighted_compute_precision_policy": policy_name,
         "semantic_merge_policy": "explicit_named_feature_merges_only_shape_concats_excluded",
         "semantic_merge_nodes": semantic_merges,
         "mapping_hash": mapping.mapping_hash,
@@ -586,6 +640,77 @@ def insert_heal_lidar_baseline_explicit_qdq(
     """Insert exact Q/DQ and re-audit the semantic fusion island."""
 
     family_id = _family_id(family)
+    adaptive_runtime = "adaptive-runtime-merge" in str(mapping.policy_version)
+    if adaptive_runtime:
+        adaptive_config = (
+            replace(config, merge_policy="adaptive_upcast_merge")
+            if config is not None
+            else QDQConfig(
+                allowed_precisions=("fp32", "fp16", "int8"),
+                merge_policy="adaptive_upcast_merge",
+                grouped_conv_int8_allowed_channels_per_group=(
+                    4, 8, 16, 32, 64, 128, 256, 512
+                ),
+                policy_version="explicit-qdq-adaptive-runtime-merge-v1",
+            )
+        )
+        result = insert_explicit_qdq(
+            input_onnx,
+            output_onnx,
+            mapping,
+            scales=scales,
+            config=adaptive_config,
+            calibration_metadata=calibration_metadata,
+        )
+        inserted_auxiliary = dict(
+            result.calibration_metadata.get("auxiliary_layer_precisions", {})
+        )
+        inserted_outputs = dict(
+            result.calibration_metadata.get("auxiliary_layer_output_types", {})
+        )
+        merge_audit = list(
+            result.calibration_metadata.get("merge_quantization_audit", [])
+        )
+        expected_auxiliary = dict(mapping.auxiliary_layer_precisions)
+        expected_outputs = dict(mapping.auxiliary_layer_output_types)
+        audited_merges = {
+            str(row.get("merge_op_name", "")): str(
+                row.get("derived_merge_precision", "")
+            ).lower()
+            for row in merge_audit
+        }
+        expected_audited_merges = {
+            str(name): str(precision).lower()
+            for name, precision in expected_auxiliary.items()
+        }
+        audit = {
+            "schema_version": "heal-runtime-adaptive-merge-qdq-audit-v1",
+            "family_id": family_id,
+            "passed": bool(
+                inserted_auxiliary == expected_auxiliary
+                and inserted_outputs == expected_outputs
+                and audited_merges == expected_audited_merges
+            ),
+            "family_named_node_audit_used": False,
+            "merge_policy": "adaptive_upcast_merge",
+            "promotion_order": ["int8", "fp16", "fp32"],
+            "expected_auxiliary_precisions": expected_auxiliary,
+            "inserted_auxiliary_precisions": inserted_auxiliary,
+            "inserted_auxiliary_output_types": inserted_outputs,
+            "audited_merge_precisions": audited_merges,
+            "merge_quantization_audit": merge_audit,
+            "weighted_qdq_boundary_audit": result.calibration_metadata.get(
+                "weighted_qdq_boundary_audit", []
+            ),
+            "inserted_int8_layer_count": int(result.inserted_layer_count),
+            "requested_int8_count": int(result.requested_int8_count),
+            "qdq_output_sha256": str(result.output_sha256),
+        }
+        audit["audit_hash"] = stable_json_hash(audit)
+        if not audit["passed"]:
+            raise RuntimeError("heal_runtime_adaptive_merge_qdq_audit_failed")
+        return result, audit
+
     required_node_names = set(_semantic_merge_nodes(input_onnx, family_id)) | set(
         _fusion_island_nodes(input_onnx, family_id)
     )

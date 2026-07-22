@@ -38,7 +38,10 @@ __all__ = [
     "TransformerGroupBuilder",
     "build_transformer_pruning_groups",
     "build_precision_coupling_groups",
+    "build_runtime_precision_coupling",
     "PrecisionGroup",
+    "PrecisionRelation",
+    "RuntimePrecisionCouplingResult",
 ]
 
 from .api import (
@@ -76,7 +79,10 @@ _EXPORTS = {
     "TransformerGroupBuilder": ".transformer_groups",
     "build_transformer_pruning_groups": ".transformer_groups",
     "build_precision_coupling_groups": ".precision_coupling_tracer",
+    "build_runtime_precision_coupling": ".precision_coupling_tracer",
     "PrecisionGroup": ".precision_coupling_tracer",
+    "PrecisionRelation": ".precision_coupling_tracer",
+    "RuntimePrecisionCouplingResult": ".precision_coupling_tracer",
 }
 
 _EXPORT_ATTRIBUTES = {

@@ -321,6 +321,32 @@ def test_disconet_precision_mapping_forbids_pixel_weight_int8(tmp_path: Path) ->
     assert island["weighted_fusion_modules"] == [fusion]
 
 
+def test_runtime_graph_policy_allows_disconet_weighted_fusion_int8_without_named_rules(
+    tmp_path: Path,
+) -> None:
+    from search.model_family import build_heal_lidar_baseline_precision_mapping
+
+    path = tmp_path / "disco.onnx"
+    _write_island_onnx(path, "heal_lidar_disco")
+    fusion = "fusion_net.pixel_weight_layer.conv1_1"
+    audit = _audit("heal_lidar_disco", [_capability(fusion, int8=False)])
+
+    mapping, island = build_heal_lidar_baseline_precision_mapping(
+        _origin([fusion]),
+        {fusion: "int8"},
+        audit=audit,
+        canonical_onnx_path=path,
+        profile_id="runtime-graph",
+        precision_policy="heal_runtime_graph_v1",
+    )
+
+    assert mapping.entries[0].requested_precision == "int8"
+    assert mapping.entries[0].protected_precision == ""
+    assert "/Softmax" not in mapping.auxiliary_layer_precisions
+    assert island["family_audit_used_for_precision_protection"] is False
+    assert island["family_named_node_rules_used"] is False
+
+
 def test_quantization_groups_expose_int8_only_for_audited_modules() -> None:
     from search.model_family import build_heal_lidar_baseline_quantization_groups
 
@@ -486,6 +512,95 @@ def test_baseline_real_evaluator_reuses_engine_and_routes_six_input_contract(
     assert calls["max_agents"] == 2
     assert calls["physical_gpu_id"] == 3
     assert (tmp_path / "evaluation/evaluation_acceptance.json").is_file()
+
+
+def test_runtime_graph_engine_acceptance_does_not_use_family_node_audit(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from search.stage2 import heal_lidar_baseline_real_evaluator as evaluator_module
+    from search.stage2.heal_lidar_baseline_real_evaluator import (
+        HealLidarBaselineEvaluationConfig,
+        HealLidarBaselineRealEvaluator,
+    )
+
+    config_path = tmp_path / "config.yaml"
+    checkpoint = tmp_path / "checkpoint.pth"
+    plugin = tmp_path / "plugin.so"
+    manifest = tmp_path / "eval_manifest.json"
+    heal_root = tmp_path / "HEAL"
+    trt_root = tmp_path / "TensorRT"
+    heal_root.mkdir()
+    trt_root.mkdir()
+    for path in (config_path, checkpoint, plugin, manifest):
+        path.write_text("test", encoding="utf-8")
+
+    weighted = {
+        "schema_version": "precision-realization-v1",
+        "passed": True,
+        "requested_int8_count": 1,
+        "realized_int8_count": 1,
+        "realized_fp16_count": 0,
+        "mismatches": [],
+        "hidden_cast_count": 0,
+        "reformat_count": 0,
+        "boundary_count": 1,
+        "unresolved_layer_count": 0,
+    }
+    structure = {"schema_version": "engine-structure-validation-v1", "passed": True}
+
+    def fake_build_engine_modelopt(**kwargs):
+        engine = Path(kwargs["engine_path"])
+        engine.parent.mkdir(parents=True, exist_ok=True)
+        engine.write_bytes(b"engine")
+        return {
+            "status": "ok",
+            "precision_realization_validation": weighted,
+            "engine_structure_validation": structure,
+        }
+
+    monkeypatch.setattr(
+        evaluator_module,
+        "build_engine_modelopt",
+        fake_build_engine_modelopt,
+    )
+    monkeypatch.setattr(
+        evaluator_module,
+        "validate_heal_lidar_precision_realization",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("family-specific node audit must not run")
+        ),
+    )
+    evaluator = HealLidarBaselineRealEvaluator(
+        HealLidarBaselineEvaluationConfig(
+            family_id="heal_lidar_disco",
+            model_name="lidar_disco",
+            model_config_path=config_path,
+            checkpoint_path=checkpoint,
+            heal_root=heal_root,
+            tensorrt_root=trt_root,
+            plugin_path=plugin,
+            eval_manifest_path=manifest,
+            physical_gpu_id=5,
+            num_frames=1,
+            warmup_frames=1,
+            latency_rounds=1,
+            search_space_policy="heal_runtime_graph_v1",
+        )
+    )
+
+    result = evaluator.build_engine(
+        nn.Conv2d(1, 1, 1),
+        {"qdq_onnx_path": tmp_path / "candidate.onnx", "mapping": object()},
+        output_dir=tmp_path / "deployment",
+    )
+
+    assert result["precision_acceptance"]["passed"] is True
+    assert result["precision_acceptance"]["weighted_precision"] == weighted
+    assert (
+        result["precision_acceptance"]["fusion_island"]["manual_family_node_audit_used"]
+        is False
+    )
 
 
 def test_baseline_candidate_result_publishes_generic_stage2_score(tmp_path: Path) -> None:

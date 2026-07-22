@@ -78,7 +78,32 @@ def _disco_fuse(
 ) -> torch.Tensor:
     agents, channels, height, width = warped.shape
     ego = ego_feature[:1].expand(agents, -1, -1, -1)
-    logits = fusion.pixel_weight_layer(torch.cat((warped, ego), dim=1))
+    pixel = fusion.pixel_weight_layer
+    value = torch.cat((warped, ego), dim=1)
+    # HEAL's PixelWeightLayer.forward begins with a redundant
+    # ``view(-1, x.size(-3), x.size(-2), x.size(-1))``.  PyTorch 2.0's ONNX
+    # symbolic for a negative-dimension ``size`` can incorrectly construct a
+    # scalar Slice bound (``len() of a 0-d tensor``).  The export wrapper
+    # already supplies a canonical NCHW tensor, so spell out the exact four
+    # registered layers and preserve module provenance without that no-op.
+    if all(
+        hasattr(pixel, name)
+        for name in (
+            "conv1_1",
+            "bn1_1",
+            "conv1_2",
+            "bn1_2",
+            "conv1_3",
+            "bn1_3",
+            "conv1_4",
+        )
+    ):
+        value = functional.relu(pixel.bn1_1(pixel.conv1_1(value)))
+        value = functional.relu(pixel.bn1_2(pixel.conv1_2(value)))
+        value = functional.relu(pixel.bn1_3(pixel.conv1_3(value)))
+        logits = functional.relu(pixel.conv1_4(value))
+    else:
+        logits = pixel(value)
     valid = agent_mask.reshape(agents, 1, 1, 1) > 0.5
     logits = torch.where(valid, logits, torch.full_like(logits, -1.0e20))
     weights = torch.softmax(logits, dim=0)

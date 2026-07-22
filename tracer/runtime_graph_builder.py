@@ -166,13 +166,114 @@ def _scope_from_group(group: Any) -> DependencyScope:
                     index_map=mappings,
                 )
             )
+
+    # A tensor may be concatenated with itself (for example, an ego feature is
+    # used once as the local feature and once as the neighbour feature).  The
+    # runtime propagation backend represents the concat output as one logical
+    # reference space, so the same physical root channel can appear at two or
+    # more logical offsets.  Leaving those aliases independent would permit a
+    # structurally impossible prune: removing only one occurrence also removes
+    # the shared producer channel.  Canonicalize such scopes against the single
+    # physical root without relying on model names or hand-authored topology.
+    channel_count = int(group.num_channels)
+    alias_canonicalized = False
+    if len(root_modules) == 1:
+        root_name = root_modules[0]
+        root_items = [
+            item
+            for item in group.items
+            if str(item.name) == root_name and str(item.direction) == "out"
+        ]
+        physical_widths = {
+            int(width)
+            for item in root_items
+            for width in (
+                getattr(item.module, "out_channels", None),
+                getattr(item.module, "out_features", None),
+                getattr(item.module, "num_features", None),
+            )
+            if width is not None and int(width) > 0
+        }
+        if len(physical_widths) == 1:
+            physical_width = next(iter(physical_widths))
+            if (
+                channel_count > physical_width
+                and channel_count % physical_width == 0
+                and str(group.meta.get("group_type", "")) == "cat"
+            ):
+                # The legacy concat layout stores one offset per module name,
+                # so repeated uses of one producer retain only the final
+                # occurrence.  Validate every retained root mapping against the
+                # periodic physical index, then reconstruct all occurrences.
+                aliases = {
+                    physical_index: list(range(
+                        physical_index,
+                        channel_count,
+                        physical_width,
+                    ))
+                    for physical_index in range(physical_width)
+                }
+                observed_root_mappings = [
+                    (logical_index, int(value))
+                    for logical_index in range(channel_count)
+                    for item in root_items
+                    for value in item.local_keep([logical_index])
+                ]
+                valid_alias_map = bool(root_items) and bool(observed_root_mappings)
+                valid_alias_map = valid_alias_map and all(
+                    0 <= physical_index < physical_width
+                    and physical_index == logical_index % physical_width
+                    for logical_index, physical_index in observed_root_mappings
+                )
+                valid_alias_map = (
+                    valid_alias_map
+                    and set(aliases) == set(range(physical_width))
+                    and any(len(values) > 1 for values in aliases.values())
+                )
+                if valid_alias_map:
+                    canonical_members: list[DependencyMember] = []
+                    for member in members:
+                        canonical_map = {
+                            physical_index: sorted({
+                                local_index
+                                for logical_index in logical_indices
+                                for local_index in member.index_map.get(logical_index, [])
+                            })
+                            for physical_index, logical_indices in aliases.items()
+                        }
+                        canonical_map = {
+                            key: values for key, values in canonical_map.items() if values
+                        }
+                        canonical_members.append(
+                            DependencyMember(
+                                module_path=member.module_path,
+                                axis=member.axis,
+                                indices=sorted({
+                                    value
+                                    for values in canonical_map.values()
+                                    for value in values
+                                }),
+                                dependency_type=member.dependency_type,
+                                channel_offset=member.channel_offset,
+                                module_type=member.module_type,
+                                index_map=canonical_map,
+                                protection_reason=member.protection_reason,
+                            )
+                        )
+                    members = canonical_members
+                    channel_count = physical_width
+                    alias_canonicalized = True
+
+    dependency_types = {member.dependency_type for member in members}
+    if alias_canonicalized:
+        dependency_types.add("repeated_root_alias_canonicalized")
     return DependencyScope(
         root_module_path=root_modules[0],
         root_axis="out",
-        channel_count=int(group.num_channels),
+        channel_count=channel_count,
         members=sorted(members, key=lambda row: (row.module_path, row.axis)),
         root_modules=root_modules,
-        dependency_types=sorted({member.dependency_type for member in members}),
+        dependency_types=sorted(dependency_types),
         protected=bool(group.protected),
         protection_reason=str(group.protected_reason or ""),
     )
