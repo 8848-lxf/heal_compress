@@ -64,6 +64,69 @@ def _precision_bops(structure_dir: Path, profile: str) -> dict[str, float]:
     return {"weighted_bops": weighted, "qk_bops": qk, "av_bops": av, "total_bops": weighted + qk + av}
 
 
+def _parameter_breakdown(
+    output_root: Path,
+    model: str,
+    structure_dir: Path,
+    structure: Mapping[str, Any],
+) -> dict[str, int | None]:
+    """Return exact model/Transformer totals and role-scoped linear totals.
+
+    Phase-A only removes parameters from the selected Transformer family, so
+    the exact Transformer total is the original Transformer total minus the
+    physical whole-model reduction. QKV/Out/FFN counts come from unique
+    physical modules and therefore preserve actual post-pruning shapes without
+    counting repeated ONNX invocations more than once.
+    """
+
+    prefix = model.removeprefix("lidar_")
+    baseline = _read(output_root / "inventory" / f"{prefix}_parameter_baseline.json")
+    snapshot = _read(structure_dir / "physical_structure_snapshot_v2.json")
+    inventory = _read(structure_dir / "inventory.json")
+    if not baseline or not snapshot or not inventory:
+        return {
+            "total_parameter_count": structure.get("physical_parameter_count"),
+            "transformer_parameter_count": None,
+            "qkv_parameter_count": None,
+            "out_parameter_count": None,
+            "ffn_parameter_count": None,
+        }
+    roles = {
+        str(row.get("module_path", "")): str(row.get("canonical_role", ""))
+        for row in inventory.get("rows", ())
+        if str(row.get("module_path", ""))
+    }
+    groups = {
+        "qkv_parameter_count": {
+            "q_projection", "k_projection", "v_projection", "fused_qkv_projection"
+        },
+        "out_parameter_count": {"output_projection"},
+        "ffn_parameter_count": {"ffn1", "ffn2"},
+    }
+    counts = {name: 0 for name in groups}
+    seen: set[str] = set()
+    for module in snapshot.get("modules", ()):
+        path = str(module.get("module_path", ""))
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        role = roles.get(path, "")
+        for name, accepted_roles in groups.items():
+            if role in accepted_roles:
+                counts[name] += int(module.get("parameter_count", 0))
+    original_total = int(
+        structure.get("original_parameter_count", baseline["total_parameter_count"])
+    )
+    physical_total = int(structure.get("physical_parameter_count", original_total))
+    reduction = original_total - physical_total
+    transformer_total = int(baseline["transformer_parameter_count"]) - reduction
+    return {
+        "total_parameter_count": physical_total,
+        "transformer_parameter_count": transformer_total,
+        **counts,
+    }
+
+
 def _write_inventory_contracts(output_root: Path) -> None:
     """Consolidate model-specific inventories without cross-model defaults."""
 
@@ -195,6 +258,10 @@ def collect(output_root: Path) -> list[dict[str, Any]]:
             ):
                 structure_dir = output_root / "structures" / model / family_id / f"dh_{candidate.d_h:03d}"
                 structure = _read(structure_dir / "structure_result.json")
+                parameter_counts = (
+                    _parameter_breakdown(output_root, model, structure_dir, structure)
+                    if structure else {}
+                )
                 for profile in PROFILES:
                     engine_dir = output_root / "engines" / model / family_id / f"dh_{candidate.d_h:03d}" / profile
                     build = _read(engine_dir / "baseline_result.json")
@@ -213,6 +280,7 @@ def collect(output_root: Path) -> list[dict[str, Any]]:
                         "profile": profile,
                         **candidate.to_dict(),
                         "params": structure.get("physical_parameter_count"),
+                        **parameter_counts,
                         "parameter_reduction": structure.get("parameter_reduction"),
                         "weighted_macs": structure.get("weighted_macs"),
                         "qk_macs": structure.get("qk_macs"),

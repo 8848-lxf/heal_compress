@@ -151,6 +151,12 @@ def inventory_model(model_name: str, output_root: Path, physical_gpu: int) -> di
     torch.backends.cudnn.allow_tf32 = False
     bundle, _ = _load(model_name, device)
     families = discover_attention_families(model_name, bundle.model)
+    total_parameters = sum(int(value.numel()) for value in bundle.model.parameters())
+    transformer_parameters = sum(
+        int(value.numel())
+        for name, value in bundle.model.named_parameters()
+        if name == "fusion_net" or name.startswith("fusion_net.")
+    )
     modules = dict(bundle.model.named_modules())
     rows: list[dict[str, Any]] = []
     dependency: dict[str, Any] = {}
@@ -233,9 +239,28 @@ def inventory_model(model_name: str, output_root: Path, physical_gpu: int) -> di
         },
     )
     _write_json(output_root / "inventory" / f"{prefix}_structural_dependency_map.json", dependency)
+    _write_json(
+        output_root / "inventory" / f"{prefix}_parameter_baseline.json",
+        {
+            "model": model_name,
+            "total_parameter_count": total_parameters,
+            "transformer_parameter_count": transformer_parameters,
+            "non_transformer_parameter_count": total_parameters - transformer_parameters,
+            "transformer_scope": "named parameters under fusion_net",
+            "checkpoint": MODEL_SPECS[model_name]["checkpoint"],
+            "checkpoint_sha256": _sha256(Path(MODEL_SPECS[model_name]["checkpoint"])),
+        },
+    )
     del bundle
     torch.cuda.empty_cache()
-    return {"model": model_name, "families": len(families), "modules": len(rows), "family_ids": [row.family_id for row in families]}
+    return {
+        "model": model_name,
+        "families": len(families),
+        "modules": len(rows),
+        "family_ids": [row.family_id for row in families],
+        "total_parameter_count": total_parameters,
+        "transformer_parameter_count": transformer_parameters,
+    }
 
 
 def _parameter_local_score(parameter: torch.Tensor, grad: torch.Tensor | None, index: tuple[Any, ...]) -> float:

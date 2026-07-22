@@ -38,6 +38,7 @@ from search.orchestration.lidar_transformer_dh_microbenchmark import (
 )
 from search.orchestration.lidar_transformer_dh_identity_parity import _compare
 from search.orchestration.lidar_transformer_dh_joint import joint_id, parse_targets
+from search.reporting.transformer_dh_alignment import _parameter_breakdown
 
 
 class FakeWindow(nn.Module):
@@ -239,6 +240,62 @@ def test_engine_memory_is_parsed_from_trtexec_evidence(tmp_path: Path) -> None:
     assert audit["device_persistent_bytes"] == 123
     assert audit["max_scratch_bytes"] == 456
     assert audit["activation_bytes"] == 789
+
+
+def test_parameter_breakdown_uses_unique_physical_modules_and_exact_reduction(
+    tmp_path: Path,
+) -> None:
+    inventory_dir = tmp_path / "inventory"
+    structure_dir = tmp_path / "structures" / "lidar_v2xvit" / "family" / "dh_031"
+    inventory_dir.mkdir(parents=True)
+    structure_dir.mkdir(parents=True)
+    (inventory_dir / "v2xvit_parameter_baseline.json").write_text(
+        json.dumps(
+            {
+                "total_parameter_count": 1000,
+                "transformer_parameter_count": 600,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (structure_dir / "inventory.json").write_text(
+        json.dumps(
+            {
+                "rows": [
+                    {"module_path": "attn.q_proj", "canonical_role": "q_projection"},
+                    {"module_path": "attn.q_proj", "canonical_role": "q_projection"},
+                    {"module_path": "attn.out_proj", "canonical_role": "output_projection"},
+                    {"module_path": "ffn.0", "canonical_role": "ffn1"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (structure_dir / "physical_structure_snapshot_v2.json").write_text(
+        json.dumps(
+            {
+                "modules": [
+                    {"module_path": "attn.q_proj", "parameter_count": 100},
+                    {"module_path": "attn.out_proj", "parameter_count": 80},
+                    {"module_path": "ffn.0", "parameter_count": 200},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = _parameter_breakdown(
+        tmp_path,
+        "lidar_v2xvit",
+        structure_dir,
+        {"original_parameter_count": 1000, "physical_parameter_count": 950},
+    )
+    assert result == {
+        "total_parameter_count": 950,
+        "transformer_parameter_count": 550,
+        "qkv_parameter_count": 100,
+        "out_parameter_count": 80,
+        "ffn_parameter_count": 200,
+    }
 
 
 def test_v2x_odd_dimension_forward_preserves_external_shape() -> None:
