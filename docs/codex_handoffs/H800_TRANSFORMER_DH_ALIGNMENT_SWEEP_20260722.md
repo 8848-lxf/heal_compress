@@ -74,3 +74,15 @@ Timestamp: 2026-07-22 18:19:30 CST — Round 1
 At this checkpoint the resumed progress journals had advanced beyond the old interruption, including CoBEVT window d30 and V2XViT window-w8 d28. The background queues and their logs are rooted under the same output directory and do not depend on a live Codex terminal session.
 
 ---
+
+## Round 3 — Phase A complete and post-processing accelerated
+
+- Phase A reached 330/330 fixed500 candidate/profile evaluations. All 330 were accepted with zero skipped frames and no failed acceptance artifact.
+- All available 330 TensorRT builds were exact with zero requested/realized precision conflicts; non-4-aligned widths build successfully on H800/TensorRT 10.9 without a precision fallback.
+- D0 original-forward parity passed for all two CoBEVT and four V2XViT families with unchanged parameter counts and maximum output error 0.
+- The primitive microbenchmark exposed an FP16 initializer bug: NumPy division promoted linear projection weights to FP32, which strongly typed TensorRT correctly rejected. Linear weights are now constructed directly at the requested dtype, guarded by an ONNX dtype regression test and a real strongly typed `trtexec` smoke build.
+- The dedicated d_h suite now passes 32/32 tests; the related CoBEVT/V2XViT/Transformer regression suites pass 160/160 tests. `compileall` and `git diff --check` pass.
+- Primitive microbenchmarks were moved onto previously idle GPU 5/6/7. The original post-Phase-A waiters remain stopped as a validated fallback and are released only after all accelerated artifacts pass their build/parity gates.
+- Phase-B joint-family evaluation, isolated formal full-engine latency, and the final evidence-gated report remain pending behind the primitive microbenchmarks.
+
+---

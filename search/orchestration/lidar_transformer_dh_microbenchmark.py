@@ -75,7 +75,14 @@ def _attention_shape(model: str, family: Mapping[str, Any], runtime: Mapping[str
 
 def _linear_model(path: Path, *, name: str, tokens: int, input_width: int, output_width: int, dtype: int) -> dict[str, np.ndarray]:
     np_dtype = np.float32 if dtype == TensorProto.FLOAT else np.float16
-    weight = np.ones((input_width, output_width), dtype=np_dtype) / max(input_width, 1)
+    # ``float16_array / Python int`` may promote the initializer to float32.
+    # Strongly typed TensorRT then rejects the MatMul because the runtime input
+    # remains FP16.  Construct the initializer at the requested dtype directly.
+    weight = np.full(
+        (input_width, output_width),
+        1.0 / max(input_width, 1),
+        dtype=np_dtype,
+    )
     graph = helper.make_graph(
         [helper.make_node("MatMul", ["input", "weight"], ["output"], name=f"{name}_projection")],
         name,

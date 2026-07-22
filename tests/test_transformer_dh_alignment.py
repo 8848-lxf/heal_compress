@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import torch
 from torch import nn
+import onnx
 from onnx import TensorProto
 
 from search.model_families.transformer.dh_alignment_audit import (
@@ -332,11 +333,15 @@ def test_microbenchmark_pairs_cover_alignment_boundaries() -> None:
 
 
 def test_linear_primitive_onnx_is_physical_nonaligned(tmp_path: Path) -> None:
+    path = tmp_path / "linear.onnx"
     arrays = _linear_model(
-        tmp_path / "linear.onnx", name="q_projection", tokens=3,
+        path, name="q_projection", tokens=3,
         input_width=8, output_width=7, dtype=TensorProto.FLOAT16,
     )
     assert arrays["input"].shape == (3, 8)
+    model = onnx.load(path)
+    assert model.graph.input[0].type.tensor_type.elem_type == TensorProto.FLOAT16
+    assert model.graph.initializer[0].data_type == TensorProto.FLOAT16
 
 
 @pytest.mark.parametrize("qk", [True, False])
