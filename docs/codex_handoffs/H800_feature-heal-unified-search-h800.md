@@ -475,3 +475,39 @@ F-Cooper GA 当前已存在500帧 Stage-2 strict-FP32 reference：AP30/50/70 = 0
 ---
 时间戳：2026-07-23 22:47:36 CST｜轮次：Round 6
 ---
+
+## Round 7：Disco GA 继续推进，修复逐代 winner 最终验证调度并启动原地续跑队列
+
+正式串行队列 PID `1000283` 仍在推进，未因 F-Cooper 的最终调度异常停止后续模型：
+
+- Disco Greedy 已于 `2026-07-23T04:34:14-07:00` return code 0 完成，正式结果见 Round 5--6。
+- F-Cooper GA 已完成六预算全部 39 个实际 generation、39 个 generation winner 和 195 个逐代 Stage-2 候选槽位；其中 128 个唯一候选完成真实 score，67 个为跨代部署/评价 cache hit，候选构建与 500 帧评价均无失败。
+- F-Cooper 在开始 39 个代赢家的 1789 帧统一完整验证时，strict-FP32 reference 已成功评完，但随后因 HEAL 子类 `_ga_stage2_evaluator_pool` 未同步基类新增的 `pool_kind` 参数而抛出 `TypeError`。这是最终验证调度 API 不一致，不是候选、TensorRT engine 或模型失败。
+- 原队列按设计记录 F-Cooper return code 1 后继续启动 Disco GA。当前 run 为 `outputs/h800_heal_lidar_disco_runtime_graph_joint_ga_20260723_075044`，search PID `2005470`；本轮快照已完成 `round_000`，正在 `round_001/generation_004`，累计 10 个代赢家、34 个新候选实测结果和 20 次 cache hit，未发现新错误。
+
+### 代码修复
+
+- `search/orchestration/heal_lidar_baseline_search.py`
+  - HEAL 的 GA evaluator pool 现在接受 `screening_500` 与 `full_validation` 两类 pool。
+  - 两类 worker 使用独立缓存和目录，避免 500 帧 evaluator 被误用于 1789 帧完整验证。
+- `search/orchestration/lidar_pyramid_search.py`
+  - 新增 generation 协议的最终化 fast-resume：若所有预算 round 已完成且只缺 `final_full_validation_results.json`，`--resume` 直接跳过 Stage-1、GA 演化和每代 500 帧筛选，只复评全部唯一 generation winners 并选出六预算最终 winner。
+- `scripts/run_heal_lidar_generation_finalization_repairs.sh`
+  - 等待原正式队列退出和 GPU 5/6/7 空闲；先快照旧 run/resource summary，再依次原地 resume F-Cooper 和 Disco 的最终化阶段。
+- 新增两项功能回归测试；相关编排/结果测试在正式 `univ2x-opt` 环境中为 30 passed。
+
+修复提交 `a064db2b378703a957b80a694df477adefd69982` 已推送至 `origin/feature/heal-unified-search-h800`。
+
+### 自动续跑队列
+
+- repair queue PID：`3755188`
+- tag：`20260724_001436`
+- status：`outputs/h800_heal_lidar_generation_finalization_repair_20260724_001436.status.jsonl`
+- log：`outputs/h800_heal_lidar_generation_finalization_repair_20260724_001436.log`
+- 等待的上游队列 PID：`1000283`
+
+恢复时先检查原 status 和 repair status。只要上游 Disco GA 仍在运行，不得另起重复搜索；repair queue 会在上游结束后自动补齐两个 GA run 的 1789 帧最终验证。原先的 `resources/resource_summary.json` 等关键汇总会先保存到各 run 的 `resume_snapshots/pre_generation_finalization/`，便于最终合并首次搜索与续跑阶段的精确资源成本。
+
+---
+时间戳：2026-07-24 00:14:48 CST｜轮次：Round 7
+---
