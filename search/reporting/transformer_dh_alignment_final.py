@@ -434,6 +434,28 @@ def _width_contract(
     return result
 
 
+def _search_ready_by_model(
+    strict_joint_rows: list[dict[str, Any]],
+) -> dict[str, bool]:
+    """Require one joint candidate to clear every frozen precision contract."""
+
+    required_profiles = {"P32", "P16", "P8"}
+    result: dict[str, bool] = {}
+    for model in ("lidar_cobevt", "lidar_v2xvit"):
+        profiles_by_candidate: dict[str, set[str]] = {}
+        for row in strict_joint_rows:
+            if row.get("model") != model:
+                continue
+            profiles_by_candidate.setdefault(str(row["candidate_id"]), set()).add(
+                str(row["profile"])
+            )
+        result[model] = any(
+            required_profiles <= profiles
+            for profiles in profiles_by_candidate.values()
+        )
+    return result
+
+
 def finalize(output_root: Path) -> dict[str, Any]:
     certificate = _read(output_root / "phase_a_completion_certificate.json")
     micro = _read(output_root / "microbenchmark" / "final_microbenchmark_acceptance.json")
@@ -493,10 +515,9 @@ def finalize(output_root: Path) -> dict[str, Any]:
         for row in phase_b_rows
         if row["profile"] == "P8" and row["interaction_joint"]
     ]
-    search_ready_by_model = {
-        model: any(row["model"] == model for row in phase_b_latency["strict_nonaligned_beneficial"])
-        for model in ("lidar_cobevt", "lidar_v2xvit")
-    }
+    search_ready_by_model = _search_ready_by_model(
+        phase_b_latency["strict_nonaligned_beneficial"]
+    )
     contract = {
         "schema_version": "h800-transformer-dh-alignment-contract-v2",
         "evidence_branch": branch,

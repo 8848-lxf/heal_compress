@@ -12,7 +12,10 @@ from search.orchestration.lidar_transformer_dh_recovery import (
     ExperimentState,
     lock_is_stale,
 )
-from search.reporting.transformer_dh_alignment_final import _latency_summary
+from search.reporting.transformer_dh_alignment_final import (
+    _latency_summary,
+    _search_ready_by_model,
+)
 
 
 def _sha(path: Path) -> str:
@@ -104,6 +107,29 @@ def test_phase_a_certificate_accepts_110_330_330(tmp_path: Path) -> None:
     assert result["engines"]["unique_hashes"] == 330
     assert result["fixed500"]["accepted"] == 330
     assert result["attempt_lineage_complete"] is False
+
+
+def test_search_ready_requires_one_joint_candidate_in_all_profiles() -> None:
+    rows = [
+        {
+            "model": "lidar_cobevt",
+            "candidate_id": "B2_CONSERVATIVE_NONALIGNED",
+            "profile": profile,
+        }
+        for profile in ("P32", "P16", "P8")
+    ]
+    rows.extend(
+        {
+            "model": "lidar_v2xvit",
+            "candidate_id": "B2_CONSERVATIVE_NONALIGNED",
+            "profile": profile,
+        }
+        for profile in ("P32", "P16")
+    )
+    assert _search_ready_by_model(rows) == {
+        "lidar_cobevt": True,
+        "lidar_v2xvit": False,
+    }
 
 
 @pytest.mark.parametrize(
