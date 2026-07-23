@@ -13,6 +13,15 @@ from search.model_families.transformer.dh_power_alignment_4090 import (
     search_candidate_gate,
     speedup_metrics,
 )
+from search.orchestration.lidar_transformer_dh_power_alignment_4090 import (
+    Runtime4090Paths,
+    assign_queue_owners,
+    calibration_identity,
+    formal_branch_guard,
+    fresh_build_contract,
+    single_family_candidate_manifest,
+    validate_4090_runtime,
+)
 
 
 def test_power_widths_for_d32_are_deduplicated_and_complete():
@@ -169,3 +178,75 @@ def test_search_candidate_gate_requires_every_evidence_gate():
     assert rejected["search_space_candidate"] is False
     assert rejected["reasons"] == ["neighbor_control_advantage_missing"]
 
+
+def _fake_runtime_tree(tmp_path):
+    prefix = tmp_path / "anaconda3" / "envs" / "modelopt"
+    trt = tmp_path / "TensorRT-10.9_x86_cu118"
+    plugin = tmp_path / "libheal_trt_plugins.so"
+    for name in ("python", "nvcc", "g++"):
+        path = prefix / "bin" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(name)
+    trtexec = trt / "targets" / "x86_64-linux-gnu" / "bin" / "trtexec"
+    trtexec.parent.mkdir(parents=True, exist_ok=True)
+    trtexec.write_text("trtexec")
+    (trt / "targets" / "x86_64-linux-gnu" / "lib").mkdir(parents=True)
+    plugin.write_text("plugin")
+    return Runtime4090Paths(prefix, trt, plugin)
+
+
+def test_4090_runtime_accepts_conda_nvcc_and_sm89(tmp_path):
+    paths = _fake_runtime_tree(tmp_path)
+    result = validate_4090_runtime(paths, nvcc_archs=("compute_89", "sm_89"))
+    assert result["platform"] == "RTX4090_SM89"
+    assert result["nvcc_inside_conda"] is True
+
+
+def test_4090_runtime_rejects_system_nvcc(tmp_path):
+    paths = _fake_runtime_tree(tmp_path)
+    paths = Runtime4090Paths(paths.modelopt_prefix, paths.tensorrt_root, paths.plugin_path, tmp_path / "usr/bin/nvcc")
+    paths.nvcc_path.parent.mkdir(parents=True, exist_ok=True)
+    paths.nvcc_path.write_text("system")
+    with pytest.raises(RuntimeError, match="nvcc_outside_modelopt_prefix"):
+        validate_4090_runtime(paths, nvcc_archs=("sm_89",))
+
+
+def test_4090_runtime_rejects_missing_sm89(tmp_path):
+    with pytest.raises(RuntimeError, match="sm89_not_supported"):
+        validate_4090_runtime(_fake_runtime_tree(tmp_path), nvcc_archs=("sm_80", "sm_90"))
+
+
+def test_formal_branch_guard_fails_on_remote_head_change():
+    with pytest.raises(RuntimeError, match="formal_search_branch_changed"):
+        formal_branch_guard("3293f4e", "different")
+    assert formal_branch_guard("3293f4e", "3293f4e") is True
+
+
+def test_calibration_identity_is_bound_to_structure():
+    first = calibration_identity("lidar_cobevt", "structure-a", "manifest", "P8")
+    second = calibration_identity("lidar_cobevt", "structure-b", "manifest", "P8")
+    assert first != second
+    assert calibration_identity("lidar_cobevt", "structure-a", "manifest", "P16") == "not_int8"
+
+
+def test_fresh_build_contract_forbids_timing_cache_reuse():
+    contract = fresh_build_contract()
+    assert contract["timing_cache_reused"] is False
+    assert contract["engine_reused"] is False
+    assert contract["onnx_reused_across_structures"] is False
+
+
+def test_single_family_manifest_has_expected_unique_structure_count():
+    rows = single_family_candidate_manifest()
+    by_model = {}
+    for row in rows:
+        by_model.setdefault(row["model"], set()).add(row["structure_signature"])
+    assert len(by_model["lidar_cobevt"]) == 15
+    assert len(by_model["lidar_v2xvit"]) == 33
+
+
+def test_queue_assignment_uses_only_requested_gpus_and_is_deterministic():
+    rows = [{"candidate_id": f"candidate-{index}"} for index in range(9)]
+    assigned = assign_queue_owners(rows, gpu_ids=(4, 5, 6, 7))
+    assert [row["physical_gpu"] for row in assigned] == [4, 5, 6, 7, 4, 5, 6, 7, 4]
+    assert {row["physical_gpu"] for row in assigned} == {4, 5, 6, 7}
