@@ -275,6 +275,64 @@ def test_ga_generation_winners_are_full_validated_and_selected_per_budget(
     ]
 
 
+def test_generation_protocol_resume_skips_completed_stage1_and_screening(
+    tmp_path,
+) -> None:
+    import json
+    from types import SimpleNamespace
+
+    from search.orchestration.lidar_pyramid_search import (
+        LidarPyramidTwoStageSearch,
+    )
+
+    round_dir = tmp_path / "round_000"
+    generation_dir = round_dir / "generations/generation_000"
+    generation_dir.mkdir(parents=True)
+    (round_dir / "generation_stage2_summary.json").write_text(
+        json.dumps({"actual_generation_count": 1}),
+        encoding="utf-8",
+    )
+    (round_dir / "round_state.json").write_text(
+        json.dumps({"phase": "round_complete"}),
+        encoding="utf-8",
+    )
+    (generation_dir / "generation_winner.json").write_text(
+        json.dumps({"candidate_hash": "winner"}),
+        encoding="utf-8",
+    )
+    runner = LidarPyramidTwoStageSearch(
+        config={},
+        checkpoint=tmp_path / "model.pth",
+        output_root=tmp_path,
+        resume=tmp_path,
+    )
+    calls = []
+    runner._full_validate_ga_generation_winners = (
+        lambda _context, _run_dir: calls.append("finalized")
+        or [{"candidate_hash": "winner", "status": "ok"}]
+    )
+
+    rows = runner._run_ga(
+        SimpleNamespace(),
+        None,
+        None,
+        tmp_path,
+        {
+            "stage2_selection_scope": "per_generation_topk",
+            "bops_targets": [0.3],
+        },
+        stage1_only=False,
+    )
+
+    assert calls == ["finalized"]
+    assert rows == [{"candidate_hash": "winner", "status": "ok"}]
+    report = json.loads(
+        (tmp_path / "generation_winner_finalization_resume.json").read_text()
+    )
+    assert report["status"] == "complete"
+    assert report["skipped_stage1_and_generation_screening"] is True
+
+
 def test_dense_and_grouped_repair_are_monotonic_mask_preserving() -> None:
     from search.pruning_space.mask_repair import (
         GroupedDomainSpec,

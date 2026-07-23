@@ -1415,6 +1415,67 @@ class LidarPyramidTwoStageSearch:
         )
         if configured_bops_targets:
             outer_rounds = len(configured_bops_targets)
+        if (
+            generation_stage2_protocol
+            and self.resume is not None
+            and not stage1_only
+        ):
+            expected_round_dirs = [
+                run_dir / f"round_{index:03d}" for index in range(outer_rounds)
+            ]
+            completed_rounds = [
+                round_dir
+                for round_dir in expected_round_dirs
+                if (round_dir / "generation_stage2_summary.json").is_file()
+                and (round_dir / "round_state.json").is_file()
+                and str(
+                    json.loads(
+                        (round_dir / "round_state.json").read_text(
+                            encoding="utf-8"
+                        )
+                    ).get("phase", "")
+                )
+                == "round_complete"
+            ]
+            winner_paths = sorted(
+                run_dir.glob(
+                    "round_*/generations/generation_*/generation_winner.json"
+                )
+            )
+            if (
+                expected_round_dirs
+                and len(completed_rounds) == len(expected_round_dirs)
+                and winner_paths
+                and not (run_dir / "final_full_validation_results.json").is_file()
+            ):
+                _write_json(
+                    run_dir / "generation_winner_finalization_resume.json",
+                    {
+                        "status": "running",
+                        "resume_source": str(self.resume),
+                        "completed_round_count": len(completed_rounds),
+                        "generation_winner_count": len(winner_paths),
+                        "skipped_stage1_and_generation_screening": True,
+                        "resume_action": (
+                            "full_validate_all_unique_generation_winners"
+                        ),
+                    },
+                )
+                rows = self._full_validate_ga_generation_winners(
+                    context, run_dir
+                )
+                _write_json(
+                    run_dir / "generation_winner_finalization_resume.json",
+                    {
+                        "status": "complete",
+                        "resume_source": str(self.resume),
+                        "completed_round_count": len(completed_rounds),
+                        "generation_winner_count": len(winner_paths),
+                        "full_validation_candidate_count": len(rows),
+                        "skipped_stage1_and_generation_screening": True,
+                    },
+                )
+                return rows
         soft_schedule = dict(proxy_cfg.get("bops_soft_constraint", {}) or {})
         if not soft_schedule:
             soft_schedule = dict(proxy_cfg.get("bops_target_schedule", {}) or {})

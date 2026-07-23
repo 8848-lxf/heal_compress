@@ -75,6 +75,62 @@ def test_baseline_gpu_pool_fails_closed_when_requested_pool_is_not_idle(monkeypa
         )
 
 
+def test_baseline_ga_uses_distinct_screening_and_full_validation_worker_pools(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from types import SimpleNamespace
+
+    from search.orchestration import heal_lidar_baseline_search as module
+
+    class FakeEvaluator:
+        def __init__(self, marker: str) -> None:
+            self.marker = marker
+            self._reference_baseline_override = None
+
+        def _stage2_reference_baseline(self):
+            return {"mAP": 1.0, "forward_p50_ms": 1.0}
+
+    monkeypatch.setattr(
+        module,
+        "query_gpus",
+        lambda: [
+            {
+                "index": 5,
+                "memory_free_mib": 80000,
+                "utilization_gpu_pct": 0,
+            }
+        ],
+    )
+    runner = object.__new__(module.HealLidarBaselineTwoStageSearch)
+    runner._stage2_gpu_ids = [5]
+    runner._runtime_config = {"stage2_minimum_workers": 1}
+    context = SimpleNamespace(physical_gpu_id=5)
+    screening = FakeEvaluator("screening")
+    full = FakeEvaluator("full")
+
+    screening_pool = runner._ga_stage2_evaluator_pool(
+        context,
+        screening,
+        tmp_path,
+        pool_kind="screening_500",
+    )
+    full_pool = runner._ga_stage2_evaluator_pool(
+        context,
+        full,
+        tmp_path,
+        pool_kind="full_validation",
+    )
+
+    assert screening_pool == [(5, screening)]
+    assert full_pool == [(5, full)]
+    assert runner._ga_stage2_worker_pool == screening_pool
+    assert runner._ga_full_validation_worker_pool == full_pool
+    assert (tmp_path / "stage2_workers/worker_pool_manifest.json").is_file()
+    assert (
+        tmp_path / "full_validation_workers/worker_pool_manifest.json"
+    ).is_file()
+
+
 def test_cli_routes_baseline_family_to_baseline_orchestrator(tmp_path: Path, monkeypatch) -> None:
     from search import cli
 

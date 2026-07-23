@@ -281,8 +281,22 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
         context: Any,
         real_evaluator: HealLidarBaselineCandidateEvaluator,
         run_dir: Path,
+        *,
+        pool_kind: str = "screening_500",
     ) -> list[tuple[int, HealLidarBaselineCandidateEvaluator]]:
-        cached = getattr(self, "_ga_stage2_worker_pool", None)
+        if pool_kind not in {"screening_500", "full_validation"}:
+            raise ValueError(f"unsupported_ga_evaluator_pool_kind:{pool_kind}")
+        cache_attribute = (
+            "_ga_stage2_worker_pool"
+            if pool_kind == "screening_500"
+            else "_ga_full_validation_worker_pool"
+        )
+        worker_dir_name = (
+            "stage2_workers"
+            if pool_kind == "screening_500"
+            else "full_validation_workers"
+        )
+        cached = getattr(self, cache_attribute, None)
         if cached is not None:
             return list(cached)
         gpu_ids = list(getattr(self, "_stage2_gpu_ids", [context.physical_gpu_id]))
@@ -333,7 +347,7 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
                 )
                 worker = self._candidate_evaluator(
                     worker_context,
-                    run_dir / "stage2_workers" / f"gpu_{gpu_id}",
+                    run_dir / worker_dir_name / f"gpu_{gpu_id}",
                     num_frames=real_evaluator.num_frames,
                     warmup_frames=real_evaluator.warmup_frames,
                     latency_rounds=real_evaluator.latency_rounds,
@@ -350,10 +364,14 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
         if len(workers) < int(runtime.get("stage2_minimum_workers", 1)):
             raise RuntimeError(f"baseline_stage2_worker_pool_insufficient:{rows}")
         _write_json(
-            run_dir / "stage2_workers/worker_pool_manifest.json",
-            {"workers": rows, "active_gpu_ids": [gpu_id for gpu_id, _ in workers]},
+            run_dir / worker_dir_name / "worker_pool_manifest.json",
+            {
+                "workers": rows,
+                "active_gpu_ids": [gpu_id for gpu_id, _ in workers],
+                "pool_kind": pool_kind,
+            },
         )
-        self._ga_stage2_worker_pool = list(workers)
+        setattr(self, cache_attribute, list(workers))
         return workers
 
     def run(
