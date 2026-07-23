@@ -509,6 +509,31 @@ def run_phase_b_formal_latency(
                 and str(row["diagnostic"]).lower() not in {"true", "1"}
             }
             accepted_ids.add("B0_BASELINE")
+            aligned_ids = [
+                candidate_id
+                for candidate_id in accepted_ids
+                if candidate_id in candidates_by_id
+                and all(
+                    int(width) % 4 == 0
+                    for width in candidates_by_id[candidate_id]["targets"].values()
+                )
+            ]
+            control_by_id: dict[str, str | None] = {}
+            for candidate_id in accepted_ids:
+                candidate = candidates_by_id.get(candidate_id)
+                if not candidate or all(
+                    int(width) % 4 == 0 for width in candidate["targets"].values()
+                ):
+                    control_by_id[candidate_id] = None
+                    continue
+                reduction = float(candidate["predicted_parameter_reduction"])
+                control_by_id[candidate_id] = min(
+                    aligned_ids,
+                    key=lambda value: abs(
+                        float(candidates_by_id[value]["predicted_parameter_reduction"])
+                        - reduction
+                    ),
+                )
             candidates = [
                 {
                     "model": model,
@@ -517,13 +542,7 @@ def run_phase_b_formal_latency(
                     "joint_id": candidates_by_id[candidate_id]["joint_id"],
                     "targets": candidates_by_id[candidate_id]["targets"],
                     "diagnostic": candidates_by_id[candidate_id]["diagnostic"],
-                    "alignment_control_id": (
-                        "B1_CONSERVATIVE_ALIGNED"
-                        if candidate_id in {"B2_CONSERVATIVE_NONALIGNED", "B3_MODERATE_NONALIGNED"}
-                        else "B4_BOUNDARY_ALIGNED"
-                        if candidate_id == "B5_BOUNDARY_NONALIGNED"
-                        else None
-                    ),
+                    "alignment_control_id": control_by_id.get(candidate_id),
                 }
                 for candidate_id in candidates_by_id
                 if candidate_id in accepted_ids

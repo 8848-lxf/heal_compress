@@ -101,6 +101,18 @@ def accept_microbenchmarks(
     runner_type = None
     device = None
     validation_gpu_uuid = None
+    gpu_uuid_rows = subprocess.check_output(
+        [
+            "nvidia-smi",
+            "--query-gpu=index,uuid",
+            "--format=csv,noheader,nounits",
+        ],
+        text=True,
+    ).splitlines()
+    gpu_uuid_by_index = {
+        int(row.split(",", 1)[0].strip()): row.split(",", 1)[1].strip()
+        for row in gpu_uuid_rows
+    }
     if validate_outputs:
         import torch
         from search.integration.runtime_environment import (
@@ -174,7 +186,7 @@ def accept_microbenchmarks(
                 "output_hash_evidence": "single existing-engine replay" if output_hash else "unavailable",
                 "timing_protocol": {"warmup": 100, "iterations": 1000, "repeats": 3, "cuda_event": True},
                 "artifact_gpu_physical_index": GPU_BY_FAMILY.get(family),
-                "artifact_gpu_uuid": None,
+                "artifact_gpu_uuid": gpu_uuid_by_index.get(GPU_BY_FAMILY.get(family, -1)),
                 "artifact_gpu_evidence_quality": "reconstructed_from_post-fix_scheduler_commands",
                 "validation_gpu_physical_index": physical_gpu if validate_outputs else None,
                 "validation_gpu_uuid": validation_gpu_uuid,

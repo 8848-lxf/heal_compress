@@ -110,6 +110,14 @@ def _family_evidence(output_root: Path, model: str, family: Mapping[str, Any]) -
             raise RuntimeError(f"phase_b_missing_baseline:{model}:{family_id}:{profile}")
         baseline_by_profile[profile] = float(baseline["mAP"])
     rows: list[dict[str, Any]] = []
+    with (output_root / "dh_alignment_full_matrix.csv").open(
+        newline="", encoding="utf-8"
+    ) as handle:
+        matrix = [
+            row
+            for row in csv.DictReader(handle)
+            if row["model"] == model and row["attention_family"] == family_id
+        ]
     for width in widths:
         profiles: dict[str, Any] = {}
         safe_all = True
@@ -150,6 +158,16 @@ def _family_evidence(output_root: Path, model: str, family: Mapping[str, Any]) -
                 "profiles": profiles,
                 "physical_parameter_count": structure.get("physical_parameter_count"),
                 "weighted_macs": structure.get("weighted_macs"),
+                "bops_by_profile": {
+                    profile: float(
+                        next(
+                            row
+                            for row in matrix
+                            if int(row["d_h"]) == width and row["profile"] == profile
+                        )["BOPS"]
+                    )
+                    for profile in PROFILES
+                },
             }
         )
     continuous: list[int] = []
@@ -244,6 +262,22 @@ def select_phase_b_candidates(output_root: Path, model: str) -> dict[str, Any]:
             )
             for family_id, width in targets.items()
         )
+        bops_reduction: dict[str, float] = {}
+        for profile in PROFILES:
+            first_family = next(iter(evidence))
+            baseline_bops = float(evidence[first_family]["widths"][0]["bops_by_profile"][profile])
+            bops_drop = sum(
+                float(evidence[family_id]["widths"][0]["bops_by_profile"][profile])
+                - float(
+                    next(
+                        row
+                        for row in evidence[family_id]["widths"]
+                        if int(row["d_h"]) == width
+                    )["bops_by_profile"][profile]
+                )
+                for family_id, width in targets.items()
+            )
+            bops_reduction[profile] = bops_drop / baseline_bops
         candidates.append(
             {
                 "candidate_id": label,
@@ -264,7 +298,7 @@ def select_phase_b_candidates(output_root: Path, model: str) -> dict[str, Any]:
                     profile: sum(per_profile_delta[profile].values()) for profile in PROFILES
                 },
                 "predicted_parameter_reduction": parameter_drop / original_parameters,
-                "predicted_bops_reduction": None,
+                "predicted_bops_reduction_by_profile": bops_reduction,
                 "contains_odd_width": any(width % 2 for width in targets.values()),
                 "contains_non4_width": any(width % 4 for width in targets.values()),
                 "contains_non8_width": any(width % 8 for width in targets.values()),
