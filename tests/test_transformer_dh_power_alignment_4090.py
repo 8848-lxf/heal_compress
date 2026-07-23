@@ -22,6 +22,13 @@ from search.orchestration.lidar_transformer_dh_power_alignment_4090 import (
     single_family_candidate_manifest,
     validate_4090_runtime,
 )
+from search.orchestration.lidar_transformer_dh_power_alignment_matrix_4090 import (
+    candidate_alias_map,
+    priority_execution_queue,
+    priority_aligned_single_family_queue,
+    unique_structure_queue,
+    worker_queue,
+)
 from search.reporting.transformer_dh_power_alignment_4090 import (
     accuracy_class,
     build_repeat_stability,
@@ -336,3 +343,63 @@ def test_report_writer_emits_compact_contract_and_root_conclusion(tmp_path):
         "reports/report_summary.json",
     ):
         assert (tmp_path / name).is_file(), name
+
+
+def test_single_and_joint_manifests_deduplicate_to_63_physical_structures():
+    rows = [*single_family_candidate_manifest()]
+    from search.orchestration.lidar_transformer_dh_power_alignment_4090 import joint_candidate_manifest
+
+    rows.extend(joint_candidate_manifest())
+    unique = unique_structure_queue(rows)
+    assert len(unique) == 63
+    assert len({row["structure_signature"] for row in unique}) == 63
+
+
+def test_baseline_aliases_share_one_physical_structure():
+    rows = [*single_family_candidate_manifest()]
+    from search.orchestration.lidar_transformer_dh_power_alignment_4090 import joint_candidate_manifest
+
+    rows.extend(joint_candidate_manifest())
+    aliases = candidate_alias_map(rows)
+    assert sorted(aliases["lidar_cobevt__B0"]) == ["C0", "lidar_cobevt__B0"]
+    assert sorted(aliases["lidar_v2xvit__B0"]) == ["V0", "lidar_v2xvit__B0"]
+
+
+def test_priority_queue_contains_baselines_and_all_multiple_of_eight_single_family_widths():
+    rows = priority_aligned_single_family_queue(single_family_candidate_manifest())
+    assert len(rows) == 22
+    assert {row["candidate_id"] for row in rows[:2]} == {
+        "lidar_cobevt__B0",
+        "lidar_v2xvit__B0",
+    }
+    assert all(
+        row["structure_kind"] == "baseline" or int(row["d_h"]) % 8 == 0
+        for row in rows
+    )
+    assert not any(row.get("d_h") in {12, 20, 28} for row in rows)
+
+
+def test_priority_queue_runs_exact_8_16_32_before_other_aligned_widths():
+    rows = priority_aligned_single_family_queue(single_family_candidate_manifest())
+    tiers = [int(row["priority_tier"]) for row in rows]
+    assert tiers == sorted(tiers)
+    assert {int(row["d_h"]) for row in rows if row["priority_tier"] == 1} == {8, 16, 32}
+    assert {int(row["d_h"]) for row in rows if row["priority_tier"] == 2} == {
+        24,
+        40,
+        48,
+        56,
+    }
+
+
+def test_priority_execution_queue_is_deterministically_partitioned_across_four_gpus():
+    rows = priority_execution_queue(single_family_candidate_manifest(), gpu_ids=(4, 5, 6, 7))
+    assert len(rows) == 22
+    assert [row["physical_gpu"] for row in rows[:8]] == [4, 5, 6, 7, 4, 5, 6, 7]
+    assert [len(worker_queue(rows, gpu)) for gpu in (4, 5, 6, 7)] == [6, 6, 5, 5]
+
+
+def test_worker_queue_rejects_gpu_not_present_in_manifest():
+    rows = priority_execution_queue(single_family_candidate_manifest(), gpu_ids=(4, 5))
+    with pytest.raises(ValueError, match="gpu_not_in_priority_queue"):
+        worker_queue(rows, 7)
