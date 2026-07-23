@@ -193,3 +193,50 @@
 ---
 时间戳：2026-07-24 06:04:30 CST｜轮次：Round 3
 ---
+
+## Round 4：最终清单、远端同步与后续接续点
+
+### 最终报告产物
+
+独立 run root 已由 `scripts/finalize_transformer_unified_search_reports.py` 从真实 JSON 产物汇总生成：
+
+- `reports/framework_architecture.md`
+- `reports/model_support_matrix.csv`
+- `reports/domain_inventory.csv`
+- `reports/attention_domain_manifest.csv`
+- `reports/ffn_domain_manifest.csv`
+- `reports/precision_unit_manifest.csv`
+- `reports/activation_proxy_manifest.csv`
+- `reports/smoothquant_manifest.csv`
+- `reports/greedy_smoke_results.csv`
+- `reports/ga_smoke_results.csv`
+- `reports/stage2_smoke_results.csv`
+- `reports/engine_precision_audit.csv`
+- `reports/unsupported_patterns.csv`
+- `reports/requested_vs_realized.json`
+- `reports/regression_test_summary.json`
+- `reports/final_acceptance.json`
+- `root_conclusion.md`
+
+汇总统计为：4 个模型支持行、82 个 CNN/grouped-conv 域、18 个 Attention d_h 域、9 个 FFN d_ff 域；150 个已发现 Transformer/functional precision units，其中 24 个进入有界搜索 smoke；22 个 deployment units 具有联合激活代理清单。4 个接受的 engine candidate 均无 requested/realized conflict。
+
+### 最终代码与验证状态
+
+- Stage-2 闭环实现提交：`796e2abd`（`feat: add transformer physical stage2 engine acceptance`）。
+- 审计/报告与 Round 3 文档提交：`dbd50596`（`docs: report H800 transformer search framework acceptance`）。
+- `dbd50596` 推送后曾验证本地/远端为 `0 0`；本轮文档提交后需再次执行 push/fetch/`rev-list`，并以 `reports/final_acceptance.json` 中的 final commit 为准。
+- 最终重新执行 `python -m compileall -q opencood pruning quantization search scripts tests tools` 通过；`git diff --check` 通过。
+- 完整隔离 pytest 仍为 966 passed / 0 failed；Stage-2 直接相关复核为 38 passed / 0 failed。
+- 正式 worktree 当前仍是 `896a049830874ef0d40faa87927873a1e88bedb6`；dirty status 与任务开始一致，三个用户未跟踪文件未变。
+- 最新 `active_search_processes_after.json` 捕获 31 个 DiscoNet/F-Cooper 相关进程，起始的 supervisor/watcher PID `591652`、`990778`、`4153684` 仍持续存在；外部 task-path reference、task signal、task path write 均为 0。
+
+### 接续开发建议
+
+1. 在物理 d_h 宽度固定后，为 V2X-ViT/CoBEVT 的 Q/K 或 fused QKV 重新采集 SmoothQuant activation statistics，离线确认 alpha 与 scale hash，并各构建一个 QKV W8A8 engine anchor。
+2. 等待 GPU0 无争用窗口，再执行 baseline→candidate→baseline、200 warmup/500 timed/5 repeats 的正式 full-engine latency；不要使用本轮共享 GPU smoke p50 代替正式数据。
+3. 若后续获得明确授权，再把已验证框架配置扩展到 0.30/0.25/0.20/0.15/0.10/0.05 六预算；本轮没有启动这些正式搜索。
+4. AttFusion/CoAlign 继续按 projection-free functional attention 处理；除非真实实现新增可验证 Q/K/V/O projection，否则不得人为创建 attention_dh 域。
+
+---
+时间戳：2026-07-24 06:06:16 CST｜轮次：Round 4
+---
