@@ -164,7 +164,7 @@ def _phase_b_artifact_audit(output_root: Path) -> dict[str, Any]:
     structure_hashes: list[str] = []
     engine_hashes: list[str] = []
     calibration_evidence_keys: list[str] = []
-    fixed_rows = 0
+    protocol_rows = {"smoke10": 0, "fixed50": 0, "fixed500": 0}
     for model in ("lidar_cobevt", "lidar_v2xvit"):
         payload = _read(output_root / "reports" / f"{model}_phase_b_result.json")
         if not payload or len(payload.get("results", ())) != 7:
@@ -187,18 +187,15 @@ def _phase_b_artifact_audit(output_root: Path) -> dict[str, Any]:
             ):
                 errors.append(f"phase_b_structure_not_fresh_exact:{model}:{joint}")
             builds = {str(row["profile"]): row for row in result["builds"]}
-            fixed = {
-                str(row["profile"]): row
+            evaluations = {
+                (str(row["profile"]), str(row["protocol"])): row
                 for row in result["evaluations"]
-                if row.get("protocol") == "fixed500"
             }
             for profile in PROFILES:
                 build = builds.get(profile, {})
-                evaluation = fixed.get(profile, {})
                 engine = output_root / "engines" / model / "joint" / joint / profile / "engine.plan"
                 engine_hash = str(build.get("engine_sha256", ""))
                 engine_hashes.append(engine_hash)
-                fixed_rows += 1
                 if (
                     build.get("status") != "ok"
                     or int(build.get("requested_realized_conflict_count", -1)) != 0
@@ -207,14 +204,23 @@ def _phase_b_artifact_audit(output_root: Path) -> dict[str, Any]:
                     or engine_hash in phase_a_engine_hashes
                 ):
                     errors.append(f"phase_b_engine_not_fresh_exact:{model}:{joint}:{profile}")
-                if (
-                    evaluation.get("status") != "ok"
-                    or int(evaluation.get("evaluated", -1)) != 500
-                    or int(evaluation.get("skipped", -1)) != 0
-                    or evaluation.get("engine_sha256") != engine_hash
-                    or evaluation.get("structure_hash") != structure_hash
+                for protocol, expected_frames in (
+                    ("smoke10", 10),
+                    ("fixed50", 50),
+                    ("fixed500", 500),
                 ):
-                    errors.append(f"phase_b_fixed500_not_exact:{model}:{joint}:{profile}")
+                    evaluation = evaluations.get((profile, protocol), {})
+                    protocol_rows[protocol] += 1
+                    if (
+                        evaluation.get("status") != "ok"
+                        or int(evaluation.get("evaluated", -1)) != expected_frames
+                        or int(evaluation.get("skipped", -1)) != 0
+                        or evaluation.get("engine_sha256") != engine_hash
+                        or evaluation.get("structure_hash") != structure_hash
+                    ):
+                        errors.append(
+                            f"phase_b_{protocol}_not_exact:{model}:{joint}:{profile}"
+                        )
                 if profile == "P8":
                     calibration = _read(
                         output_root
@@ -248,6 +254,8 @@ def _phase_b_artifact_audit(output_root: Path) -> dict[str, Any]:
         errors.append(f"phase_b_structure_hash_count:{len(structure_hashes)}:{len(set(structure_hashes))}")
     if len(engine_hashes) != 42 or len(set(engine_hashes)) != 42:
         errors.append(f"phase_b_engine_hash_count:{len(engine_hashes)}:{len(set(engine_hashes))}")
+    if any(count != 42 for count in protocol_rows.values()):
+        errors.append(f"phase_b_evaluation_protocol_counts:{protocol_rows}")
     if len(calibration_evidence_keys) != 14 or len(set(calibration_evidence_keys)) != 14:
         errors.append("phase_b_calibration_evidence_identity_collision")
     certificate = {
@@ -258,7 +266,8 @@ def _phase_b_artifact_audit(output_root: Path) -> dict[str, Any]:
         "unique_structure_hashes": len(set(structure_hashes)),
         "fresh_engines": len(engine_hashes),
         "unique_engine_hashes": len(set(engine_hashes)),
-        "fixed500_rows": fixed_rows,
+        "evaluation_rows": protocol_rows,
+        "fixed500_rows": protocol_rows["fixed500"],
         "fresh_p8_calibrations": len(calibration_evidence_keys),
         "unique_calibration_evidence_keys": len(set(calibration_evidence_keys)),
         "calibration_cache_mode": "disabled_fresh_in_process_materialization",
