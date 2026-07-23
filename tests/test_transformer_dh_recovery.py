@@ -12,6 +12,7 @@ from search.orchestration.lidar_transformer_dh_recovery import (
     ExperimentState,
     lock_is_stale,
 )
+from search.reporting.transformer_dh_alignment_final import _latency_summary
 
 
 def _sha(path: Path) -> str:
@@ -223,3 +224,52 @@ def test_formal_search_and_pyramid_are_not_imported() -> None:
         source = path.read_text(encoding="utf-8")
         assert "heal-unified-search-h800" not in source or path.name == "lidar_transformer_dh_provenance.py"
         assert "lidar_pyramid_search" not in source
+
+
+def test_final_latency_summary_requires_baseline_and_both_aligned_controls() -> None:
+    common = {
+        "model": "lidar_cobevt",
+        "attention_family": "family",
+        "profile": "P16",
+        "gpu_uuid": "GPU-x",
+        "warmup": 200,
+        "iterations": 2000,
+        "repeats": 5,
+    }
+    rows = [
+        {
+            **common,
+            "d_h": 32,
+            "baseline_replay": True,
+            "replay_index": 0,
+            "latency_beneficial": False,
+            "alignment_class": "multiple_of_8",
+        },
+        {
+            **common,
+            "d_h": 31,
+            "baseline_replay": False,
+            "replay_index": 1,
+            "latency_beneficial": True,
+            "beneficial_vs_control4": True,
+            "beneficial_vs_control8": True,
+            "alignment_class": "non4",
+            "p50_ms": 9.0,
+            "speedup_vs_same_profile_baseline": 1.1,
+            "control_4_d_h": 32,
+            "control_8_d_h": 32,
+            "speedup_vs_control4": 1.1,
+            "speedup_vs_control8": 1.1,
+        },
+        {
+            **common,
+            "d_h": 32,
+            "baseline_replay": True,
+            "replay_index": 2,
+            "latency_beneficial": False,
+            "alignment_class": "multiple_of_8",
+        },
+    ]
+    result = _latency_summary(rows, phase="phase_a")
+    assert result["canonical_candidate_rows"] == 2
+    assert result["strict_nonaligned_beneficial_rows"] == 1

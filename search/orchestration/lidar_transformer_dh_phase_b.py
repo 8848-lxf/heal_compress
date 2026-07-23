@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 from pathlib import Path
 import statistics
 from typing import Any, Mapping
@@ -430,10 +431,13 @@ def summarize_phase_b(output_root: Path) -> dict[str, Any]:
                 delta_joint = (
                     float(evaluation["mAP"]) - float(baseline["mAP"]) if accepted else None
                 )
+                finite_joint = delta_joint is not None and math.isfinite(delta_joint)
                 predicted = float(candidate["delta_predicted_additive_by_profile"][profile])
-                interaction = delta_joint - predicted if delta_joint is not None else None
+                interaction = delta_joint - predicted if finite_joint else None
                 classification = (
-                    "UNAVAILABLE"
+                    "UNSAFE"
+                    if delta_joint is not None and not finite_joint
+                    else "UNAVAILABLE"
                     if delta_joint is None
                     else "SAFE"
                     if abs(delta_joint) <= 0.003

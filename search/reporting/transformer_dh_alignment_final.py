@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -40,8 +41,219 @@ def _csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _write_csv(path: Path, rows: list[Mapping[str, Any]]) -> None:
+    fields = sorted({str(key) for row in rows for key in row})
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    key: json.dumps(value, sort_keys=True)
+                    if isinstance(value, (dict, list, tuple))
+                    else value
+                    for key, value in row.items()
+                }
+            )
+
+
+def _enrich_formal_rows(
+    output_root: Path,
+    phase_a_rows: list[dict[str, Any]],
+    phase_b_rows: list[dict[str, Any]],
+) -> None:
+    for row in phase_a_rows:
+        directory = (
+            output_root
+            / "engines"
+            / str(row["model"])
+            / str(row["attention_family"])
+            / f"dh_{int(row['d_h']):03d}"
+            / str(row["profile"])
+        )
+        build = _read(directory / "baseline_result.json") or {}
+        row.update(
+            {
+                "padding_status": build.get("padding_status"),
+                "requested_realized_conflict_count": build.get(
+                    "requested_realized_conflict_count"
+                ),
+                "requested_realized": int(
+                    build.get("requested_realized_conflict_count", -1)
+                )
+                == 0,
+                "fallback": build.get("status") != "ok",
+                "scale_hash": build.get("scale_hash", "not_quantized"),
+            }
+        )
+    for row in phase_b_rows:
+        directory = (
+            output_root
+            / "engines"
+            / str(row["model"])
+            / "joint"
+            / str(row["joint_id"])
+            / str(row["profile"])
+        )
+        build = _read(directory / "baseline_result.json") or {}
+        row.update(
+            {
+                "alignment_status_by_family": build.get("alignment_status_by_family"),
+                "requested_realized_conflict_count": build.get(
+                    "requested_realized_conflict_count"
+                ),
+                "requested_realized": int(
+                    build.get("requested_realized_conflict_count", -1)
+                )
+                == 0,
+                "fallback": build.get("status") != "ok",
+                "scale_hash": build.get("scale_hash", "not_quantized"),
+            }
+        )
+    _write(
+        output_root / "formal-latency" / "phase_a" / "formal_latency.json",
+        phase_a_rows,
+    )
+    _write(
+        output_root / "formal-latency" / "phase_b" / "formal_latency.json",
+        phase_b_rows,
+    )
+    for model in ("lidar_cobevt", "lidar_v2xvit"):
+        _write_csv(
+            output_root / f"formal_latency_phase_a_{model.removeprefix('lidar_')}.csv",
+            [row for row in phase_a_rows if row["model"] == model],
+        )
+        _write_csv(
+            output_root / f"formal_latency_phase_b_{model.removeprefix('lidar_')}.csv",
+            [row for row in phase_b_rows if row["model"] == model],
+        )
+    _write_csv(
+        output_root / "formal_latency_baseline_replay.csv",
+        [row for row in (*phase_a_rows, *phase_b_rows) if _bool(row.get("baseline_replay"))],
+    )
+
+
 def _git(workdir: Path, *args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=workdir, text=True).strip()
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _phase_b_artifact_audit(output_root: Path) -> dict[str, Any]:
+    errors: list[str] = []
+    phase_a_structure_hashes = {
+        str((_read(path) or {}).get("structure_hash", ""))
+        for path in output_root.glob("structures/lidar_*/*/dh_*/structure_result.json")
+    }
+    phase_a_engine_hashes = {
+        str((_read(path) or {}).get("engine_sha256", ""))
+        for path in output_root.glob("engines/lidar_*/*/dh_*/*/baseline_result.json")
+    }
+    structure_hashes: list[str] = []
+    engine_hashes: list[str] = []
+    calibration_namespaces: list[str] = []
+    fixed_rows = 0
+    for model in ("lidar_cobevt", "lidar_v2xvit"):
+        payload = _read(output_root / "reports" / f"{model}_phase_b_result.json")
+        if not payload or len(payload.get("results", ())) != 7:
+            errors.append(f"phase_b_candidate_count:{model}")
+            continue
+        for candidate in payload["results"]:
+            result = candidate["result"]
+            structure = result["structure"]
+            joint = str(structure["joint_id"])
+            structure_dir = output_root / "structures" / model / "joint" / joint
+            onnx = structure_dir / "base_fp32_canonical.onnx"
+            structure_hash = str(structure.get("structure_hash", ""))
+            structure_hashes.append(structure_hash)
+            if (
+                structure.get("status") != "ok"
+                or not structure.get("state_dict_shape_hash")
+                or not onnx.is_file()
+                or _sha256(onnx) != structure.get("onnx_sha256")
+                or structure_hash in phase_a_structure_hashes
+            ):
+                errors.append(f"phase_b_structure_not_fresh_exact:{model}:{joint}")
+            builds = {str(row["profile"]): row for row in result["builds"]}
+            fixed = {
+                str(row["profile"]): row
+                for row in result["evaluations"]
+                if row.get("protocol") == "fixed500"
+            }
+            for profile in PROFILES:
+                build = builds.get(profile, {})
+                evaluation = fixed.get(profile, {})
+                engine = output_root / "engines" / model / "joint" / joint / profile / "engine.plan"
+                engine_hash = str(build.get("engine_sha256", ""))
+                engine_hashes.append(engine_hash)
+                fixed_rows += 1
+                if (
+                    build.get("status") != "ok"
+                    or int(build.get("requested_realized_conflict_count", -1)) != 0
+                    or not engine.is_file()
+                    or _sha256(engine) != engine_hash
+                    or engine_hash in phase_a_engine_hashes
+                ):
+                    errors.append(f"phase_b_engine_not_fresh_exact:{model}:{joint}:{profile}")
+                if (
+                    evaluation.get("status") != "ok"
+                    or int(evaluation.get("evaluated", -1)) != 500
+                    or int(evaluation.get("skipped", -1)) != 0
+                    or evaluation.get("engine_sha256") != engine_hash
+                    or evaluation.get("structure_hash") != structure_hash
+                ):
+                    errors.append(f"phase_b_fixed500_not_exact:{model}:{joint}:{profile}")
+                if profile == "P8":
+                    calibration = _read(
+                        output_root
+                        / "engines"
+                        / model
+                        / "joint"
+                        / joint
+                        / profile
+                        / "calibration_report.json"
+                    ) or {}
+                    namespace = f"dh_joint_{model}_{hashlib.sha256(json.dumps(candidate['targets'], sort_keys=True, separators=(',', ':')).encode()).hexdigest()[:16]}_P8"
+                    calibration_namespaces.append(namespace)
+                    if (
+                        not build.get("fresh_joint_calibration")
+                        or int(build.get("calibration_sample_count", -1)) != 200
+                        or int(calibration.get("sample_count", -1)) != 200
+                        or not build.get("scale_hash")
+                    ):
+                        errors.append(f"phase_b_p8_calibration_not_fresh:{model}:{joint}")
+    if len(structure_hashes) != 14 or len(set(structure_hashes)) != 14:
+        errors.append(f"phase_b_structure_hash_count:{len(structure_hashes)}:{len(set(structure_hashes))}")
+    if len(engine_hashes) != 42 or len(set(engine_hashes)) != 42:
+        errors.append(f"phase_b_engine_hash_count:{len(engine_hashes)}:{len(set(engine_hashes))}")
+    if len(calibration_namespaces) != 14 or len(set(calibration_namespaces)) != 14:
+        errors.append("phase_b_calibration_namespace_collision")
+    certificate = {
+        "schema_version": "h800-transformer-dh-phase-b-artifact-certificate-v1",
+        "status": "accepted" if not errors else "rejected",
+        "joint_candidates": 14,
+        "fresh_structures": len(structure_hashes),
+        "unique_structure_hashes": len(set(structure_hashes)),
+        "fresh_engines": len(engine_hashes),
+        "unique_engine_hashes": len(set(engine_hashes)),
+        "fixed500_rows": fixed_rows,
+        "fresh_p8_calibrations": len(calibration_namespaces),
+        "unique_calibration_namespaces": len(set(calibration_namespaces)),
+        "phase_a_engine_reuse": bool(set(engine_hashes) & phase_a_engine_hashes),
+        "phase_a_structure_hash_reuse": bool(set(structure_hashes) & phase_a_structure_hashes),
+        "artifact_commit": "eb4d6a1e76cc0bbf1f9e229d3f0c36ebab92d896",
+        "errors": errors,
+    }
+    _write(output_root / "phase_b_artifact_completion_certificate.json", certificate)
+    if errors:
+        raise RuntimeError("phase_b_artifact_acceptance_failed:" + ";".join(errors[:20]))
+    return certificate
 
 
 def _phase_a_widths(output_root: Path) -> dict[str, Any]:
@@ -249,6 +461,7 @@ def finalize(output_root: Path) -> dict[str, Any]:
             row.update(selection_by_id[candidate_id])
             row["result"] = preserved_result
         _write(result_path, result)
+    phase_b_artifacts = _phase_b_artifact_audit(output_root)
     phase_b_accuracy = summarize_phase_b(output_root)
     if not phase_b_accuracy.get("fixed500_complete"):
         raise RuntimeError("final_report_phase_b_fixed500_incomplete")
@@ -262,6 +475,7 @@ def finalize(output_root: Path) -> dict[str, Any]:
         raise RuntimeError("final_report_phase_a_formal_latency_missing")
     if not isinstance(phase_b_latency_rows, list) or not phase_b_latency_rows:
         raise RuntimeError("final_report_phase_b_formal_latency_missing")
+    _enrich_formal_rows(output_root, phase_a_rows, phase_b_latency_rows)
     phase_a_latency = _latency_summary(phase_a_rows, phase="phase_a")
     phase_b_latency = _latency_summary(phase_b_latency_rows, phase="phase_b")
     phase_b_rows = _csv(output_root / "phase_b_joint_fixed500.csv")
@@ -355,6 +569,7 @@ def finalize(output_root: Path) -> dict[str, Any]:
             "engine_count": len(engine_hashes),
             "unique_engine_hashes": len(set(engine_hashes)),
             "fixed500": phase_b_accuracy,
+            "artifact_certificate": phase_b_artifacts,
             "p8_interaction_range": [min(p8_interactions), max(p8_interactions)] if p8_interactions else None,
             "formal_latency": phase_b_latency,
         },
@@ -363,8 +578,17 @@ def finalize(output_root: Path) -> dict[str, Any]:
         "formal_search_code_migrated": False,
         "pyramid_modified": False,
         "ga_or_greedy_executed": False,
+        "execution_commits": {
+            "phase_a_existing_artifacts": "d0964c39cd350239e9e831b737bed551e17ad313",
+            "microbenchmark_generation": "6cfde0a126b940be1aa8558725b60fc7bd49cb4c",
+            "phase_a_formal_latency": "eb4d6a1e76cc0bbf1f9e229d3f0c36ebab92d896",
+            "phase_b_structure_build_fixed500": "eb4d6a1e76cc0bbf1f9e229d3f0c36ebab92d896",
+            "phase_b_formal_latency": "9739082c5575d1b6bbd927835c5fc890d9dd666e",
+            "report_generation": head,
+        },
     }
     _write(output_root / "reports" / "report_summary.json", summary)
+    _write(output_root / "provenance" / "phase_execution_lineage.json", summary["execution_commits"])
     _write_reports(output_root, summary, contract, phase_b_rows)
     return summary
 
