@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from heal_compress.search.pruning_space.transformer_domains import (
+from search.pruning_space.transformer_domains import (
     SharedTransformerParameterError,
     build_transformer_pruning_domains,
     fixed_transformer_rankings_from_unit_scores,
@@ -204,7 +204,7 @@ def test_raw_common_loss_scores_build_fixed_per_head_and_ffn_rankings() -> None:
 
 
 def test_transformer_model_adapter_detects_all_four_real_config_contracts() -> None:
-    from heal_compress.search.adapters.transformer_models import (
+    from search.adapters.transformer_models import (
         detect_transformer_model_adapter,
     )
 

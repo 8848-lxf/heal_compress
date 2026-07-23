@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 import pytest
 
-from heal_compress.search.candidate import CandidatePhenotype, PrecisionDecision
-from heal_compress.search.proxy.candidate_perturbation import pseudo_quantize_activation
-from heal_compress.search.proxy.joint_weight_activation_taylor import (
+from search.candidate import CandidatePhenotype, PrecisionDecision
+from search.proxy.candidate_perturbation import pseudo_quantize_activation
+from search.proxy.joint_weight_activation_taylor import (
     JointOutputTaylorStatistics,
     JointWeightActivationTaylorProxy,
     ModelCandidateOutputProvider,

@@ -190,6 +190,13 @@ def test_int8_missing_lut_is_unavailable_not_regular_default():
 def test_export_int8_conv_subgraph_contains_qdq_nodes(tmp_path: Path):
     onnx = __import__("onnx")
     key = _key(precision_profile="TRT_INT8_QDQ")
+    key.metadata.update(
+        {
+            "activation_scale": 0.03125,
+            "weight_scale": 0.015625,
+            "scale_source": "unit_test_calibration",
+        }
+    )
 
     exported = export_minimal_subgraph(key, tmp_path, dry_run=False)
     model = onnx.load(exported["onnx_path"])
@@ -197,7 +204,7 @@ def test_export_int8_conv_subgraph_contains_qdq_nodes(tmp_path: Path):
 
     assert "QuantizeLinear" in op_types
     assert "DequantizeLinear" in op_types
-    assert exported["metadata"]["scale_source"] == "default_synthetic"
+    assert exported["metadata"]["scale_source"] == "unit_test_calibration"
 
 
 def test_export_precision_boundary_subgraph_contains_boundary_metadata(tmp_path: Path):

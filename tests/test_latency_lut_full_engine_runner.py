@@ -48,6 +48,8 @@ def test_full_engine_runner_fails_unknown_channel_config_without_candidate_expor
 def test_full_engine_runner_reuses_quant_deploy_pipeline_for_baseline_fp16(tmp_path: Path, monkeypatch):
     candidate = tmp_path / "baseline_like_fp16.json"
     output = tmp_path / "baseline_like_fp16.full_engine_result.json"
+    plugin = tmp_path / "libpointpillar_scatter_trt.so"
+    plugin.write_bytes(b"unit-test-plugin-placeholder")
     candidate.write_text(
         json.dumps(
             {
@@ -107,8 +109,10 @@ def test_full_engine_runner_reuses_quant_deploy_pipeline_for_baseline_fp16(tmp_p
                 "single_engine_maxK",
                 "--fixed-k",
                 "29696",
-                "--precision-profile",
-                "FP16",
+                    "--precision-profile",
+                    "FP16",
+                    "--plugin",
+                    str(plugin),
             ]
         )
     )
@@ -125,6 +129,8 @@ def test_full_engine_runner_reuses_quant_deploy_pipeline_for_baseline_fp16(tmp_p
 def test_full_engine_runner_reports_light_prune_stage_failure(tmp_path: Path, monkeypatch):
     candidate = tmp_path / "light_prune_fp16.json"
     output = tmp_path / "light_prune_fp16.full_engine_result.json"
+    plugin = tmp_path / "libpointpillar_scatter_trt.so"
+    plugin.write_bytes(b"unit-test-plugin-placeholder")
     candidate.write_text(
         json.dumps(
             {
@@ -161,8 +167,10 @@ def test_full_engine_runner_reports_light_prune_stage_failure(tmp_path: Path, mo
                 str(output),
                 "--deploy-mode",
                 "single_engine_maxK",
-                "--fixed-k",
-                "29696",
+                    "--fixed-k",
+                    "29696",
+                    "--plugin",
+                    str(plugin),
             ]
         )
     )

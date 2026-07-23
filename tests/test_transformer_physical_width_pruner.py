@@ -7,12 +7,12 @@ import math
 import torch
 import torch.nn as nn
 
-from heal_compress.search.pruning_space.transformer_domains import build_transformer_pruning_domains
-from heal_compress.search.pruning_space.transformer_physical_pruner import materialize_transformer_widths
-from heal_compress.search.pruning_space.unified_physical_pruner import (
+from search.pruning_space.transformer_domains import build_transformer_pruning_domains
+from search.pruning_space.transformer_physical_pruner import materialize_transformer_widths
+from search.pruning_space.unified_physical_pruner import (
     materialize_unified_widths,
 )
-from heal_compress.search.proxy.transformer_parameter_slices import build_transformer_unit_parameter_slices
+from search.proxy.transformer_parameter_slices import build_transformer_unit_parameter_slices
 
 
 class FusedAttention(nn.Module):

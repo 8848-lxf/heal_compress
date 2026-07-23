@@ -25,6 +25,18 @@ def build_engine_modelopt(
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     repo_root = Path(__file__).resolve().parents[2]
+    python_package_root = destination / "python_package"
+    python_package_root.mkdir(parents=True, exist_ok=True)
+    package_alias = python_package_root / "heal_compress"
+    if package_alias.is_symlink():
+        if package_alias.resolve() != repo_root:
+            raise RuntimeError(
+                f"trt_worker_package_alias_mismatch:{package_alias.resolve()}!={repo_root}"
+            )
+    elif package_alias.exists():
+        raise RuntimeError(f"trt_worker_package_alias_not_symlink:{package_alias}")
+    else:
+        package_alias.symlink_to(repo_root, target_is_directory=True)
     request_path = destination / "trt_build_request.json"
     output_path = destination / "trt_build_result.json"
     layer_info_path = destination / "engine_layer_info.json"
@@ -40,6 +52,7 @@ def build_engine_modelopt(
     )
     request = {
         "repo_root": str(repo_root),
+        "python_package_root": str(python_package_root),
         "qdq_onnx": str(qdq_onnx),
         "engine_path": str(engine_path),
         "precision_mapping": precision_mapping.to_dict() if hasattr(precision_mapping, "to_dict") else precision_mapping,
@@ -56,8 +69,9 @@ def build_engine_modelopt(
         tensorrt_root=root,
         conda_env=conda_env,
         pythonpath_entries=[
-            "/home/lixingfeng/UniAD_examine/HEAL",
+            str(python_package_root),
             str(repo_root),
+            "/home/lixingfeng/UniAD_examine/HEAL",
             "/home/lixingfeng/UniAD_examine",
         ],
         cuda_visible_devices=gpu_id,

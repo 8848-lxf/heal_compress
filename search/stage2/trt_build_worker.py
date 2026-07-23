@@ -131,6 +131,9 @@ def _build_environment_manifest(request: dict[str, Any], build: Any) -> dict[str
         "builder_command": build_payload.get("command", {}).get("command", []),
         "builder_command_hash": build_payload.get("command", {}).get("command_hash", ""),
         "system_toolchain_used": False,
+        "source_repo_root": str(request.get("repo_root", "")),
+        "python_package_root": str(request.get("python_package_root", "")),
+        "loaded_source_modules": dict(request.get("loaded_source_modules", {})),
     }
     manifest["manifest_sha256"] = hashlib.sha256(
         json.dumps(manifest, sort_keys=True, default=str).encode("utf-8")
@@ -144,8 +147,22 @@ def main(argv: list[str] | None = None) -> int:
     output_path = Path(request["output_path"])
     try:
         repo = Path(request.get("repo_root", Path.cwd())).resolve()
+        python_package_root = Path(str(request["python_package_root"])).resolve()
+        package_alias = python_package_root / "heal_compress"
+        if not package_alias.is_symlink() or package_alias.resolve() != repo:
+            raise RuntimeError(
+                f"trt_worker_package_alias_invalid:{package_alias}:{repo}"
+            )
         uniad = repo.parent
-        for path in (str(uniad), str(repo), str(uniad / "HEAL")):
+        # Insert in reverse-priority order because ``insert(0, ...)`` prepends.
+        # The output-local canonical package alias must win over the formal
+        # worktree that also exists below ``uniad``.
+        for path in (
+            str(uniad),
+            str(uniad / "HEAL"),
+            str(repo),
+            str(python_package_root),
+        ):
             if path not in sys.path:
                 sys.path.insert(0, path)
         ld = request.get("ld_library_path")
@@ -157,6 +174,24 @@ def main(argv: list[str] | None = None) -> int:
         except ImportError:
             from quantization.api import build_trt_engine, validate_engine_structure, validate_precision_realization
             from quantization.config import TensorRTBuildConfig, TensorRTValidationConfig
+        loaded_source_modules = {
+            name: str(Path(sys.modules[value.__module__].__file__).resolve())
+            for name, value in {
+                "build_trt_engine": build_trt_engine,
+                "validate_engine_structure": validate_engine_structure,
+                "validate_precision_realization": validate_precision_realization,
+            }.items()
+        }
+        outside = {
+            name: path
+            for name, path in loaded_source_modules.items()
+            if repo != Path(path) and repo not in Path(path).parents
+        }
+        if outside:
+            raise RuntimeError(
+                f"trt_worker_source_worktree_leak:{outside}:expected_root={repo}"
+            )
+        request["loaded_source_modules"] = loaded_source_modules
         mapping = _mapping_from_dict(request["precision_mapping"])
         build_config = TensorRTBuildConfig.from_dict(request["build_config"])
         physical_snapshot = request.get("physical_snapshot")

@@ -6,10 +6,10 @@ import pytest
 import torch
 import torch.nn as nn
 
-from heal_compress.search.candidate import CandidatePhenotype, PrecisionDecision
-from heal_compress.search.pruning_space.transformer_domains import build_transformer_pruning_domains
-from heal_compress.search.proxy.transformer_bops import AttentionWorkload, FFNWorkload, ProjectionFreeAttentionWorkload, TransformerBOPSProxy, profile_transformer_workloads
-from heal_compress.search.proxy.transformer_latency import TransformerLatencyLUT, TransformerLatencyProxy
+from search.candidate import CandidatePhenotype, PrecisionDecision
+from search.pruning_space.transformer_domains import build_transformer_pruning_domains
+from search.proxy.transformer_bops import AttentionWorkload, FFNWorkload, ProjectionFreeAttentionWorkload, TransformerBOPSProxy, profile_transformer_workloads
+from search.proxy.transformer_latency import TransformerLatencyLUT, TransformerLatencyProxy
 
 
 class Attention(nn.Module):

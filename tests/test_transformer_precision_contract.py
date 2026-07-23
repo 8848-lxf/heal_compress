@@ -6,8 +6,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from heal_compress.search.pruning_space.transformer_domains import build_transformer_pruning_domains
-from heal_compress.search.quantization_space.smoothquant import (
+from search.pruning_space.transformer_domains import build_transformer_pruning_domains
+from search.quantization_space.smoothquant import (
     SMOOTHQUANT_ALPHA_GRID,
     SmoothQuantRegistry,
     make_smoothquant_record,
@@ -15,7 +15,7 @@ from heal_compress.search.quantization_space.smoothquant import (
     smoothquant_scale,
     smoothquant_transform,
 )
-from heal_compress.search.quantization_space.transformer_precision import (
+from search.quantization_space.transformer_precision import (
     RealizedTransformerPrecision,
     SEARCH_PRECISION_STATES,
     assert_transformer_precision_realized,

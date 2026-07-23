@@ -60,7 +60,10 @@ def test_flat_output_groups_fixed_allows_uneven_old_group_keep_pattern():
             selection_mode="local_scope",
             group_conv_selection_mode="flat_output_groups_fixed",
             align=4,
-            group_conv_align=4,
+            # The requested 24-output shape has six channels per group.  Use
+            # align=2 so the test exercises uneven old-group selection without
+            # contradicting the deployment per-group alignment contract.
+            group_conv_align=2,
             min_channels=4,
         ),
     )
@@ -74,7 +77,7 @@ def test_flat_output_groups_fixed_allows_uneven_old_group_keep_pattern():
     assert report["reinterpretation_ratio"] > 0
     assert report["structure_legal"] is True
 
-    check = check_pruning_group(scope, concrete.keep_indices, group_conv_align=4)
+    check = check_pruning_group(scope, concrete.keep_indices, group_conv_align=2)
     assert check["legal"], check["issues"]
     result = scope.prune(concrete.keep_indices)
     assert result["applied"]

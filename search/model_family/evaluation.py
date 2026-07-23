@@ -30,9 +30,29 @@ def evaluate_v2xvit_engine_modelopt(
 ) -> dict[str, Any]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
+    repo_root = Path(__file__).resolve().parents[2]
+    # This branch intentionally lives in a worktree whose directory is not
+    # named ``heal_compress``.  Some legacy evaluation dependencies import the
+    # package by that canonical name, so provide an output-local alias instead
+    # of falling back to the formal search worktree.  The alias is contained in
+    # the independent evaluation directory and is recorded in the request.
+    python_package_root = destination / "python_package"
+    python_package_root.mkdir(parents=True, exist_ok=True)
+    package_alias = python_package_root / "heal_compress"
+    if package_alias.is_symlink():
+        if package_alias.resolve() != repo_root:
+            raise RuntimeError(
+                f"evaluation_package_alias_mismatch:{package_alias.resolve()}!={repo_root}"
+            )
+    elif package_alias.exists():
+        raise RuntimeError(f"evaluation_package_alias_not_symlink:{package_alias}")
+    else:
+        package_alias.symlink_to(repo_root, target_is_directory=True)
     request_path = destination / "evaluation_request.json"
     output_path = destination / "evaluation.json"
     request = {
+        "repo_root": str(repo_root),
+        "python_package_root": str(python_package_root),
         "engine_path": str(Path(engine_path).resolve()),
         "model_config": str(Path(model_config).resolve()),
         "heal_root": str(Path(heal_root).resolve()),
@@ -56,8 +76,9 @@ def evaluate_v2xvit_engine_modelopt(
         tensorrt_root=tensorrt_root,
         conda_env="modelopt",
         pythonpath_entries=[
-            "/home/lixingfeng/UniAD_examine",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
+            str(python_package_root),
+            str(repo_root),
+            str(repo_root.parent),
             "/home/lixingfeng/UniAD_examine/HEAL",
         ],
         cuda_visible_devices=int(physical_gpu_id),
