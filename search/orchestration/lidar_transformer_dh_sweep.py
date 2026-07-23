@@ -486,13 +486,109 @@ def write_nested_audit_from_manifest(model_name: str, output_root: Path) -> dict
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output-root", required=True)
-    parser.add_argument("--physical-gpu", required=True, type=int)
+    parser.add_argument("--output-root")
+    parser.add_argument("--run-root")
+    parser.add_argument("--physical-gpu", type=int)
     parser.add_argument("--model", choices=("lidar_cobevt", "lidar_v2xvit", "all"), default="all")
     parser.add_argument("--phase", choices=("inventory", "ranking", "nested", "all"), default="all")
     parser.add_argument("--ranking-samples", type=int, default=200)
+    parser.add_argument("--plugin")
+    parser.add_argument("--resume-from-artifacts", action="store_true")
+    parser.add_argument("--require-phase-a-certificate", action="store_true")
+    parser.add_argument("--skip-phase-a-structure", action="store_true")
+    parser.add_argument("--skip-phase-a-build", action="store_true")
+    parser.add_argument("--skip-phase-a-evaluation", action="store_true")
+    parser.add_argument("--run-phase-a-selected-formal-latency", action="store_true")
+    parser.add_argument("--run-phase-b", action="store_true")
+    parser.add_argument("--run-phase-b-formal-latency", action="store_true")
+    parser.add_argument("--isolation-seconds", type=int, default=300)
+    parser.add_argument("--warmup", type=int, default=200)
+    parser.add_argument("--iterations", type=int, default=2000)
+    parser.add_argument("--repeats", type=int, default=5)
     args = parser.parse_args(argv)
-    output = Path(args.output_root).resolve()
+    output_value = args.run_root or args.output_root
+    if not output_value:
+        parser.error("--output-root or --run-root is required")
+    output = Path(output_value).resolve()
+    recovery_action = any(
+        (
+            args.run_phase_a_selected_formal_latency,
+            args.run_phase_b,
+            args.run_phase_b_formal_latency,
+        )
+    )
+    if args.resume_from_artifacts or recovery_action:
+        from search.orchestration.lidar_transformer_dh_recovery import (
+            require_phase_a_certificate,
+        )
+
+        if args.require_phase_a_certificate or recovery_action:
+            require_phase_a_certificate(output)
+        if not all(
+            (
+                args.skip_phase_a_structure,
+                args.skip_phase_a_build,
+                args.skip_phase_a_evaluation,
+            )
+        ):
+            parser.error(
+                "artifact resume requires all three --skip-phase-a-* flags; "
+                "Phase-A is accepted rather than rerun"
+            )
+        if recovery_action and (args.physical_gpu is None or not args.plugin):
+            parser.error("recovery execution requires --physical-gpu and --plugin")
+        models = tuple(MODEL_SPECS) if args.model == "all" else (args.model,)
+        result: dict[str, Any] = {"resume_from_artifacts": True}
+        if args.run_phase_a_selected_formal_latency:
+            from search.orchestration.lidar_transformer_dh_formal_latency import (
+                run_phase_a_formal_latency,
+            )
+
+            result["phase_a_formal_latency"] = len(
+                run_phase_a_formal_latency(
+                    output_root=output,
+                    physical_gpu=args.physical_gpu,
+                    plugin=Path(args.plugin).resolve(),
+                    isolation_seconds=args.isolation_seconds,
+                    warmup=args.warmup,
+                    iterations=args.iterations,
+                    repeats=args.repeats,
+                )
+            )
+        if args.run_phase_b:
+            from search.orchestration.lidar_transformer_dh_phase_b import run as run_phase_b
+
+            result["phase_b"] = {
+                model: len(
+                    run_phase_b(
+                        output_root=output,
+                        model=model,
+                        physical_gpu=args.physical_gpu,
+                        plugin=Path(args.plugin).resolve(),
+                    )["results"]
+                )
+                for model in models
+            }
+        if args.run_phase_b_formal_latency:
+            from search.orchestration.lidar_transformer_dh_formal_latency import (
+                run_phase_b_formal_latency,
+            )
+
+            result["phase_b_formal_latency"] = len(
+                run_phase_b_formal_latency(
+                    output_root=output,
+                    physical_gpu=args.physical_gpu,
+                    plugin=Path(args.plugin).resolve(),
+                    isolation_seconds=args.isolation_seconds,
+                    warmup=args.warmup,
+                    iterations=args.iterations,
+                    repeats=args.repeats,
+                )
+            )
+        print(json.dumps(result, sort_keys=True))
+        return 0
+    if args.physical_gpu is None:
+        parser.error("preparation execution requires --physical-gpu")
     write_run_manifest(output, physical_gpu=args.physical_gpu)
     models = tuple(MODEL_SPECS) if args.model == "all" else (args.model,)
     result: dict[str, Any] = {"inventory": [], "ranking": []}
