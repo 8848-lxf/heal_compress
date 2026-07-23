@@ -47,6 +47,8 @@ def infer_accumulator_from_layer(layer: Mapping[str, Any]) -> tuple[str, str, st
         return "INT32", "A", f"TensorRT tactic specialization:{tactic}"
     if "f32f32" in searchable and ("_f32" in searchable or "float" in searchable):
         return "FP32", "A", f"TensorRT tactic specialization:{tactic}"
+    if re.search(r"(?:^|_)sgemm(?:_|$)", tactic.lower()):
+        return "FP32", "A", f"TensorRT tactic specialization:{tactic}"
     if tactic:
         return "unknown", "B", f"tactic present without accumulator metadata:{tactic}"
     return "unknown", "C", "EngineInspector exposes no accumulator metadata"

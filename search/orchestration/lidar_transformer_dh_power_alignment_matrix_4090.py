@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
+import ctypes
 from datetime import datetime, timezone
 import json
 import os
@@ -117,6 +118,35 @@ def worker_queue(
     if gpu not in available:
         raise ValueError(f"gpu_not_in_priority_queue:{gpu}")
     return [row for row in materialized if int(row["physical_gpu"]) == gpu]
+
+
+def formal_latency_evidence_ready(
+    build: Mapping[str, Any], fixed500: Mapping[str, Any]
+) -> bool:
+    """Require exact realized precision and a complete fixed500 evaluation."""
+
+    return (
+        str(build.get("status")) == "ok"
+        and int(build.get("requested_realized_conflict_count", -1)) == 0
+        and str(fixed500.get("status")) == "ok"
+        and int(fixed500.get("evaluated", -1)) == 500
+        and int(fixed500.get("skipped", -1)) == 0
+    )
+
+
+def priority_rows_through_tier(
+    rows: Iterable[Mapping[str, Any]], max_priority_tier: int
+) -> list[dict[str, Any]]:
+    """Select an initial priority prefix without changing queue order."""
+
+    limit = int(max_priority_tier)
+    if limit < 0:
+        raise ValueError("priority_tier_must_be_nonnegative")
+    return [
+        dict(row)
+        for row in rows
+        if int(row.get("priority_tier", 0)) <= limit
+    ]
 
 
 def _read_json(path: Path) -> Any:
@@ -316,6 +346,103 @@ def execute_priority_worker(
     return summary
 
 
+def run_priority_formal_latency(
+    *,
+    output_root: Path,
+    physical_gpu: int,
+    paths: Runtime4090Paths,
+    nvcc_archs: Sequence[str],
+    isolation_seconds: int = 300,
+    warmup: int = 200,
+    iterations: int = 2000,
+    repeats: int = 5,
+    max_priority_tier: int = 2,
+) -> list[dict[str, Any]]:
+    """Measure P16 structures against a same-profile baseline with replay."""
+
+    root = Path(output_root).resolve()
+    queue_payload = _read_json(root / "scheduler" / "priority_p16_queue.json")
+    _configure_runtime_modules(paths=paths, output_root=root, nvcc_archs=nvcc_archs)
+    import search.orchestration.lidar_transformer_dh_formal_latency as formal
+    import search.orchestration.lidar_transformer_h800_latency as latency
+    from search.integration.runtime_environment import (
+        load_tensorrt_runtime,
+        runtime_cuda_index_for_physical,
+    )
+    from search.orchestration.lidar_transformer_dh_joint import _engine_dir
+
+    formal.TRT_ROOT = paths.tensorrt_root.resolve()
+    latency.TRT_ROOT = paths.tensorrt_root.resolve()
+    candidates_by_model: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    missing: list[str] = []
+    selected_queue = priority_rows_through_tier(
+        queue_payload["rows"], max_priority_tier
+    )
+    for source in selected_queue:
+        row = dict(source)
+        directory = _engine_dir(
+            root,
+            str(row["model"]),
+            {str(key): int(value) for key, value in row["target_d_h_by_family"].items()},
+            "P16",
+        )
+        build = _read_json(directory / "baseline_result.json") if (directory / "baseline_result.json").is_file() else {}
+        fixed_path = directory / "evaluation" / "fixed500" / "evaluation_acceptance.json"
+        fixed = _read_json(fixed_path) if fixed_path.is_file() else {}
+        if not formal_latency_evidence_ready(build, fixed):
+            missing.append(str(row["candidate_id"]))
+            continue
+        candidates_by_model[str(row["model"])].append(
+            {
+                **row,
+                "fixed500_mAP": fixed["mAP"],
+                "structure_hash": fixed["structure_hash"],
+                "engine_sha256": build["engine_sha256"],
+                "engine_directory": str(directory),
+            }
+        )
+    if missing:
+        raise RuntimeError(f"priority_formal_latency_evidence_incomplete:{missing}")
+
+    formal._isolation_gate(root, "priority_p16_4090", physical_gpu, isolation_seconds)
+    load_tensorrt_runtime(paths.tensorrt_root)
+    ctypes.CDLL(str(paths.plugin_path.resolve()), mode=ctypes.RTLD_GLOBAL)
+    import torch
+
+    runtime_gpu = runtime_cuda_index_for_physical(physical_gpu)
+    torch.cuda.set_device(runtime_gpu)
+    device = torch.device(f"cuda:{runtime_gpu}")
+    all_rows: list[dict[str, Any]] = []
+    for model, candidates in sorted(candidates_by_model.items()):
+        baseline_id = f"{model}__B0"
+        if not any(str(row["candidate_id"]) == baseline_id for row in candidates):
+            raise RuntimeError(f"priority_formal_latency_baseline_missing:{model}")
+        inputs = latency._real_inputs(model, device)
+        rows = formal._time_group(
+            output_root=root,
+            phase="priority_p16_4090",
+            model=model,
+            profile="P16",
+            candidate_rows=candidates,
+            directory_for=lambda row: Path(str(row["engine_directory"])),
+            candidate_key="candidate_id",
+            baseline_key=baseline_id,
+            physical_gpu=physical_gpu,
+            device=device,
+            inputs=inputs,
+            warmup=warmup,
+            iterations=iterations,
+            repeats=repeats,
+        )
+        all_rows.extend(rows)
+        del inputs
+        torch.cuda.empty_cache()
+    destination = root / "formal_latency" / "priority_p16_4090"
+    _write_json(destination / "formal_latency.json", all_rows)
+    formal._write_csv(root / "power_alignment_priority_p16_formal_latency.csv", all_rows)
+    return all_rows
+
+
 def _parse_gpu_ids(value: str) -> tuple[int, ...]:
     return tuple(int(token) for token in value.split(",") if token.strip())
 
@@ -329,6 +456,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gpu-ids", default="4,5,6,7")
     parser.add_argument("--physical-gpu", type=int)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--formal-latency", action="store_true")
+    parser.add_argument("--isolation-seconds", type=int, default=300)
+    parser.add_argument("--warmup", type=int, default=200)
+    parser.add_argument("--iterations", type=int, default=2000)
+    parser.add_argument("--repeats", type=int, default=5)
+    parser.add_argument("--max-priority-tier", type=int, default=2)
     args = parser.parse_args(argv)
     root = Path(args.output_root).resolve()
     gpu_ids = _parse_gpu_ids(args.gpu_ids)
@@ -346,12 +479,26 @@ def main(argv: list[str] | None = None) -> int:
         archs = subprocess.check_output(
             [str(nvcc), "--list-gpu-arch"], text=True
         ).splitlines()
-        result = execute_priority_worker(
-            output_root=root,
-            physical_gpu=args.physical_gpu,
-            paths=paths,
-            nvcc_archs=archs,
-        )
+        if args.formal_latency:
+            rows = run_priority_formal_latency(
+                output_root=root,
+                physical_gpu=args.physical_gpu,
+                paths=paths,
+                nvcc_archs=archs,
+                isolation_seconds=args.isolation_seconds,
+                warmup=args.warmup,
+                iterations=args.iterations,
+                repeats=args.repeats,
+                max_priority_tier=args.max_priority_tier,
+            )
+            result = {"status": "ok", "formal_latency_rows": len(rows)}
+        else:
+            result = execute_priority_worker(
+                output_root=root,
+                physical_gpu=args.physical_gpu,
+                paths=paths,
+                nvcc_archs=archs,
+            )
     print(json.dumps(result, sort_keys=True))
     return 0 if result.get("status", "ok") == "ok" else 2
 

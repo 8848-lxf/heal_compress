@@ -24,6 +24,8 @@ from search.orchestration.lidar_transformer_dh_power_alignment_4090 import (
 )
 from search.orchestration.lidar_transformer_dh_power_alignment_matrix_4090 import (
     candidate_alias_map,
+    formal_latency_evidence_ready,
+    priority_rows_through_tier,
     priority_execution_queue,
     priority_aligned_single_family_queue,
     unique_structure_queue,
@@ -403,3 +405,20 @@ def test_worker_queue_rejects_gpu_not_present_in_manifest():
     rows = priority_execution_queue(single_family_candidate_manifest(), gpu_ids=(4, 5))
     with pytest.raises(ValueError, match="gpu_not_in_priority_queue"):
         worker_queue(rows, 7)
+
+
+def test_formal_latency_requires_exact_build_and_complete_fixed500():
+    build = {"status": "ok", "requested_realized_conflict_count": 0}
+    fixed = {"status": "ok", "evaluated": 500, "skipped": 0}
+    assert formal_latency_evidence_ready(build, fixed) is True
+    assert formal_latency_evidence_ready({**build, "requested_realized_conflict_count": 1}, fixed) is False
+    assert formal_latency_evidence_ready(build, {**fixed, "evaluated": 499}) is False
+    assert formal_latency_evidence_ready(build, {**fixed, "skipped": 1}) is False
+
+
+def test_priority_tier_one_contains_only_baseline_and_exact_8_16_32_rows():
+    queue = priority_execution_queue(single_family_candidate_manifest())
+    rows = priority_rows_through_tier(queue, 1)
+    assert len(rows) == 14
+    assert all(int(row["priority_tier"]) <= 1 for row in rows)
+    assert {int(row["d_h"]) for row in rows if row["d_h"] is not None} == {8, 16, 32}

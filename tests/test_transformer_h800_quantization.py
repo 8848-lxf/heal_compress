@@ -165,6 +165,15 @@ def test_output_dtype_does_not_prove_accumulator() -> None:
     assert not evidence.searchable
 
 
+def test_tensor_rt_sgemm_tactic_directly_proves_fp32_accumulator() -> None:
+    accumulator, level, source = infer_accumulator_from_layer(
+        {"TacticName": "ampere_sgemm_64x32_sliced1x4_nn_v1"}
+    )
+    assert accumulator == "FP32"
+    assert level == "A"
+    assert "ampere_sgemm" in source
+
+
 def test_requested_accumulator_unknown_realization_is_a_conflict(tmp_path) -> None:
     layer_info = tmp_path / "layers.json"
     layer_info.write_text(
