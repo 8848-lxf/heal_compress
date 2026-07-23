@@ -354,7 +354,7 @@ def run_priority_formal_latency(
     nvcc_archs: Sequence[str],
     isolation_seconds: int = 300,
     warmup: int = 200,
-    iterations: int = 2000,
+    iterations: int = 500,
     repeats: int = 5,
     max_priority_tier: int = 2,
 ) -> list[dict[str, Any]]:
@@ -459,7 +459,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--formal-latency", action="store_true")
     parser.add_argument("--isolation-seconds", type=int, default=300)
     parser.add_argument("--warmup", type=int, default=200)
-    parser.add_argument("--iterations", type=int, default=2000)
+    parser.add_argument("--iterations", type=int, default=500)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--max-priority-tier", type=int, default=2)
     args = parser.parse_args(argv)
