@@ -24,6 +24,7 @@ def build_engine_modelopt(
 ) -> dict[str, Any]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
+    repo_root = Path(__file__).resolve().parents[2]
     request_path = destination / "trt_build_request.json"
     output_path = destination / "trt_build_result.json"
     layer_info_path = destination / "engine_layer_info.json"
@@ -38,7 +39,7 @@ def build_engine_modelopt(
         if path.exists()
     )
     request = {
-        "repo_root": str(Path(__file__).resolve().parents[2]),
+        "repo_root": str(repo_root),
         "qdq_onnx": str(qdq_onnx),
         "engine_path": str(engine_path),
         "precision_mapping": precision_mapping.to_dict() if hasattr(precision_mapping, "to_dict") else precision_mapping,
@@ -56,7 +57,7 @@ def build_engine_modelopt(
         conda_env=conda_env,
         pythonpath_entries=[
             "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
+            str(repo_root),
             "/home/lixingfeng/UniAD_examine",
         ],
         cuda_visible_devices=gpu_id,

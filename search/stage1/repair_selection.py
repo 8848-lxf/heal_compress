@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Callable, Iterable, Optional, Union
 
 from ..candidate import CandidateGenotype, CandidatePhenotype
@@ -34,7 +35,30 @@ def select_repaired_stage2_topk(
 ) -> tuple[list[ProxyCandidateRecord], dict[str, Any]]:
     """Select Stage-2 candidates from repaired, rescored, unique phenotypes."""
 
-    sorted_scored = sorted(list(scored), key=lambda row: (float(row[1]), str(row[0].to_dict())))
+    scored_rows = list(scored)
+
+    def raw_eligibility_rank(metrics: dict[str, Any]) -> int:
+        if eligibility_fn is None:
+            return 0
+        try:
+            return 0 if bool(eligibility_fn(metrics)) else 2
+        except (KeyError, TypeError, ValueError):
+            # Unknown/incomplete raw metrics remain ahead of known-ineligible
+            # candidates, but behind candidates already inside the hard gate.
+            return 1
+
+    # Stage-2 repair pools must honor the BOPS hard gate before proxy score.
+    # Repaired candidates are still rescored and re-gated below; this ordering
+    # only prevents a low-Taylor but out-of-budget prefix from crowding every
+    # feasible candidate out of a bounded repair pool.
+    sorted_scored = sorted(
+        scored_rows,
+        key=lambda row: (
+            raw_eligibility_rank(row[2]),
+            float(row[1]),
+            str(row[0].to_dict()),
+        ),
+    )
     requested_pool_size = int(repair_pool_size or max(topk * 10, topk))
     pool = sorted_scored[:requested_pool_size]
     pending: list[tuple[str, CandidateGenotype, CandidatePhenotype, dict[str, Any], dict[str, Any]]] = []
@@ -88,10 +112,34 @@ def select_repaired_stage2_topk(
     def taylor(record: ProxyCandidateRecord) -> float:
         return float(
             record.metrics.get(
-                "L_joint_weight_taylor",
-                record.metrics.get("proxy_score_raw", record.F1),
+                "L_joint_weight_activation_taylor",
+                record.metrics.get(
+                    "L_joint_weight_taylor",
+                    record.metrics.get("proxy_score_raw", record.F1),
+                ),
             )
         )
+
+    def finite_metric(record: ProxyCandidateRecord, *names: str) -> float:
+        for name in names:
+            raw = record.metrics.get(name)
+            if raw is None:
+                continue
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(value):
+                return value
+        return float("inf")
+
+    def bops_deviation(record: ProxyCandidateRecord) -> float:
+        explicit = finite_metric(record, "bops_abs_delta")
+        if math.isfinite(explicit):
+            return explicit
+        target = finite_metric(record, "BOPS_target", "bops_target")
+        realized = finite_metric(record, "R_bops_vs_fp32", "R_bops")
+        return abs(realized - target) if math.isfinite(target + realized) else float("inf")
 
     best_taylor = min((taylor(row) for row in records), default=float("inf"))
     near_limit = (
@@ -101,10 +149,28 @@ def select_repaired_stage2_topk(
 
     def exploitation_key(record: ProxyCandidateRecord) -> tuple[Any, ...]:
         value = taylor(record)
-        retention = float(record.metrics.get("R_parameter_retention", 1.0))
+        retention = finite_metric(record, "R_parameter_retention")
+        latency = finite_metric(record, "latency_proxy_ms", "R_latency_proxy")
+        mixed_weight_size = finite_metric(
+            record, "mixed_weight_size_bytes", "R_size_vs_fp32"
+        )
         if value <= near_limit:
-            return (0, retention, value, record.candidate_hash)
-        return (1, value, retention, record.candidate_hash)
+            return (
+                0,
+                latency,
+                retention,
+                mixed_weight_size,
+                value,
+                record.candidate_hash,
+            )
+        return (
+            1,
+            value,
+            latency,
+            retention,
+            mixed_weight_size,
+            record.candidate_hash,
+        )
 
     ordered = sorted(records, key=exploitation_key)
     selection_roles: dict[str, str] = {}
@@ -142,13 +208,46 @@ def select_repaired_stage2_topk(
         selection_roles.update(
             {row.candidate_hash: "lowest_f1" for row in selected}
         )
+    def ordinal_ranks(key_fn: Callable[[ProxyCandidateRecord], tuple[Any, ...]]) -> dict[str, int]:
+        return {
+            row.candidate_hash: rank
+            for rank, row in enumerate(sorted(records, key=key_fn), start=1)
+        }
+
+    taylor_ranks = ordinal_ranks(lambda row: (taylor(row), row.candidate_hash))
+    latency_ranks = ordinal_ranks(
+        lambda row: (
+            finite_metric(row, "latency_proxy_ms", "R_latency_proxy"),
+            row.candidate_hash,
+        )
+    )
+    parameter_ranks = ordinal_ranks(
+        lambda row: (finite_metric(row, "R_parameter_retention"), row.candidate_hash)
+    )
     for record in selected:
-        record.metrics["stage2_selection_role"] = selection_roles.get(
-            record.candidate_hash, "selected"
+        role = selection_roles.get(record.candidate_hash, "selected")
+        record.metrics.update(
+            {
+                "stage2_selection_role": role,
+                "selection_reason": (
+                    f"{role}:hard_bops_gate_then_joint_taylor;"
+                    "near_taylor_tie=latency,parameters,mixed_weight,diversity,hash"
+                ),
+                "candidate_hash": record.candidate_hash,
+                "taylor_rank": taylor_ranks[record.candidate_hash],
+                "latency_proxy_rank": latency_ranks[record.candidate_hash],
+                "parameter_rank": parameter_ranks[record.candidate_hash],
+                "bops_deviation": bops_deviation(record),
+                "width_configuration": dict(
+                    record.phenotype.metadata.get("domain_width_profile") or {}
+                ),
+                "precision_configuration": dict(record.genotype.precision_genes),
+            }
         )
     report = {
         "repair_pool_size": min(requested_pool_size, len(sorted_scored)),
         "processed_raw_candidate_count": len(pool),
+        "raw_hard_gate_ordering_applied": eligibility_fn is not None,
         "repair_failed_count": repair_failed_count,
         "duplicate_repaired_phenotype_count": duplicate_count,
         "legal_repaired_phenotype_count": len(records),
@@ -164,5 +263,21 @@ def select_repaired_stage2_topk(
             record.candidate_hash: record.metrics["stage2_selection_role"]
             for record in selected
         },
+        "selected_audit": [
+            {
+                key: record.metrics[key]
+                for key in (
+                    "candidate_hash",
+                    "taylor_rank",
+                    "latency_proxy_rank",
+                    "parameter_rank",
+                    "bops_deviation",
+                    "selection_reason",
+                    "width_configuration",
+                    "precision_configuration",
+                )
+            }
+            for record in selected
+        ],
     }
     return selected, report

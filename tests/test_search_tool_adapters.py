@@ -216,6 +216,9 @@ def test_modelopt_trt_build_worker_uses_conda_run_python(tmp_path: Path, monkeyp
     assert result["status"] == "ok"
     assert calls["cmd"][:6] == ["bash", "-lc", "activate-modelopt", "modelopt-python", "modelopt", "-m"]
     assert calls["env_kwargs"]["cuda_visible_devices"] == 2
+    pythonpath_entries = [str(value) for value in calls["env_kwargs"]["pythonpath_entries"]]
+    assert str(Path(trt_modelopt.__file__).resolve().parents[2]) in pythonpath_entries
+    assert "/home/lixingfeng/UniAD_examine/heal_compress" not in pythonpath_entries
     assert calls["run_kwargs"]["env"]["CUDA_VISIBLE_DEVICES"] == "2"
 
 
