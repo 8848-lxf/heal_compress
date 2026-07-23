@@ -450,3 +450,28 @@ run：`outputs/h800_heal_lidar_fcooper_runtime_graph_joint_ga_20260723_043415`
 ---
 时间戳：2026-07-23 22:26:21 CST｜轮次：Round 5
 ---
+
+## Round 6：补齐 strict-FP32 基线、加速比与压缩比口径
+
+此前 Round 5 进度表只列候选绝对值，未完整展示相对 strict-FP32 的比较列；实验产物本身没有缺失这些字段。后续所有正式结果统一报告 FP32 reference、mAP delta、实测加速比、BOPS/物理参数/混合精度权重压缩比。
+
+Disco Greedy 1789帧 strict-FP32 原模型：AP30/50/70 = 0.734067/0.662409/0.510276，mAP = 0.635584，forward mean/p50/p90 = 6.8000/6.7545/6.9555 ms，1789/1789、0 skip。
+
+| BOPS目标 | 实际BOPS | mAP | 相对FP32 ΔmAP | p50 ms | 实测加速 | BOPS压缩 | 参数压缩 | 混合权重压缩 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.05 | 0.054888 | 0.635154 | -0.000430 | 2.3512 | 2.873x | 18.219x | 3.337x | 9.254x |
+| 0.10 | 0.100805 | 0.635840 | +0.000257 | 2.6341 | 2.564x | 9.920x | 2.432x | 6.163x |
+| 0.15 | 0.153817 | 0.635495 | -0.000089 | 2.9434 | 2.295x | 6.501x | 2.056x | 3.898x |
+| 0.20 | 0.201973 | 0.635583 | -0.000001 | 3.3533 | 2.014x | 4.951x | 2.012x | 3.491x |
+| 0.25 | 0.254354 | 0.635643 | +0.000060 | 4.0078 | 1.685x | 3.932x | 1.692x | 2.748x |
+| 0.30 | 0.303923 | 0.635746 | +0.000162 | 4.0530 | 1.667x | 3.290x | 1.937x | 2.943x |
+
+定义：`measured_speedup_vs_FP32 = FP32_p50 / candidate_p50`；`BOPS_compression_x = 1/R_BOPS_vs_FP32`；`parameter_compression_x = original_parameter_count / physical_parameter_count_after`；`mixed_weight_compression_x = 1/R_size_vs_FP32`，同时包含物理剪枝与权重位宽收益。Disco 原模型物理参数量为 8,128,789。
+
+F-Cooper GA 当前已存在500帧 Stage-2 strict-FP32 reference：AP30/50/70 = 0.665497/0.538959/0.374445，mAP = 0.526300，p50 = 6.2953 ms，500/500、0 skip。该结果只能用于代内500帧 F2；正式1789帧 FP32 reference 与最终各预算加速/压缩对比需等待39个 generation winner 完成后统一生成，禁止混用两个帧数口径。
+
+当前 F-Cooper GA 快照：38/39 generation winners 已生成；127个唯一 Stage-2 scores 全部 `ok`，67个跨代 cache hits；最后一代仍在运行。Disco GA 尚未启动。
+
+---
+时间戳：2026-07-23 22:47:36 CST｜轮次：Round 6
+---
