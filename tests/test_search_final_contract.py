@@ -120,6 +120,161 @@ def test_outer_round_bops_target_schedule_is_025_to_018() -> None:
     assert bops_target_for_outer_round(0, 1, {"start_target": 0.25, "end_target": 0.18}) == pytest.approx(0.25)
 
 
+def test_ga_final_validation_records_reference_and_candidate_resource_phases(tmp_path) -> None:
+    import json
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    from search.candidate import CandidatePhenotype
+    from search.orchestration.lidar_pyramid_search import LidarPyramidTwoStageSearch
+
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "phenotype.json").write_text(
+        json.dumps(CandidatePhenotype().to_dict()),
+        encoding="utf-8",
+    )
+    round_dir = tmp_path / "round_000"
+    round_dir.mkdir()
+    (round_dir / "round_best_candidate.json").write_text(
+        json.dumps({"candidate_hash": "candidate", "artifact_dir": str(source)}),
+        encoding="utf-8",
+    )
+
+    class FakeEvaluator:
+        def _stage2_reference_baseline(self):
+            return {"mAP": 1.0}
+
+        def reevaluate_existing_candidate_engine(self, *_args, **kwargs):
+            return {"status": "ok", "F2": 0.25, "R_latency_real": 0.5}
+
+    class FakeRecorder:
+        def __init__(self):
+            self.phases = []
+
+        @contextmanager
+        def phase(self, name, gpu_ids, **metadata):
+            self.phases.append((name, list(gpu_ids), dict(metadata)))
+            yield
+
+    runner = LidarPyramidTwoStageSearch(
+        config={},
+        checkpoint=tmp_path / "model.pth",
+        output_root=tmp_path,
+    )
+    recorder = FakeRecorder()
+    runner._resource_recorder = recorder
+    runner._full_validation_evaluator = lambda _context, _run_dir: FakeEvaluator()
+
+    rows = runner._full_validate_ga_round_winners(
+        SimpleNamespace(physical_gpu_id=5),
+        tmp_path,
+    )
+
+    assert rows[0]["status"] == "ok"
+    assert [row[0] for row in recorder.phases] == [
+        "stage2.ga_final_reference",
+        "stage2.ga_final_full_validation",
+    ]
+    assert all(row[1] == [5] for row in recorder.phases)
+    assert recorder.phases[1][2]["candidate_hash"] == "candidate"
+    assert (tmp_path / "final_full_validation_results.json").is_file()
+
+
+def test_ga_generation_winners_are_full_validated_and_selected_per_budget(
+    tmp_path, monkeypatch
+) -> None:
+    import json
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    import torch
+
+    from search.candidate import CandidatePhenotype
+    from search.orchestration.lidar_pyramid_search import LidarPyramidTwoStageSearch
+
+    source = tmp_path / "engine_source"
+    source.mkdir()
+    phenotype = CandidatePhenotype()
+    generation_dir = (
+        tmp_path / "round_000" / "generations" / "generation_003"
+    )
+    generation_dir.mkdir(parents=True)
+    (generation_dir / "generation_winner.json").write_text(
+        json.dumps(
+            {
+                "candidate_hash": "generation-winner",
+                "artifact_dir": str(source),
+                "phenotype": phenotype.to_dict(),
+                "F2": 0.4,
+                "stage1_metrics": {"F1": 0.1, "BOPS_target": 0.3},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FakeEvaluator:
+        def _stage2_reference_baseline(self):
+            return {"mAP": 1.0}
+
+        def reevaluate_existing_candidate_engine(self, *_args, **kwargs):
+            return {
+                "candidate_hash": "generation-winner",
+                "status": "ok",
+                "F2": 0.2,
+                "mAP": 0.8,
+                "R_latency_real": 0.5,
+                "artifact_dir": str(kwargs["output_dir"]),
+            }
+
+    class FakeRecorder:
+        def __init__(self):
+            self.phases = []
+
+        @contextmanager
+        def phase(self, name, gpu_ids, **metadata):
+            self.phases.append((name, list(gpu_ids), dict(metadata)))
+            yield
+
+    evaluator = FakeEvaluator()
+    runner = LidarPyramidTwoStageSearch(
+        config={},
+        checkpoint=tmp_path / "model.pth",
+        output_root=tmp_path,
+    )
+    recorder = FakeRecorder()
+    runner._resource_recorder = recorder
+    runner._full_validation_evaluator = lambda _context, _run_dir: evaluator
+    runner._ga_stage2_evaluator_pool = (
+        lambda _context, _evaluator, _run_dir, pool_kind: [(5, evaluator)]
+    )
+    monkeypatch.setattr(torch.cuda, "set_device", lambda _device: None)
+
+    rows = runner._full_validate_ga_generation_winners(
+        SimpleNamespace(physical_gpu_id=5),
+        tmp_path,
+    )
+
+    assert rows[0]["status"] == "ok"
+    winner = json.loads(
+        (tmp_path / "round_000" / "round_best_candidate.json").read_text()
+    )
+    assert winner["candidate_hash"] == "generation-winner"
+    assert winner["winning_generations"] == ["generation_003"]
+    assert winner["winner_selection_reason"] == (
+        "minimum_full_validation_weighted_AP_latency_F2"
+    )
+    final = json.loads(
+        (tmp_path / "final_full_validation_results.json").read_text()
+    )
+    assert final["successful_budget_winner_count"] == 1
+    assert final["candidate_engine_rebuild_count"] == 0
+    assert [row[0] for row in recorder.phases] == [
+        "stage2.ga_budget_final_reference",
+        "stage2.ga_generation_winner_full_validation",
+    ]
+
+
 def test_dense_and_grouped_repair_are_monotonic_mask_preserving() -> None:
     from search.pruning_space.mask_repair import (
         GroupedDomainSpec,

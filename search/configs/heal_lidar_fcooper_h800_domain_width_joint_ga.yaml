@@ -97,6 +97,7 @@ search:
   preserve_evaluated_elites: true
   repair_pool_size: 50
   topk_stage2: 5
+  stage2_selection_scope: per_generation_topk
   stage2_topk_selection_policy: three_plus_two_diversity
   stage2_exploitation_count: 3
   stage2_diversity_count: 2

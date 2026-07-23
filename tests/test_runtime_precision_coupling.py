@@ -224,3 +224,167 @@ def test_adaptive_mixed_merge_promotes_only_at_merge_edges(tmp_path) -> None:
     casts = result.calibration_metadata["adaptive_merge_cast_records"]
     assert len([row for row in casts if row["merge_op_name"] == "merge_add"]) == 2
     assert all(row["cast_dtype"] == "FP16" for row in casts)
+
+
+def _int64_shape_where_fixture():
+    import numpy as np
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    graph = helper.make_graph(
+        [
+            helper.make_node("Conv", ["x", "weight"], ["feature"], name="conv"),
+            helper.make_node("Shape", ["feature"], ["shape"], name="shape"),
+            helper.make_node("Equal", ["shape", "shape"], ["condition"], name="shape_equal"),
+            helper.make_node(
+                "Where",
+                ["condition", "shape", "shape"],
+                ["selected_shape"],
+                name="shape_where",
+            ),
+            helper.make_node("Expand", ["feature", "selected_shape"], ["y"], name="expand"),
+        ],
+        "int64_shape_where",
+        [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4, 2, 2])],
+        [helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4, 2, 2])],
+        [
+            numpy_helper.from_array(
+                np.ones((4, 4, 1, 1), dtype=np.float32),
+                name="weight",
+            )
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                "conv",
+                "conv",
+                "pg_conv",
+                "fp32",
+                "fp32",
+                weight_initializer="weight",
+                onnx_op_type="Conv",
+            )
+        ]
+    )
+    return model, mapping
+
+
+def test_adaptive_merge_excludes_int64_where_shape_subgraph(tmp_path) -> None:
+    import onnx
+
+    from quantization.config import QDQConfig
+    from quantization.precision.merge_contract import apply_adaptive_merge_output_contract
+    from quantization.precision.qdq_inserter import insert_explicit_qdq
+
+    model, mapping = _int64_shape_where_fixture()
+    resolved, report = apply_adaptive_merge_output_contract(model, mapping)
+
+    assert report["resolved_merge_count"] == 0
+    excluded = next(
+        row for row in report["excluded_merges"] if row["merge_op_name"] == "shape_where"
+    )
+    assert excluded["dtype_audit"]["data_input_dtypes"] == ["INT64", "INT64"]
+    assert excluded["dtype_audit"]["output_dtypes"] == ["INT64"]
+    assert "shape_where" not in resolved.auxiliary_layer_precisions
+
+    input_path = tmp_path / "shape_input.onnx"
+    output_path = tmp_path / "shape_qdq.onnx"
+    onnx.save(model, input_path)
+    result = insert_explicit_qdq(
+        input_path,
+        output_path,
+        resolved,
+        scales={},
+        config=QDQConfig(
+            allowed_precisions=("fp32", "fp16", "int8"),
+            merge_policy="adaptive_upcast_merge",
+        ),
+    )
+    qdq_model = onnx.load(output_path)
+    onnx.checker.check_model(qdq_model)
+    shape_where = next(node for node in qdq_model.graph.node if node.name == "shape_where")
+    assert list(shape_where.input) == ["condition", "shape", "shape"]
+    assert result.calibration_metadata["adaptive_merge_cast_records"] == []
+
+
+def test_adaptive_merge_requires_runtime_relation_kind_to_match_onnx_op(tmp_path) -> None:
+    import numpy as np
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.precision.merge_contract import apply_adaptive_merge_output_contract
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    graph = helper.make_graph(
+        [
+            helper.make_node("Conv", ["x", "wa"], ["a"], name="conv_a"),
+            helper.make_node("Conv", ["x", "wb"], ["b"], name="conv_b"),
+            helper.make_node("Where", ["condition", "a", "b"], ["selected"], name="float_where"),
+            helper.make_node("Mul", ["a", "b"], ["y"], name="activation_mul"),
+        ],
+        "runtime_relation_kind",
+        [
+            helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4, 2, 2]),
+            helper.make_tensor_value_info("condition", TensorProto.BOOL, [1, 4, 2, 2]),
+        ],
+        [helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4, 2, 2])],
+        [
+            numpy_helper.from_array(np.ones((4, 4, 1, 1), dtype=np.float32), name="wa"),
+            numpy_helper.from_array(np.ones((4, 4, 1, 1), dtype=np.float32), name="wb"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry("a", "conv_a", "pg_a", "fp16", "fp16", weight_initializer="wa", onnx_op_type="Conv"),
+            CanonicalPrecisionEntry("b", "conv_b", "pg_b", "fp16", "fp16", weight_initializer="wb", onnx_op_type="Conv"),
+        ]
+    )
+
+    resolved, report = apply_adaptive_merge_output_contract(
+        model,
+        mapping,
+        runtime_relations=[
+            {
+                "relation_id": "runtime_mul",
+                "relation_kind": "elementwise_multiply",
+                "member_modules": ["a", "b"],
+            }
+        ],
+    )
+
+    assert [row["merge_op_name"] for row in report["merges"]] == ["activation_mul"]
+    assert report["runtime_relation_matches"][0]["canonical_merge_nodes"] == ["activation_mul"]
+    assert "activation_mul" in resolved.auxiliary_layer_precisions
+    assert "float_where" not in resolved.auxiliary_layer_precisions
+    excluded = next(
+        row for row in report["excluded_merges"] if row["merge_op_name"] == "float_where"
+    )
+    assert excluded["exclusion_reason"] == "no_compatible_runtime_relation"
+
+    from quantization.config import QDQConfig
+    from quantization.precision.qdq_inserter import insert_explicit_qdq
+
+    input_path = tmp_path / "runtime_relation_input.onnx"
+    output_path = tmp_path / "runtime_relation_qdq.onnx"
+    onnx.save(model, input_path)
+    result = insert_explicit_qdq(
+        input_path,
+        output_path,
+        resolved,
+        scales={},
+        config=QDQConfig(
+            allowed_precisions=("fp32", "fp16", "int8"),
+            merge_policy="adaptive_upcast_merge",
+        ),
+    )
+    assert [
+        row["merge_op_name"]
+        for row in result.calibration_metadata["merge_quantization_audit"]
+    ] == ["activation_mul"]

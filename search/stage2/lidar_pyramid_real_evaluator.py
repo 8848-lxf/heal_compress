@@ -906,6 +906,52 @@ class LidarPyramidRealEvaluator:
             self.real_cache.put(cache_key, result)
         return result
 
+    def deploy_candidate(
+        self,
+        phenotype: CandidatePhenotype,
+        *,
+        output_dir: str | Path,
+        candidate_hash: str,
+    ) -> dict[str, Any]:
+        """Materialize, export, quantize, and build without evaluating frames."""
+
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        _write_json(destination / "phenotype.json", phenotype.to_dict())
+        raw = self._deploy_only(
+            phenotype=phenotype,
+            output_dir=destination,
+            candidate_label=candidate_hash,
+            pruned_unit_ids=phenotype.pruned_unit_ids,
+        )
+        if str(raw.get("status", "")) == "ok":
+            result = {
+                "candidate_hash": candidate_hash,
+                "status": "ok",
+                "artifact_dir": str(destination),
+                "engine_path": raw.get("engine_path", ""),
+                "engine_hash": raw.get("engine_hash", ""),
+                "deployment_hash": raw.get("deployment_hash", ""),
+                "physical_hash": raw.get("physical_hash", ""),
+                "evaluation_500_skipped": True,
+                "num_evaluated_frames": 0,
+                "num_skipped_frames": 0,
+            }
+        else:
+            result = {
+                "candidate_hash": candidate_hash,
+                "status": str(raw.get("status", "deployment_failed")),
+                "failure_reason": str(
+                    raw.get("failure_reason", raw.get("status", "deployment_failed"))
+                ),
+                "artifact_dir": str(destination),
+                "evaluation_500_skipped": True,
+                "num_evaluated_frames": 0,
+                "num_skipped_frames": 0,
+            }
+        _write_json(destination / "stage2_deployment.json", result)
+        return result
+
     def reevaluate_existing_candidate_engine(
         self,
         phenotype: CandidatePhenotype,
@@ -1203,7 +1249,7 @@ class LidarPyramidRealEvaluator:
             metadata={**legalization.to_dict(), "baseline_precision": kind},
         )
 
-    def _deploy_and_evaluate(
+    def _deploy_only(
         self,
         *,
         phenotype: CandidatePhenotype,
@@ -1218,9 +1264,6 @@ class LidarPyramidRealEvaluator:
             trt = self._build_engine(qdq, physical, output_dir, baseline_precision=baseline_precision)
             if trt.get("status") != "ok":
                 return {"status": trt.get("status", "engine_build_failed"), "failure_reason": trt.get("failure_reason", trt.get("status", ""))}
-            evaluation = self._evaluate_engine(trt["engine_path"], output_dir)
-            if evaluation.get("status") != "ok":
-                return {"status": "evaluation_failed", "failure_reason": evaluation.get("failure_reason", evaluation.get("status", "")), "evaluation": evaluation}
             calibration_scale_hash = canonical_json_hash(qdq.get("calibration_scales", {}))
             quantization_contract_hash = canonical_json_hash(
                 _quantization_contract_payload(qdq)
@@ -1237,27 +1280,6 @@ class LidarPyramidRealEvaluator:
                 plugin_hashes=self.context.search_space.plugin_hashes,
                 quantization_contract_hash=quantization_contract_hash,
             )
-            eval_key = eval_hash(
-                deployment_hash_value=deploy_hash,
-                validation_manifest_hash=self.context.eval_manifest_hash,
-                evaluation_config_hash=canonical_json_hash(
-                    {
-                        "num_frames": self.num_frames,
-                        "warmup": self.warmup_frames,
-                        "rounds": self.latency_rounds,
-                        "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
-                    }
-                ),
-                postprocess_config={
-                    "source": "HEAL dataset.post_process",
-                    "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
-                    "ap_iou_backend": DEFAULT_AP_IOU_BACKEND,
-                    "require_cuda_postprocess": True,
-                },
-                warmup=self.warmup_frames,
-                rounds=self.latency_rounds,
-                latency_metric_definition=self.objective_config.latency_metric,
-            )
             _write_json(
                 output_dir / "deployment_manifest.json",
                 {
@@ -1265,7 +1287,7 @@ class LidarPyramidRealEvaluator:
                     "pruned_unit_ids": pruned_unit_ids,
                     "physical_hash": physical["physical_hash"],
                     "deployment_hash": deploy_hash,
-                    "eval_hash": eval_key,
+                    "eval_hash": "",
                     "engine_hash": trt.get("engine_hash", ""),
                     "quantization_contract_hash": quantization_contract_hash,
                     "quantization_contract": _quantization_contract_payload(qdq),
@@ -1273,10 +1295,9 @@ class LidarPyramidRealEvaluator:
             )
             return {
                 "status": "ok",
-                "evaluation": evaluation,
                 "physical_hash": physical["physical_hash"],
                 "deployment_hash": deploy_hash,
-                "eval_hash": eval_key,
+                "eval_hash": "",
                 "engine_hash": trt.get("engine_hash", ""),
                 "engine_path": trt.get("engine_path", ""),
                 "baseline_precision_validation": trt.get("baseline_precision_validation", {}),
@@ -1284,6 +1305,64 @@ class LidarPyramidRealEvaluator:
             }
         except Exception as exc:  # noqa: BLE001
             return {"status": "evaluation_failed", "failure_reason": f"{type(exc).__name__}: {exc}"}
+
+    def _deploy_and_evaluate(
+        self,
+        *,
+        phenotype: CandidatePhenotype,
+        output_dir: Path,
+        candidate_label: str,
+        pruned_unit_ids: list[str],
+        baseline_precision: str | None = None,
+    ) -> dict[str, Any]:
+        deployed = self._deploy_only(
+            phenotype=phenotype,
+            output_dir=output_dir,
+            candidate_label=candidate_label,
+            pruned_unit_ids=pruned_unit_ids,
+            baseline_precision=baseline_precision,
+        )
+        if str(deployed.get("status", "")) != "ok":
+            return deployed
+        evaluation = self._evaluate_engine(deployed["engine_path"], output_dir)
+        if evaluation.get("status") != "ok":
+            return {
+                "status": "evaluation_failed",
+                "failure_reason": evaluation.get(
+                    "failure_reason", evaluation.get("status", "")
+                ),
+                "evaluation": evaluation,
+            }
+        eval_key = eval_hash(
+            deployment_hash_value=str(deployed["deployment_hash"]),
+            validation_manifest_hash=self.context.eval_manifest_hash,
+            evaluation_config_hash=canonical_json_hash(
+                {
+                    "num_frames": self.num_frames,
+                    "warmup": self.warmup_frames,
+                    "rounds": self.latency_rounds,
+                    "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
+                }
+            ),
+            postprocess_config={
+                "source": "HEAL dataset.post_process",
+                "evaluation_protocol_version": EVALUATION_PROTOCOL_VERSION,
+                "ap_iou_backend": DEFAULT_AP_IOU_BACKEND,
+                "require_cuda_postprocess": True,
+            },
+            warmup=self.warmup_frames,
+            rounds=self.latency_rounds,
+            latency_metric_definition=self.objective_config.latency_metric,
+        )
+        manifest_path = output_dir / "deployment_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["eval_hash"] = eval_key
+        _write_json(manifest_path, manifest)
+        return {
+            **deployed,
+            "evaluation": evaluation,
+            "eval_hash": eval_key,
+        }
 
     def _materialize_physical(self, phenotype: CandidatePhenotype, output_dir: Path) -> dict[str, Any]:
         selection_key = _physical_selection_key(phenotype, self.context.checkpoint_hash)

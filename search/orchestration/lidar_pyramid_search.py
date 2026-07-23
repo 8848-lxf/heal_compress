@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 from contextlib import nullcontext
 import json
+import math
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -43,6 +44,7 @@ from ..stage1.proxy_evaluator import Stage1ProxyEvaluator
 from ..stage1.repair_selection import select_repaired_stage2_topk
 from ..stage1.topk_selector import ProxyCandidateRecord, TopKConfig, select_stage1_topk
 from ..stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
+from ..stage2.generation_results import write_generation_stage2_results
 from ..stage2.objective import Stage2ObjectiveConfig
 from ..stage2.repaired_topk_manifest import write_repaired_topk_manifest
 from ..stage2.round_results import write_round_stage2_results
@@ -598,8 +600,22 @@ class LidarPyramidTwoStageSearch:
         context: Any,
         real_evaluator: LidarPyramidRealEvaluator,
         run_dir: Path,
+        *,
+        pool_kind: str = "screening_500",
     ) -> list[tuple[int, LidarPyramidRealEvaluator]]:
-        cached = getattr(self, "_ga_stage2_worker_pool", None)
+        if pool_kind not in {"screening_500", "full_validation"}:
+            raise ValueError(f"unsupported_ga_evaluator_pool_kind:{pool_kind}")
+        cache_attribute = (
+            "_ga_stage2_worker_pool"
+            if pool_kind == "screening_500"
+            else "_ga_full_validation_worker_pool"
+        )
+        worker_dir_name = (
+            "stage2_workers"
+            if pool_kind == "screening_500"
+            else "full_validation_workers"
+        )
+        cached = getattr(self, cache_attribute, None)
         if cached is not None:
             return list(cached)
         gpu_ids = list(
@@ -663,7 +679,7 @@ class LidarPyramidTwoStageSearch:
                 )
                 worker = LidarPyramidRealEvaluator(
                     context=worker_context,
-                    run_dir=run_dir / "stage2_workers" / f"gpu_{gpu_id}",
+                    run_dir=run_dir / worker_dir_name / f"gpu_{gpu_id}",
                     num_frames=real_evaluator.num_frames,
                     warmup_frames=real_evaluator.warmup_frames,
                     latency_rounds=real_evaluator.latency_rounds,
@@ -694,7 +710,7 @@ class LidarPyramidTwoStageSearch:
         if not workers:
             raise RuntimeError("no_stage2_gpu_worker_available")
         _write_json(
-            run_dir / "stage2_workers" / "worker_pool_manifest.json",
+            run_dir / worker_dir_name / "worker_pool_manifest.json",
             {
                 "workers": worker_rows,
                 "active_gpu_ids": [gpu_id for gpu_id, _worker in workers],
@@ -705,9 +721,10 @@ class LidarPyramidTwoStageSearch:
                     ),
                 },
                 "scheduling": "one_candidate_per_gpu_sequential_queue",
+                "pool_kind": pool_kind,
             },
         )
-        self._ga_stage2_worker_pool = list(workers)
+        setattr(self, cache_attribute, list(workers))
         return workers
 
     def _evaluate_ga_stage2_selected_parallel(
@@ -718,14 +735,23 @@ class LidarPyramidTwoStageSearch:
         run_dir: Path,
         round_dir: Path,
         selected: list[Any],
+        evaluation_mode: str = "screening_500",
+        round_index: int | None = None,
+        generation_index: int | None = None,
     ) -> list[dict[str, Any]]:
+        if evaluation_mode not in {"screening_500", "deployment_only"}:
+            raise ValueError(f"unsupported_ga_stage2_evaluation_mode:{evaluation_mode}")
         workers = self._ga_stage2_evaluator_pool(
             context, real_evaluator, run_dir
         )
-        result_cache: dict[str, dict[str, Any]] = getattr(
-            self, "_ga_stage2_result_cache", {}
+        screening_cache: dict[str, dict[str, Any]] = getattr(
+            self, "_ga_stage2_screening_cache", {}
         )
-        self._ga_stage2_result_cache = result_cache
+        deployment_cache: dict[str, dict[str, Any]] = getattr(
+            self, "_ga_stage2_deployment_cache", {}
+        )
+        self._ga_stage2_screening_cache = screening_cache
+        self._ga_stage2_deployment_cache = deployment_cache
         rows_by_index: dict[int, dict[str, Any]] = {}
         pending: list[tuple[int, Any, Path]] = []
         for index, item in enumerate(selected):
@@ -735,13 +761,45 @@ class LidarPyramidTwoStageSearch:
             _write_json(
                 candidate_dir / "repaired_genotype.json", record.genotype.to_dict()
             )
-            cached = result_cache.get(record.candidate_hash)
+            cached = (
+                screening_cache.get(record.candidate_hash)
+                if evaluation_mode == "screening_500"
+                else deployment_cache.get(record.candidate_hash)
+            )
             if cached is not None:
                 rows_by_index[index] = {
                     "candidate_hash": record.candidate_hash,
                     "F1": record.F1,
                     **dict(cached),
-                    "cross_round_deployment_cache_hit": True,
+                    "stage1_metrics": dict(
+                        getattr(record, "metrics", {}) or {}
+                    ),
+                    "phenotype": (
+                        record.phenotype.to_dict()
+                        if hasattr(record.phenotype, "to_dict")
+                        else dict(record.phenotype)
+                    ),
+                    "genotype": (
+                        record.genotype.to_dict()
+                        if hasattr(record.genotype, "to_dict")
+                        else dict(record.genotype)
+                    ),
+                    "stage2_selection_role": str(
+                        getattr(item, "role", "selected")
+                    ),
+                    "cross_generation_deployment_cache_hit": True,
+                    "cross_generation_evaluation_cache_hit": bool(
+                        evaluation_mode == "screening_500"
+                    ),
+                    **(
+                        {
+                            "evaluation_500_skipped": True,
+                            "num_evaluated_frames": 0,
+                            "num_skipped_frames": 0,
+                        }
+                        if evaluation_mode == "deployment_only"
+                        else {}
+                    ),
                 }
                 _write_json(
                     candidate_dir / "stage2_cache_hit.json",
@@ -750,6 +808,7 @@ class LidarPyramidTwoStageSearch:
                         "source_artifact_dir": cached.get("artifact_dir", ""),
                         "engine_rebuilt": False,
                         "evaluation_rerun": False,
+                        "evaluation_mode": evaluation_mode,
                     },
                 )
             else:
@@ -772,15 +831,47 @@ class LidarPyramidTwoStageSearch:
                 record = item.record
                 try:
                     with self._resource_phase(
-                        "stage2.candidate_evaluation",
+                        (
+                            "stage2.ga_generation_screening"
+                            if evaluation_mode == "screening_500"
+                            else "stage2.ga_generation_deployment_only"
+                        ),
                         [int(gpu_id)],
                         candidate_hash=record.candidate_hash,
+                        round_index=round_index,
+                        generation_index=generation_index,
                     ):
-                        result = evaluator.evaluate_candidate(
-                            record.phenotype,
-                            output_dir=candidate_dir,
-                            candidate_hash=record.candidate_hash,
+                        prior_deployment = deployment_cache.get(
+                            record.candidate_hash
                         )
+                        if (
+                            evaluation_mode == "screening_500"
+                            and prior_deployment is not None
+                        ):
+                            source_dir = str(
+                                prior_deployment.get(
+                                    "source_artifact_dir",
+                                    prior_deployment.get("artifact_dir", ""),
+                                )
+                            )
+                            result = evaluator.reevaluate_existing_candidate_engine(
+                                record.phenotype,
+                                source_artifact_dir=source_dir,
+                                output_dir=candidate_dir / "evaluation_500",
+                                candidate_hash=record.candidate_hash,
+                            )
+                        elif evaluation_mode == "screening_500":
+                            result = evaluator.evaluate_candidate(
+                                record.phenotype,
+                                output_dir=candidate_dir,
+                                candidate_hash=record.candidate_hash,
+                            )
+                        else:
+                            result = evaluator.deploy_candidate(
+                                record.phenotype,
+                                output_dir=candidate_dir,
+                                candidate_hash=record.candidate_hash,
+                            )
                 except Exception as exc:  # noqa: BLE001
                     result = {
                         "status": "stage2_worker_failed",
@@ -794,7 +885,24 @@ class LidarPyramidTwoStageSearch:
                         {
                             "candidate_hash": record.candidate_hash,
                             "F1": record.F1,
+                            "stage1_metrics": dict(
+                                getattr(record, "metrics", {}) or {}
+                            ),
+                            "phenotype": (
+                                record.phenotype.to_dict()
+                                if hasattr(record.phenotype, "to_dict")
+                                else dict(record.phenotype)
+                            ),
+                            "genotype": (
+                                record.genotype.to_dict()
+                                if hasattr(record.genotype, "to_dict")
+                                else dict(record.genotype)
+                            ),
+                            "stage2_selection_role": str(
+                                getattr(item, "role", "selected")
+                            ),
                             "assigned_gpu_id": int(gpu_id),
+                            "evaluation_mode": evaluation_mode,
                             **result,
                         },
                     )
@@ -815,7 +923,21 @@ class LidarPyramidTwoStageSearch:
                 for future in futures:
                     for index, row in future.result():
                         rows_by_index[index] = row
-                        result_cache[str(row["candidate_hash"])] = dict(row)
+                        candidate_id = str(row["candidate_hash"])
+                        if str(row.get("status", "")) == "ok":
+                            source_dir = str(
+                                row.get(
+                                    "source_artifact_dir",
+                                    row.get("artifact_dir", ""),
+                                )
+                            )
+                            deployment_cache[candidate_id] = {
+                                **dict(row),
+                                "artifact_dir": source_dir,
+                                "source_artifact_dir": source_dir,
+                            }
+                            if evaluation_mode == "screening_500":
+                                screening_cache[candidate_id] = dict(row)
         rows = [rows_by_index[index] for index in range(len(selected))]
         _write_json(
             round_dir / "stage2_parallel_schedule.json",
@@ -825,14 +947,20 @@ class LidarPyramidTwoStageSearch:
                     {
                         "candidate_hash": row.get("candidate_hash"),
                         "assigned_gpu_id": row.get("assigned_gpu_id"),
-                        "cross_round_deployment_cache_hit": row.get(
-                            "cross_round_deployment_cache_hit", False
+                        "cross_generation_deployment_cache_hit": row.get(
+                            "cross_generation_deployment_cache_hit", False
+                        ),
+                        "cross_generation_evaluation_cache_hit": row.get(
+                            "cross_generation_evaluation_cache_hit", False
                         ),
                     }
                     for row in rows
                 ],
                 "per_gpu_execution": "sequential",
                 "cross_gpu_execution": "parallel",
+                "evaluation_mode": evaluation_mode,
+                "round_index": round_index,
+                "generation_index": generation_index,
             },
         )
         return rows
@@ -1261,6 +1389,14 @@ class LidarPyramidTwoStageSearch:
 
     def _run_ga(self, context: Any, proxy: Stage1ProxyEvaluator, real_evaluator: LidarPyramidRealEvaluator, run_dir: Path, search_cfg: dict[str, Any], *, stage1_only: bool) -> list[dict[str, Any]]:
         evaluated_rows: list[dict[str, Any]] = []
+        generation_stage2_protocol = (
+            str(
+                search_cfg.get(
+                    "stage2_selection_scope", "round_final_topk"
+                )
+            ).lower()
+            == "per_generation_topk"
+        )
         previous_elite: list[CandidateGenotype] = []
         previous_best: CandidateGenotype | None = None
         outer_rounds = int(search_cfg.get("outer_rounds", 1))
@@ -1438,6 +1574,8 @@ class LidarPyramidTwoStageSearch:
                 else {}
             )
             resume_stage1_complete = bool(
+                not generation_stage2_protocol
+                and
                 self.resume is not None
                 and str(round_state.get("phase", ""))
                 in {"stage1_complete", "stage2_running", "round_complete"}
@@ -1498,7 +1636,6 @@ class LidarPyramidTwoStageSearch:
                     write_round_stage2_results(
                         run_dir,
                         round_index=round_index,
-                        allow_no_success=True,
                     )
                     _write_json(
                         round_dir / "round_state.json",
@@ -1713,6 +1850,370 @@ class LidarPyramidTwoStageSearch:
                 self._write_generation(round_dir / f"generation_{generation:03d}.csv", [row for row in scored if int(row[2].get("generation", -1)) == generation], context)
             self._write_stage1(round_dir / "stage1_scores.csv", records)
             use_repaired_topk = str(self.config.get("pruning", {}).get("gene_type", self.config.get("pruning", {}).get("search_variable", ""))) == "coupled_channel_keep_mask" or "topk_stage2" in search_cfg
+            if generation_stage2_protocol:
+                if not stage1_only and int(real_evaluator.num_frames) != 500:
+                    raise RuntimeError(
+                        "per_generation_stage2_requires_exactly_500_frames:"
+                        f"{real_evaluator.num_frames}"
+                    )
+                hard_bops_mode = str(
+                    proxy_cfg.get("bops_constraint_mode", "weighted_penalty")
+                ) in {
+                    "hard_feasibility",
+                    "feasibility_first",
+                    "hard_band_feasibility",
+                }
+                actual_generations = sorted(
+                    {
+                        int(row[2].get("generation", -1))
+                        for row in scored
+                        if int(row[2].get("generation", -1)) >= 0
+                    }
+                )
+                generation_reports: list[dict[str, Any]] = []
+                total_selected = 0
+                round_evaluated_start = len(evaluated_rows)
+                for generation in actual_generations:
+                    generation_dir = (
+                        round_dir
+                        / "generations"
+                        / f"generation_{generation:03d}"
+                    )
+                    generation_scored = [
+                        row
+                        for row in scored
+                        if int(row[2].get("generation", -1)) == generation
+                    ]
+                    feasible_scored = [
+                        row
+                        for row in generation_scored
+                        if bool(row[2].get("bops_feasible", False))
+                    ]
+                    selection_supply = (
+                        feasible_scored if hard_bops_mode else generation_scored
+                    )
+
+                    if use_repaired_topk:
+                        def repair_generation_candidate(
+                            genotype: CandidateGenotype,
+                        ) -> tuple[CandidateGenotype | None, dict[str, Any]]:
+                            return self._repair_raw_keep_mask(context, genotype)
+
+                        def rescore_generation_batch(
+                            phenotypes: list[CandidatePhenotype],
+                            _generation: int = generation,
+                        ) -> list[dict[str, Any]]:
+                            batch = proxy.evaluate_batch(
+                                phenotypes,
+                                generation=_generation,
+                                outer_round=round_index,
+                            )
+                            return [
+                                annotate_metrics(
+                                    CandidateGenotype({}, {}),
+                                    row,
+                                    _generation,
+                                )
+                                for row in batch.metrics
+                            ]
+
+                        repaired_records, repair_report = (
+                            select_repaired_stage2_topk(
+                                selection_supply,
+                                space=context.search_space,
+                                repair_fn=repair_generation_candidate,
+                                rescore_fn=lambda phenotype, _generation=generation: rescore_generation_batch(
+                                    [phenotype], _generation
+                                )[0],
+                                batch_rescore_fn=rescore_generation_batch,
+                                topk=topk_stage2,
+                                repair_pool_size=int(
+                                    search_cfg.get(
+                                        "repair_pool_size",
+                                        max(50, topk_stage2 * 10),
+                                    )
+                                ),
+                                selection_policy=str(
+                                    search_cfg.get(
+                                        "stage2_topk_selection_policy",
+                                        "three_plus_two_diversity",
+                                    )
+                                ),
+                                exploitation_count=int(
+                                    search_cfg.get(
+                                        "stage2_exploitation_count", 3
+                                    )
+                                ),
+                                diversity_count=int(
+                                    search_cfg.get("stage2_diversity_count", 2)
+                                ),
+                                taylor_relative_epsilon=float(
+                                    search_cfg.get(
+                                        "taylor_relative_epsilon", 0.05
+                                    )
+                                ),
+                                taylor_absolute_epsilon=float(
+                                    search_cfg.get(
+                                        "taylor_absolute_epsilon", 1.0e-8
+                                    )
+                                ),
+                                eligibility_fn=(
+                                    lambda metrics: bool(
+                                        metrics.get("bops_feasible", False)
+                                    )
+                                )
+                                if hard_bops_mode
+                                else None,
+                            )
+                        )
+                        selected = [
+                            type(
+                                "Selection",
+                                (),
+                                {
+                                    "role": record.metrics.get(
+                                        "stage2_selection_role", "repaired"
+                                    ),
+                                    "record": record,
+                                },
+                            )
+                            for record in repaired_records
+                        ]
+                    else:
+                        generation_records = self._records_from_scored(
+                            selection_supply, context
+                        )
+                        selected = select_stage1_topk(
+                            generation_records,
+                            real_eval_hashes=set(),
+                            archive_genotypes=[],
+                            config=TopKConfig(
+                                topk_real=topk_stage2,
+                                exploitation_count=min(3, topk_stage2),
+                                diversity_count=max(0, topk_stage2 - 3),
+                                exploration_count=0,
+                            ),
+                        )
+                        repair_report = {
+                            "repair_pool_size": 0,
+                            "repair_failed_count": 0,
+                            "duplicate_repaired_phenotype_count": 0,
+                            "legal_repaired_phenotype_count": len(
+                                generation_records
+                            ),
+                            "selected_count": len(selected),
+                        }
+
+                    if not selected:
+                        if hard_bops_mode and not feasible_scored:
+                            no_candidate_reason = (
+                                "all_generation_candidates_rejected_by_BOPS_band"
+                            )
+                        elif int(
+                            repair_report.get(
+                                "rejected_after_repaired_rescore", 0
+                            )
+                            or 0
+                        ) > 0:
+                            no_candidate_reason = (
+                                "all_repaired_candidates_rejected_by_BOPS_band"
+                            )
+                        elif int(
+                            repair_report.get("repair_failed_count", 0) or 0
+                        ) > 0:
+                            no_candidate_reason = "all_candidates_failed_repair"
+                        else:
+                            no_candidate_reason = (
+                                "no_unique_finite_generation_candidates"
+                            )
+                    else:
+                        no_candidate_reason = ""
+                    selection_report = {
+                        **dict(repair_report),
+                        "round_index": int(round_index),
+                        "generation_index": int(generation),
+                        "bops_target": round_bops_target,
+                        "bops_tolerance_abs": float(
+                            proxy_cfg.get("bops_tolerance_abs", 0.0)
+                        ),
+                        "raw_generation_candidate_count": len(
+                            generation_scored
+                        ),
+                        "raw_bops_feasible_count": len(feasible_scored),
+                        "raw_bops_rejected_count": (
+                            len(generation_scored) - len(feasible_scored)
+                            if hard_bops_mode
+                            else 0
+                        ),
+                        "selected_count": len(selected),
+                        "requested_topk": int(topk_stage2),
+                        "shortfall_count": max(
+                            0, int(topk_stage2) - len(selected)
+                        ),
+                        "no_candidate_reason": no_candidate_reason,
+                        "parameter_pruning_selection_role": (
+                            "secondary_minimum_R_parameter_retention_"
+                            "inside_near_optimal_Taylor_set"
+                        ),
+                    }
+                    _write_json(
+                        generation_dir / "stage1_topk.json",
+                        [
+                            {
+                                "role": item.role,
+                                "candidate_hash": item.record.candidate_hash,
+                                "F1": item.record.F1,
+                                "metrics": dict(item.record.metrics),
+                                "phenotype": item.record.phenotype.to_dict(),
+                                "genotype": item.record.genotype.to_dict(),
+                            }
+                            for item in selected
+                        ],
+                    )
+                    _write_json(
+                        generation_dir / "generation_selection_report.json",
+                        selection_report,
+                    )
+                    _append_jsonl(
+                        run_dir / "seen_repaired_phenotypes.jsonl",
+                        [
+                            {
+                                "round": round_index,
+                                "generation": generation,
+                                "repaired_phenotype_hash": item.record.candidate_hash,
+                                "F1": item.record.F1,
+                                "pruned_unit_count": len(
+                                    item.record.phenotype.pruned_unit_ids
+                                ),
+                                "precision_profile_hash": canonical_json_hash(
+                                    item.record.phenotype.realized_precision_profile
+                                ),
+                            }
+                            for item in selected
+                        ],
+                    )
+                    total_selected += len(selected)
+                    if stage1_only:
+                        generation_reports.append(
+                            {
+                                "round_index": int(round_index),
+                                "generation_index": int(generation),
+                                "status": "stage1_only",
+                                "selected_count": len(selected),
+                                "selection_report": selection_report,
+                                "winner": None,
+                            }
+                        )
+                        continue
+                    evaluation_mode = (
+                        "deployment_only"
+                        if len(selected) == 1
+                        else "screening_500"
+                    )
+                    candidate_rows = (
+                        self._evaluate_ga_stage2_selected_parallel(
+                            context=context,
+                            real_evaluator=real_evaluator,
+                            run_dir=run_dir,
+                            round_dir=generation_dir,
+                            selected=selected,
+                            evaluation_mode=evaluation_mode,
+                            round_index=round_index,
+                            generation_index=generation,
+                        )
+                        if selected
+                        else []
+                    )
+                    evaluated_rows.extend(candidate_rows)
+                    generation_reports.append(
+                        write_generation_stage2_results(
+                            generation_dir,
+                            round_index=round_index,
+                            generation_index=generation,
+                            bops_target=round_bops_target,
+                            selection_report=selection_report,
+                            candidate_rows=candidate_rows,
+                            expected_screening_frames=500,
+                        )
+                    )
+
+                _write_json(
+                    round_dir / "generation_stage2_summary.json",
+                    {
+                        "round_index": int(round_index),
+                        "bops_target": round_bops_target,
+                        "protocol": "per_generation_topk_500_then_full_v1",
+                        "actual_generation_count": len(actual_generations),
+                        "generation_winner_count": sum(
+                            row.get("winner") is not None
+                            for row in generation_reports
+                        ),
+                        "zero_candidate_generation_count": sum(
+                            int(row.get("selected_count", 0) or 0) == 0
+                            for row in generation_reports
+                        ),
+                        "single_candidate_generation_count": sum(
+                            int(row.get("selected_count", 0) or 0) == 1
+                            for row in generation_reports
+                        ),
+                        "total_stage2_candidate_requests": total_selected,
+                        "generation_reports": generation_reports,
+                    },
+                )
+                manifest = json.loads(
+                    (run_dir / "run_manifest.json").read_text(encoding="utf-8")
+                )
+                manifest.update(
+                    {
+                        "last_round_bops_target": round_bops_target,
+                        "topk_stage2_per_generation": topk_stage2,
+                        "stage2_selection_scope": "per_generation_topk",
+                    }
+                )
+                _write_json(run_dir / "run_manifest.json", manifest)
+                if not bool(search_cfg.get("independent_budget_rounds", True)):
+                    previous_elite = [
+                        record.genotype
+                        for record in records[: max(1, min(5, len(records)))]
+                    ]
+                    previous_best = previous_elite[0] if previous_elite else None
+                _write_json(
+                    round_dir / "round_summary.json",
+                    {
+                        "best_F1": records[0].F1 if records else None,
+                        "actual_generation_count": len(actual_generations),
+                        "generation_winner_count": sum(
+                            row.get("winner") is not None
+                            for row in generation_reports
+                        ),
+                        "selected": total_selected,
+                        "evaluated": len(evaluated_rows)
+                        - round_evaluated_start,
+                    },
+                )
+                if records:
+                    _write_json(
+                        round_dir / "best_candidate.json",
+                        {
+                            "candidate_hash": records[0].candidate_hash,
+                            "F1": records[0].F1,
+                            "phenotype": records[0].phenotype.to_dict(),
+                        },
+                    )
+                _write_json(
+                    round_dir / "round_state.json",
+                    {
+                        "phase": (
+                            "stage1_complete" if stage1_only else "round_complete"
+                        ),
+                        "round_index": round_index,
+                        "stage1_reused": False,
+                        "objective_hash": objective_hash,
+                        "selected": total_selected,
+                        "actual_generation_count": len(actual_generations),
+                    },
+                )
+                continue
             if use_repaired_topk:
                 def repair_candidate(genotype: CandidateGenotype) -> tuple[CandidateGenotype | None, dict[str, Any]]:
                     return self._repair_raw_keep_mask(context, genotype)
@@ -1867,7 +2368,6 @@ class LidarPyramidTwoStageSearch:
                 write_round_stage2_results(
                     run_dir,
                     round_index=round_index,
-                    allow_no_success=True,
                 )
             if not bool(search_cfg.get("independent_budget_rounds", True)):
                 previous_elite = [
@@ -1895,8 +2395,280 @@ class LidarPyramidTwoStageSearch:
             not stage1_only
             and bool(final_cfg.get("reevaluate_round_winners_on_full_validation", True))
         ):
-            self._full_validate_ga_round_winners(context, run_dir)
+            if generation_stage2_protocol:
+                self._full_validate_ga_generation_winners(context, run_dir)
+            else:
+                self._full_validate_ga_round_winners(context, run_dir)
         return evaluated_rows
+
+    def _full_validate_ga_generation_winners(
+        self,
+        context: Any,
+        run_dir: Path,
+    ) -> list[dict[str, Any]]:
+        """Evaluate every unique generation winner, then select per-budget winners."""
+
+        unique: dict[str, dict[str, Any]] = {}
+        expected_rounds = sorted(run_dir.glob("round_*"))
+        for path in sorted(
+            run_dir.glob(
+                "round_*/generations/generation_*/generation_winner.json"
+            )
+        ):
+            row = json.loads(path.read_text(encoding="utf-8"))
+            round_name = path.parents[2].name
+            generation_name = path.parent.name
+            candidate_id = str(row.get("candidate_hash", ""))
+            source = Path(
+                str(
+                    row.get(
+                        "source_artifact_dir", row.get("artifact_dir", "")
+                    )
+                )
+            )
+            if not candidate_id or not source.is_dir():
+                raise RuntimeError(
+                    "generation_winner_artifact_missing:"
+                    f"{path}:{candidate_id}:{source}"
+                )
+            phenotype_payload = row.get("phenotype")
+            if not isinstance(phenotype_payload, dict):
+                phenotype_path = source / "phenotype.json"
+                if not phenotype_path.is_file():
+                    raise RuntimeError(
+                        f"generation_winner_phenotype_missing:{phenotype_path}"
+                    )
+                phenotype_payload = json.loads(
+                    phenotype_path.read_text(encoding="utf-8")
+                )
+            entry = unique.setdefault(
+                candidate_id,
+                {
+                    "candidate_hash": candidate_id,
+                    "source_artifact_dir": str(source),
+                    "phenotype": CandidatePhenotype.from_dict(
+                        phenotype_payload
+                    ),
+                    "memberships": [],
+                },
+            )
+            entry["memberships"].append(
+                {
+                    "round": round_name,
+                    "generation": generation_name,
+                    "bops_target": row.get("stage1_metrics", {}).get(
+                        "BOPS_target"
+                    ),
+                    "screening_F2": row.get("F2"),
+                    "screening_mAP": row.get("mAP"),
+                    "screening_latency_ms": row.get("forward_p50_ms"),
+                    "evaluation_500_skipped": bool(
+                        row.get("evaluation_500_skipped", False)
+                    ),
+                    "stage1_metrics": dict(row.get("stage1_metrics", {}) or {}),
+                }
+            )
+
+        evaluator = self._full_validation_evaluator(context, run_dir)
+        validation_gpu_ids = [int(context.physical_gpu_id)]
+        with self._resource_phase(
+            "stage2.ga_budget_final_reference", validation_gpu_ids
+        ):
+            evaluator._stage2_reference_baseline()
+        workers = self._ga_stage2_evaluator_pool(
+            context,
+            evaluator,
+            run_dir,
+            pool_kind="full_validation",
+        )
+        ordered_unique = sorted(unique.items())
+        queues: list[list[tuple[int, str, dict[str, Any]]]] = [
+            [] for _worker in workers
+        ]
+        for index, (candidate_id, entry) in enumerate(ordered_unique):
+            queues[index % len(workers)].append((index, candidate_id, entry))
+
+        def run_full_validation_queue(
+            worker_row: tuple[int, LidarPyramidRealEvaluator],
+            queue: list[tuple[int, str, dict[str, Any]]],
+        ) -> list[tuple[int, dict[str, Any]]]:
+            gpu_id, worker_evaluator = worker_row
+            torch_module = __import__("torch")
+            torch_module.cuda.set_device(int(gpu_id))
+            completed = []
+            for index, candidate_id, entry in queue:
+                try:
+                    with self._resource_phase(
+                        "stage2.ga_generation_winner_full_validation",
+                        [int(gpu_id)],
+                        candidate_hash=candidate_id,
+                        memberships=list(entry["memberships"]),
+                    ):
+                        result = worker_evaluator.reevaluate_existing_candidate_engine(
+                            entry["phenotype"],
+                            source_artifact_dir=entry["source_artifact_dir"],
+                            output_dir=(
+                                run_dir
+                                / "full_validation"
+                                / "generation_winners"
+                                / candidate_id
+                            ),
+                            candidate_hash=candidate_id,
+                        )
+                except Exception as exc:  # noqa: BLE001
+                    result = {
+                        "candidate_hash": candidate_id,
+                        "status": "full_validation_worker_failed",
+                        "failure_reason": f"{type(exc).__name__}:{exc}",
+                        "F2": float("inf"),
+                    }
+                completed.append(
+                    (
+                        index,
+                        {
+                            **result,
+                            "assigned_gpu_id": int(gpu_id),
+                            "source_artifact_dir": entry[
+                                "source_artifact_dir"
+                            ],
+                            "memberships": list(entry["memberships"]),
+                        },
+                    )
+                )
+            return completed
+
+        rows_by_index: dict[int, dict[str, Any]] = {}
+        active = [
+            (worker, queue)
+            for worker, queue in zip(workers, queues)
+            if queue
+        ]
+        if active:
+            with ThreadPoolExecutor(max_workers=len(active)) as executor:
+                futures = [
+                    executor.submit(
+                        run_full_validation_queue, worker, queue
+                    )
+                    for worker, queue in active
+                ]
+                for future in futures:
+                    for index, row in future.result():
+                        rows_by_index[index] = row
+        rows = [
+            rows_by_index[index] for index in range(len(ordered_unique))
+        ]
+
+        budget_winners: list[dict[str, Any]] = []
+        missing_rounds: list[str] = []
+        for round_dir in expected_rounds:
+            round_name = round_dir.name
+            round_rows = [
+                row
+                for row in rows
+                if any(
+                    str(member.get("round", "")) == round_name
+                    for member in row.get("memberships", [])
+                )
+            ]
+            successful = [
+                row
+                for row in round_rows
+                if str(row.get("status", "")) == "ok"
+                and math.isfinite(float(row.get("F2", float("inf"))))
+            ]
+            winner = (
+                min(
+                    successful,
+                    key=lambda row: (
+                        float(row["F2"]),
+                        str(row.get("candidate_hash", "")),
+                    ),
+                )
+                if successful
+                else None
+            )
+            report = {
+                "round": round_name,
+                "protocol": "all_unique_generation_winners_full_validation_v1",
+                "candidate_count": len(round_rows),
+                "successful_count": len(successful),
+                "candidates": round_rows,
+                "winner": winner,
+            }
+            _write_json(
+                round_dir / "generation_winner_full_validation_results.json",
+                report,
+            )
+            if winner is None:
+                missing_rounds.append(round_name)
+                _write_json(
+                    round_dir / "round_final_failure.json",
+                    {
+                        "round": round_name,
+                        "status": "no_successful_generation_winner_full_validation",
+                        "candidate_count": len(round_rows),
+                    },
+                )
+                continue
+            memberships = [
+                member
+                for member in winner.get("memberships", [])
+                if str(member.get("round", "")) == round_name
+            ]
+            budget_winner = {
+                **winner,
+                "round": round_name,
+                "winning_generations": sorted(
+                    str(member.get("generation", ""))
+                    for member in memberships
+                ),
+                "generation_memberships": memberships,
+                "full_validation_artifact_dir": winner.get(
+                    "artifact_dir", ""
+                ),
+                "artifact_dir": winner.get("source_artifact_dir", ""),
+                "winner_selection_reason": (
+                    "minimum_full_validation_weighted_AP_latency_F2"
+                ),
+            }
+            budget_winners.append(budget_winner)
+            _write_json(round_dir / "round_best_candidate.json", budget_winner)
+            _write_json(
+                round_dir / "round_best_F1_F2.json",
+                {
+                    "candidate_hash": budget_winner["candidate_hash"],
+                    "F1": min(
+                        (
+                            float(
+                                member.get("stage1_metrics", {}).get(
+                                    "F1", float("inf")
+                                )
+                            )
+                            for member in memberships
+                        ),
+                        default=None,
+                    ),
+                    "F2": budget_winner["F2"],
+                },
+            )
+
+        final_report = {
+            "protocol": "per_generation_topk_500_then_budget_full_validation_v1",
+            "candidates": rows,
+            "budget_winners": budget_winners,
+            "unique_generation_winner_count": len(unique),
+            "candidate_engine_rebuild_count": 0,
+            "expected_budget_count": len(expected_rounds),
+            "successful_budget_winner_count": len(budget_winners),
+            "missing_budget_rounds": missing_rounds,
+        }
+        _write_json(run_dir / "final_full_validation_results.json", final_report)
+        _write_json(run_dir / "final_budget_winners.json", budget_winners)
+        if missing_rounds:
+            raise RuntimeError(
+                "ga_budget_final_winner_missing:" + ",".join(missing_rounds)
+            )
+        return rows
 
     def _full_validate_ga_round_winners(
         self,
@@ -1947,14 +2719,26 @@ class LidarPyramidTwoStageSearch:
         if not winners:
             return []
         evaluator = self._full_validation_evaluator(context, run_dir)
+        validation_gpu_ids = [int(context.physical_gpu_id)]
+        with self._resource_phase(
+            "stage2.ga_final_reference",
+            validation_gpu_ids,
+        ):
+            evaluator._stage2_reference_baseline()
         rows: list[dict[str, Any]] = []
         for candidate_id, entry in sorted(winners.items()):
-            result = evaluator.reevaluate_existing_candidate_engine(
-                entry["phenotype"],
-                source_artifact_dir=entry["source_artifact_dir"],
-                output_dir=run_dir / "full_validation" / "candidates" / candidate_id,
+            with self._resource_phase(
+                "stage2.ga_final_full_validation",
+                validation_gpu_ids,
                 candidate_hash=candidate_id,
-            )
+                rounds=sorted(entry["rounds"]),
+            ):
+                result = evaluator.reevaluate_existing_candidate_engine(
+                    entry["phenotype"],
+                    source_artifact_dir=entry["source_artifact_dir"],
+                    output_dir=run_dir / "full_validation" / "candidates" / candidate_id,
+                    candidate_hash=candidate_id,
+                )
             latency_ratio = float(result.get("R_latency_real", 0.0) or 0.0)
             rows.append(
                 {

@@ -14,7 +14,12 @@ from ..exceptions import QDQInsertionError
 from ..types import CanonicalPrecisionMappingResult, QDQInsertionRecord, QDQInsertionResult, stable_json_hash
 from ..export.origin_trace import build_weight_trace_index, trace_compute_node_weight
 from .activation_boundary import resolve_activation_output_boundary
-from .merge_contract import adaptive_merge_cast_name, fp16_merge_cast_name
+from .merge_contract import (
+    adaptive_merge_cast_name,
+    adaptive_merge_dtype_audit,
+    fp16_merge_cast_name,
+    inferred_tensor_element_types,
+)
 
 
 def _positive_scale(value: Any, module_path: str, kind: str) -> float | list[float]:
@@ -209,8 +214,20 @@ def _audit_merge_boundaries(
                     queue.extend(str(output) for output in consumer.output)
         return [found[key] for key in sorted(found)]
     rows: list[dict[str, Any]] = []
+    adaptive_targets = {
+        str(name) for name in mapping.auxiliary_layer_precisions
+    }
     for node in model.graph.node:
         if str(node.op_type) not in {"Add", "Concat", "Mul", "Where", "MatMul"}:
+            continue
+        # The adaptive contract is generated from runtime relations and a
+        # floating-tensor dtype audit.  Reusing the legacy broad merge scan
+        # here would reintroduce excluded shape/structural operators (for
+        # example INT64 Where nodes) into the post-insertion audit.
+        if (
+            merge_policy == "adaptive_upcast_merge"
+            and str(node.name) not in adaptive_targets
+        ):
             continue
         derived_precision = str(
             mapping.auxiliary_layer_precisions.get(str(node.name), "fp16")
@@ -351,19 +368,30 @@ def _insert_explicit_adaptive_merge_casts(
     records: list[dict[str, Any]] = []
     rewritten: list[Any] = []
     supported = {"Add", "Concat", "Mul", "Where", "MatMul"}
+    tensor_element_types = inferred_tensor_element_types(model)
     for node in model.graph.node:
         precision = target_merges.get(str(node.name))
         if precision is None or str(node.op_type) not in supported:
             rewritten.append(node)
             continue
+        dtype_audit = adaptive_merge_dtype_audit(
+            model,
+            node,
+            tensor_element_types=tensor_element_types,
+        )
+        if not dtype_audit["safe_floating_activation_merge"]:
+            raise QDQInsertionError(
+                "adaptive_merge_non_floating_target:"
+                f"{node.name}:{node.op_type}:{dtype_audit['exclusion_reason']}:"
+                f"inputs={dtype_audit['data_input_dtypes']}:"
+                f"outputs={dtype_audit['output_dtypes']}"
+            )
         if precision == "int8":
             rewritten.append(node)
             continue
         tensor_type = TensorProto.FLOAT16 if precision == "fp16" else TensorProto.FLOAT
-        for input_index, input_name in enumerate(list(node.input)):
-            # Where's condition is BOOL and is not a precision-bearing branch.
-            if str(node.op_type) == "Where" and input_index == 0:
-                continue
+        for input_index in dtype_audit["data_input_indices"]:
+            input_name = node.input[input_index]
             cast_name = adaptive_merge_cast_name(str(node.name), input_index, precision)
             cast_output = f"{cast_name}__output"
             rewritten.append(

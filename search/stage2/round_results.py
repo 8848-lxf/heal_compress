@@ -199,8 +199,6 @@ def write_round_stage2_results(
     rows = collect_round_stage2_results(root, round_index=round_index)
     ok_rows = [row for row in rows if row.get("status") == "ok"]
     if not ok_rows:
-        if not allow_no_success:
-            raise RuntimeError(f"no_successful_stage2_candidates:round_{int(round_index):03d}")
         _write_csv(round_dir / "stage2_top5_results.csv", rows)
         _write_json(
             round_dir / "stage2_top5_results.json",
@@ -223,12 +221,15 @@ def write_round_stage2_results(
                 ],
             },
         )
-        return {
+        result = {
             "round_index": int(round_index),
             "winner": None,
             "candidates": rows,
             "status": "no_successful_stage2_candidate",
         }
+        if not allow_no_success:
+            raise RuntimeError(f"no_successful_stage2_candidates:round_{int(round_index):03d}")
+        return result
     winner = ok_rows[0]
     _write_csv(round_dir / "stage2_top5_results.csv", rows)
     _write_json(round_dir / "stage2_top5_results.json", {"round_index": int(round_index), "winner": winner, "candidates": rows})

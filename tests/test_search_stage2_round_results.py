@@ -198,6 +198,12 @@ def test_round_stage2_results_can_record_an_empty_success_set_without_aborting(t
     with pytest.raises(RuntimeError, match="no_successful_stage2_candidates"):
         write_round_stage2_results(run_dir, round_index=0)
 
+    # Fail closed only after preserving the complete per-candidate evidence.
+    assert (round_dir / "stage2_top5_results.csv").is_file()
+    assert (round_dir / "stage2_top5_results.json").is_file()
+    assert (round_dir / "stage2_top5_results.md").is_file()
+    assert (round_dir / "round_stage2_failure.json").is_file()
+
     result = write_round_stage2_results(run_dir, round_index=0, allow_no_success=True)
 
     assert result["winner"] is None
