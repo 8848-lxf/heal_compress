@@ -23,17 +23,34 @@ class BOPSProxy:
         activation_bits: int = 16,
         unit_to_parameter_slices: dict[str, list[ParameterSlice]] | None = None,
         runtime_shapes: Sequence[RuntimeLayerShape] | None = None,
+        include_module_paths: Sequence[str] | None = None,
+        exclude_module_paths: Sequence[str] = (),
+        default_precision: str = "FP16",
     ) -> None:
         self.model = model
         self.unit_to_parameter_slices = unit_to_parameter_slices or {}
-        self.runtime_shapes = tuple(runtime_shapes or ())
+        included = None if include_module_paths is None else {str(value) for value in include_module_paths}
+        excluded = {str(value) for value in exclude_module_paths}
+        self.runtime_shapes = tuple(
+            row
+            for row in (runtime_shapes or ())
+            if (included is None or str(row.module_path) in included)
+            and str(row.module_path) not in excluded
+        )
+        self.default_precision = str(default_precision).upper()
         if layer_ops is None and model is not None:
             layer_ops = {
                 name: int(module.weight.numel())
                 for name, module in model.named_modules()
                 if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)) and getattr(module, "weight", None) is not None
+                and (included is None or name in included)
+                and name not in excluded
             }
-        self.layer_ops = dict(layer_ops or {})
+        self.layer_ops = {
+            str(name): int(value)
+            for name, value in dict(layer_ops or {}).items()
+            if (included is None or str(name) in included) and str(name) not in excluded
+        }
         self.activation_bits = int(activation_bits)
         self.base_bops = sum(count * 32 * 32 for count in self.layer_ops.values()) or 1
         self.base_fp16_bops = self._base_fp16_bops()
@@ -63,7 +80,9 @@ class BOPSProxy:
                 if key in counted:
                     continue
                 counted.add(key)
-                precision = phenotype.realized_precision_profile.get(shape.module_path, "FP16")
+                precision = phenotype.realized_precision_profile.get(
+                    shape.module_path, self.default_precision
+                )
                 weight_bits = BIT_WIDTHS.get(str(precision).upper(), 16)
                 activation_bits = self._activation_bits_for_precision(str(precision))
                 vshape = virtual.get(shape.module_path)
@@ -119,7 +138,9 @@ class BOPSProxy:
         if self.model is not None and self.unit_to_parameter_slices:
             total = 0
             for layer, shape in resolve_virtual_shapes(self.model, phenotype, self.unit_to_parameter_slices).items():
-                precision = phenotype.realized_precision_profile.get(layer, "FP16")
+                precision = phenotype.realized_precision_profile.get(
+                    layer, self.default_precision
+                )
                 weight_bits = BIT_WIDTHS.get(str(precision).upper(), 16)
                 activation_bits = self._activation_bits_for_precision(str(precision))
                 if shape.module_type in {"Conv2d", "ConvTranspose2d"}:
@@ -142,7 +163,9 @@ class BOPSProxy:
             }
         total = 0
         for layer, ops in self.layer_ops.items():
-            precision = phenotype.realized_precision_profile.get(layer, "FP16")
+            precision = phenotype.realized_precision_profile.get(
+                layer, self.default_precision
+            )
             weight_bits = BIT_WIDTHS.get(str(precision).upper(), 16)
             activation_bits = self._activation_bits_for_precision(str(precision))
             total += int(ops) * weight_bits * activation_bits

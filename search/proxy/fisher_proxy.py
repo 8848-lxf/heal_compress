@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+import hashlib
+import json
+from typing import Any, Callable, Mapping, Sequence
 
 import torch
 
@@ -17,6 +19,71 @@ class FisherStatistics:
     fisher_diag: dict[str, torch.Tensor] = field(default_factory=dict)
     manifest_hash: str = ""
     statistics_version: str = "fisher-diagonal-v1"
+
+
+def collect_task_loss_fisher_statistics(
+    model: torch.nn.Module,
+    calibration_batches: Sequence[Any],
+    *,
+    forward_fn: Callable[[torch.nn.Module, Any], Any],
+    loss_fn: Callable[[Any, Any], torch.Tensor],
+    calibration_manifest_hash: str,
+) -> tuple[FisherStatistics, dict[str, Any]]:
+    """Collect mean gradients and empirical Fisher from one common task loss."""
+
+    if not calibration_manifest_hash:
+        raise ValueError("task_loss_fisher_calibration_manifest_hash_missing")
+    if not calibration_batches:
+        raise ValueError("task_loss_fisher_calibration_batches_empty")
+    gradients: dict[str, torch.Tensor] = {}
+    fisher: dict[str, torch.Tensor] = {}
+    losses: list[float] = []
+    model.train(False)
+    for batch in calibration_batches:
+        model.zero_grad(set_to_none=True)
+        outputs = forward_fn(model, batch)
+        loss = loss_fn(outputs, batch)
+        if loss.ndim != 0 or not torch.isfinite(loss):
+            raise RuntimeError("task_loss_fisher_requires_finite_scalar_loss")
+        loss.backward()
+        losses.append(float(loss.detach().cpu()))
+        for name, parameter in model.named_parameters():
+            if parameter.grad is None:
+                continue
+            value = parameter.grad.detach().float().cpu()
+            gradients.setdefault(name, torch.zeros_like(value)).add_(value)
+            fisher.setdefault(name, torch.zeros_like(value)).add_(value.square())
+    sample_count = len(calibration_batches)
+    gradients = {name: value / sample_count for name, value in gradients.items()}
+    fisher = {name: value / sample_count for name, value in fisher.items()}
+    model.zero_grad(set_to_none=True)
+    identity = {
+        "schema_version": "common-task-loss-fisher-v1",
+        "calibration_manifest_hash": str(calibration_manifest_hash),
+        "sample_count": sample_count,
+        "task_losses": losses,
+        "parameter_names": sorted(gradients),
+        "formula": "mean_gradient_and_empirical_fisher_E_gradient_squared",
+        "normalization_applied": False,
+    }
+    statistics_hash = hashlib.sha256(
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    statistics = FisherStatistics(
+        gradients=gradients,
+        fisher_diag=fisher,
+        manifest_hash=statistics_hash,
+        statistics_version="common-task-loss-fisher-v1",
+    )
+    return statistics, {
+        **identity,
+        "statistics_manifest_hash": statistics_hash,
+        "gradient_parameter_count": len(gradients),
+        "fisher_parameter_count": len(fisher),
+        "all_gradients_finite": all(bool(torch.isfinite(row).all()) for row in gradients.values()),
+        "all_fisher_finite": all(bool(torch.isfinite(row).all()) for row in fisher.values()),
+        "statistics_tensors_persisted": False,
+    }
 
 
 class FisherTaylorProxy:

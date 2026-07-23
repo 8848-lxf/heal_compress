@@ -42,6 +42,53 @@ def pseudo_quantize_tensor(
     raise ValueError(f"unsupported precision: {precision}")
 
 
+def deployment_precision(value: str) -> str:
+    """Map deployment labels to the internal coupled precision state."""
+
+    text = str(value).upper()
+    aliases = {
+        "W32A32": "FP32",
+        "A32": "FP32",
+        "W16A16": "FP16",
+        "A16": "FP16",
+        "W8A8": "INT8",
+        "A8": "INT8",
+    }
+    return aliases.get(text, text)
+
+
+def pseudo_quantize_activation(
+    activation: torch.Tensor,
+    precision: str,
+    *,
+    channel_axis: int | None = None,
+) -> torch.Tensor:
+    """Deterministic activation fake quantization for the Stage-1 proxy."""
+
+    precision = deployment_precision(precision)
+    if precision == "FP32":
+        return activation
+    if precision == "FP16":
+        return activation.to(torch.float16).to(activation.dtype)
+    if precision == "INT8":
+        if not activation.is_floating_point():
+            raise TypeError("activation_fake_quant_requires_floating_tensor")
+        if channel_axis is None:
+            amax = activation.detach().abs().amax()
+        else:
+            axis = int(channel_axis) % activation.ndim
+            reduce_axes = tuple(index for index in range(activation.ndim) if index != axis)
+            amax = (
+                activation.detach().abs().amax(dim=reduce_axes, keepdim=True)
+                if reduce_axes
+                else activation.detach().abs()
+            )
+        scale = amax / 127.0
+        scale = torch.where(scale > 0.0, scale, torch.ones_like(scale))
+        return torch.clamp(torch.round(activation / scale), -127, 127).to(activation.dtype) * scale
+    raise ValueError(f"unsupported activation precision: {precision}")
+
+
 def _slice_mask_like(value: torch.Tensor, axis: int, indices: tuple[int, ...]) -> torch.Tensor:
     mask = torch.ones_like(value, dtype=torch.bool)
     index = torch.as_tensor(indices, dtype=torch.long, device=value.device)
