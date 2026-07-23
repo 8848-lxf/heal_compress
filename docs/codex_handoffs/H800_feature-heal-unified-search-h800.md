@@ -403,3 +403,50 @@ Disco 实图解析结论：
 ---
 时间戳：2026-07-23 18:53:07 CST｜轮次：Round 4
 ---
+
+## Round 5：Disco Greedy 正式完成，F-Cooper GA 逐代 Stage-2 接近完成
+
+队列仍正常运行，PID `1000283`。权威 status：
+
+- Disco Greedy 于 `2026-07-23T04:34:14-07:00` return code 0 完成。
+- 随后自动启动 F-Cooper GA，当前 search PID `1657864`。
+- Disco GA 尚未启动，继续等待同一三卡池。
+
+### Disco Greedy 正式六预算结果
+
+run：`outputs/h800_heal_lidar_disco_runtime_graph_joint_greedy_20260723_035226`
+
+六个预算均进入 BOPS hard band；每个候选均完成 1789/1789 帧、0 skip，physical/QDQ/engine/precision/merge/evaluation acceptance 全部为 true。strict-FP32 reference 为 mAP 0.635584、forward p50 6.7545 ms。
+
+| 目标 BOPS | 实际 BOPS | 参数剪枝率 | INT8 层 | mAP | p50 ms | F2 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0.05 | 0.054888 | 70.033% | 12 | 0.635154 | 2.3512 | 0.086818 |
+| 0.10 | 0.100805 | 58.887% | 8 | 0.635840 | 2.6341 | 0.077996 |
+| 0.15 | 0.153817 | 51.363% | 1 | 0.635495 | 2.9434 | 0.090709 |
+| 0.20 | 0.201973 | 50.305% | 1 | 0.635583 | 3.3533 | 0.099332 |
+| 0.25 | 0.254354 | 40.908% | 0 | 0.635643 | 4.0078 | 0.118669 |
+| 0.30 | 0.303923 | 48.376% | 1 | 0.635746 | 4.0530 | 0.120010 |
+
+搜索成本：Stage-1 207.65 秒/0.17304 allocated GPU-hours；26039 次 proxy 实算、26039 唯一候选、0 cache hit；Greedy 498 步、每步 42--56 个邻居、邻居总数 26038。Stage-2 6 个 engine、候选 10734 帧，加 reference 共 12523 帧；Stage-2 0.63469 allocated GPU-hours。总 allocated GPU-hours 0.81061，utilization-weighted GPU-hours 0.17133，wall 2494.75 秒，峰值显存 7450 MiB。六个 engine build pipeline 累计 1779.30 秒，其中 calibration 1447.74 秒、TensorRT build 309.27 秒。
+
+### F-Cooper GA 当前进度快照
+
+run：`outputs/h800_heal_lidar_fcooper_runtime_graph_joint_ga_20260723_043415`
+
+- 六个 BOPS round 的 Stage-1 均已生成。
+- 0.30/0.25/0.20/0.15/0.10 五个预算的逐代 Stage-2 已完整结束：实际代数分别为 6/7/7/6/6，共32代、160个代内候选槽位，全部 `status=ok`。
+- 0.05 预算共有7个实际代；generation 0--3 已完成，generation 4 正在运行。
+- 全局共39个实际代；已生成36个 generation winner，当前是第37代。
+- 当前184/195个候选槽位已解析：118个唯一 Stage-2 score 全部 `ok`，66个跨代 cache hits；没有 build/evaluation failure。
+- 39个 generation winner 全部产生后，才会启动各代 winner 的1789帧完整验证与每预算最终 winner 选择；当前 full-validation 文件数为0，不能提前报告 F-Cooper GA 最终结果。
+- GPU 5/6/7 正常工作；快照约为 6.8/3.6/3.6 GiB，无错误日志。
+
+### 剩余任务
+
+1. 完成 F-Cooper GA 的 generation 4--6、各代 winner 1789帧复评和六预算最终 winner。
+2. 队列自动启动 Disco GA，完成相同逐代 Stage-2 与最终完整验证协议。
+3. 队列全部结束后汇总 Disco Greedy vs GA、F-Cooper Greedy vs 新 GA，以及精确资源成本。
+
+---
+时间戳：2026-07-23 22:26:21 CST｜轮次：Round 5
+---
