@@ -22,6 +22,13 @@ from search.orchestration.lidar_transformer_dh_power_alignment_4090 import (
     single_family_candidate_manifest,
     validate_4090_runtime,
 )
+from search.reporting.transformer_dh_power_alignment_4090 import (
+    accuracy_class,
+    build_repeat_stability,
+    compact_evidence_record,
+    precision_interaction,
+    write_power_alignment_reports,
+)
 
 
 def test_power_widths_for_d32_are_deduplicated_and_complete():
@@ -250,3 +257,82 @@ def test_queue_assignment_uses_only_requested_gpus_and_is_deterministic():
     assigned = assign_queue_owners(rows, gpu_ids=(4, 5, 6, 7))
     assert [row["physical_gpu"] for row in assigned] == [4, 5, 6, 7, 4, 5, 6, 7, 4]
     assert {row["physical_gpu"] for row in assigned} == {4, 5, 6, 7}
+
+
+@pytest.mark.parametrize(
+    ("delta", "expected"),
+    [(0.0, "SAFE"), (-0.003, "SAFE"), (-0.0031, "BORDERLINE"), (-0.01, "BORDERLINE"), (-0.0101, "UNSAFE")],
+)
+def test_fixed500_accuracy_class_is_fail_closed(delta, expected):
+    assert accuracy_class(delta, evaluated=500, skipped=0, finite=True) == expected
+    assert accuracy_class(delta, evaluated=499, skipped=0, finite=True) == "INVALID_EVALUATION"
+
+
+def test_precision_interaction_separates_structure_and_precision_losses():
+    result = precision_interaction(
+        baseline_p32_map=0.70,
+        baseline_profile_map=0.69,
+        candidate_p32_map=0.68,
+        candidate_profile_map=0.665,
+    )
+    assert result["delta_structure"] == pytest.approx(-0.02)
+    assert result["delta_precision_base"] == pytest.approx(-0.01)
+    assert result["delta_precision_candidate"] == pytest.approx(-0.015)
+    assert result["interaction"] == pytest.approx(-0.005)
+
+
+def test_build_repeat_stability_requires_two_passes_and_no_slowdown():
+    stable = build_repeat_stability((0.02, 0.015, 0.0), required_reduction=0.01)
+    assert stable["build_repeat_stable"] is True
+    assert stable["passing_builds"] == 2
+    unstable = build_repeat_stability((0.02, 0.015, -0.001), required_reduction=0.01)
+    assert unstable["build_repeat_stable"] is False
+
+
+def test_compact_evidence_record_requires_hashes_and_realized_precision():
+    row = {
+        "candidate_id": "C1",
+        "structure_hash": "structure",
+        "onnx_sha256": "onnx",
+        "engine_sha256": "engine",
+        "requested_realized_conflict_count": 0,
+        "evaluated": 500,
+        "skipped": 0,
+    }
+    compact = compact_evidence_record(row)
+    assert compact["candidate_id"] == "C1"
+    with pytest.raises(RuntimeError, match="compact_evidence_missing"):
+        compact_evidence_record({**row, "engine_sha256": ""})
+
+
+def test_report_writer_emits_compact_contract_and_root_conclusion(tmp_path):
+    row = {
+        "model": "lidar_cobevt",
+        "family": "baseline",
+        "candidate_id": "B0",
+        "structure_kind": "baseline",
+        "structure_hash": "structure",
+        "profile": "P32",
+        "evaluated": 500,
+        "skipped": 0,
+        "mAP": 0.7,
+        "p50_ms": 5.0,
+        "accuracy_class": "SAFE",
+        "latency_class": "NO_BENEFIT",
+        "search_space_candidate": False,
+    }
+    result = write_power_alignment_reports(
+        tmp_path,
+        candidate_rows=[{"candidate_id": "B0", "model": "lidar_cobevt"}],
+        single_family_rows=[row],
+        joint_rows=[],
+    )
+    assert result["summary"]["single_family_fixed500_rows"] == 1
+    for name in (
+        "power_alignment_candidate_manifest.csv",
+        "power_alignment_single_family_fixed500.csv",
+        "power_alignment_contract.json",
+        "root_conclusion_power_alignment.md",
+        "reports/report_summary.json",
+    ):
+        assert (tmp_path / name).is_file(), name
