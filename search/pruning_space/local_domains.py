@@ -48,10 +48,107 @@ class LocalPruningDomain:
     ranking_hash: str = ""
     unit_scores: dict[str, float] = field(default_factory=dict)
     constraints: dict[str, Any] = field(default_factory=dict)
+    domain_type: str = ""
+    model: str = ""
+    module_path: str = ""
+    family: str = ""
+    block_path: str = ""
+    dependency_members: tuple[dict[str, Any], ...] = ()
+    ranking_groups: dict[str, Any] = field(default_factory=dict)
+    latency_mapping: dict[str, Any] = field(default_factory=dict)
+    precision_units: tuple[str, ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        legacy_types = {
+            "dense": "cnn_channel",
+            "regular_grouped": "grouped_conv_channel",
+        }
+        resolved_type = str(self.domain_type or legacy_types.get(self.kind, self.kind))
+        object.__setattr__(self, "domain_type", resolved_type)
+        object.__setattr__(self, "model", str(self.model or ""))
+        object.__setattr__(self, "module_path", str(self.module_path or self.root_module_path))
+        object.__setattr__(self, "family", str(self.family or ""))
+        object.__setattr__(self, "block_path", str(self.block_path or ""))
+        object.__setattr__(
+            self,
+            "dependency_members",
+            tuple(dict(value) for value in self.dependency_members),
+        )
+        object.__setattr__(self, "ranking_groups", dict(self.ranking_groups))
+        object.__setattr__(self, "latency_mapping", dict(self.latency_mapping))
+        object.__setattr__(self, "precision_units", tuple(str(value) for value in self.precision_units))
+        object.__setattr__(self, "metadata", dict(self.metadata))
 
     @property
     def width_semantics(self) -> str:
-        return "retained_channels_per_group" if self.kind == "regular_grouped" else "retained_output_channels"
+        if self.domain_type == "grouped_conv_channel":
+            return "retained_channels_per_group"
+        if self.domain_type == "attention_dh":
+            return "retained_dimension_per_head"
+        if self.domain_type == "ffn_hidden":
+            return "retained_ffn_hidden_units"
+        return "retained_output_channels"
+
+    @property
+    def current_width(self) -> int:
+        """All-keep width; a candidate owns the mutable current state."""
+
+        return int(self.original_width)
+
+    @property
+    def root_module(self) -> str:
+        """Serializable root-module identity used by domain adapters."""
+
+        return self.root_module_path
+
+    def repair_width(self, retained_width: int) -> int:
+        """Map a diagnostic raw width to the nearest legal deployment width.
+
+        Formal candidate legalization remains strict.  This helper is used by
+        initialization/repair code that explicitly opts into nearest repair;
+        ties prefer the wider shape to avoid accidental over-pruning.
+        """
+
+        value = int(retained_width)
+        return int(min(self.legal_widths, key=lambda width: (abs(int(width) - value), -int(width))))
+
+    def decode_width(self, retained_width: int) -> dict[str, Any]:
+        """Decode one legal scalar width to its immutable physical keep sets."""
+
+        width = int(retained_width)
+        self.pruned_unit_ids_for_width(width)
+        if self.domain_type == "attention_dh":
+            qk = self.ranking_groups.get("qk_low_to_high_by_head") or ()
+            vo = self.ranking_groups.get("vo_low_to_high_by_head") or ()
+            qk_keep = [sorted(int(value) for value in row[-width:]) for row in qk]
+            vo_keep = [sorted(int(value) for value in row[-width:]) for row in vo]
+            return {
+                "domain_id": self.domain_id,
+                "domain_type": self.domain_type,
+                "module_path": self.module_path,
+                "target_d_h": width,
+                "heads": int(self.constraints.get("heads", len(qk_keep))),
+                "qk_keep_by_head": qk_keep,
+                "vo_keep_by_head": vo_keep,
+                "shared_qkvo_index": bool(self.constraints.get("shared_qkvo_index", False)),
+            }
+        if self.domain_type == "ffn_hidden":
+            order = tuple(int(value) for value in self.ranking_groups.get("ffn_low_to_high", ()))
+            return {
+                "domain_id": self.domain_id,
+                "domain_type": self.domain_type,
+                "module_path": self.module_path,
+                "target_d_ff": width,
+                "keep_indices": sorted(order[-width:]),
+                "ffn_type": str(self.constraints.get("ffn_type", "standard")),
+            }
+        return {
+            "domain_id": self.domain_id,
+            "domain_type": self.domain_type,
+            "retained_width": width,
+            "pruned_unit_ids": list(self.pruned_unit_ids_for_width(width)),
+        }
 
     def pruned_unit_ids_for_width(self, retained_width: int) -> tuple[str, ...]:
         width = int(retained_width)
@@ -66,6 +163,11 @@ class LocalPruningDomain:
             "root_axis": self.root_axis,
             "scope_id": self.scope_id,
             "kind": self.kind,
+            "domain_type": self.domain_type,
+            "model": self.model,
+            "module_path": self.module_path,
+            "family": self.family,
+            "block_path": self.block_path,
             "original_width": self.original_width,
             "total_original_width": self.total_original_width,
             "groups": self.groups,
@@ -93,6 +195,11 @@ class LocalPruningDomain:
             "ranking_hash": self.ranking_hash,
             "unit_scores": dict(sorted(self.unit_scores.items())),
             "constraints": dict(self.constraints),
+            "dependency_members": [dict(value) for value in self.dependency_members],
+            "ranking_groups": dict(self.ranking_groups),
+            "latency_mapping": dict(self.latency_mapping),
+            "precision_units": list(self.precision_units),
+            "metadata": dict(self.metadata),
         }
 
 
@@ -437,12 +544,17 @@ def expand_domain_width_genes(
                 for group, values in domain.group_prune_maps[width].items()
             }
         domain_rows[domain.domain_id] = {
+            "domain_type": domain.domain_type,
+            "model": domain.model,
+            "module_path": domain.module_path,
+            "family": domain.family,
             "retained_width": width,
             "original_width": domain.original_width,
             "width_semantics": domain.width_semantics,
             "pruned_unit_ids": list(selected),
             "ranking_hash": domain.ranking_hash,
             "alignment_repair_applied": False,
+            "decoded_width_state": domain.decode_width(width),
         }
     expansion_payload = {
         "policy_version": "legal-domain-width-fixed-ranking-v1",
