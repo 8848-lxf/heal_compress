@@ -128,3 +128,68 @@
 ---
 时间戳：2026-07-24 04:08:52 CST｜轮次：Round 2
 ---
+
+## Round 3：物理候选 ONNX/TensorRT 闭环、W8A8 实现与完整回归
+
+### Stage-2 导出与精度审计代码
+
+- `search/stage2/transformer_precision_export.py`
+  - 将精确 module precision profile 展开到每个 canonical ONNX call，缺失/多余 module 或非法 precision 均 fail closed。
+  - 通过真实图拓扑从所选 Q/K/V projection 追踪最近 QK、Softmax 与 AV，而不是依赖节点名称猜测；检查 QK operands/output 及 Softmax input/output 的 ONNX dtype。
+  - 将 canonical ONNX identity 与 TensorRT inspector layer/tactic 对齐，要求 QK 与 Softmax compute 的 realized precision 均为 FP32。
+- `scripts/smoke_transformer_stage2_engine.py`
+  - 组合一个 CNN 64→60、一个 Attention d_h、一个 FFN d_ff 的真实物理候选；执行 strict checkpoint load、物理 state reload、有限前向、fixed-K wrapper parity、ONNX checker、shape inference、显式 Q/DQ/Cast、strongly typed TensorRT 10.9 build 和 inspector 审计。
+  - W8A8 选择通过真实校准得到的 activation scale；calibration manifest 同时绑定 config/checkpoint/dataset/frames/physical structure hash，结构不兼容时拒绝复用。
+- `quantization/precision/qdq_inserter.py`
+  - 将 merge-boundary 最近加权算子审计从每分支递归遍历改为 ONNX DAG 的正向/反向动态规划；保留相同最近边界语义，并将 CoBEVT 实图的病理级审计从超过 20 分钟降至约 0.75 秒。
+  - 新增 26 层 reconvergent diamond 回归，防止分支数量导致指数遍历。
+- `quantization/tensorrt/layer_info.py`
+  - TensorRT 将 Q/DQ Linear、Cast、bias/activation 融合为 `LayerType=fusion` 时，仅当 tactic 明确为 GEMM/MatMul/Conv 才承认其为 realized weighted compute，避免把任意 fusion 错当量化实现。
+- `search/stage2/trt_modelopt.py`、`trt_build_worker.py`、`search/model_family/evaluation.py`、`evaluation_worker.py`
+  - 在各自独立输出目录建立 canonical `heal_compress` package symlink，并把它放在 worker `PYTHONPATH` 首位。
+  - worker 记录实际 loaded source module 路径；任何模块落到正式 unified-search 工作树时直接失败，解决同级 worktree 目录名不叫 `heal_compress` 时的源码串用风险。
+- `opencood/tools/compression/latency_lut/tensorRT_benchmark.py`
+  - 非 dry-run 在导出前先解析 plugin/trtexec，使 runtime 缺失与 ONNX/QDQ 导出失败可区分；不再因不可消费的任务先写中间产物。
+
+### TensorRT 工具链与真实引擎验收
+
+- 所有 build 使用 `modelopt` 环境、该环境内 NVCC/GCC/G++、TensorRT 10.9.0.34 和 GPU0；没有使用系统 NVCC。
+- 为 H800 独立构建 sm90 PointPillar scatter plugin：
+  - 路径：`provenance/pointpillar_scatter_trt_sm90_modelopt_20260723T132000/libpointpillar_scatter_trt.so`。
+  - SHA256：`7be6450d65174dac28483aa631f2d8a4db416b500964f5c683fe1cabcc829c3c`。
+- 接受的 W16A16 physical mixed engines：
+  - V2X-ViT：fixed-K 27904，engine SHA256 `6535c8b9773500fd25d39315776866ae8673b7bc88fe9bf4b424f006ffef72b3`，85,338,236 bytes。
+  - CoBEVT：fixed-K 29184，engine SHA256 `e64bda5d845c687456bf479855660f6c7e5da04d87ab7e717d1e2bd6dd0eb09b`，76,843,508 bytes。
+  - 二者均准确实现 CNN 64→60、Attention d_h（V2X 16→8 / CoBEVT 32→16）和 FFN 256→128；无 mask-only、无隐藏 padding；3 个请求 FP16 weighted calls 均 realized FP16；QK 与 Softmax compute 均由 ONNX 和 inspector 双重证明为 FP32。
+- 接受的 W8A8 engines：
+  - V2X-ViT FFN1：engine SHA256 `29dd192d0b545415b3180063c003e54166894bd0f87816a0f2d1ff048fa721bb`；calibration hash `f870f937d19545adb6f69d976354884f3ded85b83f885fe447aa5bc6e4290863`。
+  - CoBEVT FFN2：engine SHA256 `c7635ac1e79264103457fcbd5c604ed1a731f448780c9756267346ed2427dd83`；calibration hash `0ab49025094bd03dfba5dc9504bae9bae22188b7bda5fc324cd5fcccc98d382d`。
+  - 二者 requested/realized INT8 weighted calls 均为 1/1，unresolved=0、mismatch=0；QK/Softmax compute 仍为 FP32。
+- 两个早期 V2X W8 输出目录保留了可复现的 package-source 泄漏失败证据；修复后新目录通过。CoBEVT 早期递归 QDQ 审计的 task-owned 进程终止与恢复信息保留在 `failures/`；没有向任何外部搜索进程发送信号。
+
+### 真实评估 smoke
+
+- V2X-ViT W16A16：smoke10 为 10/10、0 skipped、mAP 0.786634、forward p50 18.7966 ms；fixed50 为 50/50、mAP 0.572844、p50 17.2977 ms。
+- CoBEVT W16A16：smoke10 为 10/10、0 skipped、mAP 0.729694、p50 7.3627 ms；fixed50 为 50/50、mAP 0.572872、p50 7.8027 ms。
+- V2X-ViT W8A8 FFN1：smoke10 为 10/10、0 skipped、mAP 0.779515、p50 16.7148 ms。
+- CoBEVT W8A8 FFN2：smoke10 为 10/10、0 skipped、mAP 0.742745、p50 7.8793 ms。
+- 这些时延来自 GPU0 共享条件下的评估 smoke，只用于引擎可运行性观察；没有冒充 200 warmup/500 timed/5 repeats 的无争用正式 latency 结论。
+
+### SmoothQuant、Softmax A8 与剩余边界
+
+- SmoothQuant 代码支持 `{0.6,0.7,0.75,0.8}` 离线网格、alpha 冻结和 scale/calibration/structure hash 审计；只读历史设备证据分别为 V2X-ViT alpha 0.75、CoBEVT alpha 0.8。
+- 当前接受的 W8A8 引擎分别选择 FFN1/FFN2，因此本轮没有把 SmoothQuant 错标为已应用；下一步仍需为物理宽度后的 QKV projection 刷新 scales 并构建 QKV W8A8 engine anchor。
+- Softmax A8 合同已实现为 floating Softmax 后 output Q/DQ，不标成 native INT8 exponential/reduction；当前四个 engine 候选的 Softmax 均 realized FP32，因此没有声称已完成 Softmax A8 engine 选择。
+
+### 回归、隔离与停止条件
+
+- 使用 output-local package alias 预导入后执行完整测试：`966 passed, 0 failed, 82 warnings in 49.50s`。
+- 与本轮 Stage-2/隔离修改直接相关的复核：`38 passed, 4 warnings`。
+- `python -m compileall` 与 `git diff --check` 均通过。
+- 主工作树 commit 仍为 `896a049830874ef0d40faa87927873a1e88bedb6`，起始的三个用户未跟踪文件保持一致。
+- 运行后只读审计写入 `provenance/active_search_processes_after.json`：3 个长期 supervisor/watcher PID 持续存在；worker PID 变化为外部调度生命周期。本任务发送外部信号 0、写入外部路径 0、引用本任务路径的外部搜索进程 0。
+- 未执行 full1789；未运行正式六预算；未启动任何新的长搜索。
+
+---
+时间戳：2026-07-24 06:04:30 CST｜轮次：Round 3
+---
