@@ -500,6 +500,11 @@ def finalize(output_root: Path) -> dict[str, Any]:
     _enrich_formal_rows(output_root, phase_a_rows, phase_b_latency_rows)
     phase_a_latency = _latency_summary(phase_a_rows, phase="phase_a")
     phase_b_latency = _latency_summary(phase_b_latency_rows, phase="phase_b")
+    phase_b_latency_commits = sorted(
+        {str(row.get("code_commit", "")) for row in phase_b_latency_rows if row.get("code_commit")}
+    )
+    if not phase_b_latency_commits:
+        raise RuntimeError("phase_b_formal_latency_code_commit_missing")
     phase_b_rows = _csv(output_root / "phase_b_joint_fixed500.csv")
     widths = _phase_a_widths(output_root)
     decisions = _width_contract(widths, phase_a_latency, phase_b_latency, phase_b_rows)
@@ -604,7 +609,11 @@ def finalize(output_root: Path) -> dict[str, Any]:
             "microbenchmark_generation": "6cfde0a126b940be1aa8558725b60fc7bd49cb4c",
             "phase_a_formal_latency": "eb4d6a1e76cc0bbf1f9e229d3f0c36ebab92d896",
             "phase_b_structure_build_fixed500": "eb4d6a1e76cc0bbf1f9e229d3f0c36ebab92d896",
-            "phase_b_formal_latency": "9739082c5575d1b6bbd927835c5fc890d9dd666e",
+            "phase_b_formal_latency": (
+                phase_b_latency_commits[0]
+                if len(phase_b_latency_commits) == 1
+                else phase_b_latency_commits
+            ),
             "report_generation": head,
         },
     }

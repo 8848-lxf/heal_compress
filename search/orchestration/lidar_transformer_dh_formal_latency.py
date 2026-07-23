@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import statistics
+import subprocess
 from typing import Any, Mapping
 
 from search.model_families.transformer.dh_alignment_audit import latency_beneficial
@@ -49,6 +50,16 @@ def _stable_hash(value: Any) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode()
     ).hexdigest()
+
+
+def _code_commit() -> str:
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=Path(__file__).resolve().parents[2],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def _write(path: Path, value: Any) -> None:
@@ -491,6 +502,7 @@ def run_phase_b_formal_latency(
     torch.cuda.set_device(runtime)
     device = torch.device(f"cuda:{runtime}")
     state = ExperimentState(output_root)
+    code_commit = _code_commit()
     all_rows: list[dict[str, Any]] = []
     accuracy_rows: list[dict[str, Any]] = []
     with (output_root / "phase_b_joint_fixed500.csv").open(newline="", encoding="utf-8") as handle:
@@ -581,6 +593,7 @@ def run_phase_b_formal_latency(
                 if not (row["baseline_replay"] and int(row["replay_index"]) == len(rows) - 1)
             }
             for row in rows:
+                row["code_commit"] = code_commit
                 control_id = row.get("alignment_control_id")
                 control = by_id.get(str(control_id)) if control_id else None
                 if control:
