@@ -373,3 +373,33 @@ Disco 实图解析结论：
 ---
 时间戳：2026-07-23 16:35:17 CST｜轮次：Round 3
 ---
+
+## Round 4：正式三项六预算重跑队列启动
+
+用户确认 GPU 5/6/7 已完全空闲后完成启动前检查：三卡均为 4 MiB、0% utilization，无 compute process；没有残留 `search.cli` 或旧队列进程。三份正式配置均使用 GPU 5/6/7，六个 BOPS targets 为 0.05/0.10/0.15/0.20/0.25/0.30，Stage-2 为 500 帧，full validation 为 1789 帧；两个 GA 均为 `stage2_selection_scope: per_generation_topk`。
+
+新增正式串行队列脚本：
+
+- `scripts/run_heal_lidar_runtime_graph_formal_reruns.sh`
+- 只运行必须重做的三项，不重复已有效的 F-Cooper Greedy：
+  1. Disco Greedy runtime merge 修复六预算重跑；
+  2. F-Cooper GA 逐代 Top-5 Stage-2 六预算重跑；
+  3. Disco GA runtime merge + 逐代 Top-5 Stage-2 六预算重跑。
+- 三项串行占用同一 GPU 5/6/7 池；单项失败会记录非零 return code，但队列继续运行其余项，最终 queue return code 汇总失败状态。
+
+启动信息：
+
+- queue PID：`1000283`
+- 当前 search PID：`1000288`（Disco Greedy）
+- run tag：`20260723_1643_runtime_merge_per_generation`
+- status：`outputs/h800_heal_lidar_runtime_graph_formal_rerun_20260723_1643_runtime_merge_per_generation.status.jsonl`
+- log：`outputs/h800_heal_lidar_runtime_graph_formal_rerun_20260723_1643_runtime_merge_per_generation.log`
+- pid file：`outputs/h800_heal_lidar_runtime_graph_formal_rerun_20260723_1643_runtime_merge_per_generation.pid`
+- 第一个正式 run：`outputs/h800_heal_lidar_disco_runtime_graph_joint_greedy_20260723_035226`
+- 启动时搜索代码 commit：`4dc60e3047de22631036cb4a2dd2181274895098`
+
+启动后 GPU 5/6/7 分别占用约 4079/1155/1155 MiB，三个 worker 已加载。恢复时先读 status JSONL，再检查 queue/search PID 与当前 run 的 `run_manifest.json`、`search_cost_summary.json`、round/final-validation 产物；不得在队列仍活跃时重复启动。
+
+---
+时间戳：2026-07-23 18:53:07 CST｜轮次：Round 4
+---
