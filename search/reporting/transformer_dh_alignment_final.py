@@ -34,6 +34,12 @@ def _bool(value: Any) -> bool:
     return value is True or str(value).lower() in {"true", "1", "yes"}
 
 
+def _stable_hash(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode()
+    ).hexdigest()
+
+
 def _csv(path: Path) -> list[dict[str, str]]:
     if not path.is_file() or path.stat().st_size <= 2:
         return []
@@ -157,7 +163,7 @@ def _phase_b_artifact_audit(output_root: Path) -> dict[str, Any]:
     }
     structure_hashes: list[str] = []
     engine_hashes: list[str] = []
-    calibration_namespaces: list[str] = []
+    calibration_evidence_keys: list[str] = []
     fixed_rows = 0
     for model in ("lidar_cobevt", "lidar_v2xvit"):
         payload = _read(output_root / "reports" / f"{model}_phase_b_result.json")
@@ -219,21 +225,31 @@ def _phase_b_artifact_audit(output_root: Path) -> dict[str, Any]:
                         / profile
                         / "calibration_report.json"
                     ) or {}
-                    namespace = f"dh_joint_{model}_{hashlib.sha256(json.dumps(candidate['targets'], sort_keys=True, separators=(',', ':')).encode()).hexdigest()[:16]}_P8"
-                    calibration_namespaces.append(namespace)
+                    calibration_evidence_keys.append(
+                        _stable_hash(
+                            {
+                                "model": model,
+                                "joint_id": joint,
+                                "targets": candidate["targets"],
+                                "scale_hash": build.get("scale_hash"),
+                                "manifest_hash": calibration.get("manifest_hash"),
+                            }
+                        )
+                    )
                     if (
                         not build.get("fresh_joint_calibration")
                         or int(build.get("calibration_sample_count", -1)) != 200
                         or int(calibration.get("sample_count", -1)) != 200
                         or not build.get("scale_hash")
+                        or not calibration.get("manifest_hash")
                     ):
                         errors.append(f"phase_b_p8_calibration_not_fresh:{model}:{joint}")
     if len(structure_hashes) != 14 or len(set(structure_hashes)) != 14:
         errors.append(f"phase_b_structure_hash_count:{len(structure_hashes)}:{len(set(structure_hashes))}")
     if len(engine_hashes) != 42 or len(set(engine_hashes)) != 42:
         errors.append(f"phase_b_engine_hash_count:{len(engine_hashes)}:{len(set(engine_hashes))}")
-    if len(calibration_namespaces) != 14 or len(set(calibration_namespaces)) != 14:
-        errors.append("phase_b_calibration_namespace_collision")
+    if len(calibration_evidence_keys) != 14 or len(set(calibration_evidence_keys)) != 14:
+        errors.append("phase_b_calibration_evidence_identity_collision")
     certificate = {
         "schema_version": "h800-transformer-dh-phase-b-artifact-certificate-v1",
         "status": "accepted" if not errors else "rejected",
@@ -243,8 +259,10 @@ def _phase_b_artifact_audit(output_root: Path) -> dict[str, Any]:
         "fresh_engines": len(engine_hashes),
         "unique_engine_hashes": len(set(engine_hashes)),
         "fixed500_rows": fixed_rows,
-        "fresh_p8_calibrations": len(calibration_namespaces),
-        "unique_calibration_namespaces": len(set(calibration_namespaces)),
+        "fresh_p8_calibrations": len(calibration_evidence_keys),
+        "unique_calibration_evidence_keys": len(set(calibration_evidence_keys)),
+        "calibration_cache_mode": "disabled_fresh_in_process_materialization",
+        "calibration_cache_reuse_detected": False,
         "phase_a_engine_reuse": bool(set(engine_hashes) & phase_a_engine_hashes),
         "phase_a_structure_hash_reuse": bool(set(structure_hashes) & phase_a_structure_hashes),
         "artifact_commit": "eb4d6a1e76cc0bbf1f9e229d3f0c36ebab92d896",
