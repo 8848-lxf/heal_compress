@@ -53,6 +53,7 @@ def build_dependency_graph(
     example_inputs: Any,
     *,
     config: TraceConfig | Mapping[str, Any] | None = None,
+    forward_fn: Callable[[nn.Module, Any], Any] | None = None,
 ) -> DependencyGraphResult:
     """Build a typed FX graph and proven channel dependency mappings.
 
@@ -73,6 +74,7 @@ def build_dependency_graph(
             model,
             example_inputs,
             config=cfg,
+            forward_fn=forward_fn,
         )
         setattr(graph, "_runtime_scopes", _scopes)
         setattr(graph, "_realized_backend", "runtime_tensor_flow")
@@ -165,7 +167,12 @@ def trace_model(
     realized_backend = "torch_fx"
     runtime_scopes: list[DependencyScope] | None = None
     try:
-        graph = build_dependency_graph(model, example_inputs, config=cfg)
+        graph = build_dependency_graph(
+            model,
+            example_inputs,
+            config=cfg,
+            forward_fn=forward_fn,
+        )
         runtime_scopes = getattr(graph, "_runtime_scopes", None)
         realized_backend = str(getattr(graph, "_realized_backend", "torch_fx"))
     except TraceError:
