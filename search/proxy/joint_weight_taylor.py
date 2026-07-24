@@ -54,23 +54,168 @@ class JointWeightTaylorProxy:
         parameter: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor] | None:
         gradient = self.statistics.gradients.get(parameter_name)
+        absolute_gradient = self.statistics.absolute_gradients.get(parameter_name)
         fisher = self.statistics.fisher_diag.get(parameter_name)
         if gradient is None or fisher is None:
             if self.strict:
                 raise RuntimeError(f"joint_weight_taylor_statistics_missing:{parameter_name}")
             return None
         return (
-            gradient.detach().to(device=parameter.device, dtype=parameter.dtype),
+            (absolute_gradient if absolute_gradient is not None else gradient.abs())
+            .detach()
+            .to(device=parameter.device, dtype=parameter.dtype),
             fisher.detach().to(device=parameter.device, dtype=parameter.dtype),
         )
 
     @staticmethod
+    def _cost_terms(
+        delta: torch.Tensor,
+        gradient: torch.Tensor,
+        fisher: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        if not bool(torch.isfinite(delta).all()):
+            raise RuntimeError("weight_taylor_delta_nonfinite")
+        if not bool(torch.isfinite(gradient).all()) or not bool(torch.isfinite(fisher).all()):
+            raise RuntimeError("weight_taylor_statistics_nonfinite")
+        first = (gradient * delta).abs()
+        second = 0.5 * (fisher * delta.square()).abs()
+        score = first + second
+        if bool((score < 0).any()) or not bool(torch.isfinite(score).all()):
+            raise RuntimeError("weight_taylor_element_score_invalid")
+        return first, second, score
+
+    @classmethod
     def _cost(
+        cls,
         delta: torch.Tensor,
         gradient: torch.Tensor,
         fisher: torch.Tensor,
     ) -> torch.Tensor:
-        return (gradient * delta).abs() + 0.5 * fisher * delta.square()
+        return cls._cost_terms(delta, gradient, fisher)[2]
+
+    def _slices_by_parameter(
+        self, phenotype: CandidatePhenotype
+    ) -> dict[str, list[ParameterSlice]]:
+        return parameter_slices_for_phenotype(
+            phenotype,
+            self.unit_to_parameter_slices,
+        )
+
+    def pruning_action_breakdown(
+        self,
+        current: CandidatePhenotype,
+        successor: CandidatePhenotype,
+    ) -> dict[str, float | int | str | bool]:
+        """Score only elements newly removed by one legal width action."""
+        current_slices = self._slices_by_parameter(current)
+        successor_slices = self._slices_by_parameter(successor)
+        first_total = 0.0
+        second_total = 0.0
+        element_count = 0
+        tensor_count = 0
+        for name, parameter in self.model.named_parameters():
+            if name not in successor_slices:
+                continue
+            weight = parameter.detach()
+            statistics = self._statistics_for(name, weight)
+            if statistics is None:
+                continue
+            gradient, fisher = statistics
+            retained_before = retained_mask_for_parameter(
+                weight, current_slices.get(name, [])
+            )
+            retained_after = retained_mask_for_parameter(
+                weight, successor_slices.get(name, [])
+            )
+            newly_removed = retained_before & ~retained_after
+            if not bool(newly_removed.any()):
+                continue
+            delta = torch.where(newly_removed, -weight, torch.zeros_like(weight))
+            first, second, _score = self._cost_terms(delta, gradient, fisher)
+            first_total += float(first.sum().detach().cpu())
+            second_total += float(second.sum().detach().cpu())
+            element_count += int(newly_removed.sum().detach().cpu())
+            tensor_count += 1
+        total = first_total + second_total
+        if total < 0.0:
+            raise RuntimeError("pruning_action_taylor_negative")
+        return {
+            "delta_J_prune": total,
+            "delta_J_WQ": 0.0,
+            "first_order_abs_sum": first_total,
+            "second_order_abs_sum": second_total,
+            "newly_pruned_parameter_count": element_count,
+            "touched_parameter_tensor_count": tensor_count,
+            "risk_refund": 0.0,
+            "formula": "sum_newly_removed(abs(g*(-w))+0.5*abs(h*w^2))",
+            "elementwise_abs_before_reduction": True,
+        }
+
+    def weight_quantization_action_breakdown(
+        self,
+        current: CandidatePhenotype,
+        successor: CandidatePhenotype,
+    ) -> dict[str, float | int | str | bool]:
+        """Score retained weights for the adjacent current-to-next precision."""
+        current_slices = self._slices_by_parameter(current)
+        modules = dict(self.model.named_modules())
+        parameters = dict(self.model.named_parameters())
+        first_total = 0.0
+        second_total = 0.0
+        element_count = 0
+        tensor_count = 0
+        changed_paths = sorted(
+            path
+            for path, precision in successor.realized_precision_profile.items()
+            if current.realized_precision_profile.get(path, "FP32") != precision
+        )
+        for module_path in changed_paths:
+            name = f"{module_path}.weight"
+            weight = parameters.get(name)
+            if weight is None:
+                continue
+            value = weight.detach()
+            statistics = self._statistics_for(name, value)
+            if statistics is None:
+                continue
+            gradient, fisher = statistics
+            current_precision = current.realized_precision_profile.get(
+                module_path, "FP32"
+            )
+            next_precision = successor.realized_precision_profile[module_path]
+            current_quantized = pseudo_quantize_tensor(
+                value, current_precision, module=modules.get(module_path)
+            )
+            next_quantized = pseudo_quantize_tensor(
+                value, next_precision, module=modules.get(module_path)
+            )
+            retained = retained_mask_for_parameter(
+                value, current_slices.get(name, [])
+            )
+            delta = torch.where(
+                retained,
+                next_quantized - current_quantized,
+                torch.zeros_like(value),
+            )
+            first, second, _score = self._cost_terms(delta, gradient, fisher)
+            first_total += float(first.sum().detach().cpu())
+            second_total += float(second.sum().detach().cpu())
+            element_count += int(retained.sum().detach().cpu())
+            tensor_count += 1
+        total = first_total + second_total
+        if total < 0.0:
+            raise RuntimeError("weight_quantization_action_taylor_negative")
+        return {
+            "delta_J_prune": 0.0,
+            "delta_J_WQ": total,
+            "first_order_abs_sum": first_total,
+            "second_order_abs_sum": second_total,
+            "retained_quantized_parameter_count": element_count,
+            "touched_parameter_tensor_count": tensor_count,
+            "risk_refund": 0.0,
+            "formula": "sum_retained(abs(g*(Q_next(w)-Q_current(w)))+0.5*abs(h*(Q_next(w)-Q_current(w))^2))",
+            "elementwise_abs_before_reduction": True,
+        }
 
     def _normalization_denominator(self, precision_layers: tuple[str, ...]) -> float:
         cached = self._denominator_by_precision_universe.get(precision_layers)

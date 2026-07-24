@@ -17,6 +17,7 @@ from .candidate_perturbation import parameter_slices_for_phenotype, retained_mas
 class FisherStatistics:
     gradients: dict[str, torch.Tensor] = field(default_factory=dict)
     fisher_diag: dict[str, torch.Tensor] = field(default_factory=dict)
+    absolute_gradients: dict[str, torch.Tensor] = field(default_factory=dict)
     manifest_hash: str = ""
     statistics_version: str = "fisher-diagonal-v1"
 
@@ -37,6 +38,7 @@ def collect_task_loss_fisher_statistics(
         raise ValueError("task_loss_fisher_calibration_batches_empty")
     gradients: dict[str, torch.Tensor] = {}
     fisher: dict[str, torch.Tensor] = {}
+    absolute_gradients: dict[str, torch.Tensor] = {}
     losses: list[float] = []
     model.train(False)
     for batch in calibration_batches:
@@ -52,9 +54,13 @@ def collect_task_loss_fisher_statistics(
                 continue
             value = parameter.grad.detach().float().cpu()
             gradients.setdefault(name, torch.zeros_like(value)).add_(value)
+            absolute_gradients.setdefault(name, torch.zeros_like(value)).add_(value.abs())
             fisher.setdefault(name, torch.zeros_like(value)).add_(value.square())
     sample_count = len(calibration_batches)
     gradients = {name: value / sample_count for name, value in gradients.items()}
+    absolute_gradients = {
+        name: value / sample_count for name, value in absolute_gradients.items()
+    }
     fisher = {name: value / sample_count for name, value in fisher.items()}
     model.zero_grad(set_to_none=True)
     identity = {
@@ -63,7 +69,8 @@ def collect_task_loss_fisher_statistics(
         "sample_count": sample_count,
         "task_losses": losses,
         "parameter_names": sorted(gradients),
-        "formula": "mean_gradient_and_empirical_fisher_E_gradient_squared",
+        "formula": "mean_signed_gradient_plus_elementwise_mean_abs_gradient_and_empirical_fisher_E_gradient_squared",
+        "absolute_value_before_sample_reduction": True,
         "normalization_applied": False,
     }
     statistics_hash = hashlib.sha256(
@@ -72,6 +79,7 @@ def collect_task_loss_fisher_statistics(
     statistics = FisherStatistics(
         gradients=gradients,
         fisher_diag=fisher,
+        absolute_gradients=absolute_gradients,
         manifest_hash=statistics_hash,
         statistics_version="common-task-loss-fisher-v1",
     )
@@ -138,12 +146,14 @@ class FisherTaylorProxy:
                 continue
             mask = retained_mask_for_parameter(param.detach(), slices_by_parameter[name])
             delta = torch.where(mask, torch.zeros_like(param.detach()), -param.detach())
-            grad = self.statistics.gradients.get(name)
+            grad = self.statistics.absolute_gradients.get(name)
+            if grad is None:
+                grad = self.statistics.gradients.get(name)
             fisher = self.statistics.fisher_diag.get(name)
             if grad is not None:
                 grad = grad.detach().to(device=delta.device, dtype=delta.dtype)
                 total += float((grad.detach() * delta).abs().sum().cpu())
             if fisher is not None:
                 fisher = fisher.detach().to(device=delta.device, dtype=delta.dtype)
-                total += 0.5 * float((fisher.detach() * delta.pow(2)).sum().cpu())
+                total += 0.5 * float((fisher.detach() * delta.pow(2)).abs().sum().cpu())
         return float(total)

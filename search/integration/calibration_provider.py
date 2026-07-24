@@ -452,6 +452,7 @@ def collect_or_load_fisher_statistics(
         return FisherStatistics(
             gradients={key: value for key, value in payload["gradients"].items()},
             fisher_diag={key: value for key, value in payload["fisher_diag"].items()},
+            absolute_gradients={key: value for key, value in payload.get("absolute_gradients", {}).items()},
             manifest_hash=str(payload.get("manifest_hash", "")),
             statistics_version=str(payload.get("statistics_version", "fisher-diagonal-v1")),
         )
@@ -462,6 +463,7 @@ def collect_or_load_fisher_statistics(
     if not batches:
         raise RuntimeError("fisher_statistics_missing:no_calibration_batches")
     gradients: dict[str, torch.Tensor] = {}
+    absolute_gradients: dict[str, torch.Tensor] = {}
     fisher: dict[str, torch.Tensor] = {}
     model.train(False)
     for batch in batches:
@@ -475,8 +477,10 @@ def collect_or_load_fisher_statistics(
                 continue
             grad = param.grad.detach()
             gradients.setdefault(name, torch.zeros_like(param.detach(), device=grad.device))
+            absolute_gradients.setdefault(name, torch.zeros_like(param.detach(), device=grad.device))
             fisher.setdefault(name, torch.zeros_like(param.detach(), device=grad.device))
             gradients[name] += grad
+            absolute_gradients[name] += grad.abs()
             fisher[name] += grad.pow(2)
     count = float(len(batches))
     for name in list(gradients):
@@ -487,13 +491,19 @@ def collect_or_load_fisher_statistics(
     torch.save(
         {
             "gradients": _tensor_dict_to_cpu(gradients),
+            "absolute_gradients": _tensor_dict_to_cpu(absolute_gradients),
             "fisher_diag": _tensor_dict_to_cpu(fisher),
             "manifest_hash": manifest_hash,
             "statistics_version": "fisher-diagonal-v1",
         },
         path,
     )
-    return FisherStatistics(_tensor_dict_to_cpu(gradients), _tensor_dict_to_cpu(fisher), manifest_hash=manifest_hash)
+    return FisherStatistics(
+        gradients=_tensor_dict_to_cpu(gradients),
+        fisher_diag=_tensor_dict_to_cpu(fisher),
+        absolute_gradients=_tensor_dict_to_cpu(absolute_gradients),
+        manifest_hash=manifest_hash,
+    )
 
 
 def weight_only_calibration_scales(module_paths: list[str], model: torch.nn.Module) -> dict[str, dict[str, float]]:
