@@ -56,8 +56,40 @@ latency conclusion.
 - V2XViT agent relation `d_h=8/16` is much faster but accuracy-unsafe.
 - V2XViT spatial-window candidates are mostly below the 1% latency gate; the
   W16/H4 `d_h=8` point barely exceeds it but is accuracy-unsafe.
-- Neighbor controls, P32, P8, and joint structures remain pending after this
-  priority conclusion.
+- Joint structures remain pending after this priority conclusion.
+
+---
+
+Completed: `2026-07-23T20:09:00Z`
+
+## P32/P16/P8 cross-profile and neighbor-control evidence
+
+The 22 priority physical structures now have complete P32, P16, and P8
+fixed500 and formal full-engine latency evidence: 66 structure/profile rows,
+all with 500 evaluated frames and zero skipped frames. P8 used fresh
+per-structure SQ1 calibration; no structure reused another structure's scale
+or calibration artifact.
+
+V2XViT agent-relation `d_h=24` retained accuracy under every contract and
+showed a stable same-profile speedup:
+
+- P32: mAP `0.656629011`, p50 `18.848640 ms`, speedup `1.344552x`;
+- P16: mAP `0.656534773`, p50 `15.627264 ms`, speedup `1.404157x`;
+- P8: mAP `0.656466355`, p50 `14.947328 ms`, speedup `1.415907x`.
+
+Three independent fresh builds per profile confirmed p50 reductions of
+`25.91%`-`26.00%` for P32, `28.79%`-`28.86%` for P16, and
+`29.43%`-`29.56%` for P8. The engine and tactic hashes differ, so this is
+build-stable performance rather than reuse of one favorable engine.
+
+The mandatory nearby 4-aligned controls disprove a stronger alignment-only
+claim. Across P32/P16/P8, `d_h=20` is faster than `d_h=24`, while `d_h=24`
+is faster than `d_h=28`. Therefore `d_h=24` has a substantial physical
+structure speedup but does not satisfy the rule that an 8-aligned point must
+beat both `target-4` and `target+4` controls. The observed ordering is
+monotonic with width and does not isolate an extra 8-alignment advantage.
+Compact evidence is in
+`docs/codex_handoffs/4090-transformer-dh-agent24-alignment-controls.csv`.
 
 ## Preserved failures
 
@@ -67,4 +99,3 @@ failed closed; a second manually assembled environment omitted the official
 ModelOpt runtime-library path and caused `trtexec` SIGSEGV after ONNX parsing.
 Using the repository's `build_engine_modelopt` wrapper resolved the issue.
 These failures are infrastructure provenance, not structure failures.
-

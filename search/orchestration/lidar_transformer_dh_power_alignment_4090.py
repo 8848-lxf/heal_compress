@@ -139,10 +139,28 @@ def validate_4090_runtime(
     }
 
 
+def modelopt_source_root_for_runtime(paths: Runtime4090Paths) -> Path:
+    """Resolve the audited vendored ModelOpt tree without stale defaults."""
+
+    explicit = os.environ.get("MODELOPT_SOURCE_ROOT", "").strip()
+    candidates = (
+        Path(explicit).expanduser() if explicit else None,
+        paths.tensorrt_root.resolve().parent / "Model-Optimizer-0.29.0",
+    )
+    for candidate in candidates:
+        if candidate is not None and (candidate / "modelopt" / "__init__.py").is_file():
+            return candidate.resolve()
+    raise RuntimeError(
+        "modelopt_source_missing_for_4090_runtime:"
+        + ":".join(str(candidate) for candidate in candidates if candidate is not None)
+    )
+
+
 def configure_4090_runtime(
     paths: Runtime4090Paths, *, output_root: Path, nvcc_archs: Sequence[str]
 ) -> dict[str, Any]:
     manifest = validate_4090_runtime(paths, nvcc_archs=nvcc_archs)
+    modelopt_source = modelopt_source_root_for_runtime(paths)
     extension_root = Path(output_root).resolve() / "environment" / "torch_extensions_modelopt_sm89"
     extension_root.mkdir(parents=True, exist_ok=True)
     prefix = paths.modelopt_prefix.resolve()
@@ -160,6 +178,7 @@ def configure_4090_runtime(
             "CMAKE_CUDA_COMPILER": str(paths.resolved_nvcc_path.resolve()),
             "TORCH_CUDA_ARCH_LIST": "8.9",
             "TORCH_EXTENSIONS_DIR": str(extension_root),
+            "MODELOPT_SOURCE_ROOT": str(modelopt_source),
             "LD_LIBRARY_PATH": f"{library_path}:{prefix / 'lib'}:{os.environ.get('LD_LIBRARY_PATH', '')}",
         }
     )
@@ -167,6 +186,7 @@ def configure_4090_runtime(
         {
             "torch_cuda_arch_list": "8.9",
             "torch_extensions_dir": str(extension_root),
+            "modelopt_source_root": str(modelopt_source),
         }
     )
     return manifest

@@ -13,9 +13,23 @@ _COMPACT_FIELDS = (
     "family",
     "candidate_id",
     "structure_kind",
+    "target_d_h_by_family",
     "d_h",
+    "original_d_h",
     "heads",
     "projection_width",
+    "reduction_ratio",
+    "exact_power_of_two",
+    "divisible_by_4",
+    "divisible_by_8",
+    "divisible_by_16",
+    "divisible_by_32",
+    "divisible_by_64",
+    "projection_divisible_by_4",
+    "projection_divisible_by_8",
+    "projection_divisible_by_16",
+    "projection_divisible_by_32",
+    "projection_divisible_by_64",
     "profile",
     "structure_hash",
     "onnx_sha256",
@@ -31,6 +45,7 @@ _COMPACT_FIELDS = (
     "delta_structure",
     "delta_precision_base",
     "delta_precision_candidate",
+    "delta_total",
     "interaction",
     "p50_ms",
     "p90_ms",
@@ -40,6 +55,12 @@ _COMPACT_FIELDS = (
     "precision_speedup",
     "total_speedup",
     "neighbor_control_speedup",
+    "neighbor_control_advantage",
+    "baseline_replay_drift_ratio",
+    "repeat_p50_cv",
+    "required_latency_reduction",
+    "observed_latency_reduction",
+    "latency_beneficial",
     "tactic_signature",
     "fusion_signature",
     "kernel_count",
@@ -225,7 +246,84 @@ def _contract(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                     if row.get("accuracy_class") in {"UNSAFE", "INVALID_EVALUATION"}
                 ],
             }
-        result["models"][model] = {"profiles": profiles}
+        single = [row for row in selected if row.get("structure_kind") == "single_family"]
+        joint = [row for row in selected if row.get("structure_kind") == "joint"]
+        result["models"][model] = {
+            "exact_power_widths_build_supported": sorted(
+                {int(row["d_h"]) for row in single if row.get("exact_power_of_two") is True}
+            ),
+            "exact_power_widths_accuracy_safe": sorted(
+                {
+                    int(row["d_h"])
+                    for row in single
+                    if row.get("exact_power_of_two") is True
+                    and row.get("accuracy_class") == "SAFE"
+                }
+            ),
+            "exact_power_widths_same_profile_latency_beneficial": sorted(
+                {
+                    int(row["d_h"])
+                    for row in single
+                    if row.get("exact_power_of_two") is True
+                    and row.get("latency_class") in {
+                        "HIGH_ALIGNMENT_BENEFICIAL",
+                        "ALIGNMENT_ADVANTAGE",
+                    }
+                }
+            ),
+            "multiple_of_8_latency_beneficial": sorted(
+                {
+                    int(row["d_h"])
+                    for row in single
+                    if row.get("divisible_by_8") is True
+                    and row.get("latency_class") in {
+                        "HIGH_ALIGNMENT_BENEFICIAL",
+                        "ALIGNMENT_ADVANTAGE",
+                    }
+                }
+            ),
+            "multiple_of_16_latency_beneficial": sorted(
+                {
+                    int(row["d_h"])
+                    for row in single
+                    if row.get("divisible_by_16") is True
+                    and row.get("latency_class") in {
+                        "HIGH_ALIGNMENT_BENEFICIAL",
+                        "ALIGNMENT_ADVANTAGE",
+                    }
+                }
+            ),
+            "multiple_of_32_latency_beneficial": sorted(
+                {
+                    int(row["d_h"])
+                    for row in single
+                    if row.get("divisible_by_32") is True
+                    and row.get("latency_class") in {
+                        "HIGH_ALIGNMENT_BENEFICIAL",
+                        "ALIGNMENT_ADVANTAGE",
+                    }
+                }
+            ),
+            "joint_high_alignment_combinations": sorted(
+                {
+                    str(row["candidate_id"])
+                    for row in joint
+                    if row.get("accuracy_class") in {"SAFE", "BORDERLINE"}
+                    and row.get("latency_class") in {
+                        "HIGH_ALIGNMENT_BENEFICIAL",
+                        "ALIGNMENT_ADVANTAGE",
+                    }
+                }
+            ),
+            "search_space_candidates": sorted(
+                {
+                    str(row["candidate_id"])
+                    for row in selected
+                    if row.get("search_space_candidate") is True
+                }
+            ),
+            "profiles": profiles,
+        }
     return result
 
 

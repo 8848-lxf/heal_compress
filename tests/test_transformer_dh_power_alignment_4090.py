@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from search.model_families.transformer.dh_power_alignment_4090 import (
@@ -19,15 +22,24 @@ from search.orchestration.lidar_transformer_dh_power_alignment_4090 import (
     calibration_identity,
     formal_branch_guard,
     fresh_build_contract,
+    modelopt_source_root_for_runtime,
     single_family_candidate_manifest,
     validate_4090_runtime,
 )
 from search.orchestration.lidar_transformer_dh_power_alignment_matrix_4090 import (
+    all_matrix_formal_latency_candidates,
     candidate_alias_map,
+    execute_fresh_build_plan,
+    fresh_build_latency_candidates,
     formal_latency_evidence_ready,
+    formal_latency_candidate_batches,
+    formal_latency_evidence_index,
+    formal_latency_batch_result_reusable,
+    fresh_build_repeat_plan,
     priority_rows_through_tier,
     priority_execution_queue,
     priority_aligned_single_family_queue,
+    remaining_structure_queue,
     unique_structure_queue,
     worker_queue,
 )
@@ -232,6 +244,16 @@ def test_4090_runtime_rejects_missing_sm89(tmp_path):
         validate_4090_runtime(_fake_runtime_tree(tmp_path), nvcc_archs=("sm_80", "sm_90"))
 
 
+def test_4090_runtime_resolves_vendored_modelopt_sibling(tmp_path, monkeypatch):
+    paths = _fake_runtime_tree(tmp_path)
+    source = paths.tensorrt_root.parent / "Model-Optimizer-0.29.0"
+    package = source / "modelopt" / "__init__.py"
+    package.parent.mkdir(parents=True)
+    package.write_text("__version__ = '0.29.0'\n")
+    monkeypatch.delenv("MODELOPT_SOURCE_ROOT", raising=False)
+    assert modelopt_source_root_for_runtime(paths) == source.resolve()
+
+
 def test_formal_branch_guard_fails_on_remote_head_change():
     with pytest.raises(RuntimeError, match="formal_search_branch_changed"):
         formal_branch_guard("3293f4e", "different")
@@ -250,6 +272,116 @@ def test_fresh_build_contract_forbids_timing_cache_reuse():
     assert contract["timing_cache_reused"] is False
     assert contract["engine_reused"] is False
     assert contract["onnx_reused_across_structures"] is False
+
+
+def test_fresh_build_repeat_plan_creates_independent_pairs(tmp_path):
+    baseline = tmp_path / "source" / "baseline" / "P16"
+    candidate = tmp_path / "source" / "candidate" / "P16"
+    rows = fresh_build_repeat_plan(
+        baseline_directory=baseline,
+        candidate_directory=candidate,
+        output_directory=tmp_path / "repeats",
+        profile="P16",
+        repeats=3,
+    )
+    assert len(rows) == 6
+    assert [row["repeat_index"] for row in rows] == [1, 1, 2, 2, 3, 3]
+    assert [row["role"] for row in rows] == ["baseline", "candidate"] * 3
+    assert len({row["output_directory"] for row in rows}) == 6
+    assert all(row["timing_cache_reused"] is False for row in rows)
+
+
+def test_fresh_build_repeat_plan_rejects_profile_mismatch(tmp_path):
+    with pytest.raises(ValueError, match="fresh_build_source_profile_mismatch"):
+        fresh_build_repeat_plan(
+            baseline_directory=tmp_path / "baseline" / "P32",
+            candidate_directory=tmp_path / "candidate" / "P16",
+            output_directory=tmp_path / "repeats",
+            profile="P16",
+            repeats=3,
+        )
+
+
+def test_execute_fresh_build_plan_writes_new_engines(tmp_path):
+    sources = {}
+    for role in ("baseline", "candidate"):
+        source = tmp_path / "source" / role / "P16"
+        (source / "engine_build").mkdir(parents=True)
+        typed = source / (
+            "strongly_typed.onnx"
+            if role == "baseline"
+            else "strongly_typed_explicit_qdq.onnx"
+        )
+        typed.write_bytes(role.encode())
+        (source / "engine_build" / "trt_build_request.json").write_text(
+            json.dumps(
+                {
+                    "qdq_onnx": str(typed),
+                    "precision_mapping": {"role": role},
+                    "build_config": {"strongly_typed": True},
+                    "physical_snapshot": {"model_family": "lidar_cobevt"},
+                    "tensorrt_root": str(tmp_path / "TensorRT-10.9"),
+                }
+            ),
+            encoding="utf-8",
+        )
+        sources[role] = source
+    plan = fresh_build_repeat_plan(
+        baseline_directory=sources["baseline"],
+        candidate_directory=sources["candidate"],
+        output_directory=tmp_path / "repeats",
+        profile="P16",
+        repeats=2,
+    )
+    calls = []
+
+    def fake_builder(**kwargs):
+        calls.append(kwargs)
+        kwargs["engine_path"].parent.mkdir(parents=True, exist_ok=True)
+        kwargs["engine_path"].write_bytes(str(kwargs["engine_path"]).encode())
+        kwargs["output_dir"].mkdir(parents=True, exist_ok=True)
+        (kwargs["output_dir"] / "engine_layer_info.json").write_text("[]")
+        return {"status": "ok"}
+
+    rows = execute_fresh_build_plan(
+        plan,
+        physical_gpu=4,
+        build_engine_fn=fake_builder,
+    )
+    assert len(rows) == 4
+    assert len(calls) == 4
+    assert all(call["gpu_id"] == 4 for call in calls)
+    assert all(call["conda_env"] == "modelopt" for call in calls)
+    assert len({row["engine_sha256"] for row in rows}) == 4
+    assert all(Path(row["engine_directory"]).joinpath("engine.plan").is_file() for row in rows)
+
+
+def test_fresh_build_latency_candidates_bind_one_repeat_pair(tmp_path):
+    repeat = tmp_path / "repeat_2"
+    for role in ("baseline", "candidate"):
+        directory = repeat / role
+        directory.mkdir(parents=True)
+        (directory / "engine.plan").write_bytes(role.encode())
+    rows = fresh_build_latency_candidates(repeat, profile="P8", repeat_index=2)
+    assert [row["candidate_id"] for row in rows] == ["baseline", "C1"]
+    assert all(row["profile"] == "P8" for row in rows)
+    assert all(row["repeat_index"] == 2 for row in rows)
+
+
+def test_remaining_structure_queue_deduplicates_aliases_and_completed():
+    rows = [
+        {"candidate_id": "B0", "structure_signature": "base", "model": "m"},
+        {"candidate_id": "C0", "structure_signature": "base", "model": "m"},
+        {"candidate_id": "C1", "structure_signature": "one", "model": "m"},
+        {"candidate_id": "C2", "structure_signature": "two", "model": "m"},
+    ]
+    queue = remaining_structure_queue(
+        rows,
+        completed_signatures={"base", "one"},
+        gpu_ids=(4, 5),
+    )
+    assert [row["candidate_id"] for row in queue] == ["C2"]
+    assert queue[0]["physical_gpu"] == 4
 
 
 def test_single_family_manifest_has_expected_unique_structure_count():
@@ -414,6 +546,238 @@ def test_formal_latency_requires_exact_build_and_complete_fixed500():
     assert formal_latency_evidence_ready({**build, "requested_realized_conflict_count": 1}, fixed) is False
     assert formal_latency_evidence_ready(build, {**fixed, "evaluated": 499}) is False
     assert formal_latency_evidence_ready(build, {**fixed, "skipped": 1}) is False
+
+
+def test_formal_latency_profile_must_match_build_and_fixed500():
+    build = {
+        "status": "ok",
+        "profile": "P8",
+        "requested_realized_conflict_count": 0,
+    }
+    fixed = {
+        "status": "ok",
+        "profile": "P8",
+        "evaluated": 500,
+        "skipped": 0,
+    }
+    assert formal_latency_evidence_ready(build, fixed, profile="P8") is True
+    assert formal_latency_evidence_ready({**build, "profile": "P16"}, fixed, profile="P8") is False
+    assert formal_latency_evidence_ready(build, {**fixed, "profile": "P16"}, profile="P8") is False
+
+
+def test_all_matrix_formal_latency_candidates_group_every_unique_structure(tmp_path):
+    rows = [
+        {
+            "candidate_id": "model__B0",
+            "model": "model",
+            "structure_signature": "baseline",
+            "target_d_h_by_family": {"family": 32},
+        },
+        {
+            "candidate_id": "model__family__dh_016",
+            "model": "model",
+            "structure_signature": "candidate",
+            "target_d_h_by_family": {"family": 16},
+        },
+        {
+            "candidate_id": "alias",
+            "model": "model",
+            "structure_signature": "candidate",
+            "target_d_h_by_family": {"family": 16},
+        },
+    ]
+
+    def evidence_directory(row, profile):
+        directory = tmp_path / str(row["candidate_id"]) / profile
+        directory.mkdir(parents=True)
+        (directory / "engine.plan").write_bytes(b"engine")
+        return directory
+
+    def evidence_loader(directory, profile):
+        return (
+            {
+                "status": "ok",
+                "profile": profile,
+                "requested_realized_conflict_count": 0,
+                "engine_sha256": "engine-hash",
+            },
+            {
+                "status": "ok",
+                "profile": profile,
+                "evaluated": 500,
+                "skipped": 0,
+                "mAP": 0.6,
+                "structure_hash": "structure-hash",
+            },
+        )
+
+    grouped = all_matrix_formal_latency_candidates(
+        rows,
+        profiles=("P32", "P16", "P8"),
+        evidence_directory=evidence_directory,
+        evidence_loader=evidence_loader,
+    )
+    assert set(grouped) == {("model", "P32"), ("model", "P16"), ("model", "P8")}
+    assert all(len(group) == 2 for group in grouped.values())
+    assert all(group[0]["candidate_id"] == "model__B0" for group in grouped.values())
+
+
+def test_all_matrix_formal_latency_candidates_fail_closed_on_incomplete_evidence(tmp_path):
+    rows = [
+        {
+            "candidate_id": "model__B0",
+            "model": "model",
+            "structure_signature": "baseline",
+            "target_d_h_by_family": {"family": 32},
+        }
+    ]
+
+    with pytest.raises(RuntimeError, match="all_matrix_formal_latency_evidence_incomplete"):
+        all_matrix_formal_latency_candidates(
+            rows,
+            profiles=("P16",),
+            evidence_directory=lambda row, profile: tmp_path,
+            evidence_loader=lambda directory, profile: ({}, {}),
+        )
+
+
+def test_all_matrix_formal_latency_candidates_can_screen_completed_prefix(tmp_path):
+    rows = [
+        {
+            "candidate_id": "model__B0",
+            "model": "model",
+            "structure_signature": "baseline",
+            "target_d_h_by_family": {"family": 32},
+        },
+        {
+            "candidate_id": "missing",
+            "model": "model",
+            "structure_signature": "missing",
+            "target_d_h_by_family": {"family": 16},
+        },
+    ]
+    baseline = tmp_path / "model__B0" / "P16"
+    baseline.mkdir(parents=True)
+    (baseline / "engine.plan").write_bytes(b"engine")
+
+    def load(directory, profile):
+        if directory == baseline:
+            return (
+                {
+                    "status": "ok",
+                    "profile": profile,
+                    "requested_realized_conflict_count": 0,
+                    "engine_sha256": "engine",
+                },
+                {
+                    "status": "ok",
+                    "profile": profile,
+                    "evaluated": 500,
+                    "skipped": 0,
+                    "mAP": 0.6,
+                    "structure_hash": "baseline",
+                },
+            )
+        return {}, {}
+
+    grouped = all_matrix_formal_latency_candidates(
+        rows,
+        profiles=("P16",),
+        evidence_directory=lambda row, profile: tmp_path / row["candidate_id"] / profile,
+        evidence_loader=load,
+        fail_on_missing=False,
+    )
+    assert [row["candidate_id"] for row in grouped[("model", "P16")]] == ["model__B0"]
+
+
+def test_formal_latency_batches_repeat_baseline_and_cover_candidates_once():
+    rows = [{"candidate_id": "model__B0"}] + [
+        {"candidate_id": f"candidate-{index}"} for index in range(17)
+    ]
+    batches = formal_latency_candidate_batches(
+        rows, baseline_id="model__B0", maximum_candidates=8
+    )
+    assert len(batches) == 3
+    assert all(batch[0]["candidate_id"] == "model__B0" for batch in batches)
+    candidates = [row["candidate_id"] for batch in batches for row in batch[1:]]
+    assert candidates == [f"candidate-{index}" for index in range(17)]
+
+
+def test_formal_latency_evidence_index_aggregates_baseline_replays():
+    rows = [
+        {
+            "candidate_id": "model__B0",
+            "model": "model",
+            "profile": "P16",
+            "structure_signature": "baseline",
+            "baseline_replay": True,
+            "p50_ms": 10.0,
+            "p90_ms": 11.0,
+            "p95_ms": 12.0,
+            "p99_ms": 13.0,
+        },
+        {
+            "candidate_id": "candidate",
+            "model": "model",
+            "profile": "P16",
+            "structure_signature": "candidate",
+            "baseline_replay": False,
+            "p50_ms": 8.0,
+            "p90_ms": 9.0,
+            "p95_ms": 10.0,
+            "p99_ms": 11.0,
+        },
+        {
+            "candidate_id": "model__B0",
+            "model": "model",
+            "profile": "P16",
+            "structure_signature": "baseline",
+            "baseline_replay": True,
+            "p50_ms": 11.0,
+            "p90_ms": 12.0,
+            "p95_ms": 13.0,
+            "p99_ms": 14.0,
+        },
+    ]
+    index = formal_latency_evidence_index(rows)
+    assert index[("baseline", "P16")]["p50_ms"] == 10.5
+    assert index[("baseline", "P16")]["baseline_measurement_count"] == 2
+    assert index[("candidate", "P16")]["p50_ms"] == 8.0
+
+
+def test_formal_latency_batch_reuse_requires_identity_profile_and_engine_hash():
+    expected = [
+        {"candidate_id": "model__B0", "profile": "P16", "engine_sha256": "base"},
+        {"candidate_id": "candidate", "profile": "P16", "engine_sha256": "candidate"},
+    ]
+    actual = [
+        {
+            "candidate_id": "model__B0",
+            "profile": "P16",
+            "engine_sha256": "base",
+            "baseline_replay": True,
+            "formal": True,
+        },
+        {
+            "candidate_id": "candidate",
+            "profile": "P16",
+            "engine_sha256": "candidate",
+            "baseline_replay": False,
+            "formal": True,
+        },
+        {
+            "candidate_id": "model__B0",
+            "profile": "P16",
+            "engine_sha256": "base",
+            "baseline_replay": True,
+            "formal": True,
+        },
+    ]
+    assert formal_latency_batch_result_reusable(actual, expected) is True
+    assert formal_latency_batch_result_reusable(
+        [{**row, "engine_sha256": "stale"} if row["candidate_id"] == "candidate" else row for row in actual],
+        expected,
+    ) is False
 
 
 def test_priority_tier_one_contains_only_baseline_and_exact_8_16_32_rows():
