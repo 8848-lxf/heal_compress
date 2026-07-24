@@ -360,3 +360,14 @@
 ---
 时间戳：2026-07-24 21:54:07 CST｜轮次：Round 10
 ---
+
+## Round 11：归因代码提交与远端同步
+
+- 归因实现、测试和 Round 10 报告已提交为 `7da22f816aa3ea69e0209a3d0a94822f0b72771c`（`diagnose: attribute V2X-ViT greedy accuracy collapse`）。
+- 该提交已推送到 `origin/feature/h800-transformer-unified-search`，push 后首次复核 `HEAD...origin/feature/h800-transformer-unified-search` 为 `0 0`。
+- 正式分支仍观察为 `460764fdecf9ea6298667586c033a51aa4b71c7d`，本轮未对其 checkout/reset/merge/rebase 或写入。
+- 本文档同步提交后，以最终 `git rev-parse HEAD` 和再次执行的远端 `0 0` 为最终血缘。
+
+---
+时间戳：2026-07-24 21:58:00 CST｜轮次：Round 11
+---
