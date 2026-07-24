@@ -101,7 +101,6 @@ def run_weight_only_abs_greedy(
                 raise RuntimeError("weight_only_greedy_utility_nonfinite")
             retention = bops_after / float(baseline_bops["bops_total"])
             phenotype_hash = candidate_hash(successor_phenotype, space)
-            sizes = size_evaluator(successor_phenotype)
             cumulative = cumulative_prune + cumulative_wq + delta_action
             row = {
                 "step": step,
@@ -137,8 +136,8 @@ def run_weight_only_abs_greedy(
                 "structure_hash": _stable_hash(successor.pruning_width_genes),
                 "precision_hash": _stable_hash(successor.precision_genes),
                 "candidate_hash": phenotype_hash,
-                "mixed_weight_size_bytes": float(sizes["size_bits_total"]) / 8.0,
-                "R_parameter_retention": float(sizes["R_parameter_retention"]),
+                "mixed_weight_size_bytes": float("inf"),
+                "R_parameter_retention": float("nan"),
                 "structural_repair_count": 0,
                 "precision_repair_count": 0,
                 "budget_projection_count": 0,
@@ -146,7 +145,7 @@ def run_weight_only_abs_greedy(
                 "phenotype": successor_phenotype,
                 "risk": risk,
                 "bops_breakdown": bops,
-                "size_breakdown": sizes,
+                "size_breakdown": None,
             }
             action_rows.append(row)
         if not action_rows:
@@ -159,8 +158,17 @@ def run_weight_only_abs_greedy(
                 row["candidate_hash"],
             )
         )
+        selected = action_rows[0]
         for rank, row in enumerate(action_rows, start=1):
             row["global_rank"] = rank
+            in_band = abs(float(row["current_retention"]) - float(target)) <= float(
+                tolerance_abs
+            )
+            if in_band or row is selected:
+                sizes = size_evaluator(row["phenotype"])
+                row["size_breakdown"] = sizes
+                row["mixed_weight_size_bytes"] = float(sizes["size_bits_total"]) / 8.0
+                row["R_parameter_retention"] = float(sizes["R_parameter_retention"])
             public = {
                 key: value
                 for key, value in row.items()
@@ -173,9 +181,7 @@ def run_weight_only_abs_greedy(
                     "size_breakdown",
                 }
             }
-            if abs(float(row["current_retention"]) - float(target)) <= float(
-                tolerance_abs
-            ):
+            if in_band:
                 incumbent = band.get(row["candidate_hash"])
                 candidate_entry = {**row, "trace_row": public}
                 if incumbent is None or (
@@ -191,7 +197,6 @@ def run_weight_only_abs_greedy(
                 ):
                     band[row["candidate_hash"]] = candidate_entry
             trace.append(public)
-        selected = action_rows[0]
         trace[-len(action_rows)]["selected"] = True
         selected["selected"] = True
         selected_steps.append(selected)

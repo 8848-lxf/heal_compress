@@ -43,6 +43,11 @@ class JointWeightTaylorProxy:
         self.epsilon = float(epsilon)
         self.strict = bool(strict)
         self._denominator_by_precision_universe: dict[tuple[str, ...], float] = {}
+        self._pruning_element_terms: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+        self._quantized_weights: dict[tuple[str, str], torch.Tensor] = {}
+        self._quantization_element_terms: dict[
+            tuple[str, str, str], tuple[torch.Tensor, torch.Tensor]
+        ] = {}
 
     @staticmethod
     def _module_path(parameter_name: str) -> str:
@@ -109,12 +114,21 @@ class JointWeightTaylorProxy:
         """Score only elements newly removed by one legal width action."""
         current_slices = self._slices_by_parameter(current)
         successor_slices = self._slices_by_parameter(successor)
+        newly_pruned_units = sorted(
+            set(successor.pruned_unit_ids) - set(current.pruned_unit_ids)
+        )
+        changed_slices = parameter_slices_for_phenotype(
+            CandidatePhenotype(pruned_unit_ids=newly_pruned_units),
+            self.unit_to_parameter_slices,
+        )
         first_total = 0.0
         second_total = 0.0
         element_count = 0
         tensor_count = 0
-        for name, parameter in self.model.named_parameters():
-            if name not in successor_slices:
+        parameters = dict(self.model.named_parameters())
+        for name in sorted(changed_slices):
+            parameter = parameters.get(name)
+            if parameter is None:
                 continue
             weight = parameter.detach()
             statistics = self._statistics_for(name, weight)
@@ -130,10 +144,14 @@ class JointWeightTaylorProxy:
             newly_removed = retained_before & ~retained_after
             if not bool(newly_removed.any()):
                 continue
-            delta = torch.where(newly_removed, -weight, torch.zeros_like(weight))
-            first, second, _score = self._cost_terms(delta, gradient, fisher)
-            first_total += float(first.sum().detach().cpu())
-            second_total += float(second.sum().detach().cpu())
+            cached = self._pruning_element_terms.get(name)
+            if cached is None:
+                first, second, _score = self._cost_terms(-weight, gradient, fisher)
+                cached = (first.detach(), second.detach())
+                self._pruning_element_terms[name] = cached
+            first, second = cached
+            first_total += float(first[newly_removed].sum().detach().cpu())
+            second_total += float(second[newly_removed].sum().detach().cpu())
             element_count += int(newly_removed.sum().detach().cpu())
             tensor_count += 1
         total = first_total + second_total
@@ -183,23 +201,33 @@ class JointWeightTaylorProxy:
                 module_path, "FP32"
             )
             next_precision = successor.realized_precision_profile[module_path]
-            current_quantized = pseudo_quantize_tensor(
-                value, current_precision, module=modules.get(module_path)
-            )
-            next_quantized = pseudo_quantize_tensor(
-                value, next_precision, module=modules.get(module_path)
-            )
+            transition_key = (name, current_precision, next_precision)
+            cached_terms = self._quantization_element_terms.get(transition_key)
+            if cached_terms is None:
+                current_key = (name, current_precision)
+                next_key = (name, next_precision)
+                current_quantized = self._quantized_weights.get(current_key)
+                if current_quantized is None:
+                    current_quantized = pseudo_quantize_tensor(
+                        value, current_precision, module=modules.get(module_path)
+                    ).detach()
+                    self._quantized_weights[current_key] = current_quantized
+                next_quantized = self._quantized_weights.get(next_key)
+                if next_quantized is None:
+                    next_quantized = pseudo_quantize_tensor(
+                        value, next_precision, module=modules.get(module_path)
+                    ).detach()
+                    self._quantized_weights[next_key] = next_quantized
+                delta = next_quantized - current_quantized
+                first, second, _score = self._cost_terms(delta, gradient, fisher)
+                cached_terms = (first.detach(), second.detach())
+                self._quantization_element_terms[transition_key] = cached_terms
             retained = retained_mask_for_parameter(
                 value, current_slices.get(name, [])
             )
-            delta = torch.where(
-                retained,
-                next_quantized - current_quantized,
-                torch.zeros_like(value),
-            )
-            first, second, _score = self._cost_terms(delta, gradient, fisher)
-            first_total += float(first.sum().detach().cpu())
-            second_total += float(second.sum().detach().cpu())
+            first, second = cached_terms
+            first_total += float(first[retained].sum().detach().cpu())
+            second_total += float(second[retained].sum().detach().cpu())
             element_count += int(retained.sum().detach().cpu())
             tensor_count += 1
         total = first_total + second_total

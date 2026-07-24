@@ -12,7 +12,7 @@ import math
 from pathlib import Path
 import random
 import sys
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import torch
 import numpy as np
@@ -213,11 +213,12 @@ def _formal_space(
     batch: Any,
     identity: Mapping[str, Any],
     calibration_hash: str,
+    fisher_forward_fn: Callable[[Any, Any], Any] | None = None,
 ) -> dict[str, Any]:
     fisher, fisher_report = collect_task_loss_fisher_statistics(
         model,
         (batch,),
-        forward_fn=adapter.forward_for_task,
+        forward_fn=fisher_forward_fn or adapter.forward_for_task,
         loss_fn=adapter.compute_task_loss,
         calibration_manifest_hash=calibration_hash,
     )

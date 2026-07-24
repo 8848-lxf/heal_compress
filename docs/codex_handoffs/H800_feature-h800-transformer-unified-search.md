@@ -407,3 +407,17 @@
 ---
 时间戳：2026-07-25 02:20:00 CST｜轮次：Round 14
 ---
+
+## Round 15：4 倍数宽度策略下 V2X-ViT 0.05 Greedy 重跑
+
+- 本轮继续使用隔离 worktree `/home/lixingfeng/UniAD_examine/heal_compress_h800_transformer_unified_search`，未 checkout/reset/merge/rebase 正式 unified-search worktree。新运行根目录为 `/data/lxf/heal_data/outputs/h800_v2xvit_greedy005_weight_only_abs_taylor_align4_20260724_105922/`。
+- 首次运行发现 V2X-ViT HGT type-1 attention 的 Taylor 参数没有在默认 forward 中被激活，导致严格统计缺失；新增仅用于固定校准的 type-coverage pre-hook，使 prior encoding 交替覆盖 type 0/1，并在 calibration/provenance 中写入 `hmsa_type_coverage=type0_type1_pre_forward_hook_v1`。该 hook 不进入 Greedy 每步循环。
+- `JointWeightTaylorProxy` 增加 pruning/quantization element-term cache；结构动作只计算当前动作新删除的耦合参数，量化动作缓存当前→下一精度增量。Greedy 的 mixed weight size 评估改为 lazy，仅对预算带候选和最终选择动作求值，避免对全部邻居重复扫描。
+- 在 GPU7（UUID `GPU-fc1ca600-f06e-f791-125e-102e4916449b`）低占用共享策略下完成确定性 V2X-ViT Greedy：`budget_reached=true`，`target=0.05`，预算带 `[0.045,0.055]`，`steps=1233`，`visited_action_count=56828`，`budget_band_candidate_count=1457`，终止原因为无正 BOPS 降低动作。GPU7 实验前显存约 7 MiB、利用率 0%，实验后约 4 MiB、利用率 0%；期间未向任何外部 PID 发送信号，外部进程未被修改。
+- 新 winner hash=`4a535c43706362d2d3595078d51d0c1fbe87a45f45eecb542e3fdae677702d5b`，`R_BOPS=0.05480626075183459`，累计 weight-only 保守 Taylor=`68.63151908911956`（结构=`65.91624674838835`，权重量化=`2.715272340731222`）。Winner 为 20 个 CNN 域、12 个 attention_dh 域、3 个 ffn_hidden 域，precision loci 为 77 INT8 + 3 个受保护 FP32；shrinker 为 52，FFN 为 252/232/224，Attention d_h 为 4/8/12/16/20 等 4 倍数状态。
+- Greedy runtime audit 为 `search_loop_forward_calls=0`、`backward_calls=0`、`physical_exports=0`、`onnx_exports=0`、`trt_builds=0`；activation/joint/cross Taylor 均标记 `used_for_fitness=false`。本轮只完成搜索，不把尚未构建的控制 engine 或 500 帧/正式 latency 结果伪装成已完成。
+- 全量回归恢复为 `983 passed, 82 warnings, 0 failed`；`python -m compileall -q search scripts tests tools` 与 `git diff --check` 通过。未运行 GA、六预算搜索、full1789、训练、SmoothQuant、alpha 搜索或 LUT 扩表。
+
+---
+时间戳：2026-07-24 12:10:00 CST｜轮次：Round 15
+---

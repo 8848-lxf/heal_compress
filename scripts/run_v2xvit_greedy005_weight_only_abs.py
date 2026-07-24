@@ -33,6 +33,48 @@ from search.greedy.weight_only_abs import run_weight_only_abs_greedy
 from search.proxy.joint_weight_taylor import JointWeightTaylorProxy
 
 
+def _type_coverage_forward(adapter: Any, model: torch.nn.Module, batch: Any) -> Any:
+    """Collect one deterministic loss with both HGT modality branches active.
+
+    V2XViTFusion normally creates an all-zero prior encoding, so HGT's
+    ``ModuleList`` index is always zero in ordinary validation frames.  This
+    temporary hook changes only the calibration forward's type channel and is
+    removed before returning; no search-loop forward uses it.
+    """
+
+    handles = []
+    for module in model.modules():
+        q_linears = getattr(module, "q_linears", None)
+        a_linears = getattr(module, "a_linears", None)
+        if q_linears is None or a_linears is None or len(q_linears) < 2:
+            continue
+
+        def hook(
+            _module: torch.nn.Module,
+            args: tuple[Any, ...],
+            kwargs: dict[str, Any],
+        ) -> tuple[tuple[Any, ...], dict[str, Any]] | None:
+            prior = args[2] if len(args) >= 3 else kwargs.get("prior_encoding")
+            if not torch.is_tensor(prior):
+                return None
+            prior = prior.clone()
+            if prior.ndim < 5 or prior.shape[-1] < 3:
+                return None
+            length = int(prior.shape[1])
+            pattern = torch.arange(length, device=prior.device, dtype=prior.dtype) % 2
+            prior[..., 2] = pattern.view(1, length, 1, 1)
+            if len(args) >= 3:
+                return (*args[:2], prior, *args[3:]), kwargs
+            return args, {**kwargs, "prior_encoding": prior}
+
+        handles.append(module.register_forward_pre_hook(hook, with_kwargs=True))
+    try:
+        return adapter.forward_for_task(model, batch)
+    finally:
+        for handle in handles:
+            handle.remove()
+
+
 def write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
@@ -71,9 +113,20 @@ def run(args: argparse.Namespace) -> int:
         "checkpoint_sha256": _sha256(MODEL_SPECS["v2xvit"]["checkpoint"]), "split": "validation",
         "dataset_indices": [dataset_index], "agent_count": agent_count, "sample_count": 1,
         "seed": int(args.seed), "batch_content_sha256": batch_hash,
+        "hmsa_type_coverage": "type0_type1_pre_forward_hook_v1",
     })
     identity = _build_full_space(model, adapter, hypes, batch)
-    formal = _formal_space(model, adapter, hypes, batch, identity, calibration_hash)
+    formal = _formal_space(
+        model,
+        adapter,
+        hypes,
+        batch,
+        identity,
+        calibration_hash,
+        fisher_forward_fn=lambda module, values: _type_coverage_forward(
+            adapter, module, values
+        ),
+    )
     space = formal["space"]
     baseline = _baseline_candidate(space)
     baseline_phenotype = canonicalize_candidate(baseline, space)
@@ -154,6 +207,7 @@ def run(args: argparse.Namespace) -> int:
         "repo": str(REPO), "model": "V2X-ViT", "checkpoint": str(MODEL_SPECS["v2xvit"]["checkpoint"]),
         "checkpoint_sha256": _sha256(MODEL_SPECS["v2xvit"]["checkpoint"]),
         "config": str(MODEL_SPECS["v2xvit"]["config"]), "calibration_manifest_hash": calibration_hash,
+        "calibration_type_coverage": "hmsa_type0_type1_pre_forward_hook_v1",
         "fixed500_manifest": str(args.fixed500_manifest), "old_winner_hash": "44551dcb6358b38447662e376ad1731d61862343d56da4c054103c784029547b",
         "old_winner_bops_retention": 0.05491842298159359, "gpu_visible_index": 0,
     })
