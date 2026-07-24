@@ -1025,6 +1025,43 @@ def run_all_matrix_formal_latency(
     return all_rows
 
 
+def configured_build_repeat_specs(
+    repeat_root: Path,
+) -> tuple[tuple[Path, str, str, str | None], ...]:
+    """Describe historical fresh-build evidence and its local role aliases."""
+
+    root = Path(repeat_root)
+    return (
+        (
+            root / "cobevt_window16" / "formal_latency_build_repeats.json",
+            "lidar_cobevt__cobevt_window_h8_d32__dh_016",
+            "P16",
+            "window16",
+        ),
+        *(
+            (
+                root
+                / "cobevt_joint_c1"
+                / profile
+                / "formal_latency_build_repeats.json",
+                "C1",
+                profile,
+                None,
+            )
+            for profile in ("P16", "P8")
+        ),
+        *(
+            (
+                root / "v2xvit_agent24" / "formal_latency_build_repeats.json",
+                "lidar_v2xvit__v2xvit_agent_relation_h8_d32__dh_024",
+                profile,
+                "agent24",
+            )
+            for profile in ("P32", "P16", "P8")
+        ),
+    )
+
+
 def collect_power_alignment_report(output_root: Path) -> dict[str, Any]:
     """Join physical, precision, fixed500, and formal-latency evidence."""
 
@@ -1043,8 +1080,10 @@ def collect_power_alignment_report(output_root: Path) -> dict[str, Any]:
     from search.orchestration.lidar_transformer_dh_joint import _engine_dir
     from search.reporting.transformer_dh_power_alignment_4090 import (
         accuracy_class,
+        apply_search_admission,
         compact_evidence_record,
         precision_interaction,
+        summarize_build_repeat_evidence,
         write_power_alignment_reports,
     )
 
@@ -1201,11 +1240,19 @@ def collect_power_alignment_report(output_root: Path) -> dict[str, Any]:
         if row["latency_beneficial"] and row["neighbor_control_advantage"]:
             row["latency_class"] = "ALIGNMENT_ADVANTAGE"
 
-    # Search admission remains conservative until a candidate also has explicit
-    # independent-build and joint evidence; unknown is never promoted.
-    for row in rows:
-        row.setdefault("build_repeat_stable", None)
-        row["search_space_candidate"] = False
+    repeat_root = root / "formal_latency" / "build_repeats"
+    repeat_specs = configured_build_repeat_specs(repeat_root)
+    build_repeat_rows = [
+        summarize_build_repeat_evidence(
+            _read_json(path),
+            candidate_id=candidate_id,
+            profile=profile,
+            role=role,
+        )
+        for path, candidate_id, profile, role in repeat_specs
+        if path.is_file()
+    ]
+    rows = apply_search_admission(rows, build_repeat_rows)
 
     compact = [compact_evidence_record(row) for row in rows]
     single_rows = [
@@ -1217,6 +1264,7 @@ def collect_power_alignment_report(output_root: Path) -> dict[str, Any]:
         candidate_rows=[*single, *joint],
         single_family_rows=single_rows,
         joint_rows=joint_rows,
+        build_repeat_rows=build_repeat_rows,
     )
     _write_json(root / "reports" / "complete_evidence_rows.json", rows)
     return result

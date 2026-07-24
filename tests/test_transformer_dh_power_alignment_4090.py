@@ -28,6 +28,7 @@ from search.orchestration.lidar_transformer_dh_power_alignment_4090 import (
 )
 from search.orchestration.lidar_transformer_dh_power_alignment_matrix_4090 import (
     all_matrix_formal_latency_candidates,
+    configured_build_repeat_specs,
     candidate_alias_map,
     execute_fresh_build_plan,
     fresh_build_latency_candidates,
@@ -45,9 +46,12 @@ from search.orchestration.lidar_transformer_dh_power_alignment_matrix_4090 impor
 )
 from search.reporting.transformer_dh_power_alignment_4090 import (
     accuracy_class,
+    apply_search_admission,
     build_repeat_stability,
     compact_evidence_record,
     precision_interaction,
+    result_cardinality,
+    summarize_build_repeat_evidence,
     write_power_alignment_reports,
 )
 
@@ -416,7 +420,8 @@ def test_precision_interaction_separates_structure_and_precision_losses():
         candidate_p32_map=0.68,
         candidate_profile_map=0.665,
     )
-    assert result["delta_structure"] == pytest.approx(-0.02)
+    assert result["delta_structure"] == pytest.approx(-0.025)
+    assert result["delta_structure_p32"] == pytest.approx(-0.02)
     assert result["delta_precision_base"] == pytest.approx(-0.01)
     assert result["delta_precision_candidate"] == pytest.approx(-0.015)
     assert result["interaction"] == pytest.approx(-0.005)
@@ -430,10 +435,99 @@ def test_build_repeat_stability_requires_two_passes_and_no_slowdown():
     assert unstable["build_repeat_stable"] is False
 
 
+def test_result_cardinality_separates_aliases_structures_and_phenotypes():
+    rows = [
+        {"structure_signature": "baseline", "profile": "P32", "engine_sha256": "a"},
+        {"structure_signature": "baseline", "profile": "P32", "engine_sha256": "a"},
+        {"structure_signature": "baseline", "profile": "P16", "engine_sha256": "b"},
+        {"structure_signature": "candidate", "profile": "P32", "engine_sha256": "c"},
+    ]
+    assert result_cardinality(rows) == {
+        "result_alias_rows": 4,
+        "unique_physical_structures": 2,
+        "unique_phenotypes": 3,
+    }
+
+
+def test_build_repeat_evidence_requires_three_unique_fresh_engines():
+    rows = [
+        {
+            "candidate_id": "C1",
+            "profile": "P16",
+            "baseline_replay": False,
+            "formal": True,
+            "latency_reduction": reduction,
+            "required_reduction": 0.01,
+            "engine_sha256": f"engine-{index}",
+            "p50_ms": 4.0 - index * 0.01,
+        }
+        for index, reduction in enumerate((0.02, 0.015, 0.0), start=1)
+    ]
+    summary = summarize_build_repeat_evidence(
+        rows,
+        candidate_id="C1",
+        profile="P16",
+    )
+    assert summary["build_repeat_stable"] is True
+    assert summary["independent_engine_count"] == 3
+    assert summary["engine_sha256s"] == ["engine-1", "engine-2", "engine-3"]
+
+    with pytest.raises(RuntimeError, match="three_unique_fresh_engines_required"):
+        summarize_build_repeat_evidence(
+            [{**row, "engine_sha256": "same"} for row in rows],
+            candidate_id="C1",
+            profile="P16",
+        )
+
+
+def test_build_repeat_specs_preserve_historical_agent24_role_alias(tmp_path):
+    specs = configured_build_repeat_specs(tmp_path)
+    agent_specs = [spec for spec in specs if "v2xvit_agent24" in str(spec[0])]
+    assert len(agent_specs) == 3
+    assert {spec[2] for spec in agent_specs} == {"P32", "P16", "P8"}
+    assert {spec[3] for spec in agent_specs} == {"agent24"}
+
+
+def test_search_admission_requires_repeat_stability_and_joint_support():
+    single = {
+        "candidate_id": "single16",
+        "model": "lidar_cobevt",
+        "family": "window",
+        "d_h": 16,
+        "profile": "P16",
+        "structure_kind": "single_family",
+        "accuracy_class": "SAFE",
+        "latency_beneficial": True,
+        "neighbor_control_advantage": True,
+    }
+    joint = {
+        "candidate_id": "joint",
+        "model": "lidar_cobevt",
+        "profile": "P16",
+        "structure_kind": "joint",
+        "target_d_h_by_family": {"window": 16},
+        "accuracy_class": "BORDERLINE",
+        "latency_beneficial": True,
+    }
+    repeats = [
+        {
+            "candidate_id": "single16",
+            "profile": "P16",
+            "build_repeat_stable": True,
+        }
+    ]
+    rows = apply_search_admission([single, joint], repeats)
+    assert rows[0]["joint_supported"] is True
+    assert rows[0]["build_repeat_stable"] is True
+    assert rows[0]["search_space_candidate"] is True
+    assert rows[1]["search_space_candidate"] is False
+
+
 def test_compact_evidence_record_requires_hashes_and_realized_precision():
     row = {
         "candidate_id": "C1",
         "structure_hash": "structure",
+        "structure_signature": "signature",
         "onnx_sha256": "onnx",
         "engine_sha256": "engine",
         "requested_realized_conflict_count": 0,
@@ -442,6 +536,7 @@ def test_compact_evidence_record_requires_hashes_and_realized_precision():
     }
     compact = compact_evidence_record(row)
     assert compact["candidate_id"] == "C1"
+    assert compact["structure_signature"] == "signature"
     with pytest.raises(RuntimeError, match="compact_evidence_missing"):
         compact_evidence_record({**row, "engine_sha256": ""})
 
@@ -453,6 +548,8 @@ def test_report_writer_emits_compact_contract_and_root_conclusion(tmp_path):
         "candidate_id": "B0",
         "structure_kind": "baseline",
         "structure_hash": "structure",
+        "structure_signature": "signature",
+        "engine_sha256": "engine",
         "profile": "P32",
         "evaluated": 500,
         "skipped": 0,
@@ -469,6 +566,8 @@ def test_report_writer_emits_compact_contract_and_root_conclusion(tmp_path):
         joint_rows=[],
     )
     assert result["summary"]["single_family_fixed500_rows"] == 1
+    assert result["summary"]["unique_physical_structures"] == 1
+    assert result["summary"]["unique_phenotypes"] == 1
     for name in (
         "power_alignment_candidate_manifest.csv",
         "power_alignment_single_family_fixed500.csv",
@@ -477,6 +576,9 @@ def test_report_writer_emits_compact_contract_and_root_conclusion(tmp_path):
         "reports/report_summary.json",
     ):
         assert (tmp_path / name).is_file(), name
+    conclusion = (tmp_path / "root_conclusion_power_alignment.md").read_text()
+    assert "## Allowed search candidates" in conclusion
+    assert "No candidate passed all five admission gates." in conclusion
 
 
 def test_single_and_joint_manifests_deduplicate_to_63_physical_structures():

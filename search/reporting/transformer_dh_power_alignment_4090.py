@@ -32,6 +32,7 @@ _COMPACT_FIELDS = (
     "projection_divisible_by_64",
     "profile",
     "structure_hash",
+    "structure_signature",
     "onnx_sha256",
     "engine_sha256",
     "scale_hash",
@@ -43,6 +44,7 @@ _COMPACT_FIELDS = (
     "AP70",
     "mAP",
     "delta_structure",
+    "delta_structure_p32",
     "delta_precision_base",
     "delta_precision_candidate",
     "delta_total",
@@ -126,11 +128,13 @@ def precision_interaction(
     baseline_profile = float(baseline_profile_map)
     candidate_p32 = float(candidate_p32_map)
     candidate_profile = float(candidate_profile_map)
-    delta_structure = candidate_p32 - baseline_p32
+    delta_structure_p32 = candidate_p32 - baseline_p32
+    delta_structure = candidate_profile - baseline_profile
     delta_precision_base = baseline_profile - baseline_p32
     delta_precision_candidate = candidate_profile - candidate_p32
     return {
         "delta_structure": delta_structure,
+        "delta_structure_p32": delta_structure_p32,
         "delta_precision_base": delta_precision_base,
         "delta_precision_candidate": delta_precision_candidate,
         "delta_total": candidate_profile - baseline_p32,
@@ -158,10 +162,117 @@ def build_repeat_stability(
     }
 
 
+def result_cardinality(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    """Separate report aliases from physical structures and phenotypes."""
+
+    structures = {str(row["structure_signature"]) for row in rows}
+    phenotypes = {
+        (
+            str(row["structure_signature"]),
+            str(row["profile"]),
+            str(row["engine_sha256"]),
+        )
+        for row in rows
+    }
+    return {
+        "result_alias_rows": len(rows),
+        "unique_physical_structures": len(structures),
+        "unique_phenotypes": len(phenotypes),
+    }
+
+
+def summarize_build_repeat_evidence(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    candidate_id: str,
+    profile: str,
+    role: str | None = None,
+) -> dict[str, Any]:
+    """Normalize three independent full-engine build measurements."""
+
+    selected = [
+        row
+        for row in rows
+        if not bool(row.get("baseline_replay", False))
+        and bool(row.get("formal", False))
+        and (row.get("profile") in (None, profile))
+        and (
+            str(row.get("candidate_id", "")) == candidate_id
+            or (role is not None and str(row.get("role", "")) == role)
+        )
+    ]
+    hashes = [str(row.get("engine_sha256", "")) for row in selected]
+    if len(selected) != 3 or len(set(hashes)) != 3 or any(not value for value in hashes):
+        raise RuntimeError("three_unique_fresh_engines_required")
+    thresholds = {float(row["required_reduction"]) for row in selected}
+    if len(thresholds) != 1:
+        raise RuntimeError("build_repeat_threshold_mismatch")
+    reductions = [float(row["latency_reduction"]) for row in selected]
+    stability = build_repeat_stability(
+        reductions,
+        required_reduction=thresholds.pop(),
+    )
+    return {
+        "candidate_id": candidate_id,
+        "profile": profile,
+        "independent_engine_count": 3,
+        "engine_sha256s": hashes,
+        "p50_ms": [float(row["p50_ms"]) for row in selected],
+        **stability,
+    }
+
+
+def apply_search_admission(
+    rows: Sequence[Mapping[str, Any]],
+    build_repeat_rows: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Apply the five evidence gates without promoting untested aliases."""
+
+    from search.model_families.transformer.dh_power_alignment_4090 import (
+        search_candidate_gate,
+    )
+
+    result = [dict(row) for row in rows]
+    repeat_index = {
+        (str(row["candidate_id"]), str(row["profile"])): row
+        for row in build_repeat_rows
+    }
+    joint_rows = [row for row in result if row.get("structure_kind") == "joint"]
+    for row in result:
+        repeat = repeat_index.get((str(row["candidate_id"]), str(row["profile"])))
+        row["build_repeat_stable"] = (
+            bool(repeat["build_repeat_stable"]) if repeat is not None else None
+        )
+        joint_supported = False
+        if row.get("structure_kind") == "single_family" and row.get("d_h") is not None:
+            joint_supported = any(
+                str(joint.get("model")) == str(row.get("model"))
+                and str(joint.get("profile")) == str(row.get("profile"))
+                and joint.get("accuracy_class") in {"SAFE", "BORDERLINE"}
+                and bool(joint.get("latency_beneficial", False))
+                and int(joint.get("target_d_h_by_family", {}).get(str(row["family"]), -1))
+                == int(row["d_h"])
+                for joint in joint_rows
+            )
+        row["joint_supported"] = joint_supported
+        gate = search_candidate_gate(
+            fixed500_acceptable=row.get("accuracy_class") == "SAFE",
+            same_profile_latency=bool(row.get("latency_beneficial", False)),
+            neighbor_advantage_passed=bool(
+                row.get("neighbor_control_advantage", False)
+            ),
+            build_repeat_stable=bool(row.get("build_repeat_stable", False)),
+            joint_supported=joint_supported,
+        )
+        row.update(gate)
+    return result
+
+
 def compact_evidence_record(row: Mapping[str, Any]) -> dict[str, Any]:
     required = (
         "candidate_id",
         "structure_hash",
+        "structure_signature",
         "onnx_sha256",
         "engine_sha256",
         "requested_realized_conflict_count",
@@ -381,21 +492,87 @@ def write_power_alignment_reports(
         "joint_fixed500_rows": len(fixed_joint),
         "formal_latency_rows": len(latency_single) + len(latency_joint),
         "search_space_candidates": sum(row.get("search_space_candidate") is True for row in all_rows),
+        **result_cardinality(all_rows),
     }
     _write_json(root / "reports" / "report_summary.json", summary)
+    allowed = sorted(
+        (
+            str(row["candidate_id"]),
+            str(row["profile"]),
+            float(row["mAP"]),
+            float(row["p50_ms"]),
+            float(row["structure_speedup"]),
+        )
+        for row in all_rows
+        if row.get("search_space_candidate") is True
+    )
+    safe_beneficial = sorted(
+        (
+            str(row["model"]),
+            str(row["candidate_id"]),
+            str(row["profile"]),
+            float(row["mAP"]),
+            float(row["p50_ms"]),
+            float(row["structure_speedup"]),
+            bool(row.get("neighbor_control_advantage", False)),
+        )
+        for row in single
+        if row.get("accuracy_class") == "SAFE"
+        and row.get("latency_beneficial") is True
+    )
+    lines = [
+        "# RTX 4090 Transformer d_h power-alignment conclusion",
+        "",
+        f"- candidate manifest rows: `{summary['candidate_rows']}`",
+        f"- result alias rows: `{summary['result_alias_rows']}`",
+        f"- unique physical structures: `{summary['unique_physical_structures']}`",
+        f"- unique structure/precision phenotypes: `{summary['unique_phenotypes']}`",
+        f"- fixed500 rows: `{summary['single_family_fixed500_rows'] + summary['joint_fixed500_rows']}`",
+        f"- formal latency rows: `{summary['formal_latency_rows']}`",
+        f"- independent fresh-build evidence rows: `{len(build_repeat_rows)}`",
+        f"- SEARCH_SPACE_CANDIDATE rows: `{summary['search_space_candidates']}`",
+        "- execution platform: `RTX4090_SM89`",
+        "- P8 means SmoothQuant INT8 Q/K projection, not FP8.",
+        "- GA/Greedy/full1789 were not executed by this experiment.",
+        "",
+        "## Allowed search candidates",
+        "",
+    ]
+    if allowed:
+        lines.extend(
+            [
+                "| candidate | profile | fixed500 mAP | p50 ms | same-profile speedup |",
+                "|---|---:|---:|---:|---:|",
+                *(
+                    f"| {candidate} | {profile} | {map_value:.9f} | {p50:.6f} | {speedup:.6f}x |"
+                    for candidate, profile, map_value, p50, speedup in allowed
+                ),
+            ]
+        )
+    else:
+        lines.append("No candidate passed all five admission gates.")
+    lines.extend(
+        [
+            "",
+            "## Safe same-profile speedups",
+            "",
+            "| model | candidate | profile | fixed500 mAP | p50 ms | speedup | neighbor advantage |",
+            "|---|---|---:|---:|---:|---:|---:|",
+            *(
+                f"| {model} | {candidate} | {profile} | {map_value:.9f} | {p50:.6f} | {speedup:.6f}x | {neighbor} |"
+                for model, candidate, profile, map_value, p50, speedup, neighbor in safe_beneficial
+            ),
+            "",
+            "## Interpretation",
+            "",
+            "- Physical d_h reduction can produce real same-profile full-engine speedup, but alignment is not a universal cause.",
+            "- A width is an alignment advantage only when it also beats the available target-4 and target+4 controls.",
+            "- Rows without three independent fresh builds remain experimental even when fixed500 and latency are favorable.",
+            "- Detailed evidence and rejected profiles are recorded in `power_alignment_contract.json`.",
+        ]
+    )
     (root / "root_conclusion_power_alignment.md").write_text(
-        "# RTX 4090 Transformer d_h power-alignment conclusion\n\n"
-        f"- candidate manifest rows: `{summary['candidate_rows']}`\n"
-        f"- single-family result rows: `{summary['single_family_rows']}`\n"
-        f"- joint result rows: `{summary['joint_rows']}`\n"
-        f"- fixed500 rows: `{summary['single_family_fixed500_rows'] + summary['joint_fixed500_rows']}`\n"
-        f"- formal latency rows: `{summary['formal_latency_rows']}`\n"
-        f"- SEARCH_SPACE_CANDIDATE rows: `{summary['search_space_candidates']}`\n"
-        "- execution platform: `RTX4090_SM89`\n"
-        "- P8 means SmoothQuant INT8 Q/K projection, not FP8.\n"
-        "- GA/Greedy/full1789 were not executed by this experiment.\n"
-        "- Detailed conclusions are evidence-derived in `power_alignment_contract.json`; "
-        "missing evidence remains rejected or experimental.\n",
+        "\n".join(lines) + "\n",
         encoding="utf-8",
     )
     return {"summary": summary, "contract": contract}
@@ -403,8 +580,11 @@ def write_power_alignment_reports(
 
 __all__ = [
     "accuracy_class",
+    "apply_search_admission",
     "build_repeat_stability",
     "compact_evidence_record",
     "precision_interaction",
+    "result_cardinality",
+    "summarize_build_repeat_evidence",
     "write_power_alignment_reports",
 ]

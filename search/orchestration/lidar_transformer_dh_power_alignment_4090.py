@@ -22,10 +22,12 @@ from search.model_families.transformer.dh_power_alignment_4090 import (
     joint_candidates,
     power_alignment_widths,
 )
+from search.orchestration.lidar_transformer_dh_provenance import (
+    FORMAL_BRANCH as FORMAL_SEARCH_BRANCH,
+)
 
 
 PLATFORM_ID = "RTX4090_SM89"
-FORMAL_SEARCH_BRANCH = "feature/heal-unified-search-h800"
 DEFAULT_GPU_IDS = (4, 5, 6, 7)
 
 _FAMILIES: dict[str, tuple[tuple[str, int, int], ...]] = {
