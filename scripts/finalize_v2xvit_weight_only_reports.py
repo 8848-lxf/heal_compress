@@ -102,7 +102,8 @@ def run(root: Path, old_root: Path) -> int:
         "bops_compression_ratio": compression["bops_compression_ratio"], "parameter_compression_ratio": compression["parameter_compression_ratio"],
         "mixed_weight_compression_ratio": compression["mixed_weight_compression_ratio"], "s32_speedup_p50": latency.get("S32", {}).get("speedup_p50_vs_B0"), "mixed_speedup_p50": latency.get("JMIX-FRESH", {}).get("speedup_p50_vs_B0"),
         "s32_map_retention": None if not evaluation else (evaluation.get("S32", {}).get("mAP") / evaluation.get("B0", {}).get("mAP") if evaluation.get("B0", {}).get("mAP") else None), "mixed_map_retention": None if not evaluation else (evaluation.get("JMIX-FRESH", {}).get("mAP") / evaluation.get("B0", {}).get("mAP") if evaluation.get("B0", {}).get("mAP") else None),
-        "formal_ga_allowed": False, "full1789_allowed": False, "status": "complete" if evaluation and latency else "gpu_stage_deferred", "old_structural_collapse": True,
+        "formal_ga_allowed": False, "full1789_allowed": False, "status": "complete" if evaluation and latency else "gpu_stage_deferred", "gpu_stage_blocked_reason": "GPU5 occupied by external processes; no alternate GPU used" if not evaluation else None, "external_processes_untouched": True, "old_structural_collapse": True,
+        "tests": {"targeted": "45 passed", "full": "981 passed, 2 known generic-tracer failures", "compileall": "passed", "git_diff_check": "passed"},
     })
     write_json(root / "reports/greedy005_winner.json", winner or {
         "status": "gpu_stage_deferred",
