@@ -385,3 +385,15 @@
 ---
 时间戳：2026-07-25 01:30:00 CST｜轮次：Round 12
 ---
+
+## Round 13：Transformer 宽度改为 4 倍数对齐
+
+- `search/pruning_space/transformer_domains.py` 的 Attention `d_h` 与 FFN `d_ff` 合法宽度不再使用 `{4,8,16,32,64,...}` 白名单/幂次梯级，而是使用统一 `TRANSFORMER_WIDTH_ALIGNMENT=4`，开放所有不超过原始宽度的 4 倍数；原始宽度始终保留为 identity 状态，非 4 倍数原始宽度只作为该 identity 例外。
+- 具体策略为 `4,8,12,16,...,floor(original/4)*4` 加 `original`，并在 domain metadata/constraints 中记录 `width_alignment=4`、`width_policy=all_4_multiples_plus_original_identity`。每个 Attention head 仍保持等保留数量，QK/VO 与 gated/standard FFN 耦合语义不变。
+- 兼容的旧 V2X-ViT FFN domain builder 同步将 `dense_alignment=16` 改为 `4`，legacy `_legal_aligned_widths` 默认对齐也改为 4；其既有最小保留比例约束仍保持，不改变 CNN/grouped-conv 规则。
+- 测试更新并通过：Transformer/width/pruner/integration/BOPS/domain 相关定向测试 `50 passed`；`python -m compileall -q search scripts tests tools` 与 `git diff --check` 通过。全量 pytest 仍为 `981 passed, 2 failed`，失败仍限于既有 generic tracer 的 einsum alias 与 matmul operator 两项。
+- 本轮只修改合法宽度生成策略和对应测试/文档，未启动 GPU5、Greedy、engine、500 帧评估或 latency；GPU5 仍由外部进程占用。后续若运行 0.05 搜索，搜索步数和离散可达性必须重新计算，不能复用旧宽度梯级的 winner/trajectory。
+
+---
+时间戳：2026-07-25 02:00:00 CST｜轮次：Round 13
+---

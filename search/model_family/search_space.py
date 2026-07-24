@@ -108,7 +108,7 @@ def build_ranked_v2xvit_ffn_domains(
         importance_scores=importance_scores,
         ranking_method="real_train_manifest_pruning_only_first_plus_second_order_taylor",
         minimum_retained_ratio=0.25,
-        dense_alignment=16,
+        dense_alignment=4,
     )
     expected = len({row.scope_id for row in units})
     if len(domains) != expected or any(
