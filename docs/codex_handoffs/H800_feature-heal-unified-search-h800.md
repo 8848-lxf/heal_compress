@@ -511,3 +511,46 @@ F-Cooper GA 当前已存在500帧 Stage-2 strict-FP32 reference：AP30/50/70 = 0
 ---
 时间戳：2026-07-24 00:14:48 CST｜轮次：Round 7
 ---
+
+## Round 8：F-Cooper/Disco 两种搜索最终完成并生成统一 FP32 对比 CSV
+
+原正式队列中的两个 GA 首次运行均完成了逐代 Stage-2，但在代赢家最终验证调度接口处 return code 1。Round 7 启动的原地修复续跑队列已全部成功结束：
+
+- F-Cooper GA finalization：return code 0，36 个唯一 generation winner 完成1789帧完整验证，六预算最终 winner 全部生成。
+- Disco GA finalization：return code 0，38 个唯一 generation winner 完成1789帧完整验证，六预算最终 winner 全部生成。
+- repair queue 于 `2026-07-23T14:51:15-07:00` return code 0 结束；当前无残留正式搜索进程。
+- 两个 GA 的 `final_full_validation_results.json` 均为 `successful_budget_winner_count=6`、`missing_budget_rounds=[]`，最终 winner 全部1789帧、0 skip、评价状态 `ok`。
+
+### 统一结果表
+
+新增可复现聚合脚本：
+
+- `scripts/aggregate_heal_runtime_graph_results.py`
+
+聚合的四个权威正式 run：
+
+- F-Cooper Greedy：`outputs/h800_heal_lidar_fcooper_runtime_graph_joint_greedy_20260722_135143`
+- F-Cooper GA：`outputs/h800_heal_lidar_fcooper_runtime_graph_joint_ga_20260723_043415`
+- Disco Greedy：`outputs/h800_heal_lidar_disco_runtime_graph_joint_greedy_20260723_035226`
+- Disco GA：`outputs/h800_heal_lidar_disco_runtime_graph_joint_ga_20260723_075044`
+
+最终 CSV：
+
+- `docs/codex_handoffs/H800_feature-heal-unified-search-h800_fcooper_disco_full_results.csv`
+- 24 个候选结果行：2个模型 × 2种方法 × 6个 BOPS 预算；另有1行表头。
+- SHA256：`c3e5e952747846aa9565ba7a52c1ad5e8df7aaa64f42e29632160c450ab49a17`
+- 每行同时包含自己的1789帧 strict-FP32 reference、实际 BOPS 保留率/BOPS压缩比、物理参数剪枝率/压缩比、混合精度权重压缩比、AP30/50/70/mAP及其相对FP32变化、forward mean/p50/p90及对应实测加速比、候选哈希和源 run。
+- 自动校验通过：24/24 行，四个模型方法组合各6行；全部1789帧、0 skip；所有 BOPS/参数/混合权重压缩比和 p50 加速比均大于1；`delta_mAP` 与候选减基线逐行一致。
+
+### 结果摘要
+
+- F-Cooper Greedy：BOPS压缩 3.318--18.228x，参数压缩 1.241--1.376x，混合权重压缩 2.084--4.574x，p50加速 1.496--3.010x；mAP 相对FP32变化 −0.002816 至 +0.000190。
+- F-Cooper GA：BOPS压缩 3.332--18.209x，参数压缩 1.227--1.375x，混合权重压缩 1.869--4.308x，p50加速 1.428--2.701x；mAP 相对FP32变化 −0.002224 至 +0.000397。
+- Disco Greedy：BOPS压缩 3.290--18.219x，参数压缩 1.692--3.337x，混合权重压缩 2.748--9.254x，p50加速 1.667--2.873x；mAP 相对FP32变化 −0.000430 至 +0.000257。
+- Disco GA：BOPS压缩 3.332--18.226x，参数压缩 1.689--3.306x，混合权重压缩 2.796--9.207x，p50加速 1.628--2.620x；mAP 相对FP32变化 −0.000302 至 +0.000303。
+
+口径说明：Greedy 与 GA 分别使用各自正式 run 内、相同1789帧 eval manifest 的 strict-FP32 reference，以避免把不同进程时段的延迟基线混用。GA 的压缩指标从最终 winner 对应的 `generation_winner.json/stage1_metrics` 回填，AP/时延则只取最终1789帧 `final_budget_winners.json`，没有混入500帧代内筛选结果。
+
+---
+时间戳：2026-07-24 13:22:32 CST｜轮次：Round 8
+---
