@@ -554,3 +554,42 @@ F-Cooper GA 当前已存在500帧 Stage-2 strict-FP32 reference：AP30/50/70 = 0
 ---
 时间戳：2026-07-24 13:22:32 CST｜轮次：Round 8
 ---
+
+## Round 9：Greedy warm-start GA 未稳定超越 Greedy 的根因与 Stage-2 权重敏感性复核
+
+本轮只做只读诊断和离线重算，没有修改搜索配置或重新启动实验。
+
+### 首先纠正“GA 全部不如 Greedy”的表述
+
+按当前正式目标 `F2 = 0.8 * max(0, mAP_ref - mAP) / 0.02 + 0.2 * p50 / p50_ref`，GA 在12个模型×预算点中的4点优于 Greedy：F-Cooper 0.05/0.10/0.15 和 Disco 0.25；其余8点由 Greedy 更优。按原始 mAP，GA 在12点中的9点略高于 Greedy，但在11/12点上 p50 更慢；唯一 GA p50 更快的是 Disco 0.25。因此准确结论是 GA 获得了一些精度收益，但没有稳定形成精度与时延的共同优势。
+
+### 权重敏感性结论
+
+- 对已完成1789帧完整验证的36个 F-Cooper 与38个 Disco 唯一代赢家重新计算：把时延权重由0.20提高到0.40或0.50，12个预算最终 winner 一个都不改变。
+- 只有 F-Cooper 0.05 在时延权重约0.787以上才换候选，新候选只快约0.0196 ms且 mAP 再降约0.000230；Disco 0.05 要到约0.972以上才换候选，新候选只快约0.0198 ms且 mAP 再降约0.001989。
+- 在最终候选池中，F-Cooper 六预算的最快 GA 候选仍全部慢于对应 Greedy；Disco 除0.25外，其余五预算的最快 GA 候选也慢于 Greedy。即11/12个预算不存在可由最终加权公式“改选出来”的更快 GA 代赢家。
+- 对每代500帧 Top-5 离线重算：时延权重0.40使 F-Cooper 4/39个代赢家改变，平均仅降低0.0280 ms、mAP降低0.000051；Disco 仅1/42改变，平均仅降低0.0032 ms、mAP降低0.000015。提高到0.50也只有 F-Cooper 8/39、Disco 1/42改变，仍不足以解释或弥合对 Greedy 的时延差距。
+
+因此仅把 `eta_latency` 从0.20改成0.40/0.50，基本不会改变本轮结果，更不能使 GA 自动超过 Greedy。
+
+### 根本原因
+
+1. `greedy_frontier_warm_start` 是邻域初始化，不是 Greedy 性能保底。GA 会在自身 run 内重新生成 `ga_seed_greedy_path.json`，没有导入先前正式 Greedy 的六个最终部署子网、engine或1789帧结果。正式 Greedy 的12个最终 candidate hash 在两个 GA 的 Stage-2/最终链中命中数为0。
+2. 内部 Greedy exact seed 确实进入各预算第0代，但12/12均未进入当代 Stage-2 Top-5。它们在第0代的相对位置为 F-Cooper 5/21/23/16/13/150、Disco 12/49/18/15/45/34；除 F-Cooper 0.05外均进入50候选 repair pool，但当前“3 exploitation + 2 genotype diversity”仍没有保留任何 exact seed。
+3. 90%的 seeded population 主要是围绕1--2个 exact/nearest seed 做1--4个动作的变异邻居；exact seed 只占极少数，且后续只按 Taylor proxy 保留 elite，不具有贯穿各代或最终池的 anchor 身份。
+4. Stage-2 没有反馈给 GA。代码先完整执行 `ga.run()`，按 `L_joint_weight_taylor`、参数保留率和 BOPS 可行性演化/早停，再离线逐代构建 Top-5 engine。500帧真实 mAP/p50 不参与下一代选择、繁殖或早停。因此当前实质是“proxy GA 采样 + 事后 Stage-2 筛选”，不是以真实 F2 驱动的 GA。
+5. Stage-1 proxy 与真实目标在当前窄预算候选区域相关性弱。对已进入500帧 Stage-2 的唯一候选逐预算计算 Spearman 后取简单平均：Taylor 对 AP loss 为 F-Cooper −0.054、Disco +0.222；Taylor 对真实 F2 为 F-Cooper −0.165、Disco +0.011。该样本有选择偏差，但足以说明 proxy 在局部不能稳定排序真实 F2。
+6. GA 的 Stage-2 Top-5 是3个 Taylor/参数 exploitation 加2个基因 Hamming diversity，不是 AP-时延 Pareto 或硬件时延 diversity；BOPS 是准入约束，不等价于 TensorRT 实测时延。配置最多15代/预算，但因 proxy stagnation 实际只运行 F-Cooper 39/90、Disco 42/90代，真实 F2 改善也不会重置早停。
+7. 当前 F2 已经无量纲，不存在毫秒数值直接压倒 AP 的量纲问题；但它很保守：mAP下降0.001会贡献0.04分，需要约20% FP32 latency ratio 的改善才能抵消。另一方面，所有 `mAP >= baseline` 的候选 `L_map_real=0`，它们之间本来就只按时延排序，提高时延权重不会改变相对顺序。
+
+### 推荐调整顺序
+
+1. 先实现 no-worse anchor：每个预算把正式 Greedy 最终 phenotype/engine/1789帧结果直接加入 GA 最终比较池；同时在第0代/每代 Stage-2 quota 中固定保留 Greedy anchor。这样在同一目标下 GA 最终结果数学上不可能劣于 Greedy。
+2. 将逐代 Stage-2 改为在线反馈：每代 Top-5 完成500帧后，把真实 winner/Pareto elite注入下一代，并让真实 F2 改善重置 stagnation；或利用现有数百条 Stage-2 样本训练在线 AP/latency surrogate。
+3. Stage-2 quota 改为兼顾目标的组成，例如 `1 Greedy anchor + 2 Taylor exploitation + 1 latency-surrogate minimum + 1 Pareto/diversity`，而不是纯基因距离 diversity。
+4. 最终选择优先使用可解释的约束式目标：在 `mAP >= FP32 - delta`（建议先审计 `delta=0.001`）内最小化 p50；若无可行候选，再按最小 AP drop 回退。它比任意加权和更稳定。
+5. 完成以上修改后再做 `eta_ap/eta_latency = 0.6/0.4` 消融；不建议直接以当前代码重跑40%或50%时延权重，因为离线敏感性已表明收益极小。
+
+---
+时间戳：2026-07-24 13:41:12 CST｜轮次：Round 9
+---
