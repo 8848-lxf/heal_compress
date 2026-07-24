@@ -380,7 +380,7 @@
 - 新增 `search/greedy/weight_only_abs.py`、V2X-ViT Greedy runner、B0/S32/JMIX-FRESH control engine builder、fixed500 evaluator、TensorRT 200 warmup/500×5 latency runner 和报告汇总脚本；Greedy 循环计数器设计为 forward/backward/physical export/ONNX/TRT build 全部为 0。
 - 新增 `tests/test_weight_only_abs_taylor.py`，定向相关测试 `45 passed`，`compileall` 与 `git diff --check` 通过；全量 pytest 为 `981 passed, 2 failed`，仍是既有 generic tracer 的 einsum alias 与 matmul operator 两项失败，未新增失败。
 - 新运行计划、before/after 进程快照均已保存。GPU5（`GPU-4d414d37-9a66-becc-0ffe-f5544e75fb38`）在实验前后仍被外部 PID `3625899`（`/exdata/jichengzhi/tvm310/bin/python`）占用，当前 GPU 利用率 100%；按照“只用 GPU5、不抢占外部进程”约束，Greedy、engine、fixed500 和正式 latency 阶段均安全延期，未使用其他 GPU，未发送任何外部信号。
-- 当前提交 `202f095d0e13aa8d7e5e793955a6c584546f7782` 已推送且本地/远端为 `0 0`；本轮未启动 GA、六预算搜索、full1789、训练、SmoothQuant、alpha 搜索或 LUT 扩展。后续必须先重新确认 GPU5 连续空闲，再按固定顺序运行 Greedy→三控制 engine→500 帧→隔离延迟。
+- 代理实现提交 `202f095d0e13aa8d7e5e793955a6c584546f7782` 与延期报告提交均已推送；本轮最终提交为 `3d601d758ac936bcdd6b2282f3680e5d46af2798`，本地/远端为 `0 0`。本轮未启动 GA、六预算搜索、full1789、训练、SmoothQuant、alpha 搜索或 LUT 扩展。后续必须先重新确认 GPU5 连续空闲，再按固定顺序运行 Greedy→三控制 engine→500 帧→隔离延迟。
 
 ---
 时间戳：2026-07-25 01:30:00 CST｜轮次：Round 12
