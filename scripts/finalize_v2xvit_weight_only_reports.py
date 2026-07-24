@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 from pathlib import Path
+import subprocess
 from typing import Any
 
 ROOT = Path("/data/lxf/heal_data/outputs/h800_v2xvit_greedy005_weight_only_abs_taylor_20260725_010334")
@@ -27,6 +28,11 @@ def write_csv(path: Path, rows: list[dict[str, Any]], fields: list[str]) -> None
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
         writer.writeheader(); writer.writerows(rows)
+
+
+def git_value(*args: str) -> str:
+    repo = Path(__file__).resolve().parents[1]
+    return subprocess.run(["git", "-C", str(repo), *args], check=True, text=True, capture_output=True).stdout.strip()
 
 
 def run(root: Path, old_root: Path) -> int:
@@ -84,7 +90,7 @@ def run(root: Path, old_root: Path) -> int:
     }
     write_json(root / "reports/compression_accuracy_speedup.json", compression)
     write_json(root / "reports/final_acceptance.json", {
-        "model": "V2X-ViT", "greedy_budget": 0.05, "budget_tolerance": 0.005,
+        "model": "V2X-ViT", "branch": git_value("branch", "--show-current"), "worktree": str(Path(__file__).resolve().parents[1]), "final_commit": git_value("rev-parse", "HEAD"), "remote_sync": git_value("rev-list", "--left-right", "--count", "HEAD...origin/feature/h800-transformer-unified-search"), "greedy_budget": 0.05, "budget_tolerance": 0.005,
         "elementwise_abs_before_reduction": True, "cross_parameter_signed_cancellation": False, "cross_sample_signed_cancellation": False,
         "pruning_proxy": "coupled_group_weight_taylor_abs_sum", "quantization_proxy": "weight_taylor_only_abs_sum",
         "activation_taylor_used_for_fitness": False, "activation_quantization_used_in_deployment": bool(controls), "activation_quantization_contract_enabled": True, "joint_taylor_used_for_fitness": False, "cross_residual_used_for_fitness": False,
