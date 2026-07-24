@@ -6,7 +6,10 @@ import torch
 import torch.nn as nn
 from torch import einsum as imported_einsum
 
-from heal_compress.tracer.generic_tracer import trace_model
+# The isolated worktree is not named ``heal_compress``.  Import its local
+# tracer package explicitly; otherwise pytest resolves the sibling formal
+# worktree at ``/home/lixingfeng/UniAD_examine/heal_compress``.
+from tracer.generic_tracer import trace_model
 
 
 class ImportedEinsumAttention(nn.Module):

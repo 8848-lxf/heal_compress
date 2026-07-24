@@ -397,3 +397,13 @@
 ---
 时间戳：2026-07-25 02:00:00 CST｜轮次：Round 13
 ---
+
+## Round 14：统一 generic tracer 测试导入并恢复全量回归
+
+- `tests/test_generic_tracer_transformer_ops.py` 改为显式导入隔离 worktree 的 `tracer.generic_tracer`，不再通过 `heal_compress.tracer` 解析到正式 sibling worktree 的旧 tracer。
+- 两个历史失败测试现在分别捕获 `torch.einsum` alias 与 `Tensor.__matmul__`；全量 pytest 结果为 `983 passed, 82 warnings, 0 failed`。
+- 本轮准备继续运行新的 4 倍数 Transformer 宽度 V2X-ViT `R_BOPS=0.05` Greedy，但 GPU5 当前仍被外部 PID `3742637` 与 `3745126` 占用（约 7.8 GiB，利用率约 13%）。未使用其他 GPU，也未启动搜索；必须等待 GPU5 满足空闲条件后再运行。
+
+---
+时间戳：2026-07-25 02:20:00 CST｜轮次：Round 14
+---
