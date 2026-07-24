@@ -316,3 +316,47 @@
 ---
 时间戳：2026-07-24 15:00:00 CST｜轮次：Round 9
 ---
+
+## Round 10：V2X-ViT 0.05 winner 精度崩塌根因归因
+
+### 隔离、输入冻结与静态审计
+
+- 本轮从隔离分支 commit `8ae8ae02473869cf55785dcc0afcd648ea7a93f3` 开始，只使用 worktree `/home/lixingfeng/UniAD_examine/heal_compress_h800_transformer_unified_search`。
+- 新 run root 为 `/data/lxf/heal_data/outputs/h800_v2xvit_005_accuracy_collapse_attribution_20260724_053307/`；所有历史 artifact 均只读。
+- winner hash `44551dcb6358b38447662e376ad1731d61862343d56da4c054103c784029547b`、physical hash `c045f7c1421948f651f83e4dce81ac7c68f0fecb515d792479b3ffe15695a082`、checkpoint SHA、fixed50 manifest hash 和 engine SHA 均唯一恢复并验证。
+- 12 个 Attention d_h、3 个 FFN d_ff、20 个 CNN width 与上一轮完全一致；QK/VO coordinate coupling、head_dim scale、FFN coupling、strict state load、无 padding/mask-only 均通过静态审计。
+- 旧 calibration 与正确 physical hash、checkpoint、manifest 绑定，没有跨结构复用；旧 key 缺少显式 `precision_map_hash`，因此 key 不完整但 `stale_cache_risk=false`。JMIX-FRESH 强制重新采集 4 帧训练 calibration 并生成 structure/precision/manifest 绑定的新 scale。
+
+### 同结构分解与明确根因
+
+- strict PyTorch fixed50：AP@0.3/0.5/0.7=`0.69904/0.60404/0.41958`，mAP=`0.57422`。
+- winner 物理结构 S32 PyTorch：`0.56339/0.15892/0.00724`，mAP=`0.24318`。灾难性下降已经发生在物理 FP32 模型中，早于量化、ONNX 和 TensorRT。
+- 同结构 TensorRT S16：`0.56226/0.15712/0.00720`，mAP=`0.24219`；没有出现额外 FP16 崩塌。PyTorch 原生 half 路径因 V2X scatter 的 index-put source/destination dtype 不一致而明确失败，未静默回退。
+- 同结构 JMIX-FRESH TensorRT：`0.54883/0.12647/0.00651`，mAP=`0.22727`；fresh PTQ 只带来次级损失，无法恢复结构损失，且与上一轮旧 joint 基本一致。
+- 最终分类为 `structural_collapse`，primary backend=`pytorch_physical`，不是 stale calibration、export semantic mismatch 或 TensorRT numeric mismatch。
+
+### 结构子系统定位
+
+- CNN-only mAP=`0.32458`，Attention-only=`0.38133`，FFN-only=`0.58038`；FFN 不是根因。
+- `shrinker_m1.layers.0.double_conv.0` 单独从 256→28 时 mAP=`0.32496`；full winner 仅恢复 shrinker 后 mAP 上升到 `0.41873`，因此它是主要结构根因。
+- stage0/stage1/stage2 单独物理剪枝的 mAP 分别为 `0.57521/0.58214/0.58207`，包括 stage1 的 width=16 域也没有单独崩塌。
+- Attention 为次级来源：agent relation 和 w4 基本无损；w16 family mAP=`0.48137` 最弱，layer2 mAP=`0.50909` 比 layer0/1 更差。CNN+Attention mAP=`0.24195` 与 full winner 接近，说明两者组合放大损失。
+
+### 后端、量化与限制
+
+- S32 PyTorch/ORT/TensorRT mAP 分别为 `0.24318/0.24139/0.24319`，三后端在已崩塌精度上对齐，排除 S32 export/TRT 主因。
+- ORT 使用明确标记的 ScatterND diagnostic bridge 替换 TensorRT-only scatter plugin；S16 被 FP16 Pad 类型绑定拒绝，JMIX-FRESH 被 FP16 QuantizeLinear 输入类型拒绝。两项为显式 ORT 图兼容性阻塞，不作为数值精度结果。
+- Phase 4 INT8 role rescue 按规则未启动：其前提 S32/S16 正常不成立。本轮未启用 SmoothQuant、未搜索 alpha，`smoothquant_followup_recommended=false`。
+- 没有完成跨三后端的逐层 max-abs/cosine tensor capture；已有 block/family 结构控制和 fixed50 后端指标对齐，缺项在 `intermediate_tensor_errors.csv` 中显式记录。
+
+### 代码与验证
+
+- 新增 provenance/static audit、physical control builder、PyTorch/ORT/TRT diagnostic runners、归因报告生成器与纯判定 helper；TensorRT fresh calibration key 现在显式包含 precision-map hash。
+- 定向测试 `41 passed`；全量 pytest `977 passed, 2 failed`，仍是此前相同的 generic tracer einsum/matmul 两项已知失败。本轮无新增测试失败。
+- `python -m compileall -q search scripts tests tools` 通过；提交前仍需复核 `git diff --check`。
+- 本轮未运行 formal GA、六预算搜索、full1789、训练/微调、SmoothQuant、alpha 网格、LUT 扩展或正式 latency。
+- before/after 进程快照均为 11 个匹配进程；外部 signals 和 external path writes 均为空，GPU 阶段只使用 GPU5。
+
+---
+时间戳：2026-07-24 21:54:07 CST｜轮次：Round 10
+---

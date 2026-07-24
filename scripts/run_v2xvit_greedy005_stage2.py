@@ -328,6 +328,7 @@ def _export_candidate(
                 "dataset_manifest_sha256": _sha256_file(split_path),
                 "checkpoint_sha256": _sha256(MODEL_SPECS["v2xvit"]["checkpoint"]),
                 "physical_structure_hash": physical_structure_hash,
+                "precision_map_hash": stable_json_hash(profile),
                 "scale_hash": stable_json_hash(scales),
             }
             calibration_manifest["manifest_hash"] = stable_json_hash(calibration_manifest)
@@ -337,7 +338,7 @@ def _export_candidate(
             qdq = insert_explicit_qdq(
                 onnx_path, qdq_path, mapping, scales=scales,
                 config=QDQConfig(allowed_precisions=("fp32", "fp16", "int8"), require_calibration_scales=True, insert_activation_input_qdq=True, insert_weight_qdq=True, insert_activation_output_qdq=False, merge_policy="fp16_merge", explicit_fp16_compute_casts=True, explicit_fp32_compute_casts=True, policy_version="v2xvit-greedy005-w8a8-qk-fp32-v1"),
-                calibration_metadata={"calibration_manifest_hash": calibration_manifest["manifest_hash"], "physical_structure_hash": physical_structure_hash},
+                calibration_metadata={"calibration_manifest_hash": calibration_manifest["manifest_hash"], "physical_structure_hash": physical_structure_hash, "precision_map_hash": calibration_manifest["precision_map_hash"]},
             )
             _write(candidate_dir / "qdq_insertion_report.json", qdq.to_dict())
             import onnx

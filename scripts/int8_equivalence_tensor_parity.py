@@ -155,10 +155,41 @@ def replace_scatter_plugin_for_ort(source: Path, destination: Path) -> dict[str,
     height = int(attrs.get("height", 256))
     width = int(attrs.get("width", 512))
     initializers_by_name = {row.name: row for row in model.graph.initializer}
-    scatter_consumer = next((node for node in model.graph.node if output in node.input and node.op_type == "Conv"), None)
-    if scatter_consumer is None or len(scatter_consumer.input) < 2 or scatter_consumer.input[1] not in initializers_by_name:
+    # V2X-ViT pads the scatter feature map before its first convolution, while
+    # the older Pyramid export consumes it directly.  Walk only shape-preserving
+    # bridge operators so the reference replacement remains architecture-safe.
+    bridge_ops = {"Pad", "Identity", "Cast", "QuantizeLinear", "DequantizeLinear"}
+    frontier = {output}
+    visited: set[str] = set()
+    scatter_consumer = None
+    while frontier and scatter_consumer is None:
+        current = frontier.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        for node in model.graph.node:
+            if current not in node.input:
+                continue
+            if node.op_type == "Conv":
+                scatter_consumer = node
+                break
+            if node.op_type in bridge_ops:
+                frontier.update(str(name) for name in node.output)
+
+    def initializer_before_precision_bridges(name: str):
+        current = name
+        for _ in range(8):
+            if current in initializers_by_name:
+                return initializers_by_name[current]
+            producer = next((node for node in model.graph.node if current in node.output), None)
+            if producer is None or producer.op_type not in {"Cast", "DequantizeLinear", "QuantizeLinear", "Identity"}:
+                return None
+            current = str(producer.input[0])
+        return None
+
+    scatter_weight = None if scatter_consumer is None or len(scatter_consumer.input) < 2 else initializer_before_precision_bridges(str(scatter_consumer.input[1]))
+    if scatter_consumer is None or scatter_weight is None:
         raise RuntimeError("scatter_channel_count_cannot_be_derived")
-    scatter_weight = initializers_by_name[scatter_consumer.input[1]]
     group = int(next((onnx.helper.get_attribute_value(attr) for attr in scatter_consumer.attribute if attr.name == "group"), 1))
     channels = int(scatter_weight.dims[1]) * group
     prefix = "__ort_scatter_reference"

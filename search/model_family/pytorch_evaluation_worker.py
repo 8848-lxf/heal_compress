@@ -49,6 +49,18 @@ def _move(value: Any, device: torch.device) -> Any:
     return value
 
 
+def _cast_floating(value: Any, dtype: torch.dtype) -> Any:
+    if torch.is_tensor(value):
+        return value.to(dtype=dtype) if value.is_floating_point() else value
+    if isinstance(value, dict):
+        return {key: _cast_floating(item, dtype) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_cast_floating(item, dtype) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_cast_floating(item, dtype) for item in value)
+    return value
+
+
 def _timed(function: Any, device: torch.device) -> tuple[Any, float]:
     torch.cuda.synchronize(device)
     started = time.perf_counter()
@@ -126,6 +138,61 @@ def _strict_model(config: Path, checkpoint: Path, heal_root: Path, device: torch
     }
 
 
+def _physical_control_model(request: dict[str, Any], device: torch.device) -> tuple[Any, dict[str, Any]]:
+    """Rebuild one exact physical diagnostic control and strict-load its state."""
+    if str(request.get("conda_env", "")) != "univ2x-opt":
+        raise RuntimeError("physical_control_requires_univ2x_opt")
+    repo = Path(str(request["repo_root"])).resolve()
+    for path in (str(repo), str(repo.parent), "/home/lixingfeng/UniAD_examine/HEAL"):
+        if path not in sys.path:
+            sys.path.insert(0, path)
+    from scripts.audit_heal_transformer_search_models import _load
+    from scripts.analyze_v2xvit_greedy005_bops_floor import _build_full_space
+    from scripts.run_v2xvit_greedy005_full import _formal_space
+    from scripts.run_v2xvit_greedy005_stage2 import _frozen_domain
+    from scripts.smoke_transformer_unified_search import _multi_agent_validation_batch
+    from search.candidate import CandidateGenotype
+    from search.canonicalization import repair_genotype
+    from search.pruning_space.unified_physical_pruner import materialize_unified_widths
+    from dataclasses import replace
+
+    model, adapter, hypes, _ = _load("v2xvit", device)
+    batch, _dataset_index, _agent_count = _multi_agent_validation_batch(adapter, hypes, device)
+    identity = _build_full_space(model, adapter, hypes, batch)
+    manifest = json.loads(Path(str(request["search_manifest_path"])).read_text(encoding="utf-8"))
+    formal = _formal_space(model, adapter, hypes, batch, identity, str(manifest["calibration_manifest_hash"]))
+    frozen = json.loads(Path(str(request["ranking_path"])).read_text(encoding="utf-8"))
+    domains = tuple(_frozen_domain(row) for row in frozen["domains"])
+    formal["space"] = replace(formal["space"], pruning_domains=domains)
+    control = json.loads(Path(str(request["physical_control_json"])).read_text(encoding="utf-8"))
+    candidate = repair_genotype(CandidateGenotype.from_dict(control["genotype"]), formal["space"])
+    physical = materialize_unified_widths(
+        model, identity["cnn_units"], domains, candidate.pruning_width_genes, model_name="lidar_v2xvit"
+    )
+    if not physical.report.passed:
+        raise RuntimeError(f"physical_control_materialization_failed:{physical.report.issues}")
+    state_payload = torch.load(Path(str(request["physical_state_dict_path"])), map_location="cpu")
+    state = state_payload.get("model", state_payload)
+    incompatibility = physical.model.load_state_dict(state, strict=False)
+    if incompatibility.missing_keys or incompatibility.unexpected_keys:
+        raise RuntimeError(
+            f"physical_control_checkpoint_mismatch:missing={list(incompatibility.missing_keys)[:8]}:"
+            f"unexpected={list(incompatibility.unexpected_keys)[:8]}"
+        )
+    physical.model.load_state_dict(state, strict=True)
+    physical.model.to(device).eval()
+    return physical.model, {
+        "strict_load_passed": True,
+        "physical_control": True,
+        "control_name": control.get("control_name"),
+        "precision_mode": control.get("precision_mode"),
+        "candidate_hash": control.get("candidate_hash"),
+        "structure_hash": physical.report.structure_hash,
+        "state_dict_shape_hash": physical.report.state_dict_shape_hash,
+        "parameter_count": int(sum(parameter.numel() for parameter in physical.model.parameters())),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--request", required=True)
@@ -191,7 +258,12 @@ def main(argv: list[str] | None = None) -> int:
         if missing_ids:
             raise RuntimeError(f"pytorch_baseline_manifest_ids_missing:{missing_ids[:8]}")
 
-        model, checkpoint_audit = _strict_model(config, checkpoint, heal_root, device)
+        if request.get("physical_control_json"):
+            model, checkpoint_audit = _physical_control_model(request, device)
+        else:
+            model, checkpoint_audit = _strict_model(config, checkpoint, heal_root, device)
+        if str(request.get("autocast_dtype", "none")).lower() == "float16" and bool(request.get("materialize_half_model", True)):
+            model.half()
         dataset = build_dataset(hypes, visualize=True, train=False)
         workers = int(request.get("dataloader_num_workers", 8))
         loader_kwargs: dict[str, Any] = {
@@ -239,8 +311,14 @@ def main(argv: list[str] | None = None) -> int:
                     if raw_batch is None:
                         raise RuntimeError("empty_batch")
                     batch, transfer_ms = _timed(lambda: _move(raw_batch, device), device)
+                    if str(request.get("autocast_dtype", "none")).lower() == "float16" and bool(request.get("cast_input_float16", True)):
+                        batch = _cast_floating(batch, torch.float16)
                     ego = batch["ego"]
-                    with torch.inference_mode():
+                    autocast_mode = str(request.get("autocast_dtype", "none")).lower()
+                    autocast_enabled = autocast_mode == "float16"
+                    with torch.inference_mode(), torch.autocast(
+                        device_type="cuda", dtype=torch.float16, enabled=autocast_enabled
+                    ):
                         outputs, forward_ms = _timed(lambda: model(ego), device)
 
                     def postprocess() -> Any:
