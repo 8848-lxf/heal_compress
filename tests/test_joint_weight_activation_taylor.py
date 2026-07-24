@@ -116,6 +116,31 @@ def test_w16a16_and_w8a8_activation_perturbations_are_nonzero() -> None:
     assert int8["structural_weight_activation_cross_terms_preserved"]
 
 
+def test_activation_only_provider_disables_weight_and_structural_perturbation() -> None:
+    torch.manual_seed(123)
+    model = SoftmaxNet().eval()
+    batches = ((torch.randn(3, 5), torch.randn(3, 4)),)
+    unit = _units()[0]
+    phenotype = _phenotype("INT8", "FP32")
+    provider = ModelCandidateOutputProvider(
+        model,
+        batches,
+        forward_fn=lambda current, batch: current(batch[0]),
+        units=(unit,),
+        unit_to_parameter_slices={},
+        calibration_manifest_hash="activation-only-manifest",
+        apply_structural_perturbation=False,
+        quantize_weights=False,
+        quantize_activations=True,
+    )
+    bundle = provider(phenotype)
+    expected = pseudo_quantize_activation(model.linear(batches[0][0]), "INT8")
+    torch.testing.assert_close(bundle.outputs[unit.unit_id][0], expected)
+    assert bundle.audit["structural_perturbation_applied"] is False
+    assert bundle.audit["weight_quantization_applied"] is False
+    assert bundle.audit["activation_quantization_applied"] is True
+
+
 def test_softmax_a8_uses_output_activation_delta_and_is_not_zero() -> None:
     proxy, _ = _proxy()
     metrics = proxy.evaluate_breakdown(_phenotype("FP32", "INT8"))

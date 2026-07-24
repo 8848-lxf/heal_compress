@@ -482,6 +482,9 @@ class ModelCandidateOutputProvider:
         unit_to_parameter_slices: Mapping[str, Sequence[ParameterSlice]],
         calibration_manifest_hash: str,
         candidate_model_factory: Callable[[nn.Module], nn.Module] | None = None,
+        apply_structural_perturbation: bool = True,
+        quantize_weights: bool = True,
+        quantize_activations: bool = True,
     ) -> None:
         if not calibration_manifest_hash:
             raise ValueError("candidate_output_calibration_manifest_hash_missing")
@@ -494,12 +497,21 @@ class ModelCandidateOutputProvider:
         }
         self.calibration_manifest_hash = str(calibration_manifest_hash)
         self.candidate_model_factory = candidate_model_factory or copy.deepcopy
+        self.apply_structural_perturbation = bool(apply_structural_perturbation)
+        self.quantize_weights = bool(quantize_weights)
+        self.quantize_activations = bool(quantize_activations)
 
     def __call__(self, phenotype: CandidatePhenotype) -> CandidateOutputBundle:
         candidate = self.candidate_model_factory(self.model)
         candidate.train(False)
         modules = dict(candidate.named_modules())
-        slices = parameter_slices_for_phenotype(phenotype, self.unit_to_parameter_slices)
+        slices = (
+            parameter_slices_for_phenotype(
+                phenotype, self.unit_to_parameter_slices
+            )
+            if self.apply_structural_perturbation
+            else {}
+        )
         pruned_parameters = 0
         quantized_parameters = 0
         with torch.no_grad():
@@ -507,8 +519,20 @@ class ModelCandidateOutputProvider:
                 module_path = name.rsplit(".", 1)[0]
                 rows = slices.get(name, [])
                 retained = retained_mask_for_parameter(parameter.detach(), rows)
-                precision = deployment_precision(phenotype.realized_precision_profile.get(module_path, "FP32"))
-                if name.endswith(".weight") and module_path in phenotype.realized_precision_profile:
+                precision = (
+                    deployment_precision(
+                        phenotype.realized_precision_profile.get(
+                            module_path, "FP32"
+                        )
+                    )
+                    if self.quantize_weights
+                    else "FP32"
+                )
+                if (
+                    self.quantize_weights
+                    and name.endswith(".weight")
+                    and module_path in phenotype.realized_precision_profile
+                ):
                     quantized = pseudo_quantize_tensor(parameter.detach(), precision, module=modules.get(module_path))
                     if precision != "FP32":
                         quantized_parameters += 1
@@ -525,7 +549,7 @@ class ModelCandidateOutputProvider:
                     candidate,
                     self.units,
                     precision_profile=phenotype.realized_precision_profile,
-                    quantize=True,
+                    quantize=self.quantize_activations,
                     retain_grad=False,
                 ) as capture:
                     self.forward_fn(candidate, batch)
@@ -542,6 +566,9 @@ class ModelCandidateOutputProvider:
                 "activation_quantizer_count": len(self.units),
                 "quantizer_aliases": self.quantizer_aliases,
                 "mask_used_only_for_stage1_proxy": True,
+                "structural_perturbation_applied": self.apply_structural_perturbation,
+                "weight_quantization_applied": self.quantize_weights,
+                "activation_quantization_applied": self.quantize_activations,
             },
         )
 

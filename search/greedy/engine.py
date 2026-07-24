@@ -80,6 +80,8 @@ class GreedySearchConfig:
     budget_recovery_beam_width: int = 8
     budget_recovery_seed_pool_size: int = 32
     budget_recovery_max_depth: int = 64
+    run_to_exhaustion: bool = False
+    enable_budget_recovery: bool = True
 
     def __post_init__(self) -> None:
         targets = tuple(sorted({float(value) for value in self.bops_targets}))
@@ -164,6 +166,8 @@ class GreedySearchResult:
     budget_recovery_evaluated_neighbor_count: int
     budget_recovery_reports: dict[float, dict[str, Any]]
     bops_tolerance_abs: float
+    run_to_exhaustion: bool
+    budget_recovery_enabled: bool
 
     def to_dict(self) -> dict[str, Any]:
         activation_taylor = "L_joint_weight_activation_taylor" in self.initial_metrics
@@ -221,7 +225,16 @@ class GreedySearchResult:
                 ),
                 "missing_budget_recovery": (
                     "deterministic_target_directed_beam_over_legal_adjacent_actions"
+                    if self.budget_recovery_enabled
+                    else "disabled; hard-gate/capture only, no budget projection"
                 ),
+                "run_to_exhaustion": bool(self.run_to_exhaustion),
+                "actual_repair": {
+                    "structural": 0,
+                    "precision": 0,
+                    "budget_projection": 0,
+                    "canonicalization_is_not_repair": True,
+                },
                 "bops_tolerance_abs": float(self.bops_tolerance_abs),
                 "stage2_policy": "only_unique_final_candidate_per_budget_full_validation",
             },
@@ -476,7 +489,12 @@ class GreedyBudgetSearch:
         selected_action_type_counts: dict[str, int] = {}
         seen = {_identity(current)}
         evaluated_neighbors = 0
-        termination = "minimum_target_reached" if _bops(current_metrics) <= min(targets_desc) else ""
+        termination = (
+            "minimum_target_reached"
+            if not self.config.run_to_exhaustion
+            and _bops(current_metrics) <= min(targets_desc)
+            else ""
+        )
         while not termination and len(steps) < int(self.config.maximum_steps):
             neighbors = [
                 (candidate, action)
@@ -598,7 +616,10 @@ class GreedyBudgetSearch:
                 current_metrics,
                 source="primary_selected_path",
             )
-            if _bops(current_metrics) <= min(targets_desc):
+            if (
+                not self.config.run_to_exhaustion
+                and _bops(current_metrics) <= min(targets_desc)
+            ):
                 termination = "minimum_target_reached"
         if not termination:
             termination = "maximum_steps_reached"
@@ -666,6 +687,16 @@ class GreedyBudgetSearch:
 
         for target in targets_desc:
             if target in budget_candidates:
+                continue
+            if not self.config.enable_budget_recovery:
+                recovery_reports[target] = {
+                    "status": "budget_recovery_disabled",
+                    "depth": 0,
+                    "evaluated_neighbor_count": 0,
+                    "beam_width": 0,
+                    "maximum_depth": 0,
+                    "stop_reason": "hard_gate_capture_only_no_budget_projection",
+                }
                 continue
             seeds = select_recovery_beam(
                 list(recovery_seed_pools[target].values())
@@ -767,4 +798,6 @@ class GreedyBudgetSearch:
             budget_recovery_evaluated_neighbor_count=recovery_evaluated_neighbors,
             budget_recovery_reports=recovery_reports,
             bops_tolerance_abs=float(self.config.bops_tolerance_abs),
+            run_to_exhaustion=bool(self.config.run_to_exhaustion),
+            budget_recovery_enabled=bool(self.config.enable_budget_recovery),
         )

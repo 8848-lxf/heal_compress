@@ -200,6 +200,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--before", type=Path)
+    parser.add_argument(
+        "--phase",
+        choices=("before", "after"),
+        default="after",
+        help="Label this immutable audit snapshot without changing scan semantics.",
+    )
     parser.add_argument("--task-run-root", type=Path, required=True)
     parser.add_argument("--task-worktree", type=Path, required=True)
     args = parser.parse_args()
@@ -237,7 +243,7 @@ def main() -> int:
         }
     payload = {
         "schema_version": "active-search-process-audit-v2",
-        "phase": "after",
+        "phase": args.phase,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "audit_mode": "read_only",
         "match_patterns": list(MATCH_PATTERNS),

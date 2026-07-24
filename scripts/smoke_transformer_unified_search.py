@@ -605,6 +605,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             group.module_paths[0]
                         ]
                         for group in space.quantization_groups
+                        if group.group_id in set(space.precision_gene_ids)
                     },
                 )
             ],

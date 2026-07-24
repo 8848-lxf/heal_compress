@@ -157,12 +157,21 @@ def audit_onnx_attention_fp32_contract(
     qkv_outputs = [
         str(output) for name in requested_qkv for output in nodes[name].output
     ]
-    softmax_nodes = _nearest_nodes(
-        qkv_outputs,
-        consumers=consumers,
-        accepted_ops={"Softmax"},
-        maximum_depth=96,
-    )
+    # Attention families can have different graph depths (for example V2X-ViT
+    # HGT relation attention versus window attention).  A single multi-source
+    # BFS keeps only the globally nearest depth and therefore silently drops
+    # valid, deeper instances.  Resolve the nearest Softmax independently for
+    # every Q/K/V projection output and then deduplicate by node identity.
+    softmax_by_name: dict[str, Any] = {}
+    for output in qkv_outputs:
+        for node in _nearest_nodes(
+            (output,),
+            consumers=consumers,
+            accepted_ops={"Softmax"},
+            maximum_depth=96,
+        ):
+            softmax_by_name[str(node.name)] = node
+    softmax_nodes = [softmax_by_name[key] for key in sorted(softmax_by_name)]
     if not softmax_nodes:
         raise RuntimeError("attention_softmax_not_reachable_from_qkv")
 
@@ -260,19 +269,70 @@ def audit_trt_attention_fp32_contract(
     evidence = []
     for requested in requested_nodes:
         name = str(requested["node_name"])
-        matches = [row for row in rows if has_canonical_identity(row, name)]
+        exact_identity = f"[ONNX Layer: {name}]"
+        exact_matches = [
+            row
+            for row in rows
+            if str(row.get("Metadata") or row.get("metadata") or "").strip()
+            == exact_identity
+        ]
+        # TensorRT can fuse an upstream FP16 projection and a downstream FP32
+        # QK boundary into one broad metadata record.  Such a record contains
+        # the QK identity but is not the QK compute layer.  Prefer inspector
+        # rows whose metadata contains exactly the requested ONNX identity;
+        # retain the broader fallback for tactics that expose no exact row.
+        matches = exact_matches or [row for row in rows if has_canonical_identity(row, name)]
         if not matches:
             matches = [row for row in rows if name and name in layer_metadata(row)]
         realized = sorted(
             {precision_name(row) for row in matches if precision_name(row)}
         )
+        input_formats = sorted(
+            {
+                str(item.get("Format/Datatype") or item.get("format") or "").lower()
+                for row in matches
+                for item in (row.get("Inputs") or row.get("inputs") or ())
+                if isinstance(item, Mapping)
+            }
+        )
+        output_formats = sorted(
+            {
+                str(item.get("Format/Datatype") or item.get("format") or "").lower()
+                for row in matches
+                for item in (row.get("Outputs") or row.get("outputs") or ())
+                if isinstance(item, Mapping)
+            }
+        )
+        op_type = str(requested["op_type"])
+        # TensorRT may fuse a FLOAT Softmax with its requested A16/A8 output
+        # cast/QDQ.  In that case layer-level ``Precision`` describes the
+        # fused output and cannot be used as the compute precision.  FLOAT
+        # inspector inputs plus the explicit ONNX compute contract prove the
+        # Softmax compute is FP32 while output_formats records A16/A8
+        # separately.
+        if op_type == "Softmax":
+            passed = bool(matches) and (
+                (bool(input_formats) and all(value == "float" for value in input_formats))
+                or (not input_formats and realized == ["fp32"])
+            )
+        else:
+            passed = bool(matches) and realized == ["fp32"]
         evidence.append(
             {
                 "onnx_node_name": name,
-                "onnx_op_type": str(requested["op_type"]),
+                "onnx_op_type": op_type,
                 "inspector_match_count": len(matches),
                 "realized_precisions": realized,
-                "passed": bool(matches) and realized == ["fp32"],
+                "input_formats": input_formats,
+                "output_formats": output_formats,
+                "softmax_compute_precision": "fp32" if op_type == "Softmax" and passed else "unresolved",
+                "softmax_output_precision": (
+                    "int8" if any("int8" in value for value in output_formats)
+                    else "fp16" if any("half" in value or "float16" in value for value in output_formats)
+                    else "fp32" if output_formats and all(value == "float" for value in output_formats)
+                    else "unresolved"
+                ) if op_type == "Softmax" else "",
+                "passed": passed,
                 "inspector_metadata": [layer_metadata(row) for row in matches],
             }
         )

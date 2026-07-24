@@ -176,7 +176,7 @@ def test_ga_transformer_mutation_crossover_and_codec_remain_legal() -> None:
         }
 
 
-def test_repair_protects_qk_fp32_gene() -> None:
+def test_qk_fp32_is_constant_contract_not_mutable_or_repaired_gene() -> None:
     from search.candidate import CandidateGenotype
     from search.canonicalization import SearchSpaceSpec, repair_genotype
     from search.quantization_space.transformer_precision import (
@@ -202,13 +202,19 @@ def test_repair_protects_qk_fp32_gene() -> None:
         quantization_groups=(unit.to_search_group(),),
         default_precision="FP32",
     )
-    repaired = repair_genotype(
-        CandidateGenotype(precision_genes={"precision::qk": "INT8"}), space
-    )
-    assert repaired.precision_genes == {"precision::qk": "FP32"}
-    assert repaired.meta["precision_fallback_report"]["precision::qk"][
-        "fallback_reason"
-    ] == "qk_fp32"
+    assert space.precision_gene_ids == []
+    repaired = repair_genotype(CandidateGenotype(), space)
+    assert repaired.precision_genes == {}
+    assert repaired.meta["constant_precision_group_profile"] == {
+        "precision::qk": "FP32"
+    }
+    with pytest.raises(
+        ValueError, match="non_variable_precision_genes_must_not_enter_genotype"
+    ):
+        repair_genotype(
+            CandidateGenotype(precision_genes={"precision::qk": "INT8"}),
+            space,
+        )
     with pytest.raises(ValueError, match="transformer_precision_request_illegal"):
         validate_external_precision_profile({"precision::qk": "A8"}, (unit,))
 

@@ -32,12 +32,20 @@ def forced_int8_group_genotype(
     minimum_int8_macs_ratio: float,
     default_precision: str = "FP16",
 ) -> CandidateGenotype:
-    total_macs = sum(max(float(group.baseline_macs), 0.0) for group in groups) or 1.0
+    variable_groups = [
+        group
+        for group in groups
+        if not group.protected and len(set(group.allowed_precisions)) > 1
+    ]
+    total_macs = (
+        sum(max(float(group.baseline_macs), 0.0) for group in variable_groups)
+        or 1.0
+    )
     target = float(minimum_int8_macs_ratio) * total_macs
     selected: set[str] = set()
     running = 0.0
-    for group in sorted(groups, key=lambda row: (-float(row.baseline_macs), row.group_id)):
-        if "INT8" not in group.allowed_precisions or group.protected:
+    for group in sorted(variable_groups, key=lambda row: (-float(row.baseline_macs), row.group_id)):
+        if "INT8" not in group.allowed_precisions:
             continue
         selected.add(group.group_id)
         running += max(float(group.baseline_macs), 0.0)
@@ -46,8 +54,16 @@ def forced_int8_group_genotype(
     return CandidateGenotype(
         pruning_genes={},
         precision_genes={
-            group.group_id: ("INT8" if group.group_id in selected else default_precision)
-            for group in sorted(groups, key=lambda row: row.ordering)
+            group.group_id: (
+                "INT8"
+                if group.group_id in selected
+                else (
+                    str(default_precision).upper()
+                    if str(default_precision).upper() in group.allowed_precisions
+                    else group.allowed_precisions[0]
+                )
+            )
+            for group in sorted(variable_groups, key=lambda row: row.ordering)
         },
         meta={"created_by": "forced_int8_group_candidate", "minimum_int8_macs_ratio": float(minimum_int8_macs_ratio)},
     )

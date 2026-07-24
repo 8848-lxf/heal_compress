@@ -240,3 +240,41 @@
 ---
 时间戳：2026-07-24 06:06:16 CST｜轮次：Round 4
 ---
+
+## Round 5：Repair 审计与 V2X-ViT 0.05 Greedy 验收
+
+### 隔离与审计
+
+- 本轮继续使用 `feature/h800-transformer-unified-search` 与独立 worktree `/home/lixingfeng/UniAD_examine/heal_compress_h800_transformer_unified_search`，起始 commit 为 `be640fbbea06403dd33f80aa2b171c554a58f824`。
+- 新 run root：`/data/lxf/heal_data/outputs/h800_v2xvit_repair_audit_greedy005_20260724_141650/`。没有复用历史 run root 的可写目录。
+- `provenance/active_processes_before.json` 与 `active_processes_after.json` 已生成；本任务发送外部信号 0、触碰外部搜索路径 0。after 快照没有匹配的 DiscoNet/F-Cooper 行，这只记录快照差异，不归因于本任务终止进程。
+- GPU 阶段仅使用当时可用的 GPU5；没有抢占 GPU0 上的用户进程，也没有执行正式无争用 latency 协议。
+
+### Phase A：实际 repair 审计
+
+- 历史 smoke artifact 共 72 个候选，全部缺失 raw genotype；没有猜测，使用 V2X-ViT 与 CoBEVT population=8、generation=1 的 deterministic replay 补齐审计轨迹。
+- legacy replay 的 18 个 transition 中，16 个候选发生过精度字段写回，18 个 precision repair fields（其中 12 个 QK 写回）；结构宽度、Attention d_h、FFN d_ff、CNN、dependency、budget projection 均为 0。Greedy legacy 的 2 个修改同样仅为 precision 写回。
+- 当前严格编码 replay 的 actual repair fields 为 0。canonicalization、hard-gate rejection、deduplication 被明确归类为非 repair；repair 后 phenotype 会重新计算 Taylor/BOPS/params/mixed-size/latency/hash。
+- `repair_audit/legal_by_construction_audit.json` 门槛：`STRUCTURE_LEGAL_BY_CONSTRUCTION=true`、`GREEDY_REPAIR_FREE=true`、`GA_LEGAL_BY_CONSTRUCTION=true`、`PHASE_A_ACCEPTED=true`。
+- 编码已改为合法状态 index：Attention/FFN gene 只能访问 legal widths，mutation 为同 locus 合法邻接状态，crossover 按固定 locus，QK/LayerNorm protected precision 不进入 genotype，超预算 offspring hard-gate reject；Greedy 不执行 structural/precision/budget repair。
+
+### Phase B：V2X-ViT `R_BOPS=0.05` Greedy
+
+- 模型 `lidar_v2xvit` 的严格 W32A32 基线 BOPS 为 `122842499383296.0`；统一搜索域为 20 个 CNN、12 个独立 Attention d_h、3 个 FFN d_ff，grouped-conv 域数量为 0。
+- 离散最小可达 retention 为 `0.030587942852870195`，因此 `[0.045, 0.055]` 预算带可达。
+- Greedy 从 retention=1.0 运行到无合法正 BOPS 降幅动作，共 1002 步；BOPS 单调不增、candidate hash 稳定唯一、每步 structural/precision/budget repair 均为 0。
+- 预算带共有 1811 个候选。joint Taylor 优先 winner：hash `44551dcb6358b38447662e376ad1731d61862343d56da4c054103c784029547b`，retention `0.05491842298159359`，绝对偏差 `0.00491842298159359`，joint Taylor `62.76118526354641`。winner 的 Attention/FFN 宽度与 precision map 已写入 `greedy/v2xvit_greedy_winner_config.json`。
+- Stage-2 Top-5 全部通过物理宽度、finite-forward、ONNX 与 requested/realized exact 审计；对 Top-1 winner 使用 fixed-K=27904 构建 TensorRT 10.9 strongly-typed engine，engine 成功，INT8 requested/realized 为 67/67，QK/Softmax compute FP32，Softmax output 为 FP16（A8 语义按 floating compute + output Q/DQ 审计）。
+- joint candidate smoke10/fixed50 均完成；fixed50 AP@0.3=`0.5457148330906878`、AP@0.5=`0.12610580491800644`、AP@0.7=`0.00629311430358704`，forward p50=`11.078222072683275 ms`。这些是筛选 smoke，不是正式 latency 结论。
+- strict baseline 与 precision-only control 均物理构建并完成 fixed50，用于 precision/structure effect 分解；proxy validation 因只有 1 个具备完整三类代理与 fixed50 的候选，标记 `insufficient_sample_count`，没有夸大相关性。
+
+### 验证、提交与后续
+
+- 相关定向测试：32 passed；`compileall` 与 `git diff --check` 通过。完整 pytest 为 973 passed、2 个既有 generic tracer Transformer tests 失败（`test_runtime_tracer_captures_imported_einsum_alias_and_restores_it`、`test_runtime_tracer_captures_matmul_operator`），未修改其 tracer 逻辑。
+- 本轮未执行 formal GA、full1789、六预算长跑或正式 200 warmup/500 timed/5 repeats latency。
+- 起始时正式分支实际观察到 `origin/feature/heal-unified-search-h800=460764fdecf9ea6298667586c033a51aa4b71c7d`，与任务给定预期 `896a049830874ef0d40faa87927873a1e88bedb6` 不一致；本任务未 checkout/reset/merge/cherry-pick 正式分支，需在最终报告中保留该血缘异常。
+- 下一步：完成本分支提交与 push 后写入 final commit/remote 0 0；若后续授权，先为物理 d_h 后的 QKV W8A8 刷新 SmoothQuant scales，再做无争用正式 latency，最后才考虑六预算扩展。
+
+---
+时间戳：2026-07-24 14:45:00 CST｜轮次：Round 5
+---

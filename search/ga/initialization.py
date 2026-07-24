@@ -11,13 +11,32 @@ from .immigrants import random_immigrant
 from .mutation import mutate_candidate
 
 
+def _legal_precision_profile(space: SearchSpaceSpec, preferred: str) -> dict[str, str]:
+    """Choose a legal state for every mutable precision locus."""
+
+    order = ("FP32", "FP16", "INT8")
+    groups = {group.group_id: group for group in space.quantization_groups}
+    requested = str(preferred).upper()
+    result: dict[str, str] = {}
+    for gene_id in space.precision_gene_ids:
+        group = groups.get(gene_id)
+        allowed = tuple(group.allowed_precisions) if group is not None else order
+        if requested in allowed:
+            result[gene_id] = requested
+            continue
+        result[gene_id] = next(
+            (value for value in order if value in allowed), allowed[0]
+        )
+    return result
+
+
 def baseline_candidate(space: SearchSpaceSpec) -> CandidateGenotype:
     return CandidateGenotype(
         pruning_genes=(
             {} if space.pruning_domains
             else {unit_id: 1 for unit_id in space.pruning_unit_ids}
         ),
-        precision_genes={gene_id: "FP32" for gene_id in space.precision_gene_ids},
+        precision_genes=_legal_precision_profile(space, "FP32"),
         meta={"created_by": "baseline_full_fp32"},
         pruning_width_genes={domain.domain_id: domain.original_width for domain in space.pruning_domains},
     )
@@ -35,7 +54,7 @@ def compressed_seed(space: SearchSpaceSpec, keep_probability: float, precision: 
         return repair_genotype(
             CandidateGenotype(
                 pruning_genes={},
-                precision_genes={gene_id: precision for gene_id in space.precision_gene_ids},
+                precision_genes=_legal_precision_profile(space, precision),
                 meta={"created_by": f"domain_width_seed_{keep_probability:.2f}_{precision}"},
                 pruning_width_genes=width_genes,
             ),
@@ -46,7 +65,7 @@ def compressed_seed(space: SearchSpaceSpec, keep_probability: float, precision: 
     return repair_genotype(
         CandidateGenotype(
             pruning_genes={unit_id: 1 if unit_id in keep else 0 for unit_id in space.pruning_unit_ids},
-            precision_genes={gene_id: precision for gene_id in space.precision_gene_ids},
+            precision_genes=_legal_precision_profile(space, precision),
             meta={"created_by": f"compressed_seed_{keep_probability:.2f}_{precision}"},
         ),
         space,
@@ -71,7 +90,7 @@ def initialize_population(
                     {} if space.pruning_domains
                     else {unit_id: 1 for unit_id in space.pruning_unit_ids}
                 ),
-                precision_genes={gene_id: "FP16" for gene_id in space.precision_gene_ids},
+                precision_genes=_legal_precision_profile(space, "FP16"),
                 meta={"created_by": "baseline_fp16_deploy"},
                 pruning_width_genes={
                     domain.domain_id: domain.original_width for domain in space.pruning_domains

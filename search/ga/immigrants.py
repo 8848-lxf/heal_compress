@@ -48,6 +48,7 @@ def immigrant_ratio_for_generation(
 def random_immigrant(space: SearchSpaceSpec, rng: random.Random, *, keep_probability: float | None = None) -> CandidateGenotype:
     keep_p = 0.5 if keep_probability is None else float(keep_probability)
     precision_values = ["FP32", "FP16", "INT8"]
+    groups = {group.group_id: group for group in space.quantization_groups}
     if space.pruning_domains:
         pruning = {}
         width_genes = {}
@@ -71,7 +72,18 @@ def random_immigrant(space: SearchSpaceSpec, rng: random.Random, *, keep_probabi
     genotype = CandidateGenotype(
         pruning_genes=pruning,
         precision_genes={
-            layer_id: rng.choice(precision_values)
+            layer_id: rng.choice(
+                [
+                    value
+                    for value in precision_values
+                    if value
+                    in (
+                        groups[layer_id].allowed_precisions
+                        if layer_id in groups
+                        else tuple(precision_values)
+                    )
+                ]
+            )
             for layer_id in space.precision_gene_ids
         },
         meta={"created_by": "random_immigrant"},
