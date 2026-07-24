@@ -213,6 +213,8 @@ def run_weight_only_abs_greedy(
             row["candidate_hash"],
         ),
     )
+    if not ordered_band and not selected_steps:
+        raise RuntimeError("weight_only_greedy_no_legal_candidate")
     winner = ordered_band[0] if ordered_band else min(
         selected_steps,
         key=lambda row: (

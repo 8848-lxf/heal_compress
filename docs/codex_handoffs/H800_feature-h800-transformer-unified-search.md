@@ -371,3 +371,17 @@
 ---
 时间戳：2026-07-24 21:58:00 CST｜轮次：Round 11
 ---
+
+## Round 12：weight-only absolute Taylor Greedy 与 GPU5 隔离状态
+
+- 本轮从 clean commit `9d23c4a842e55c91814935dfadab614e19b94458` 开始，新增运行根目录 `/data/lxf/heal_data/outputs/h800_v2xvit_greedy005_weight_only_abs_taylor_20260725_010334/`；只在隔离 worktree 修改，正式 unified-search worktree 未触碰。
+- Taylor 结构动作现在只统计当前状态到下一状态中新删除的耦合参数元素：`Σ_i [abs(g_i·(-w_i)) + 0.5·abs(h_i·w_i²)]`；权重量化动作只统计保留参数在当前→下一相邻精度间的量化增量：`Σ_i [abs(g_i·Δw_i) + 0.5·abs(h_i·Δw_i²)]`。两项均逐元素取绝对值后才聚合到参数、耦合组、层和样本，禁止符号抵消和量化风险返还。
+- Fisher 采集新增 `absolute_gradients`，在样本聚合前保存逐元素绝对梯度；统计版本更新为 `common-task-loss-fisher-abs-reduction-v2`。Greedy 新循环只使用 weight-only Taylor，activation/joint/cross 项权重均为 0；真实 W8A8 部署脚本仍保留激活校准和 INT8 激活路径。
+- 新增 `search/greedy/weight_only_abs.py`、V2X-ViT Greedy runner、B0/S32/JMIX-FRESH control engine builder、fixed500 evaluator、TensorRT 200 warmup/500×5 latency runner 和报告汇总脚本；Greedy 循环计数器设计为 forward/backward/physical export/ONNX/TRT build 全部为 0。
+- 新增 `tests/test_weight_only_abs_taylor.py`，定向相关测试 `45 passed`，`compileall` 与 `git diff --check` 通过；全量 pytest 为 `981 passed, 2 failed`，仍是既有 generic tracer 的 einsum alias 与 matmul operator 两项失败，未新增失败。
+- 新运行计划、before/after 进程快照均已保存。GPU5（`GPU-4d414d37-9a66-becc-0ffe-f5544e75fb38`）在实验前后仍被外部 PID `3625899`（`/exdata/jichengzhi/tvm310/bin/python`）占用，当前 GPU 利用率 100%；按照“只用 GPU5、不抢占外部进程”约束，Greedy、engine、fixed500 和正式 latency 阶段均安全延期，未使用其他 GPU，未发送任何外部信号。
+- 当前提交 `202f095d0e13aa8d7e5e793955a6c584546f7782` 已推送且本地/远端为 `0 0`；本轮未启动 GA、六预算搜索、full1789、训练、SmoothQuant、alpha 搜索或 LUT 扩展。后续必须先重新确认 GPU5 连续空闲，再按固定顺序运行 Greedy→三控制 engine→500 帧→隔离延迟。
+
+---
+时间戳：2026-07-25 01:30:00 CST｜轮次：Round 12
+---

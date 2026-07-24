@@ -71,17 +71,17 @@ def test_weight_quantization_action_is_adjacent_and_nonnegative():
     from search.proxy.fisher_proxy import FisherStatistics
     from search.proxy.joint_weight_taylor import JointWeightTaylorProxy
 
-    model = torch.nn.Linear(2, 2, bias=False)
+    model = torch.nn.Sequential(torch.nn.Linear(2, 2, bias=False))
     stats = FisherStatistics(
-        gradients={"weight": torch.ones(2, 2)},
-        fisher_diag={"weight": torch.ones(2, 2)},
-        absolute_gradients={"weight": torch.ones(2, 2)},
+        gradients={"0.weight": torch.ones(2, 2)},
+        fisher_diag={"0.weight": torch.ones(2, 2)},
+        absolute_gradients={"0.weight": torch.ones(2, 2)},
         manifest_hash="quant-test",
     )
     proxy = JointWeightTaylorProxy(model, statistics=stats, unit_to_parameter_slices={})
-    fp32 = CandidatePhenotype(precision_profile={"": PrecisionDecision("FP32", "FP32")})
-    fp16 = CandidatePhenotype(precision_profile={"": PrecisionDecision("FP16", "FP16")})
-    int8 = CandidatePhenotype(precision_profile={"": PrecisionDecision("INT8", "INT8")})
+    fp32 = CandidatePhenotype(precision_profile={"0": PrecisionDecision("FP32", "FP32")})
+    fp16 = CandidatePhenotype(precision_profile={"0": PrecisionDecision("FP16", "FP16")})
+    int8 = CandidatePhenotype(precision_profile={"0": PrecisionDecision("INT8", "INT8")})
     q16 = proxy.weight_quantization_action_breakdown(fp32, fp16)
     q8 = proxy.weight_quantization_action_breakdown(fp16, int8)
     assert q16["delta_J_WQ"] >= 0.0

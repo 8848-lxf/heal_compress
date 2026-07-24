@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import replace
 import json
 from pathlib import Path
 import random
@@ -20,8 +19,7 @@ if str(REPO) not in sys.path:
 
 from scripts.audit_heal_transformer_search_models import _load
 from scripts.analyze_v2xvit_greedy005_bops_floor import _build_full_space
-from scripts.audit_heal_transformer_search_models import MODEL_SPECS
-from scripts.run_v2xvit_greedy005_full import _baseline_candidate, _genotype_payload
+from scripts.run_v2xvit_greedy005_full import _baseline_candidate
 from scripts.run_v2xvit_greedy005_stage2 import _export_candidate
 from scripts.smoke_transformer_unified_search import _multi_agent_validation_batch
 from search.candidate import CandidateGenotype
@@ -59,6 +57,14 @@ def run(args: argparse.Namespace) -> int:
     reports: dict[str, Any] = {}
     for name, raw_candidate in controls.items():
         candidate = repair_genotype(raw_candidate, space)
+        # ``repair_genotype`` is retained as the strict legalizer API, but a
+        # control must never be silently moved to another width/precision
+        # state.  The only tolerated difference is removal of legacy binary
+        # pruning fields during canonicalization.
+        if candidate.pruning_width_genes != raw_candidate.pruning_width_genes:
+            raise RuntimeError(f"weight_only_control_width_repair:{name}")
+        if candidate.precision_genes != raw_candidate.precision_genes:
+            raise RuntimeError(f"weight_only_control_precision_repair:{name}")
         phenotype = canonicalize_candidate(candidate, space)
         candidate_id = candidate_hash(phenotype, space)
         physical = materialize_unified_widths(model, identity["cnn_units"], space.pruning_domains, candidate.pruning_width_genes, model_name="lidar_v2xvit")
@@ -69,7 +75,7 @@ def run(args: argparse.Namespace) -> int:
         export = _export_candidate(destination, physical.model, adapter, batch, hypes, phenotype, candidate_id, physical.report.structure_hash, build_engine=True, tensorrt_root=args.tensorrt_root, plugin=args.plugin, calibration_frames=4, qkv_paths=qkv_paths, fixed_k_override=args.fixed_k)
         if not export.get("passed") or not export.get("engine", {}).get("passed"):
             raise RuntimeError(f"weight_only_control_engine_failed:{name}:{export.get('failure','')}")
-        record = {"control": name, "candidate_hash": candidate_id, "structure_hash": physical.report.structure_hash, "state_dict_shape_hash": physical.report.state_dict_shape_hash, "precision_counts": {state: sum(value == state for value in phenotype.realized_precision_profile.values()) for state in ("FP32", "FP16", "INT8")}, "requested_widths": physical.report.requested_widths, "realized_widths": physical.report.realized_widths, "export": export, "diagnostic_control": False}
+        record = {"control": name, "candidate_hash": candidate_id, "structure_hash": physical.report.structure_hash, "state_dict_shape_hash": physical.report.state_dict_shape_hash, "precision_counts": {state: sum(value == state for value in phenotype.realized_precision_profile.values()) for state in ("FP32", "FP16", "INT8")}, "requested_widths": physical.report.requested_widths, "realized_widths": physical.report.realized_widths, "export": export, "diagnostic_control": False, "structural_repair_count": 0, "precision_repair_count": 0, "budget_projection_count": 0}
         write(destination / "control_report.json", record); reports[name] = record
         del physical; torch.cuda.empty_cache()
     write(args.output_root / "reports/control_engine_builds.json", {"controls": reports, "smoothquant_used": False, "top_k": 1})

@@ -19,7 +19,7 @@ class FisherStatistics:
     fisher_diag: dict[str, torch.Tensor] = field(default_factory=dict)
     absolute_gradients: dict[str, torch.Tensor] = field(default_factory=dict)
     manifest_hash: str = ""
-    statistics_version: str = "fisher-diagonal-v1"
+    statistics_version: str = "fisher-diagonal-abs-reduction-v2"
 
 
 def collect_task_loss_fisher_statistics(
@@ -81,7 +81,7 @@ def collect_task_loss_fisher_statistics(
         fisher_diag=fisher,
         absolute_gradients=absolute_gradients,
         manifest_hash=statistics_hash,
-        statistics_version="common-task-loss-fisher-v1",
+        statistics_version="common-task-loss-fisher-abs-reduction-v2",
     )
     return statistics, {
         **identity,
