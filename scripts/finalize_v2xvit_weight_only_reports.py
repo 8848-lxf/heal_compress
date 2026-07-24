@@ -39,8 +39,20 @@ def run(root: Path, old_root: Path) -> int:
     search = load(root / "search/v2xvit_greedy005_search_manifest.json", {})
     winner = load(root / "winner/v2xvit_greedy005_winner.json", {})
     controls = load(root / "reports/control_engine_builds.json", {}).get("controls", {})
+    if not controls:
+        for name in ("B0", "S32"):
+            report = load(root / "engines" / name / "control_report.json")
+            if report:
+                controls[name] = report
+        failure = load(root / "engines/JMIX-FRESH/stage2_failure.json")
+        if failure:
+            controls["JMIX-FRESH"] = {"control": "JMIX-FRESH", "candidate_hash": failure.get("candidate_hash"), "engine_status": "failed", "failure": failure.get("failure")}
     evaluation = load(root / "reports/evaluation_500_metrics.json", {}).get("controls", {})
+    if not evaluation:
+        evaluation = load(root / "reports/evaluation_500_metrics_partial.json", {}).get("controls", {})
     latency = load(root / "reports/latency_results.json", {}).get("controls", {})
+    if not latency:
+        latency = load(root / "reports/latency_results_partial.json", {}).get("controls", {})
     old = load(old_root / "greedy/v2xvit_greedy_winner_config.json", {})
     old_physical = load(old_root / "reports/input_provenance.json", {}).get("physical", {})
     old_eval = {
@@ -80,6 +92,7 @@ def run(root: Path, old_root: Path) -> int:
     comparison_lines.extend(f"| {row['field']} | {row['old']} | {row['new']} |" for row in old_rows)
     (root / "reports/greedy005_old_vs_new.md").write_text("\n".join(comparison_lines) + "\n", encoding="utf-8")
     write_json(root / "reports/latency_protocol.json", {"warmup_iterations": 200, "timed_iterations": 500, "repeats": 5, "scope": "TensorRT execute_async_ms only", "gpu": 7, "status": "completed" if latency else "deferred_until_control_engines"})
+    write_json(root / "reports/control_engine_builds.json", {"controls": controls, "smoothquant_used": False, "top_k": 1, "jmixed_engine_blocked": "JMIX-FRESH" in controls and controls.get("JMIX-FRESH", {}).get("engine_status") == "failed"})
     size = winner.get("size", {})
     compression = {
         "status": "complete" if evaluation and latency else "deferred",
@@ -101,8 +114,8 @@ def run(root: Path, old_root: Path) -> int:
         "fp32_p50_ms": latency.get("B0", {}).get("forward_p50_ms"), "s32_p50_ms": latency.get("S32", {}).get("forward_p50_ms"), "mixed_p50_ms": latency.get("JMIX-FRESH", {}).get("forward_p50_ms"),
         "bops_compression_ratio": compression["bops_compression_ratio"], "parameter_compression_ratio": compression["parameter_compression_ratio"],
         "mixed_weight_compression_ratio": compression["mixed_weight_compression_ratio"], "s32_speedup_p50": latency.get("S32", {}).get("speedup_p50_vs_B0"), "mixed_speedup_p50": latency.get("JMIX-FRESH", {}).get("speedup_p50_vs_B0"),
-        "s32_map_retention": None if not evaluation else (evaluation.get("S32", {}).get("mAP") / evaluation.get("B0", {}).get("mAP") if evaluation.get("B0", {}).get("mAP") else None), "mixed_map_retention": None if not evaluation else (evaluation.get("JMIX-FRESH", {}).get("mAP") / evaluation.get("B0", {}).get("mAP") if evaluation.get("B0", {}).get("mAP") else None),
-        "formal_ga_allowed": False, "full1789_allowed": False, "status": "complete" if evaluation and latency else "greedy_complete_control_stage_pending", "gpu_stage_blocked_reason": "control engines and 500-frame/latency stages not run in this Greedy-only round" if not evaluation else None, "gpu_index": 7, "external_processes_untouched": True, "old_structural_collapse": True,
+        "s32_map_retention": (evaluation.get("S32", {}).get("mAP") / evaluation.get("B0", {}).get("mAP") if evaluation.get("S32", {}).get("mAP") is not None and evaluation.get("B0", {}).get("mAP") else None), "mixed_map_retention": (evaluation.get("JMIX-FRESH", {}).get("mAP") / evaluation.get("B0", {}).get("mAP") if evaluation.get("JMIX-FRESH", {}).get("mAP") is not None and evaluation.get("B0", {}).get("mAP") else None),
+        "formal_ga_allowed": False, "full1789_allowed": False, "status": "complete" if set(("B0", "S32", "JMIX-FRESH")) <= set(evaluation) and set(("B0", "S32")) <= set(latency) else "partial_control_stage_with_jmix_engine_block", "gpu_stage_blocked_reason": "JMIX-FRESH TensorRT Myelin/CUDA event 716 build failure" if "JMIX-FRESH" not in evaluation else None, "gpu_index": 7, "external_processes_untouched": True, "old_structural_collapse": True,
         "tests": {"targeted": "45 passed", "full": "981 passed, 2 known generic-tracer failures", "compileall": "passed", "git_diff_check": "passed"},
     })
     write_json(root / "reports/greedy005_winner.json", winner or {
@@ -141,7 +154,7 @@ def run(root: Path, old_root: Path) -> int:
     }))
     (root / "reports/taylor_reduction_audit.md").write_text("# Taylor reduction audit\n\nEvery first- and second-order element term is absolute-valued before parameter, coupled-group, layer, and sample aggregation. Cross-parameter and cross-sample signed cancellation is disabled.\n", encoding="utf-8")
     (root / "reports/activation_taylor_disable_audit.json").write_text(json.dumps(load(root / "proxy_audit/activation_taylor_disable_audit.json", {"activation_taylor_used_for_fitness": False}), indent=2) + "\n", encoding="utf-8")
-    status_line = "completed" if evaluation and latency else "Greedy complete; control-engine, 500-frame and formal-latency stages remain pending"
+    status_line = "B0/S32 controls, fixed500 and latency completed; JMIX-FRESH engine blocked by TensorRT Myelin CUDA event 716" if evaluation and latency else "Greedy complete; control stage pending"
     (root / "root_conclusion.md").write_text(f"# V2X-ViT weight-only absolute Taylor Greedy\n\nThis run changes only the reduction order and disables activation Taylor in Greedy fitness. {status_line}. The search used the low-utilization GPU7 under the shared-GPU policy; external processes were not signaled or modified.\n", encoding="utf-8")
     return 0
 

@@ -235,6 +235,7 @@ def _export_candidate(
     calibration_frames: int,
     qkv_paths: Sequence[str],
     fixed_k_override: int | None,
+    physical_gpu_id: int | None = None,
 ) -> dict[str, Any]:
     """Export one physical candidate; every failure is returned and persisted."""
     result: dict[str, Any] = {"candidate_hash": candidate_hash, "onnx": {"attempted": False}, "engine": {"attempted": False}}
@@ -362,7 +363,7 @@ def _export_candidate(
                 build_config=TensorRTBuildConfig(trtexec_path=trtexec, plugin_path=plugin, workspace_mib=4096, timeout_seconds=3600, no_tf32=True, skip_inference=True, export_layer_info=True, strongly_typed=True, enable_fp16=False, enable_int8=False, policy_version="v2xvit-greedy005-w8a8-qk-fp32-v1"),
                 physical_snapshot=build_physical_structure_snapshot_v2(model, model_family="heal_lidar_v2xvit"),
                 output_dir=candidate_dir / "engine_build", tensorrt_root=tensorrt_root,
-                conda_env="modelopt", gpu_id=0,
+                conda_env="modelopt", gpu_id=physical_gpu_id,
             )
             _write(candidate_dir / "engine_build_acceptance.json", build)
             if build.get("status") != "ok":
@@ -462,7 +463,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         _write(candidate_dir / "requested_vs_realized.json", requested_realized)
         export = {"passed": False, "skipped": True, "reason": "not_top1"}
         if row["candidate_id"] == "stage2_01" or args.export_all:
-            export = _export_candidate(candidate_dir, replay.model, adapter, batch, hypes, phenotype, candidate_hash, report["structure_hash"], build_engine=bool(args.build_engine and row["candidate_id"] == "stage2_01"), tensorrt_root=args.tensorrt_root, plugin=args.plugin, calibration_frames=args.calibration_frames, qkv_paths=qkv_paths, fixed_k_override=args.fixed_k)
+            export = _export_candidate(candidate_dir, replay.model, adapter, batch, hypes, phenotype, candidate_hash, report["structure_hash"], build_engine=bool(args.build_engine and row["candidate_id"] == "stage2_01"), tensorrt_root=args.tensorrt_root, plugin=args.plugin, calibration_frames=args.calibration_frames, qkv_paths=qkv_paths, fixed_k_override=args.fixed_k, physical_gpu_id=args.physical_gpu)
         reports.append({"candidate_id": row["candidate_id"], "candidate_hash": candidate_hash, "bops_retention": float(row["bops_retention"]), "physical_passed": True, "finite_forward": finite, "requested_realized_exact": requested_realized["exact"], "structure_hash": report["structure_hash"], "parameter_count": report["physical_parameter_count"], "export": export})
         del physical, replay
         torch.cuda.empty_cache()
@@ -483,6 +484,7 @@ def main() -> int:
     parser.add_argument("--build-engine", action="store_true")
     parser.add_argument("--calibration-frames", type=int, default=4)
     parser.add_argument("--fixed-k", type=int)
+    parser.add_argument("--physical-gpu", type=int)
     parser.add_argument("--tensorrt-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118"))
     parser.add_argument("--plugin", type=Path)
     args = parser.parse_args()

@@ -421,3 +421,16 @@
 ---
 时间戳：2026-07-24 12:10:00 CST｜轮次：Round 15
 ---
+
+## Round 16：新 winner 控制引擎、fixed500 与 GPU7 延迟
+
+- 新 winner `4a535c43706362d2d3595078d51d0c1fbe87a45f45eecb542e3fdae677702d5b` 的 B0/S32 TensorRT engine 在 GPU7 成功构建。第一次控制构建发现子进程未继承父进程的 `CUDA_VISIBLE_DEVICES=7`，trtexec 选到了 GPU0；随后把 `_export_candidate`/controls/evaluation 的物理 GPU 号显式传递，并在 GPU7 重新重试 JMIX。重试日志确认 GPU7 UUID 正确，JMIX 仍因 TensorRT 10.9 Myelin autotuner `CUDA error 716 failed to create CUDA event 0`、`Could not find any implementation for ... __strong_type_input_00_fp32` 失败，未做 precision fallback。
+- fixed500 使用同一 manifest `912b2d367be26af967474f6271f60034004f7ee8d68119d65b5e41c722fd24c1`，B0/S32 均 `500 evaluated, 0 skipped`：B0 AP@0.3/0.5/0.7=`0.770125/0.692763/0.512923`，mAP=`0.658603`；S32=`0.088981/0.036697/0.004944`，mAP=`0.043540`。因此新 winner 在量化之前已经发生严重 structural collapse，且比旧 fixed50 winner 的 S32 mAP≈0.243 更差；两种评估规模不同，不能直接作统计等价比较。
+- 按 200 warmup + 500 timed × 5 repeats 的纯 TensorRT execute_async 协议，在 GPU7（`GPU-fc1ca600-f06e-f791-125e-102e4916449b`）测得 B0 p50=`15.89195 ms`、FPS=`62.9249`；S32 p50=`8.11765 ms`、FPS=`123.1884`，相对 B0 speedup=`1.95770x`。JMIX 没有可反序列化 engine，延迟明确记为 unavailable。
+- latency runner 修复了隔离 worktree 导入路径、TensorRT `LD_LIBRARY_PATH` 和 PointPillarScatter plugin 的显式 `ctypes.CDLL(..., RTLD_GLOBAL)` 注册；这三项修复没有修改正式搜索算法。
+- 当前报告将控制阶段标记为 `partial_control_stage_with_jmix_engine_block`，`root_cause` 对 S32 可明确归类为 `structural_collapse`；JMIX 的 quantization contribution 尚不能实测。未运行 GA、六预算搜索、full1789、训练、SmoothQuant 或 alpha 搜索。
+- 最新全量回归：`983 passed, 82 warnings, 0 failed`；compileall 和 git diff check 通过。GPU7 前后快照、active process 快照均已保存，外部进程未发送信号或被修改。
+
+---
+时间戳：2026-07-24 12:45:00 CST｜轮次：Round 16
+---

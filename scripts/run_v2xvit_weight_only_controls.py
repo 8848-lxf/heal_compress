@@ -72,7 +72,7 @@ def run(args: argparse.Namespace) -> int:
             raise RuntimeError(f"weight_only_control_physical_mismatch:{name}:{physical.report.issues}")
         destination = args.output_root / "engines" / name
         destination.mkdir(parents=True, exist_ok=False)
-        export = _export_candidate(destination, physical.model, adapter, batch, hypes, phenotype, candidate_id, physical.report.structure_hash, build_engine=True, tensorrt_root=args.tensorrt_root, plugin=args.plugin, calibration_frames=4, qkv_paths=qkv_paths, fixed_k_override=args.fixed_k)
+        export = _export_candidate(destination, physical.model, adapter, batch, hypes, phenotype, candidate_id, physical.report.structure_hash, build_engine=True, tensorrt_root=args.tensorrt_root, plugin=args.plugin, calibration_frames=4, qkv_paths=qkv_paths, fixed_k_override=args.fixed_k, physical_gpu_id=args.physical_gpu)
         if not export.get("passed") or not export.get("engine", {}).get("passed"):
             raise RuntimeError(f"weight_only_control_engine_failed:{name}:{export.get('failure','')}")
         record = {"control": name, "candidate_hash": candidate_id, "structure_hash": physical.report.structure_hash, "state_dict_shape_hash": physical.report.state_dict_shape_hash, "precision_counts": {state: sum(value == state for value in phenotype.realized_precision_profile.values()) for state in ("FP32", "FP16", "INT8")}, "requested_widths": physical.report.requested_widths, "realized_widths": physical.report.realized_widths, "export": export, "diagnostic_control": False, "structural_repair_count": 0, "precision_repair_count": 0, "budget_projection_count": 0}
@@ -90,6 +90,7 @@ def main() -> int:
     parser.add_argument("--tensorrt-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118"))
     parser.add_argument("--fixed-k", type=int, default=27904)
     parser.add_argument("--seed", type=int, default=20260724)
+    parser.add_argument("--physical-gpu", type=int, required=True)
     return run(parser.parse_args())
 
 

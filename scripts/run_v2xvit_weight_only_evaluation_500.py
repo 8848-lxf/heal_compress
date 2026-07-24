@@ -30,7 +30,7 @@ def run(args: argparse.Namespace) -> int:
     request_source = args.request_source.resolve()
     inherited = json.loads((request_source / "evaluation/v2xvit_greedy005_final_fixed50/evaluation_request.json").read_text(encoding="utf-8"))
     results: dict[str, Any] = {}
-    for control in ("B0", "S32", "JMIX-FRESH"):
+    for control in args.controls:
         engine = args.output_root / "engines" / control / "candidate.plan"
         if not engine.is_file():
             raise RuntimeError(f"engine_missing:{control}:{engine}")
@@ -43,7 +43,7 @@ def run(args: argparse.Namespace) -> int:
             tensorrt_root=args.tensorrt_root,
             plugin_path=inherited["plugin_path"],
             eval_manifest_path=args.fixed500_manifest,
-            physical_gpu_id=5,
+            physical_gpu_id=int(args.physical_gpu),
             fixed_k=int(inherited["fixed_k"]),
             max_agents=int(inherited["max_agents"]),
             num_frames=500,
@@ -56,7 +56,7 @@ def run(args: argparse.Namespace) -> int:
             raise RuntimeError(f"fixed500_evaluation_failed:{control}:{result.get('failure_reason','')}")
         write(destination / "evaluation_result.json", result)
         results[control] = result
-    write(args.output_root / "reports/evaluation_500_metrics.json", {"manifest": str(args.fixed500_manifest), "manifest_hash": manifest.get("manifest_hash"), "frames": 500, "controls": results})
+    write(args.output_root / "reports" / args.report_name, {"manifest": str(args.fixed500_manifest), "manifest_hash": manifest.get("manifest_hash"), "frames": 500, "controls": results})
     print(json.dumps({control: row.get("mAP") for control, row in results.items()}, sort_keys=True))
     return 0
 
@@ -66,6 +66,9 @@ def main() -> int:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--request-source", type=Path, required=True)
     parser.add_argument("--fixed500-manifest", type=Path, required=True)
+    parser.add_argument("--physical-gpu", type=int, required=True)
+    parser.add_argument("--controls", nargs="+", choices=("B0", "S32", "JMIX-FRESH"), default=("B0", "S32", "JMIX-FRESH"))
+    parser.add_argument("--report-name", default="evaluation_500_metrics.json")
     parser.add_argument("--tensorrt-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118"))
     return run(parser.parse_args())
 
