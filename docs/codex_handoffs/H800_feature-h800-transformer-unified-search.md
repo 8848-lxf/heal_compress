@@ -307,3 +307,12 @@
 ---
 时间戳：2026-07-24 14:57:00 CST｜轮次：Round 8
 ---
+
+## Round 9：最终远端复核
+
+- Round 8 之后的文档提交已完成，当前最终 commit 为 `8649a9f0cf8141313bbd569027eaa9fcbe12d1e2`；`origin/feature/h800-transformer-unified-search` 与本地为 `0 0`，worktree clean。
+- 最终验收 JSON 已采用该 commit 作为 `final_commit`；后续若再次修改本 handoff，必须同步更新 JSON 和远端计数。
+
+---
+时间戳：2026-07-24 15:00:00 CST｜轮次：Round 9
+---
