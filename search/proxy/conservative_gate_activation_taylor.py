@@ -42,6 +42,8 @@ class GateDomainScores:
     gate_tensor: str
     physical_dependencies: tuple[str, ...]
     family: str
+    sample_count: int = 1
+    per_sample_unit_scores: tuple[Mapping[str, float], ...] = ()
 
 
 class FunctionalGateTaylorProxy:
@@ -123,6 +125,8 @@ class ActivationTaylorCache:
     transitions: Mapping[tuple[str, str, str], float]
     mapping: tuple[dict[str, Any], ...]
     unit_to_owner: Mapping[str, str] = None
+    sample_count: int = 1
+    per_sample_transitions: tuple[Mapping[tuple[str, str, str], float], ...] = ()
 
     def action_breakdown(self, current: CandidatePhenotype, successor: CandidatePhenotype) -> dict[str, Any]:
         total = 0.0; first = 0.0; second = 0.0; changed: list[str] = []
@@ -310,3 +314,111 @@ def collect_activation_taylor_cache(model: nn.Module, units: Sequence[TaylorDepl
     model.zero_grad(set_to_none=True)
     mapping = tuple({"unit_id": u.unit_id, "precision_group_id": u.metadata.get("precision_group_id"), "module_path": u.module_path, "boundary": u.boundary, "quantizer_id": u.quantizer_id} for u in selected)
     return ActivationTaylorCache(dict(group_to_units), transitions, mapping, {u.unit_id: u.precision_owner for u in selected})
+
+
+def collect_functional_gate_scores_multi(
+    model: nn.Module,
+    domains: Sequence[Any],
+    *,
+    forward_fn: Any,
+    loss_fn: Any,
+    calibration_batches: Sequence[Any],
+) -> tuple[dict[str, GateDomainScores], list[dict[str, Any]]]:
+    """Collect gate scores independently per sample, then take their mean.
+
+    Calling the single-sample collector separately is intentional: no signed
+    gradient or activation is accumulated before the elementwise absolute
+    contribution has been reduced for that sample.
+    """
+
+    batches = calibration_batches
+    if len(batches) == 0:
+        raise ValueError("gate_taylor_calibration_batches_empty")
+    sample_rows: list[dict[str, GateDomainScores]] = []
+    mapping: list[dict[str, Any]] = []
+    for index, batch in enumerate(batches):
+        rows, current_mapping = collect_functional_gate_scores(
+            model,
+            domains,
+            forward_fn=forward_fn,
+            loss_fn=loss_fn,
+            batch=batch,
+        )
+        sample_rows.append(rows)
+        if index == 0:
+            mapping = current_mapping
+    result: dict[str, GateDomainScores] = {}
+    for domain in domains:
+        domain_id = str(domain.domain_id)
+        unit_ids = sorted(
+            {
+                unit_id
+                for rows in sample_rows
+                for unit_id in rows[domain_id].unit_scores
+            }
+        )
+        per_sample = tuple(
+            {
+                unit_id: float(rows[domain_id].unit_scores.get(unit_id, 0.0))
+                for unit_id in unit_ids
+            }
+            for rows in sample_rows
+        )
+        mean_scores = {
+            unit_id: sum(row[unit_id] for row in per_sample) / len(per_sample)
+            for unit_id in unit_ids
+        }
+        template = sample_rows[0][domain_id]
+        result[domain_id] = GateDomainScores(
+            domain_id=domain_id,
+            unit_scores=mean_scores,
+            semantic_root_tensor=template.semantic_root_tensor,
+            gate_tensor=template.gate_tensor,
+            physical_dependencies=template.physical_dependencies,
+            family=template.family,
+            sample_count=len(per_sample),
+            per_sample_unit_scores=per_sample,
+        )
+    return result, mapping
+
+
+def collect_activation_taylor_cache_multi(
+    model: nn.Module,
+    units: Sequence[TaylorDeploymentUnit],
+    group_to_units: Mapping[str, tuple[str, ...]],
+    *,
+    forward_fn: Any,
+    loss_fn: Any,
+    calibration_batches: Sequence[Any],
+) -> ActivationTaylorCache:
+    """Collect Q/DQ-input Taylor transitions per sample and mean afterwards."""
+
+    batches = calibration_batches
+    if len(batches) == 0:
+        raise ValueError("activation_taylor_calibration_batches_empty")
+    rows = [
+        collect_activation_taylor_cache(
+            model,
+            units,
+            group_to_units,
+            forward_fn=forward_fn,
+            loss_fn=loss_fn,
+            batch=batch,
+        )
+        for batch in batches
+    ]
+    keys = sorted({key for row in rows for key in row.transitions})
+    per_sample = tuple(dict(row.transitions) for row in rows)
+    transitions = {
+        key: sum(float(row[key]) for row in per_sample) / len(per_sample)
+        for key in keys
+    }
+    template = rows[0]
+    return ActivationTaylorCache(
+        group_to_units=dict(template.group_to_units),
+        transitions=transitions,
+        mapping=template.mapping,
+        unit_to_owner=dict(template.unit_to_owner or {}),
+        sample_count=len(per_sample),
+        per_sample_transitions=per_sample,
+    )

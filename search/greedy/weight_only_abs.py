@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from ..candidate import CandidateGenotype
 from ..canonicalization import SearchSpaceSpec, canonicalize_candidate
@@ -41,10 +41,11 @@ def run_weight_only_abs_greedy(
     target: float = 0.05,
     tolerance_abs: float = 0.005,
     epsilon: float = 1.0e-12,
-    maximum_steps: int = 10000,
+    maximum_steps: int | None = 10000,
     structure_proxy: Any | None = None,
     activation_cache: Any | None = None,
     activation_taylor_weight: float = 0.0,
+    capture_targets: Sequence[float] | None = None,
 ) -> dict[str, Any]:
     """Run one deterministic path without model execution or artifact export."""
     neighbor_engine = GreedyBudgetSearch(
@@ -52,7 +53,7 @@ def run_weight_only_abs_greedy(
         config=GreedySearchConfig(
             bops_targets=(float(target),),
             bops_tolerance_abs=float(tolerance_abs),
-            maximum_steps=int(maximum_steps),
+            maximum_steps=int(maximum_steps or 2**31 - 1),
             run_to_exhaustion=True,
             enable_budget_recovery=False,
         ),
@@ -71,8 +72,15 @@ def run_weight_only_abs_greedy(
     band: dict[str, dict[str, Any]] = {}
     selected_steps: list[dict[str, Any]] = []
     termination = ""
+    targets = tuple(float(value) for value in (capture_targets or (target,)))
+    captured_targets: set[float] = set()
 
-    for step in range(1, int(maximum_steps) + 1):
+    step = 0
+    while True:
+        step += 1
+        if maximum_steps is not None and step > int(maximum_steps):
+            termination = "maximum_steps_reached"
+            break
         neighbors = neighbor_engine._neighbors(current)
         if not neighbors:
             termination = "no_remaining_legal_action"
@@ -206,6 +214,11 @@ def run_weight_only_abs_greedy(
                     incumbent["candidate_hash"],
                 ):
                     band[row["candidate_hash"]] = candidate_entry
+            for capture_target in targets:
+                if abs(float(row["current_retention"]) - capture_target) <= float(
+                    tolerance_abs
+                ):
+                    captured_targets.add(capture_target)
             trace.append(public)
         trace[-len(action_rows)]["selected"] = True
         selected["selected"] = True
@@ -217,8 +230,13 @@ def run_weight_only_abs_greedy(
         cumulative_aq += float(selected.get("delta_J_AQ", 0.0))
         bops_before = float(selected["BOPS_after"])
         selected_hashes.append(selected["candidate_hash"])
-    else:
-        termination = "maximum_steps_reached"
+        if (
+            len(captured_targets) == len(targets)
+            and float(selected["current_retention"])
+            < min(targets) - float(tolerance_abs)
+        ):
+            termination = "all_budget_bands_captured_and_lowest_crossed"
+            break
 
     ordered_band = sorted(
         band.values(),
@@ -265,6 +283,8 @@ def run_weight_only_abs_greedy(
         "budget_reached": bool(ordered_band),
         "budget_unreachable": not bool(ordered_band),
         "termination_reason": termination,
+        "capture_targets": list(targets),
+        "captured_targets": sorted(captured_targets, reverse=True),
         "search_loop_forward_calls": 0,
         "search_loop_backward_calls": 0,
         "search_loop_physical_exports": 0,
