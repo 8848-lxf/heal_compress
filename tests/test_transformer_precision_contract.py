@@ -20,8 +20,14 @@ from search.quantization_space.transformer_precision import (
     SEARCH_PRECISION_STATES,
     assert_transformer_precision_realized,
     build_transformer_precision_units,
+    build_transformer_quantization_groups,
     expected_softmax_realization,
     validate_external_precision_profile,
+)
+from search.canonicalization import SearchSpaceSpec
+from search.proxy.conservative_gate_activation_taylor import build_activation_units
+from search.proxy.joint_weight_activation_taylor import (
+    taylor_units_from_transformer_precision,
 )
 
 
@@ -81,6 +87,47 @@ def test_qk_and_layernorm_are_protected_fp32_and_illegal_requests_fail() -> None
     assert qk.protected and norm.protected
     with pytest.raises(ValueError, match="request_illegal"):
         validate_external_precision_profile({qk.unit_id: "A8"}, units)
+
+
+def test_av32_av16_are_mutable_and_map_exact_p_v_functional_inputs() -> None:
+    model = Model()
+    units = _precision_units()
+    av = next(unit for unit in units if unit.role == "av_matmul")
+    assert av.allowed_states == ("A32", "A16")
+    assert av.protected is False
+    mapped = [
+        row for row in taylor_units_from_transformer_precision(model, units)
+        if row.metadata.get("precision_unit_id") == av.unit_id
+    ]
+    assert len(mapped) == 2
+    assert {row.boundary for row in mapped} == {"functional_input"}
+    assert {row.tensor_index for row in mapped} == {1, 2}
+    assert {row.metadata["av_operand_semantic"] for row in mapped} == {
+        "post_softmax_probability", "value_activation"
+    }
+    assert {
+        row.metadata["precision_group_id"] for row in mapped
+    } == {av.unit_id}
+
+
+def test_activation_mapping_contains_only_real_qdq_action_boundaries() -> None:
+    model = Model()
+    precision_units = _precision_units()
+    groups = build_transformer_quantization_groups(precision_units)
+    space = SearchSpaceSpec(
+        pruning_unit_ids=[], precision_layer_ids=[], quantization_groups=groups,
+        default_precision="FP32",
+    )
+    transformer = taylor_units_from_transformer_precision(model, precision_units)
+    units, group_to_units = build_activation_units(model, space, transformer)
+    mapped = {unit.unit_id for unit in units}
+    used = {unit_id for values in group_to_units.values() for unit_id in values}
+    assert mapped == used
+    weighted = {
+        unit.unit_id: unit for unit in units if unit.unit_type != "av_matmul"
+    }
+    assert weighted
+    assert all(unit.boundary == "module_input" for unit in weighted.values())
 
 
 def test_softmax_a8_means_float_compute_with_quantized_output_not_native_exp() -> None:

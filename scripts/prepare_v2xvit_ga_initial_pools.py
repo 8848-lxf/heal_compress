@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-BUDGETS = ("030", "025", "020", "015", "010")
+BUDGETS = ("010",)
 TARGETS = {label: int(label) / 100.0 for label in BUDGETS}
 
 
@@ -60,7 +60,11 @@ def run(root: Path) -> None:
                 "precision_counts": precision_counts,
                 "source_step": int(row["step"]),
                 "source_candidate_hash": row["candidate_hash"],
-                "source": "greedy_budget_band_natural_candidate",
+                "source": (
+                    "greedy_selected_budget_band_candidate"
+                    if str(row.get("selected", "")).lower() == "true"
+                    else "greedy_unselected_legal_neighbor_candidate"
+                ),
                 "repair_count": 0,
             }
             for label in labels:

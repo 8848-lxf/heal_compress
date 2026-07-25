@@ -17,7 +17,8 @@ if str(REPO) not in sys.path:
 from search.model_family.evaluation import evaluate_v2xvit_engine_modelopt
 
 
-LABELS = ("030", "025", "020", "015", "010", "005")
+# This closure branch is authorized for the rebuilt R=0.10 contract only.
+LABELS = ("010",)
 
 
 def atomic_write(path: Path, value: Any) -> None:

@@ -45,7 +45,6 @@ from search.ga.stage12_v3 import (
     validate_genotype_schema,
 )
 from search.hashing import canonical_json_hash
-from search.ga.anchor_constrained_space import constrain_domains_to_frozen_anchors
 from search.model_family.calibration_manifest import load_v2xvit_train_manifest
 from search.model_family.evaluation import evaluate_v2xvit_engine_modelopt
 from search.pruning_space.unified_physical_pruner import materialize_unified_widths
@@ -60,9 +59,10 @@ from search.proxy.joint_weight_activation_taylor import taylor_units_from_transf
 from search.proxy.joint_weight_taylor import JointWeightTaylorProxy
 
 
-LABELS = ("030", "025", "020", "015", "010")
-TARGETS = {label: int(label) / 100.0 for label in LABELS}
+LABELS = ("010",)
+TARGETS = {"010": 0.10}
 FORMAL_SEEDS = (0,)
+ALLOWED_PHYSICAL_GPUS = (2, 3)
 
 
 def atomic_write(path: Path, value: Any) -> None:
@@ -138,13 +138,42 @@ def precision_realized_exact(destination: Path) -> tuple[bool, dict[str, Any]]:
         return False, {"failure": "engine_build_acceptance_missing"}
     acceptance = json.loads(acceptance_path.read_text())
     precision = dict(acceptance.get("precision_realization_validation") or {})
+    functional_path = destination / "functional_precision_trt_audit.json"
+    attention_path = destination / "trt_attention_fp32_audit.json"
+    av_path = destination / "av_profile_trt_audit.json"
+    if (
+        not functional_path.is_file()
+        or not attention_path.is_file()
+        or not av_path.is_file()
+    ):
+        return False, {
+            "failure": "functional_attention_or_av_precision_audit_missing",
+            "engine_build_acceptance": acceptance,
+        }
+    functional = json.loads(functional_path.read_text())
+    attention = json.loads(attention_path.read_text())
+    av = json.loads(av_path.read_text())
     exact = bool(
         acceptance.get("status") == "ok"
         and precision.get("passed")
         and not precision.get("mismatches")
         and int(precision.get("unresolved_layer_count", 0)) == 0
+        and functional.get("passed")
+        and int(functional.get("conflict_count", 0)) == 0
+        and int(functional.get("unmapped_count", 0)) == 0
+        and int(functional.get("fallback_count", 0)) == 0
+        and attention.get("passed")
+        and av.get("passed")
+        and int(av.get("conflict_count", 0)) == 0
+        and int(av.get("unmapped_count", 0)) == 0
+        and int(av.get("fallback_count", 0)) == 0
     )
-    return exact, acceptance
+    return exact, {
+        "engine_build_acceptance": acceptance,
+        "functional_precision": functional,
+        "attention_precision": attention,
+        "av_precision": av,
+    }
 
 
 def best_real_candidate(
@@ -531,10 +560,20 @@ def ensure_greedy_anchor_fixed50(
 
 def run(args: argparse.Namespace) -> int:
     root = args.output_root.resolve()
+    if args.seed != 0:
+        raise RuntimeError(f"formal_ga_single_seed_zero_required:{args.seed}")
+    physical_gpus = (args.physical_gpu, *args.stage2_gpus)
+    if any(gpu not in ALLOWED_PHYSICAL_GPUS for gpu in physical_gpus):
+        raise RuntimeError(
+            "formal_ga_physical_gpu_outside_allowed_pool:"
+            f"requested={physical_gpus}:allowed={ALLOWED_PHYSICAL_GPUS}"
+        )
+    if len(set(args.stage2_gpus)) > 2:
+        raise RuntimeError("formal_ga_stage2_gpu_pool_exceeds_two")
     admission = json.loads((root / "reports/ga_budget_admission.json").read_text())
     labels = [f"{int(round(float(value) * 100)):03d}" for value in admission["ga_admissible_budgets"]]
-    if not labels:
-        raise RuntimeError("formal_ga_no_admissible_budget")
+    if labels != ["010"]:
+        raise RuntimeError(f"formal_ga_requires_only_budget_010:{labels}")
     if torch.cuda.device_count() != 1:
         raise RuntimeError(f"formal_ga_requires_one_visible_gpu:{torch.cuda.device_count()}")
     device = torch.device("cuda:0")
@@ -571,15 +610,9 @@ def run(args: argparse.Namespace) -> int:
     replay_domains = rerank_domains_by_gate_scores(
         formal["space"].pruning_domains, gate32
     )
-    frozen_anchor_payloads = [
-        json.loads((root / f"greedy/budget_{label}/exact_winner.json").read_text())[
-            "phenotype"
-        ]
-        for label in ("030", "025", "020", "015", "010", "005")
-    ]
-    domains = constrain_domains_to_frozen_anchors(
-        replay_domains, frozen_anchor_payloads
-    )
+    # The current contract is rebuilt after AV/merge closure.  Old six-budget
+    # trajectories and their nested masks are intentionally invalidated.
+    domains = replay_domains
     space = replace(
         formal["space"], pruning_domains=domains,
         pruning_unit_ids=[unit for domain in domains for unit in domain.ordered_unit_ids],
@@ -743,14 +776,14 @@ def run(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-root", type=Path, required=True)
-    parser.add_argument("--physical-gpu", type=int, default=6)
+    parser.add_argument("--physical-gpu", type=int, default=2)
     parser.add_argument(
         "--stage2-gpus", type=lambda value: tuple(
             int(item.strip()) for item in value.split(",") if item.strip()
         ), default=(),
         help="Comma-separated physical GPU pool for deterministic Stage-2 batches",
     )
-    parser.add_argument("--seed", type=int, default=20260725)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--fixed50-manifest", type=Path, required=True)
     parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument("--tensorrt-root", type=Path,

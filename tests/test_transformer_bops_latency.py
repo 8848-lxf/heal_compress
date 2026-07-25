@@ -235,5 +235,13 @@ def test_hgt_relation_macs_parameters_and_operand_precisions_are_production_acco
         row for row in fp16_metrics["breakdown"]
         if row["component"] == "message_relation_transform"
     )
-    assert msg_fp16["weight_bits"] == msg_fp16["activation_bits"] == 16
-    assert msg_fp16["BOPS"] == relation_macs * 16 * 16
+    # AV16 changes only the activation×activation P/V boundary.  HGT's
+    # learned relation_msg tensor remains a distinct protected FP32 weighted
+    # operation before V is explicitly cast at the AV input.
+    assert msg_fp16["weight_bits"] == msg_fp16["activation_bits"] == 32
+    av_fp16 = next(
+        row for row in fp16_metrics["breakdown"]
+        if row["component"] == "av_matmul"
+    )
+    assert av_fp16["operand_a_bits"] == av_fp16["operand_b_bits"] == 16
+    assert msg_fp16["BOPS"] == relation_macs * 32 * 32

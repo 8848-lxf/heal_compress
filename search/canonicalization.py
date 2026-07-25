@@ -14,6 +14,54 @@ from .candidate import CandidateGenotype, CandidatePhenotype, PrecisionDecision,
 from .pruning_space.local_domains import expand_domain_width_genes, legalize_domain_width_genes
 from .quantization_space.legalizer import legalize_group_precision_genes
 from .quantization_space.types import QuantizationSearchGroup
+from .quantization_space.v2xvit_av_merge import derive_merge_precision
+
+
+def _resolve_derived_precision_groups(
+    groups: tuple[QuantizationSearchGroup, ...],
+    profile: dict[str, str],
+) -> tuple[dict[str, str], dict[str, dict[str, Any]]]:
+    """Resolve protected derived groups from already-legal upstream states."""
+
+    result = dict(profile)
+    module_owner = {
+        module_path: group.group_id
+        for group in groups
+        for module_path in group.module_paths
+    }
+    audit: dict[str, dict[str, Any]] = {}
+    for group in groups:
+        if not bool(group.metadata.get("derived_precision", False)):
+            continue
+        upstream_paths = tuple(group.metadata.get("derived_input_module_paths", ()))
+        upstream_groups = [module_owner.get(str(path)) for path in upstream_paths]
+        if not upstream_paths or any(value is None for value in upstream_groups):
+            raise RuntimeError(
+                f"derived_precision_upstream_unresolved:{group.group_id}:{upstream_paths}"
+            )
+        # Weighted INT8/FP16 nodes both close to FP16 outputs under the current
+        # strongly-typed policy; only FP32 weighted outputs remain FP32.
+        input_precisions = [
+            "FP32" if result[str(owner)] == "FP32" else "FP16"
+            for owner in upstream_groups
+        ]
+        derived = derive_merge_precision(
+            str(group.metadata.get("derived_op_type", "Add")),
+            input_precisions,
+            trt_capability={"add_int8": False, "concat_int8": False},
+        )
+        requested = str(derived["derived_precision"])
+        if requested not in set(group.allowed_precisions):
+            raise RuntimeError(
+                f"derived_precision_not_allowed:{group.group_id}:{requested}"
+            )
+        result[group.group_id] = requested
+        audit[group.group_id] = {
+            **derived,
+            "derived_input_module_paths": list(upstream_paths),
+            "derived_input_group_ids": [str(value) for value in upstream_groups],
+        }
+    return result, audit
 
 
 @dataclass(frozen=True)
@@ -153,6 +201,15 @@ def repair_genotype(genotype: CandidateGenotype, space: SearchSpaceSpec) -> Cand
                 for group_id in space.constant_precision_group_ids
             },
         }
+        complete_profile, derived_audit = _resolve_derived_precision_groups(
+            space.quantization_groups,
+            dict(legalization.stage1_legalized_group_profile),
+        )
+        meta["constant_precision_group_profile"].update({
+            group_id: complete_profile[group_id]
+            for group_id in space.constant_precision_group_ids
+        })
+        meta["derived_precision_group_profile"] = derived_audit
     else:
         precision = {
             layer_id: normalize_precision(genotype.precision_genes.get(layer_id, space.default_precision), default=space.default_precision)
@@ -197,6 +254,9 @@ def canonicalize_candidate(
             default_precision=space.default_precision,
         )
         group_profile = dict(legalization.stage1_legalized_group_profile)
+        group_profile, derived_audit = _resolve_derived_precision_groups(
+            space.quantization_groups, group_profile
+        )
         group_fallback = dict(legalization.fallback_report)
         for group in space.quantization_groups:
             raw = realized.get(group.group_id, group_profile[group.group_id])
@@ -214,6 +274,7 @@ def canonicalize_candidate(
                     fallback_reason,
                 )
         metadata.update(legalization.to_dict())
+        metadata["derived_precision_group_profile"] = derived_audit
     else:
         for layer_id in space.precision_layer_ids:
             requested = repaired.precision_genes[layer_id]

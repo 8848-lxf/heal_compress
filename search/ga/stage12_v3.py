@@ -97,7 +97,10 @@ def phenotype_identity(
                 "pruned_units": phenotype.pruned_unit_ids,
             }
         ),
-        "precision_map_hash": _stable_hash(genotype.precision_genes),
+        "precision_map_hash": _stable_hash({
+            "mutable": genotype.precision_genes,
+            "derived": phenotype.metadata.get("derived_precision_group_profile", {}),
+        }),
         "complete_phenotype_hash": candidate_hash(phenotype, space),
     }
 
@@ -574,8 +577,15 @@ class StrictStage12V3Runner:
     ) -> dict[str, Any]:
         if len(initial_population) != self.config.population_size:
             raise ValueError("ga_initial_population_size_mismatch")
+        initial_hashes: set[str] = set()
         for candidate in initial_population:
             validate_genotype_schema(candidate, self.space)
+            identity = phenotype_identity(candidate, self.space)["complete_phenotype_hash"]
+            if identity in initial_hashes:
+                raise ValueError("ga_initial_population_duplicate_phenotype")
+            initial_hashes.add(identity)
+            if not bool(self.stage1_evaluator(candidate)["bops_feasible"]):
+                raise ValueError("ga_initial_population_outside_bops_band")
         greedy_stage1 = dict(self.stage1_evaluator(greedy_anchor.genotype))
         if not greedy_stage1["bops_feasible"]:
             raise ValueError("ga_greedy_anchor_outside_budget_band")
@@ -596,6 +606,9 @@ class StrictStage12V3Runner:
                 "initialization_only": True,
                 "counted_as_evolution_generation": False,
                 "population_size": len(population),
+                "population_unique_count": len(initial_hashes),
+                "population_legal_count": len(population),
+                "population_in_band_count": len(population),
                 "stage2_new_candidate_count": 0,
             }
         ]
@@ -624,9 +637,11 @@ class StrictStage12V3Runner:
                     continue
                 offspring_hashes.add(identity)
                 offspring.append(child)
-            if not offspring:
-                termination = "no_legal_unique_offspring"
-                break
+            if len(offspring) != self.config.offspring_size:
+                raise RuntimeError(
+                    "ga_offspring_population_not_exactly_64:"
+                    f"generated={len(offspring)}:attempts={attempts}"
+                )
 
             combined_by_hash: dict[str, dict[str, Any]] = {}
             for candidate in [*population, *offspring]:
@@ -682,7 +697,19 @@ class StrictStage12V3Runner:
                 greedy_map=float(greedy_anchor.map),
                 greedy_p50_ms=float(greedy_anchor.p50_ms),
             )
-            forced = [row.genotype for row in anchors.unique()]
+            feedback_rows = []
+            if generation_winner is not None:
+                feedback_rows.append(generation_winner)
+            feedback_rows.extend(
+                row for row in anchors.unique()
+                if row.complete_phenotype_hash != greedy_anchor.complete_phenotype_hash
+            )
+            feedback_by_hash = {
+                row.complete_phenotype_hash: row for row in feedback_rows
+            }
+            injected_feedback_hashes = sorted(feedback_by_hash)
+            forced_results = [greedy_anchor, *feedback_by_hash.values()]
+            forced = [row.genotype for row in forced_results]
             forced_hashes = {
                 phenotype_identity(row, self.space)["complete_phenotype_hash"]
                 for row in forced
@@ -696,13 +723,33 @@ class StrictStage12V3Runner:
                 if len(next_population) == self.config.population_size:
                     break
             population = next_population[: self.config.population_size]
+            survivor_hashes = {
+                phenotype_identity(row, self.space)["complete_phenotype_hash"]
+                for row in population
+            }
+            if (
+                len(population) != self.config.population_size
+                or len(survivor_hashes) != self.config.population_size
+            ):
+                raise RuntimeError(
+                    "ga_survivor_population_not_exactly_64_unique:"
+                    f"size={len(population)}:unique={len(survivor_hashes)}"
+                )
+            survivor_metrics = [self.stage1_evaluator(row) for row in population]
+            if not all(bool(row["bops_feasible"]) for row in survivor_metrics):
+                raise RuntimeError("ga_survivor_outside_bops_band")
             record = {
                 "generation": generation,
                 "initialization_only": False,
                 "counted_as_evolution_generation": True,
                 "offspring_requested": self.config.offspring_size,
                 "offspring_generated": len(offspring),
+                "offspring_unique_count": len(offspring_hashes),
                 "offspring_attempts": attempts,
+                "survivor_size": len(population),
+                "survivor_unique_count": len(survivor_hashes),
+                "survivor_legal_count": len(population),
+                "survivor_in_band_count": len(population),
                 "stage2_new_candidate_count": len(new_results),
                 "stage2_new_candidate_hashes": [
                     row.complete_phenotype_hash for row in new_results
@@ -712,7 +759,10 @@ class StrictStage12V3Runner:
                     if generation_winner is not None
                     else None
                 ),
-                "real_feedback_injected_next_generation": bool(new_results),
+                "real_feedback_injected_next_generation": bool(
+                    injected_feedback_hashes
+                ),
+                "real_feedback_injected_hashes": injected_feedback_hashes,
                 "greedy_anchor_retained": any(
                     phenotype_identity(row, self.space)["complete_phenotype_hash"]
                     == greedy_anchor.complete_phenotype_hash

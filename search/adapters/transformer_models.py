@@ -405,7 +405,7 @@ def build_unified_transformer_search_space(
         pruning_domains=domains,
         default_precision="FP32",
         pruning_policy_version="cnn-transformer-fixed-nested-domain-width-v1",
-        precision_policy_version="cnn-transformer-w32a32-w16a16-w8a8-contract-v1",
+        precision_policy_version="v2xvit-av-profile-window-merge-derived-join-v1",
         trace_snapshot_hash=str(trace_snapshot_hash),
         calibration_manifest_hash=str(calibration_manifest_hash),
         onnx_export_config_hash=str(onnx_export_config_hash),

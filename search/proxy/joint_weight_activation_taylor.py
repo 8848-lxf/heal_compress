@@ -50,7 +50,9 @@ class TaylorDeploymentUnit:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.boundary not in {"module_input", "module_output", "functional_output"}:
+        if self.boundary not in {
+            "module_input", "module_output", "functional_input", "functional_output"
+        }:
             raise ValueError(f"taylor_boundary_invalid:{self.unit_id}:{self.boundary}")
         if self.boundary == "functional_output" and self.functional_op not in {
             "softmax",
@@ -119,9 +121,59 @@ def taylor_units_from_transformer_precision(
     protected_roles = {"qk_matmul", "layernorm", "residual_add"}
     for precision_unit in sorted(precision_units, key=lambda value: value.ordering):
         role = str(precision_unit.role)
-        if role in protected_roles:
+        if role in protected_roles or bool(precision_unit.protected):
             continue
         metadata = dict(precision_unit.metadata)
+        if role == "av_matmul":
+            owner = str(metadata.get("functional_owner", ""))
+            operation = str(metadata.get("functional_op", ""))
+            indices = tuple(metadata.get("av_operand_tensor_indices", ()))
+            semantics = tuple(metadata.get("av_operand_semantics", ()))
+            synthetic_paths = [
+                str(path) for path in precision_unit.module_paths if "::__" in str(path)
+            ]
+            if (
+                not owner
+                or operation not in {"einsum", "matmul", "bmm"}
+                or indices != ((1, 2) if operation == "einsum" else (0, 1))
+                or len(semantics) != 2
+                or len(synthetic_paths) != 1
+            ):
+                raise RuntimeError(
+                    f"transformer_av_taylor_operand_mapping_invalid:"
+                    f"{precision_unit.unit_id}"
+                )
+            for tensor_index, semantic in zip(indices, semantics):
+                rows.append(TaylorDeploymentUnit(
+                    unit_id=f"{precision_unit.unit_id}::{semantic}",
+                    module_path=owner,
+                    unit_type=role,
+                    boundary="functional_input",
+                    precision_owner=synthetic_paths[0],
+                    quantizer_id=(
+                        f"activation_quantizer::{precision_unit.unit_id}::{semantic}"
+                    ),
+                    tensor_index=int(tensor_index),
+                    call_index=int(metadata.get("functional_call_index", 0)),
+                    functional_op=operation,
+                    has_weight=False,
+                    protected=False,
+                    protection_reason="",
+                    metadata={
+                        **metadata,
+                        "precision_unit_id": str(precision_unit.unit_id),
+                        # The precision unit ID is the canonical SearchSpace
+                        # group ID.  Keep both keys so the cache mapping is
+                        # fail-closed and directly traceable to a chromosome
+                        # locus (or audited constant group).
+                        "precision_group_id": str(precision_unit.unit_id),
+                        "precision_role": role,
+                        "av_operand_semantic": str(semantic),
+                        "source_precision_path": synthetic_paths[0],
+                        "actual_qdq_input_boundary": True,
+                    },
+                ))
+            continue
         for path_index, path in enumerate(precision_unit.module_paths):
             path = str(path)
             # ``active_module_paths`` comes from weighted/runtime shape hooks.
@@ -174,6 +226,7 @@ def taylor_units_from_transformer_precision(
                     metadata={
                         **metadata,
                         "precision_unit_id": str(precision_unit.unit_id),
+                        "precision_group_id": str(precision_unit.unit_id),
                         "precision_role": role,
                         "source_precision_path": path,
                     },
@@ -260,7 +313,7 @@ class _BoundaryCapture(AbstractContextManager):
     def _install_module_hooks(self) -> None:
         grouped: dict[tuple[str, str], list[TaylorDeploymentUnit]] = {}
         for unit in self.units:
-            if unit.boundary != "functional_output":
+            if unit.boundary not in {"functional_input", "functional_output"}:
                 grouped.setdefault((unit.module_path, unit.boundary), []).append(unit)
         for (path, boundary), units in grouped.items():
             module = self.model if path in {"", "__root__"} else self.model.get_submodule(path)
@@ -293,7 +346,10 @@ class _BoundaryCapture(AbstractContextManager):
                 self._handles.append(module.register_forward_hook(post_hook))
 
     def _install_functional_hooks(self) -> None:
-        units = [unit for unit in self.units if unit.boundary == "functional_output"]
+        units = [
+            unit for unit in self.units
+            if unit.boundary in {"functional_input", "functional_output"}
+        ]
         if not units:
             return
         by_owner: dict[str, list[TaylorDeploymentUnit]] = {}
@@ -323,20 +379,40 @@ class _BoundaryCapture(AbstractContextManager):
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 if self._functional_reentrant:
                     return original(*args, **kwargs)
-                self._functional_reentrant = True
-                try:
-                    result = original(*args, **kwargs)
-                finally:
-                    self._functional_reentrant = False
-                if not self._owner_stack:
-                    return result
-                owner = self._owner_stack[-1]
+                owner = self._owner_stack[-1] if self._owner_stack else ""
                 key = (owner, f"functional_{operation}")
                 call = self._call_counts.get(key, 0)
                 self._call_counts[key] = call + 1
+                call_units = [
+                    unit for unit in by_owner.get(owner, ())
+                    if unit.functional_op == operation and unit.call_index == call
+                ]
+                rewritten_args = list(args)
+                for unit in call_units:
+                    if unit.boundary != "functional_input":
+                        continue
+                    if unit.tensor_index >= len(rewritten_args):
+                        raise RuntimeError(
+                            f"functional_input_index_invalid:{unit.unit_id}:"
+                            f"{unit.tensor_index}:{len(rewritten_args)}"
+                        )
+                    tensor = rewritten_args[unit.tensor_index]
+                    if not torch.is_tensor(tensor):
+                        raise TypeError(
+                            f"functional_input_not_tensor:{unit.unit_id}:"
+                            f"{type(tensor).__name__}"
+                        )
+                    rewritten_args[unit.tensor_index] = self._record(unit, tensor)
+                self._functional_reentrant = True
+                try:
+                    result = original(*tuple(rewritten_args), **kwargs)
+                finally:
+                    self._functional_reentrant = False
+                if not owner:
+                    return result
                 value = result
-                for unit in by_owner.get(owner, ()):
-                    if unit.functional_op == operation and unit.call_index == call:
+                for unit in call_units:
+                    if unit.boundary == "functional_output":
                         tensor = _tensor_from_value(value, unit.tensor_index)
                         value = _replace_tensor_in_value(value, unit.tensor_index, self._record(unit, tensor))
                 return value

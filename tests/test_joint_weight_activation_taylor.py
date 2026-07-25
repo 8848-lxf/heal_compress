@@ -17,6 +17,9 @@ from search.proxy.joint_weight_activation_taylor import (
     collect_joint_output_taylor_statistics,
     score_joint_output_perturbation,
 )
+from search.proxy.conservative_gate_activation_taylor import (
+    collect_activation_taylor_cache,
+)
 
 
 class SoftmaxNet(nn.Module):
@@ -339,3 +342,48 @@ def test_functional_einsum_av_boundary_is_captured_and_quantized() -> None:
     )
     assert metrics["L_joint_weight_activation_taylor"] > 0.0
     assert metrics["unit_breakdown"][0]["mean_delta_l1"] > 0.0
+
+
+def test_functional_einsum_av_p_and_v_inputs_are_scored_independently() -> None:
+    class Attention(nn.Module):
+        def forward(self, probability: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
+            return torch.einsum("bij,bjd->bid", probability, value)
+
+    class Model(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.attn = Attention()
+
+        def forward(self, probability: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
+            return self.attn(probability, value)
+
+    units = tuple(
+        TaylorDeploymentUnit(
+            unit_id=f"av_{semantic}",
+            module_path="attn",
+            unit_type="av_matmul",
+            boundary="functional_input",
+            functional_op="einsum",
+            precision_owner="attn::__av_matmul__",
+            quantizer_id=f"q::{semantic}",
+            call_index=0,
+            tensor_index=index,
+            has_weight=False,
+            metadata={"precision_group_id": "av_group"},
+        )
+        for index, semantic in ((1, "probability"), (2, "value"))
+    )
+    model = Model().eval()
+    probability = torch.softmax(torch.randn(2, 3, 3), dim=-1).requires_grad_(True)
+    value = torch.randn(2, 3, 5, requires_grad=True)
+    target = torch.randn(2, 3, 5)
+    cache = collect_activation_taylor_cache(
+        model,
+        units,
+        {"av_group": tuple(unit.unit_id for unit in units)},
+        forward_fn=lambda current, batch: current(batch[0], batch[1]),
+        loss_fn=lambda output, batch: (output * batch[2]).sum(),
+        batch=(probability, value, target),
+    )
+    assert cache.transitions[("av_probability", "FP32", "FP16")] > 0.0
+    assert cache.transitions[("av_value", "FP32", "FP16")] > 0.0

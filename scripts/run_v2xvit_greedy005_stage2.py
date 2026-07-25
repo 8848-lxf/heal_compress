@@ -127,7 +127,12 @@ def _profile_for_origin(phenotype: Any, origin_map: Any) -> dict[str, str]:
     return profile
 
 
-def _force_attention_fp32_contract(path: Path, attention_audit: Mapping[str, Any]) -> dict[str, Any]:
+def _force_attention_fp32_contract(
+    path: Path,
+    attention_audit: Mapping[str, Any],
+    *,
+    av_profile: str | Mapping[str, str] = "AV32",
+) -> dict[str, Any]:
     """Insert explicit FLOAT casts at protected Transformer boundaries.
 
     INT8/FP16 projection outputs are allowed, but the contract requires the
@@ -145,9 +150,31 @@ def _force_attention_fp32_contract(path: Path, attention_audit: Mapping[str, Any
     # The deployment-closed contract keeps the Softmax output tensor FLOAT.
     # AV is a separate, fixed-FP32 boundary and receives explicit FLOAT casts;
     # never infer Softmax output precision from the pre-rewrite graph.
-    target_names.update(
-        {str(row["node_name"]): "av" for row in attention_audit.get("av_nodes", ())}
-    )
+    if isinstance(av_profile, Mapping):
+        requested_av = {
+            str(name): str(value).upper() for name, value in av_profile.items()
+        }
+        audit_av_names = {
+            str(row["node_name"]) for row in attention_audit.get("av_nodes", ())
+        }
+        if set(requested_av) != audit_av_names:
+            raise ValueError("v2xvit_av_profile_node_schema_mismatch")
+        invalid_av = {
+            name: value for name, value in requested_av.items()
+            if value not in {"AV32", "AV16", "AV8"}
+        }
+        if invalid_av:
+            raise ValueError(f"v2xvit_av_profile_unknown:{invalid_av}")
+        target_names.update({
+            name: "av" for name, value in requested_av.items() if value == "AV32"
+        })
+    else:
+        if str(av_profile).upper() == "AV32":
+            target_names.update(
+                {str(row["node_name"]): "av" for row in attention_audit.get("av_nodes", ())}
+            )
+        elif str(av_profile).upper() not in {"AV16", "AV8"}:
+            raise ValueError(f"v2xvit_av_profile_unknown:{av_profile}")
     # LayerNorm is a fixed-FP32 deployment unit, not a precision chromosome
     # locus.  Export may otherwise inherit HALF from its surrounding branch;
     # make the protected compute and output boundary explicit for strongly
@@ -254,6 +281,7 @@ def _export_candidate(
     qkv_paths: Sequence[str],
     fixed_k_override: int | None,
     physical_gpu_id: int | None = None,
+    av_profile: str | None = None,
 ) -> dict[str, Any]:
     """Export one physical candidate; every failure is returned and persisted."""
     result: dict[str, Any] = {"candidate_hash": candidate_hash, "onnx": {"attempted": False}, "engine": {"attempted": False}}
@@ -295,6 +323,28 @@ def _export_candidate(
         profile = _profile_for_origin(phenotype, origin_map)
         from search.stage2.transformer_precision_export import build_transformer_precision_mapping, audit_onnx_attention_fp32_contract, audit_trt_attention_fp32_contract
         mapping = build_transformer_precision_mapping(origin_map, profile, profile_id=f"v2xvit_greedy005_{candidate_hash[:12]}")
+        from dataclasses import replace as dataclass_replace
+        from search.model_family.deployment import _v2xvit_fp16_merge_nodes
+        auxiliary = _v2xvit_fp16_merge_nodes(onnx_path)
+        derived_groups = dict(
+            phenotype.metadata.get("derived_precision_group_profile", {})
+        )
+        for layer in range(3):
+            node_name = f"/layers.{layer}.0/layers.0.1/fn/split_attn/Add_3"
+            matches = [
+                row for group_id, row in derived_groups.items()
+                if f"encoder.layers.{layer}.0" in str(group_id)
+            ]
+            if len(matches) != 1:
+                raise RuntimeError(
+                    f"v2xvit_window_merge_derived_state_missing:{layer}:{len(matches)}"
+                )
+            auxiliary[node_name] = str(matches[0]["derived_precision"]).lower()
+        mapping = dataclass_replace(
+            mapping,
+            auxiliary_layer_precisions=auxiliary,
+            auxiliary_layer_output_types=dict(auxiliary),
+        )
         qkv_nodes = [str(entry.canonical_node_name) for entry in origin_map.entries if any(str(entry.module_path) == path or str(entry.module_path).endswith(f".{path}") for path in qkv_paths)]
         if not qkv_nodes:
             raise RuntimeError("onnx_qkv_origin_mapping_missing")
@@ -317,8 +367,6 @@ def _export_candidate(
             from search.model_family.calibration_manifest import load_v2xvit_train_manifest
             from search.model_family.deployment import collect_v2xvit_train200_entropy_scales
             int8_paths = sorted(path for path, value in profile.items() if value == "int8")
-            if int8_paths and int(calibration_frames) != 200:
-                raise RuntimeError(f"v2xvit_int8_requires_fresh_train200:{calibration_frames}")
             train200_path = REPO_ROOT / "search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json"
             train200 = load_v2xvit_train_manifest(train200_path)
             algorithm_config = {
@@ -331,8 +379,56 @@ def _export_candidate(
                 "dataset_split": "train",
             }
             state_dict_shape_hash = stable_json_hash({name: [str(value.dtype), list(value.shape)] for name, value in sorted(model.state_dict().items())})
-            precision_map_hash = stable_json_hash(profile)
             onnx_hash = _sha256_file(onnx_path)
+            from search.adapters.transformer_models import build_transformer_search_components
+            active_module_paths = sorted(
+                {str(entry.module_path) for entry in origin_map.entries}
+            )
+            transformer_components = build_transformer_search_components(
+                model,
+                hypes,
+                allow_identity_ranking=True,
+                active_module_paths=active_module_paths,
+            )
+            av_profiles_by_owner = {}
+            for unit in transformer_components.precision_units:
+                if unit.role != "av_matmul":
+                    continue
+                owner = str(unit.metadata["functional_owner"])
+                if av_profile is not None:
+                    selected_av = str(av_profile).upper()
+                else:
+                    values = {
+                        str(phenotype.realized_precision_profile[path]).upper()
+                        for path in unit.module_paths
+                        if path in phenotype.realized_precision_profile
+                    }
+                    if len(values) != 1:
+                        raise RuntimeError(
+                            f"v2xvit_av_phenotype_profile_unresolved:{unit.unit_id}:{values}"
+                        )
+                    selected_av = {
+                        "FP32": "AV32", "FP16": "AV16", "INT8": "AV8"
+                    }[values.pop()]
+                if selected_av not in {"AV32", "AV16", "AV8"}:
+                    raise RuntimeError(f"v2xvit_av_profile_unknown:{selected_av}")
+                av_profiles_by_owner[owner] = selected_av
+            if len(av_profiles_by_owner) != 12:
+                raise RuntimeError(
+                    f"v2xvit_av_profile_owner_count:{len(av_profiles_by_owner)}"
+                )
+            # The cache/engine identity is bound to the complete per-instance
+            # AV phenotype, not merely the optional global audit override.
+            precision_map_hash = stable_json_hash({
+                "weighted_profile": profile,
+                "av_profiles_by_owner": av_profiles_by_owner,
+                "derived_precision": phenotype.metadata.get(
+                    "derived_precision_group_profile", {}
+                ),
+            })
+            requires_train200 = bool(int8_paths) or "AV8" in set(av_profiles_by_owner.values())
+            if requires_train200 and int(calibration_frames) != 200:
+                raise RuntimeError(f"v2xvit_int8_requires_fresh_train200:{calibration_frames}")
             if int8_paths:
                 bundle = SimpleNamespace(model=model, adapter=adapter, config_path=MODEL_SPECS["v2xvit"]["config"])
                 scales, entropy_metadata = collect_v2xvit_train200_entropy_scales(
@@ -345,12 +441,47 @@ def _export_candidate(
                 )
             else:
                 scales, entropy_metadata = {}, {"frame_count": 0, "reason": "profile_has_no_int8_layers"}
-            scale_hash = stable_json_hash(scales)
-            cache_payload = {"schema_version": "v2xvit-train200-entropy-cache-v1", "entropy_metadata": entropy_metadata, "scales": scales}
+            av_operand_scales_by_owner = {}
+            av_entropy_metadata = {
+                "requested_frames": 0,
+                "processed_frames": 0,
+                "skipped_frames": 0,
+                "reason": "av_profile_not_int8",
+            }
+            if "AV8" in set(av_profiles_by_owner.values()):
+                from search.model_family.deployment import (
+                    collect_v2xvit_av_train200_entropy_scales,
+                )
+                bundle = SimpleNamespace(
+                    model=model,
+                    adapter=adapter,
+                    config_path=MODEL_SPECS["v2xvit"]["config"],
+                )
+                av_operand_scales_by_owner, av_entropy_metadata = (
+                    collect_v2xvit_av_train200_entropy_scales(
+                        bundle=bundle,
+                        manifest=train200,
+                        attention_instances=transformer_components.attention_instances,
+                        device=next(model.parameters()).device,
+                        histogram_bins=2048,
+                    )
+                )
+            scale_hash = stable_json_hash({
+                "weighted_scales": scales,
+                "av_operand_scales": av_operand_scales_by_owner,
+            })
+            cache_payload = {
+                "schema_version": "v2xvit-train200-entropy-cache-v2-av-profile",
+                "entropy_metadata": entropy_metadata,
+                "scales": scales,
+                "av_profiles_by_owner": av_profiles_by_owner,
+                "av_entropy_metadata": av_entropy_metadata,
+                "av_operand_scales": av_operand_scales_by_owner,
+            }
             entropy_cache_path = candidate_dir / "train200_entropy_cache.json"
             _write(entropy_cache_path, cache_payload)
             cache_hash = _sha256_file(entropy_cache_path)
-            if int8_paths:
+            if requires_train200:
                 calibration_manifest = build_train200_contract(
                     manifest_hash=str(train200["manifest_hash"]),
                     checkpoint_hash=_sha256(MODEL_SPECS["v2xvit"]["checkpoint"]),
@@ -365,7 +496,13 @@ def _export_candidate(
                     skipped_frames=0,
                     algorithm="ModelOptEntropyKL2048To128",
                 )
-                calibration_manifest.update({"module_paths": int8_paths, "entropy_metadata": entropy_metadata, "manifest_path": str(train200_path.resolve())})
+                calibration_manifest.update({
+                    "module_paths": int8_paths,
+                    "entropy_metadata": entropy_metadata,
+                    "av_profiles_by_owner": av_profiles_by_owner,
+                    "av_entropy_metadata": av_entropy_metadata,
+                    "manifest_path": str(train200_path.resolve()),
+                })
             else:
                 calibration_manifest = {
                     "schema_version": "v2xvit-train200-not-applicable-v1",
@@ -381,41 +518,78 @@ def _export_candidate(
                     "scale_hash": scale_hash,
                 }
             _write(candidate_dir / "calibration_manifest.json", calibration_manifest)
-            _write(candidate_dir / "calibration_scales.json", {"scales": scales, "scale_hash": scale_hash, "calibration_contract_hash": calibration_manifest.get("contract_hash")})
+            _write(candidate_dir / "calibration_scales.json", {
+                "scales": scales,
+                "av_operand_scales": av_operand_scales_by_owner,
+                "scale_hash": scale_hash,
+                "calibration_contract_hash": calibration_manifest.get("contract_hash"),
+            })
             qdq_path = candidate_dir / "physical_mixed_qdq.onnx"
             qdq = insert_explicit_qdq(
                 onnx_path, qdq_path, mapping, scales=scales,
-                config=QDQConfig(allowed_precisions=("fp32", "fp16", "int8"), require_calibration_scales=True, insert_activation_input_qdq=True, insert_weight_qdq=True, insert_activation_output_qdq=False, merge_policy="fp16_merge", explicit_fp16_compute_casts=True, explicit_fp32_compute_casts=True, policy_version="v2xvit-greedy005-w8a8-qk-fp32-v1"),
+                config=QDQConfig(allowed_precisions=("fp32", "fp16", "int8"), require_calibration_scales=True, insert_activation_input_qdq=True, insert_weight_qdq=True, insert_activation_output_qdq=False, merge_policy="adaptive_upcast_merge", explicit_fp16_compute_casts=True, explicit_fp32_compute_casts=True, policy_version="v2xvit-av-profile-window-merge-derived-join-v1"),
                 calibration_metadata={"calibration_contract_hash": calibration_manifest.get("contract_hash"), "physical_structure_hash": physical_structure_hash, "state_dict_shape_hash": state_dict_shape_hash, "precision_map_hash": precision_map_hash, "onnx_hash": onnx_hash, "cache_hash": cache_hash, "scale_hash": scale_hash},
             )
             _write(candidate_dir / "qdq_insertion_report.json", qdq.to_dict())
             import onnx
             onnx.checker.check_model(onnx.load(str(qdq_path), load_external_data=False))
             qdq_pre_cast_audit = audit_onnx_attention_fp32_contract(qdq_path, qkv_canonical_node_names=qkv_nodes)
-            cast_report = _force_attention_fp32_contract(qdq_path, qdq_pre_cast_audit)
+            from search.stage2.v2xvit_functional_precision import (
+                _module_onnx_prefix,
+            )
+            av_profiles_by_node = {}
+            av_node_scales = {}
+            for spec in transformer_components.attention_instances:
+                expected_prefix = _module_onnx_prefix(str(spec.module_path)).replace(
+                    "/pwmsa/", "/pwmsa."
+                )
+                matches = [
+                    row for row in qdq_pre_cast_audit.get("av_nodes", ())
+                    if str(row["node_name"]).startswith(expected_prefix)
+                ]
+                if len(matches) != 1:
+                    raise RuntimeError(
+                        f"v2xvit_av_onnx_owner_mapping_not_unique:"
+                        f"{spec.module_path}:{len(matches)}"
+                    )
+                node_name = str(matches[0]["node_name"])
+                selected_av = av_profiles_by_owner[str(spec.module_path)]
+                av_profiles_by_node[node_name] = selected_av
+                if selected_av == "AV8":
+                    av_node_scales[node_name] = tuple(
+                        av_operand_scales_by_owner[str(spec.module_path)]
+                    )
+            cast_report = _force_attention_fp32_contract(
+                qdq_path, qdq_pre_cast_audit, av_profile=av_profiles_by_node
+            )
+            from search.stage2.v2xvit_av_profile_export import rewrite_onnx_av_profiles
+            av_rewrite = rewrite_onnx_av_profiles(
+                qdq_path,
+                qdq_pre_cast_audit,
+                profiles=av_profiles_by_node,
+                operand_scales=av_node_scales,
+            )
             _write(candidate_dir / "qk_fp32_cast_report.json", {"pre_cast_audit": qdq_pre_cast_audit, **cast_report})
+            _write(candidate_dir / "av_profile_rewrite.json", av_rewrite)
             qdq_audit = audit_onnx_attention_fp32_contract(qdq_path, qkv_canonical_node_names=qkv_nodes)
             _write(candidate_dir / "qdq_attention_fp32_audit.json", qdq_audit)
             if not qdq_audit.get("passed"):
                 raise RuntimeError("qdq_qk_softmax_fp32_contract_failed")
-            from search.adapters.transformer_models import build_transformer_search_components
             from search.stage2.v2xvit_functional_precision import (
                 audit_trt_v2xvit_functional_precision,
                 build_v2xvit_functional_onnx_mapping,
                 requested_states_from_phenotype,
             )
-            active_module_paths = sorted(
-                {str(entry.module_path) for entry in origin_map.entries}
-            )
-            transformer_components = build_transformer_search_components(
-                model,
-                hypes,
-                allow_identity_ranking=True,
-                active_module_paths=active_module_paths,
-            )
             requested_transformer_states = requested_states_from_phenotype(
                 phenotype, transformer_components.precision_units
             )
+            requested_transformer_states.update({
+                str(unit.unit_id): {
+                    "AV32": "A32", "AV16": "A16", "AV8": "A8"
+                }[av_profiles_by_owner[str(unit.metadata["functional_owner"])]]
+                for unit in transformer_components.precision_units
+                if unit.role == "av_matmul"
+            })
             functional_onnx = build_v2xvit_functional_onnx_mapping(
                 qdq_path,
                 origin_map=origin_map,
@@ -461,12 +635,27 @@ def _export_candidate(
                     f"unmapped={functional_trt.get('unmapped_count')}:"
                     f"conflict={functional_trt.get('conflict_count')}"
                 )
+            from search.stage2.v2xvit_av_profile_export import audit_trt_av_profiles
+            av_trt = audit_trt_av_profiles(
+                candidate_dir / "engine_build" / "engine_layer_info.json",
+                qdq_audit,
+                profiles=av_profiles_by_node,
+            )
+            _write(candidate_dir / "av_profile_trt_audit.json", av_trt)
+            if not av_trt.get("passed"):
+                raise RuntimeError(
+                    "trt_av_profile_contract_failed:"
+                    f"profiles={av_trt.get('profile_counts')}:unmapped={av_trt.get('unmapped_count')}:"
+                    f"conflict={av_trt.get('conflict_count')}:"
+                    f"fallback={av_trt.get('fallback_count')}"
+                )
             result["engine"] = {
                 "attempted": True,
                 "passed": True,
                 "build": build,
                 "trt_attention": trt_attention,
                 "functional_precision": functional_trt,
+                "av_profile": av_trt,
             }
             torch.cuda.empty_cache()
     except Exception as exc:

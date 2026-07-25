@@ -483,6 +483,187 @@ def collect_v2xvit_train200_entropy_scales(
     return scales, metadata
 
 
+def collect_v2xvit_av_train200_entropy_scales(
+    *,
+    bundle: Any,
+    manifest: Mapping[str, Any],
+    attention_instances: Sequence[Any],
+    device: torch.device,
+    histogram_bins: int = 2048,
+) -> tuple[dict[str, tuple[float, float]], dict[str, Any]]:
+    """Calibrate both operands of each real P x V AV operation.
+
+    A module-level hook is insufficient because HGT transforms V with
+    relation_msg before the final AV.  The collector therefore observes the
+    two operands of the final AV einsum while an exact Attention owner is
+    active.  Calls for relation-attention and relation-message einsums are
+    deliberately ignored.
+    """
+
+    from opencood.data_utils.datasets import build_dataset
+    from opencood.hypes_yaml import yaml_utils
+    from search.integration.data_provider import move_batch_to_device
+
+    rows = [dict(row) for row in manifest["samples"]]
+    if len(rows) != 200:
+        raise RuntimeError(f"v2xvit_av_entropy_manifest_not_train200:{len(rows)}")
+    modules = dict(bundle.model.named_modules())
+    owners = [str(spec.module_path) for spec in attention_instances]
+    missing = sorted(set(owners) - set(modules))
+    if missing:
+        raise RuntimeError(f"v2xvit_av_entropy_attention_missing:{missing}")
+    state = {
+        owner: {
+            "p_amax": None,
+            "v_amax": None,
+            "p_hist": None,
+            "v_hist": None,
+            "count": 0,
+        }
+        for owner in owners
+    }
+    phase = {"name": "amax"}
+    active: list[str] = []
+    handles = []
+
+    def pre_hook(_module: Any, _inputs: tuple[Any, ...], owner: str) -> None:
+        active.append(owner)
+
+    def post_hook(_module: Any, _inputs: tuple[Any, ...], _output: Any, owner: str) -> None:
+        if not active or active[-1] != owner:
+            raise RuntimeError(f"v2xvit_av_entropy_owner_stack_mismatch:{owner}:{active}")
+        active.pop()
+
+    for owner in owners:
+        handles.append(modules[owner].register_forward_pre_hook(
+            lambda module, inputs, owner=owner: pre_hook(module, inputs, owner)
+        ))
+        handles.append(modules[owner].register_forward_hook(
+            lambda module, inputs, output, owner=owner: post_hook(
+                module, inputs, output, owner
+            )
+        ))
+
+    original_einsum = torch.einsum
+
+    def observe(owner: str, role: str, tensor: torch.Tensor) -> None:
+        value = tensor.detach().float().abs()
+        row = state[owner]
+        if phase["name"] == "amax":
+            maximum = value.amax()
+            key = f"{role}_amax"
+            row[key] = maximum if row[key] is None else torch.maximum(row[key], maximum)
+            return
+        maximum = float(row[f"{role}_amax"].item())
+        histogram = torch.histc(
+            value, bins=int(histogram_bins), min=0.0, max=maximum
+        )
+        key = f"{role}_hist"
+        row[key] = histogram if row[key] is None else row[key] + histogram
+
+    def audited_einsum(equation: str, *operands: Any) -> Any:
+        values = operands
+        if len(values) == 1 and isinstance(values[0], (list, tuple)):
+            values = tuple(values[0])
+        normalized = "".join(str(equation).split())
+        final_window = normalized.startswith("blmhij,blmhjc->blmhic")
+        final_hgt = normalized.startswith("bmhwij,bmhwijc->bmhwic")
+        if active and (final_window or final_hgt):
+            if len(values) != 2 or not all(torch.is_tensor(value) for value in values):
+                raise RuntimeError(f"v2xvit_av_entropy_operand_invalid:{equation}")
+            owner = active[-1]
+            observe(owner, "p", values[0])
+            observe(owner, "v", values[1])
+            if phase["name"] == "amax":
+                state[owner]["count"] += 1
+        return original_einsum(equation, *operands)
+
+    hypes = yaml_utils.load_yaml(str(bundle.config_path))
+    hypes = bundle.adapter._absolutize_dataset_paths(hypes)
+    dataset = build_dataset(hypes, visualize=False, train=True)
+    evidence = []
+    bundle.model.eval()
+    torch.einsum = audited_einsum
+    try:
+        with torch.inference_mode():
+            for pass_name in ("amax", "histogram"):
+                phase["name"] = pass_name
+                for row in rows:
+                    seed = int(row["sample_seed"])
+                    random.seed(seed)
+                    np.random.seed(seed % (2**32))
+                    torch.manual_seed(seed)
+                    item = dataset[int(row["dataset_index"])]
+                    batch = dataset.collate_batch_train([item])
+                    if batch is None:
+                        raise RuntimeError(
+                            f"v2xvit_av_entropy_empty_batch:{row['dataset_index']}"
+                        )
+                    observed_k = int(
+                        batch["ego"]["inputs_m1"]["voxel_features"].shape[0]
+                    )
+                    if observed_k != int(row["voxel_count"]):
+                        raise RuntimeError(
+                            f"v2xvit_av_entropy_manifest_k_mismatch:"
+                            f"{row['dataset_index']}:{observed_k}!={row['voxel_count']}"
+                        )
+                    batch = move_batch_to_device(batch, device)
+                    bundle.adapter.forward_for_task(bundle.model, batch)
+                    if pass_name == "amax":
+                        evidence.append({
+                            "ordinal": int(row["ordinal"]),
+                            "dataset_index": int(row["dataset_index"]),
+                            "vehicle_frame_id": str(row["vehicle_frame_id"]),
+                            "voxel_count": observed_k,
+                            "sample_seed": seed,
+                        })
+                    del batch
+    finally:
+        torch.einsum = original_einsum
+        for handle in handles:
+            handle.remove()
+    if active:
+        raise RuntimeError(f"v2xvit_av_entropy_owner_stack_not_empty:{active}")
+
+    scales: dict[str, tuple[float, float]] = {}
+    thresholds = {}
+    calls_per_frame = {}
+    for owner in owners:
+        row = state[owner]
+        if int(row["count"]) != len(rows):
+            raise RuntimeError(
+                f"v2xvit_av_entropy_call_count:{owner}:{row['count']}:{len(rows)}"
+            )
+        calls_per_frame[owner] = 1
+        p_threshold, p_audit = _entropy_threshold(
+            row["p_hist"], float(row["p_amax"].item())
+        )
+        v_threshold, v_audit = _entropy_threshold(
+            row["v_hist"], float(row["v_amax"].item())
+        )
+        scales[owner] = (p_threshold / 127.0, v_threshold / 127.0)
+        thresholds[owner] = {"probability": p_audit, "value": v_audit}
+    metadata = {
+        "schema_version": "heal-v2xvit-av-train200-entropy-calibration-v1",
+        "algorithm": "ModelOptEntropyKL2048To128",
+        "manifest_hash": str(manifest["manifest_hash"]),
+        "requested_frames": 200,
+        "processed_frames": 200,
+        "skipped_frames": 0,
+        "passes": 2,
+        "histogram_bins": int(histogram_bins),
+        "attention_instance_count": len(owners),
+        "calls_per_frame": calls_per_frame,
+        "sample_evidence": evidence,
+        "thresholds": thresholds,
+        "operand_semantics": ["post_softmax_probability", "final_av_value_or_relation_message"],
+    }
+    metadata["calibration_hash"] = stable_json_hash(
+        {"metadata": metadata, "scales": scales}
+    )
+    return scales, metadata
+
+
 def load_searched_candidate_profile(
     artifact_path: str | Path,
     *,
@@ -588,6 +769,7 @@ __all__ = [
     "build_v2xvit_precision_mapping",
     "canonicalize_v2xvit_onnx",
     "collect_v2xvit_train200_entropy_scales",
+    "collect_v2xvit_av_train200_entropy_scales",
     "file_sha256",
     "load_searched_candidate_profile",
     "load_v2xvit_pruning_domains",

@@ -155,6 +155,7 @@ def run_weight_only_abs_greedy(
                 "precision_hash": _stable_hash(successor.precision_genes),
                 "candidate_hash": phenotype_hash,
                 "mixed_weight_size_bytes": float("inf"),
+                "mixed_weight_retention": float("nan"),
                 "R_parameter_retention": float("nan"),
                 "structural_repair_count": 0,
                 "precision_repair_count": 0,
@@ -179,13 +180,11 @@ def run_weight_only_abs_greedy(
         selected = action_rows[0]
         for rank, row in enumerate(action_rows, start=1):
             row["global_rank"] = rank
-            in_band = abs(float(row["current_retention"]) - float(target)) <= float(
-                tolerance_abs
-            )
-            if in_band or row is selected:
+            if row is selected:
                 sizes = size_evaluator(row["phenotype"])
                 row["size_breakdown"] = sizes
                 row["mixed_weight_size_bytes"] = float(sizes["size_bits_total"]) / 8.0
+                row["mixed_weight_retention"] = float(sizes["R_size_vs_fp32"])
                 row["R_parameter_retention"] = float(sizes["R_parameter_retention"])
             public = {
                 key: value
@@ -199,30 +198,34 @@ def run_weight_only_abs_greedy(
                     "size_breakdown",
                 }
             }
-            if in_band:
-                incumbent = band.get(row["candidate_hash"])
-                candidate_entry = {**row, "trace_row": public}
-                if incumbent is None or (
-                    row["cumulative_proxy"],
-                    abs(row["current_retention"] - target),
-                    row["mixed_weight_size_bytes"],
-                    row["candidate_hash"],
-                ) < (
-                    incumbent["cumulative_proxy"],
-                    abs(incumbent["current_retention"] - target),
-                    incumbent["mixed_weight_size_bytes"],
-                    incumbent["candidate_hash"],
-                ):
-                    band[row["candidate_hash"]] = candidate_entry
-            for capture_target in targets:
-                if abs(float(row["current_retention"]) - capture_target) <= float(
-                    tolerance_abs
-                ):
-                    captured_targets.add(capture_target)
             trace.append(public)
         trace[-len(action_rows)]["selected"] = True
         selected["selected"] = True
         selected_steps.append(selected)
+        # Budget capture is a property of the single chosen Greedy trajectory.
+        # Unselected neighbors are useful diagnostics but can never become the
+        # exact winner or satisfy a capture/termination condition.
+        if abs(float(selected["current_retention"]) - float(target)) <= float(
+            tolerance_abs
+        ):
+            selected_public = {
+                key: value
+                for key, value in selected.items()
+                if key
+                not in {
+                    "candidate", "phenotype", "risk", "bops_breakdown",
+                    "size_breakdown",
+                }
+            }
+            band[selected["candidate_hash"]] = {
+                **selected,
+                "trace_row": selected_public,
+            }
+        for capture_target in targets:
+            if abs(float(selected["current_retention"]) - capture_target) <= float(
+                tolerance_abs
+            ):
+                captured_targets.add(capture_target)
         current = selected["candidate"]
         current_phenotype = selected["phenotype"]
         cumulative_prune += float(selected["delta_J_prune"])
@@ -243,7 +246,8 @@ def run_weight_only_abs_greedy(
         key=lambda row: (
             row["cumulative_proxy"],
             abs(row["current_retention"] - target),
-            row["mixed_weight_size_bytes"],
+            -row["R_parameter_retention"],
+            -row["mixed_weight_retention"],
             row["candidate_hash"],
         ),
     )

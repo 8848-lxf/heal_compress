@@ -69,11 +69,13 @@ def _candidate(space, mask: int = 0, precision: str = "FP32"):
 
 def test_formal_configuration_is_exactly_ten_generations() -> None:
     from search.ga.stage12_v3 import StrictGAConfig
-    from scripts.run_v2xvit_formal_ga_gen10 import FORMAL_SEEDS
+    from scripts.run_v2xvit_formal_ga_gen10 import FORMAL_SEEDS, LABELS, TARGETS
 
     config = StrictGAConfig(target_bops_retention=0.30)
     assert config.generations == 10
     assert FORMAL_SEEDS == (0,)
+    assert LABELS == ("010",)
+    assert TARGETS == {"010": 0.10}
     with pytest.raises(ValueError, match="generations_must_equal_10"):
         StrictGAConfig(target_bops_retention=0.30, generations=11)
 
@@ -267,6 +269,92 @@ def test_runner_generation_zero_is_initialization_and_evolution_is_one_to_ten() 
     assert result["completed_evolution_generations"] == 10
     assert all(row["stage2_new_candidate_count"] <= 5 for row in result["history"])
     assert all(row.get("greedy_anchor_retained", True) for row in result["history"])
+    assert all(row["offspring_generated"] == 64 for row in result["history"][1:])
+    assert all(row["offspring_unique_count"] == 64 for row in result["history"][1:])
+    assert all(row["survivor_size"] == 64 for row in result["history"][1:])
+    assert all(row["survivor_unique_count"] == 64 for row in result["history"][1:])
+
+
+def test_runner_rejects_duplicate_initial_physical_phenotype() -> None:
+    from search.ga.stage12_v3 import (
+        Stage2Result,
+        StrictGAConfig,
+        StrictStage12V3Runner,
+        phenotype_identity,
+    )
+
+    space = _space(domain_count=8)
+    population = [
+        _candidate(space, mask, ("FP32", "FP16", "INT8")[mask % 3])
+        for mask in range(63)
+    ]
+    population.append(population[0])
+
+    def stage1(genotype):
+        return {
+            **phenotype_identity(genotype, space),
+            "J_total": 0.0,
+            "bops_feasible": True,
+            "bops_deviation": 0.0,
+            "R_parameter_retention": 1.0,
+            "mixed_weight_retention": 1.0,
+            "genotype": genotype,
+        }
+
+    greedy = population[0]
+    anchor = Stage2Result(
+        phenotype_identity(greedy, space)["complete_phenotype_hash"],
+        greedy,
+        "ok",
+        0.6,
+        10.0,
+        True,
+        50,
+        0,
+    )
+    runner = StrictStage12V3Runner(
+        space,
+        StrictGAConfig(target_bops_retention=0.10),
+        stage1_evaluator=stage1,
+        stage2_evaluator=lambda *_args: anchor,
+    )
+    with pytest.raises(ValueError, match="duplicate_phenotype"):
+        runner.run(population, greedy_anchor=anchor)
+
+
+def test_stage2_realization_requires_functional_and_attention_audits(tmp_path) -> None:
+    import json
+
+    from scripts.run_v2xvit_formal_ga_gen10 import precision_realized_exact
+
+    (tmp_path / "engine_build_acceptance.json").write_text(json.dumps({
+        "status": "ok",
+        "precision_realization_validation": {
+            "passed": True,
+            "mismatches": [],
+            "unresolved_layer_count": 0,
+        },
+    }))
+    exact, reason = precision_realized_exact(tmp_path)
+    assert exact is False
+    assert reason["failure"] == "functional_attention_or_av_precision_audit_missing"
+    (tmp_path / "functional_precision_trt_audit.json").write_text(json.dumps({
+        "passed": True,
+        "conflict_count": 0,
+        "unmapped_count": 0,
+        "fallback_count": 0,
+    }))
+    (tmp_path / "trt_attention_fp32_audit.json").write_text(json.dumps({
+        "passed": True,
+    }))
+    (tmp_path / "av_profile_trt_audit.json").write_text(json.dumps({
+        "passed": True,
+        "conflict_count": 0,
+        "unmapped_count": 0,
+        "fallback_count": 0,
+    }))
+    exact, _ = precision_realized_exact(tmp_path)
+    assert exact is True
 
 
 def test_runner_parallel_stage2_batch_preserves_stage1_order() -> None:

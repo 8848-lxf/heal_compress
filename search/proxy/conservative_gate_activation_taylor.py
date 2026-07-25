@@ -269,9 +269,19 @@ def collect_functional_gate_scores(
 
 
 def build_activation_units(model: nn.Module, space: SearchSpaceSpec, transformer_units: Sequence[Any]) -> tuple[tuple[TaylorDeploymentUnit, ...], dict[str, tuple[str, ...]]]:
-    rows: list[TaylorDeploymentUnit] = list(transformer_units)
+    # Weighted Conv/Linear activation precision is defined at the deployment
+    # Q/DQ input and is materialized below as a module-input unit.  Retaining
+    # the older transformer module-output observers as well would collect a
+    # second, unused statistic for the same precision group.  Only functional
+    # boundaries without a concrete module input (currently AV P/V) belong to
+    # the transformer-specific inventory.
+    functional_units = tuple(
+        unit for unit in transformer_units
+        if str(unit.boundary) in {"functional_input", "functional_output"}
+    )
+    rows: list[TaylorDeploymentUnit] = list(functional_units)
     group_to_units: dict[str, tuple[str, ...]] = {}
-    for unit in transformer_units:
+    for unit in functional_units:
         group = str(unit.metadata.get("precision_unit_id", ""))
         if group:
             group_to_units[group] = tuple([*group_to_units.get(group, ()), unit.unit_id])

@@ -425,6 +425,8 @@ class TransformerBOPSProxy:
                 "activation_bits": None,
                 "operand_a_bits": av_bits,
                 "operand_b_bits": av_bits,
+                "operand_a_semantic": "softmax_probability",
+                "operand_b_semantic": "value_activation",
                 "BOPS": av_bops,
                 "T_q": workload.query_tokens,
                 "T_k": workload.key_tokens,
@@ -445,6 +447,12 @@ class TransformerBOPSProxy:
                 )
                 relation_macs = pair_count * d_h * d_h
                 relation_parameters = relation_count * heads * d_h * d_h
+                relation_att_bits = _bits(
+                    profile, str(domain.metadata["relation_att_path"])
+                )
+                relation_msg_bits = _bits(
+                    profile, str(domain.metadata["relation_msg_path"])
+                )
                 rows.append({
                     "domain_id": domain.domain_id,
                     "module_path": str(domain.metadata["relation_att_path"]),
@@ -452,14 +460,14 @@ class TransformerBOPSProxy:
                     "component": "qk_relation_transform",
                     "category": "qk_relation",
                     "MACs": float(relation_macs),
-                    "weight_bits": 32,
+                    "weight_bits": relation_att_bits,
                     "activation_bits": 32,
                     "operand_a_semantic": "learned_relation_att",
                     "operand_b_semantic": "q_or_k_activation",
                     "compute_precision": "FP32",
                     "accumulator_precision": "FP32",
                     "output_precision": "FP32",
-                    "BOPS": float(relation_macs * 32 * 32),
+                    "BOPS": float(relation_macs * relation_att_bits * 32),
                     "parameters": relation_parameters,
                     "T_q": workload.query_tokens,
                     "T_k": workload.key_tokens,
@@ -474,14 +482,14 @@ class TransformerBOPSProxy:
                     "component": "message_relation_transform",
                     "category": "av_relation",
                     "MACs": float(relation_macs),
-                    "weight_bits": av_bits,
-                    "activation_bits": av_bits,
+                    "weight_bits": relation_msg_bits,
+                    "activation_bits": 32,
                     "operand_a_semantic": "learned_relation_msg",
                     "operand_b_semantic": "v_activation",
-                    "compute_precision": _precision(profile, av_path),
-                    "accumulator_precision": _precision(profile, av_path),
-                    "output_precision": _precision(profile, av_path),
-                    "BOPS": float(relation_macs * av_bits * av_bits),
+                    "compute_precision": "FP32",
+                    "accumulator_precision": "FP32",
+                    "output_precision": "FP32",
+                    "BOPS": float(relation_macs * relation_msg_bits * 32),
                     "parameters": relation_parameters,
                     "T_q": workload.query_tokens,
                     "T_k": workload.key_tokens,
@@ -490,7 +498,9 @@ class TransformerBOPSProxy:
                     "d_h": d_h,
                 })
                 parameter_count += 2 * relation_parameters
-                mixed_weight_bits += relation_parameters * (32 + av_bits)
+                mixed_weight_bits += relation_parameters * (
+                    relation_att_bits + relation_msg_bits
+                )
 
             out_path = paths["out"][0]
             out_bits = _bits(profile, out_path)

@@ -209,8 +209,6 @@ def build_transformer_precision_units(
                 activation_only=False,
             )
         qk_functional_paths = [f"{spec.module_path}::__qk_matmul__"]
-        if spec.adapter == "v2xvit_hgt" and spec.metadata.get("relation_att_path"):
-            qk_functional_paths.append(str(spec.metadata["relation_att_path"]))
         add(
             unit_id=f"{prefix}::qk_matmul",
             model_name=spec.model,
@@ -233,9 +231,32 @@ def build_transformer_precision_units(
                 "functional_call_index": 0,
             },
         )
+        if spec.adapter == "v2xvit_hgt":
+            add(
+                unit_id=f"{prefix}::relation_att_weight",
+                model_name=spec.model,
+                family=spec.family,
+                paths=(str(spec.metadata["relation_att_path"]),),
+                role="qk_relation_weight",
+                states=("W32A32",),
+                default="W32A32",
+                activation_only=False,
+                protected=True,
+                reason="hgt_relation_att_fixed_fp32_qk_protection_island",
+            )
+            add(
+                unit_id=f"{prefix}::relation_msg_weight",
+                model_name=spec.model,
+                family=spec.family,
+                paths=(str(spec.metadata["relation_msg_path"]),),
+                role="av_relation_weight",
+                states=("W32A32",),
+                default="W32A32",
+                activation_only=False,
+                protected=True,
+                reason="hgt_relation_msg_fixed_fp32_before_explicit_av_operand_boundary",
+            )
         av_functional_paths = [f"{spec.module_path}::__av_matmul__"]
-        if spec.adapter == "v2xvit_hgt" and spec.metadata.get("relation_msg_path"):
-            av_functional_paths.append(str(spec.metadata["relation_msg_path"]))
         add(
             unit_id=f"{prefix}::softmax",
             model_name=spec.model,
@@ -261,15 +282,21 @@ def build_transformer_precision_units(
             family=spec.family,
             paths=tuple(av_functional_paths),
             role="av_matmul",
-            states=("A32",),
+            states=("A32", "A16"),
             default="A32",
             activation_only=True,
-            protected=True,
-            reason="deployment_closed_contract_av_fp32",
+            protected=False,
+            reason="av32_av16_h800_deployment_and_fixed50_closed_av8_excluded",
             metadata={
                 "functional_owner": spec.module_path,
                 "functional_op": "einsum",
                 "functional_call_index": 2 if spec.adapter == "v2xvit_hgt" else 1,
+                # ``torch.einsum`` positional argument 0 is the equation;
+                # the true P and V Q/DQ operands are arguments 1 and 2.
+                "av_operand_tensor_indices": [1, 2],
+                "av_operand_semantics": ["post_softmax_probability", "value_activation"],
+                "av_profile_contracts": ["AV32", "AV16"],
+                "av8_exclusion_reason": "trt_realized_non_int8_tactic_12_of_12",
             },
         )
         add(
@@ -307,21 +334,37 @@ def build_transformer_precision_units(
             and spec.block_path not in window_merge_boundaries
         ):
             window_merge_boundaries.add(spec.block_path)
+            window_specs = [
+                row
+                for row in attention
+                if row.adapter == "v2xvit_window" and row.block_path == spec.block_path
+            ]
+            merge_inputs = tuple(
+                dict.fromkeys(
+                    path
+                    for row in window_specs
+                    for path in row.output_projection_paths
+                )
+            )
             add(
                 unit_id=f"transformer_precision::{spec.block_path}::window_merge",
                 model_name=spec.model,
                 family=spec.family,
                 paths=(f"{spec.block_path}::__window_family_merge__",),
                 role="attention_merge",
-                states=("A16",),
-                default="A16",
+                states=ACTIVATION_PRECISION_STATES,
+                default="A32",
                 activation_only=True,
                 protected=True,
-                reason="window_family_merge_fixed_fp16_deployment_contract",
+                reason="derived_from_window_branch_output_precision_no_gene",
                 metadata={
                     "functional_owner": spec.block_path,
                     "attention_adapter": spec.adapter,
                     "boundary_kind": "window_family_merge",
+                    "derived_precision": True,
+                    "derived_op_type": "Add",
+                    "derived_input_module_paths": list(merge_inputs),
+                    "independent_chromosome_gene": False,
                 },
             )
 

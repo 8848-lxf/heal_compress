@@ -29,7 +29,7 @@ from search.canonicalization import canonicalize_candidate
 from search.pruning_space.unified_physical_pruner import materialize_unified_widths
 
 
-BUDGET_LABELS = ("030", "025", "020", "015", "010", "005")
+BUDGET_LABELS = ("010",)
 
 
 def write(path: Path, value: Any) -> None:
@@ -90,6 +90,16 @@ def frozen_domains(
 
 
 def fp32_phenotype(source: CandidatePhenotype, *, pruned: bool) -> CandidatePhenotype:
+    derived = {}
+    for group_id, row in dict(
+        source.metadata.get("derived_precision_group_profile", {})
+    ).items():
+        derived[str(group_id)] = {
+            **dict(row),
+            "input_precisions": ["FP32" for _ in row.get("input_precisions", ())],
+            "derived_precision": "FP32",
+            "reason": "all_fp32_control_derived_join",
+        }
     return CandidatePhenotype(
         pruned_unit_ids=list(source.pruned_unit_ids) if pruned else [],
         precision_profile={
@@ -103,6 +113,7 @@ def fp32_phenotype(source: CandidatePhenotype, *, pruned: bool) -> CandidatePhen
             "source_domain_width_profile": dict(
                 source.metadata.get("domain_width_profile") or {}
             ),
+            "derived_precision_group_profile": derived,
         },
     )
 
@@ -141,7 +152,7 @@ def run(args: argparse.Namespace) -> int:
         for label in BUDGET_LABELS
     }
     source_phenotype = CandidatePhenotype.from_dict(
-        winner_payloads["030"]["phenotype"]
+        winner_payloads["010"]["phenotype"]
     )
     controls_root = root / "engines/greedy_exact_winners"
     reports: dict[str, Any] = {
@@ -256,7 +267,7 @@ def run(args: argparse.Namespace) -> int:
 
     reports["all_exact_winners_attempted"] = len(
         [key for key in reports["controls"] if key.startswith("budget_")]
-    ) == 6
+    ) == 1
     reports["exact_winner_substitution_count"] = 0
     write(root / "reports/six_budget_builds.json", reports)
     print(json.dumps({"status": "complete", "budgets": BUDGET_LABELS}), flush=True)

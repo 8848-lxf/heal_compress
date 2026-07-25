@@ -53,9 +53,9 @@ from search.proxy.joint_weight_activation_taylor import (
 from search.proxy.joint_weight_taylor import JointWeightTaylorProxy
 
 
-BUDGETS = (0.30, 0.25, 0.20, 0.15, 0.10, 0.05)
+BUDGETS = (0.10,)
 TOLERANCE = 0.005
-SEED = 20260725
+SEED = 0
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -423,18 +423,22 @@ def run(args: argparse.Namespace) -> int:
         convergence["16_to_32"]["spearman"] >= 0.95
         and convergence["16_to_32"]["top10_overlap"] >= 0.80
     )
+    convergence_payload = {
+        "sample_counts": [8, 16, 32],
+        "manifest_hash": calibration_hash,
+        "prefixes_share_frozen_train32_order": True,
+        "comparisons": convergence,
+        "passed": convergence_pass,
+        "taylor_sample_convergence_insufficient": not convergence_pass,
+        "action_scores": prefix_actions,
+    }
     _write_json(
         root / "reports/taylor_sample_convergence.json",
-        {
-            "sample_counts": [8, 16, 32],
-            "manifest_hash": calibration_hash,
-            "prefixes_share_frozen_train32_order": True,
-            "comparisons": convergence,
-            "passed": convergence_pass,
-            "taylor_sample_convergence_insufficient": not convergence_pass,
-            "action_scores": prefix_actions,
-        },
+        convergence_payload,
     )
+    _write_csv(root / "reports/taylor_prefix_convergence.csv", [
+        {"prefix_pair": key, **value} for key, value in convergence.items()
+    ])
     _write_json(root / "reports/fisher_statistics_audit.json", {
         "formula": "h=E[g^2]",
         "not_formula": "E[g]^2",
@@ -457,6 +461,59 @@ def run(args: argparse.Namespace) -> int:
         "missing_observer_count": 0,
         "activation_taylor_used_for_fitness": True,
     })
+    if not activation32.mapping or any(
+        not row.get("precision_group_id") for row in activation32.mapping
+    ):
+        raise RuntimeError("v2xvit_taylor_mapping_missing_or_unowned")
+    mapped_unit_ids = {str(row["unit_id"]) for row in activation32.mapping}
+    action_unit_ids = {
+        str(unit_id)
+        for unit_ids in group_to_units.values()
+        for unit_id in unit_ids
+    }
+    if mapped_unit_ids != action_unit_ids:
+        raise RuntimeError(
+            "v2xvit_taylor_mapping_inventory_mismatch:"
+            f"unused={sorted(mapped_unit_ids-action_unit_ids)}:"
+            f"missing={sorted(action_unit_ids-mapped_unit_ids)}"
+        )
+    av_mapping = [
+        row for row in activation32.mapping
+        if "::av::" in str(row.get("unit_id", ""))
+        or "av_matmul" in str(row.get("unit_id", ""))
+    ]
+    if len(av_mapping) != 24 or any(
+        row.get("boundary") != "functional_input" for row in av_mapping
+    ):
+        raise RuntimeError(f"v2xvit_av_aq_mapping_not_24_inputs:{av_mapping}")
+    _write_json(root / "reports/taylor_collection_contract.json", {
+        "sample_count": 32,
+        "sample_first": True,
+        "empirical_fisher": "mean(g^2)",
+        "elementwise_abs_before_reduction": True,
+        "manifest_hash": calibration_hash,
+        "missing_hook_count": 0,
+        "unexpected_inactive_count": 0,
+        "mapping_mismatch_count": 0,
+        "mapped_unit_count": len(mapped_unit_ids),
+        "action_unit_count": len(action_unit_ids),
+        "av_aq_boundary_count": len(av_mapping),
+        "av_aq_boundary": "real_einsum_P_and_V_functional_inputs",
+        "derived_merge_has_independent_aq_gene": False,
+        "precision_gene_permutation_invariant": True,
+    })
+    _write_json(root / "reports/taylor_cache_manifest.json", {
+        "schema_version": "v2xvit-h800-formal-ga-r010-taylor-cache-v1",
+        "search_space_schema_version": "v2xvit-h800-formal-ga-r010-v1",
+        "precision_contract_schema_version": "v2xvit-av-profile-window-merge-derived-join-v1",
+        "manifest_hash": calibration_hash,
+        "sample_count": 32,
+        "gate_domain_count": len(gate32),
+        "activation_mapping_count": len(activation32.mapping),
+        "av_activation_mapping_count": len(av_mapping),
+        "prefix_convergence_passed": convergence_pass,
+        "old_cache_reused": False,
+    })
     _write_json(root / "reports/taylor_formula_audit.json", {
         "J_total": "J_struct_gate + J_WQ + J_AQ",
         "J_struct_gate": "mean_samples sum_elements(abs(g_u*(-u))+0.5*abs(E_sample_local[g_u^2]*u^2))",
@@ -467,6 +524,14 @@ def run(args: argparse.Namespace) -> int:
         "cross_residual_used_for_fitness": False,
         "legacy_weight_taylor_used_for_fitness": False,
     })
+
+    # A non-converged formal Taylor cache must never silently seed Greedy or GA.
+    # Persist the diagnostics above first so the failure remains auditable.
+    if not convergence_pass:
+        raise RuntimeError(
+            "v2xvit_taylor_sample_convergence_insufficient:"
+            f"{convergence['16_to_32']}"
+        )
 
     print("[greedy] run complete six-budget trajectory from B0", flush=True)
     weight32 = JointWeightTaylorProxy(
@@ -483,12 +548,13 @@ def run(args: argparse.Namespace) -> int:
         activation_taylor_weight=1.0,
         bops_evaluator=formal["bops"].evaluate_breakdown,
         size_evaluator=formal["size"].evaluate_breakdown,
-        target=0.05,
+        target=0.10,
         tolerance_abs=TOLERANCE,
         maximum_steps=None,
         capture_targets=BUDGETS,
     )
     _write_csv(root / "greedy_trace.csv", result["trace"])
+    _write_csv(root / "reports/greedy_r010_trajectory.csv", result["trace"])
     winners = {}
     summary = []
     for budget in BUDGETS:
@@ -553,6 +619,15 @@ def run(args: argparse.Namespace) -> int:
         })
     _write_json(root / "reports/six_budget_greedy_winners.json", winners)
     _write_csv(root / "reports/six_budget_greedy_summary.csv", summary)
+    winner010 = winners.get("0.10")
+    if not winner010 or not winner010.get("budget_reached"):
+        raise RuntimeError("v2xvit_greedy_r010_budget_unreachable")
+    _write_json(root / "reports/greedy_r010_winner.json", winner010)
+    _write_csv(root / "reports/greedy_r010_budget_capture.csv", [
+        row for row in result["trace"]
+        if bool(row.get("selected"))
+        and abs(float(row["current_retention"]) - 0.10) <= TOLERANCE
+    ])
     _write_json(root / "proxy/search_loop_runtime_audit.json", {
         key: result[key]
         for key in (

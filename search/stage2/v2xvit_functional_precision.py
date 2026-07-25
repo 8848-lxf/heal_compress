@@ -35,9 +35,29 @@ def requested_states_from_phenotype(
         for path, value in phenotype.realized_precision_profile.items()
     }
     result: dict[str, str] = {}
+    derived = dict(phenotype.metadata.get("derived_precision_group_profile", {}))
     for unit in precision_units:
         if bool(unit.activation_only):
-            result[str(unit.unit_id)] = str(unit.default_state).upper()
+            if unit.role == "attention_merge" and str(unit.unit_id) in derived:
+                internal = str(derived[str(unit.unit_id)]["derived_precision"]).upper()
+                result[str(unit.unit_id)] = internal_to_activation[internal]
+            elif unit.role == "av_matmul":
+                values = {
+                    value
+                    for path, value in profile.items()
+                    if any(
+                        path == owner or path.endswith(f".{owner}")
+                        for owner in unit.module_paths
+                    )
+                }
+                if len(values) != 1:
+                    raise RuntimeError(
+                        f"v2xvit_av_precision_group_unresolved:"
+                        f"{unit.unit_id}:{sorted(values)}"
+                    )
+                result[str(unit.unit_id)] = internal_to_activation[values.pop()]
+            else:
+                result[str(unit.unit_id)] = str(unit.default_state).upper()
             continue
         values = {
             value
@@ -128,12 +148,19 @@ def _layernorm_onnx_name(path: str) -> str:
     return f"{_module_onnx_prefix(path)}/LayerNormalization"
 
 
-def _functional_expected(unit: Any) -> tuple[str, str]:
-    state = str(unit.default_state).upper()
-    if unit.role in {"qk_matmul", "softmax", "av_matmul", "layernorm"}:
+def _functional_expected(unit: Any, requested_state: str | None = None) -> tuple[str, str]:
+    state = str(requested_state or unit.default_state).upper()
+    if unit.role in {"qk_matmul", "softmax", "layernorm"}:
         return "FP32", "FP32"
-    if unit.role in {"residual_add", "attention_merge"}:
+    if unit.role == "av_matmul":
+        precision = {"A32": "FP32", "A16": "FP16", "A8": "INT8"}[state]
+        output = "FP16" if state == "A8" else precision
+        return precision, output
+    if unit.role == "residual_add":
         return "FP16", "FP16"
+    if unit.role == "attention_merge":
+        precision = {"A32": "FP32", "A16": "FP16", "A8": "INT8"}[state]
+        return precision, precision
     raise RuntimeError(f"v2xvit_functional_role_unsupported:{unit.unit_id}:{unit.role}")
 
 
@@ -157,11 +184,14 @@ def build_v2xvit_functional_onnx_mapping(
     rows: list[dict[str, Any]] = []
 
     def add(unit: Any, node: Any, *, source: str) -> None:
-        compute, output = _functional_expected(unit)
+        requested_state = str(
+            requested_states.get(unit.unit_id, unit.default_state)
+        ).upper()
+        compute, output = _functional_expected(unit, requested_state)
         row = {
             "unit_id": str(unit.unit_id),
             "role": str(unit.role),
-            "requested_state": str(requested_states.get(unit.unit_id, unit.default_state)).upper(),
+            "requested_state": requested_state,
             "requested_compute_precision": compute,
             "requested_output_precision": output,
             "source": source,
@@ -172,6 +202,40 @@ def build_v2xvit_functional_onnx_mapping(
             and bool(row["output_types"])
             and all(value == output for value in row["output_types"])
         )
+        if unit.role == "av_matmul" and requested_state == "A8":
+            producers = {
+                str(output_name): producer
+                for producer in model.graph.node
+                for output_name in producer.output
+            }
+            dq_inputs = [
+                str(producers.get(str(input_name), object()).op_type)
+                if producers.get(str(input_name)) is not None else ""
+                for input_name in node.input
+            ]
+            row["av_operand_qdq"] = dq_inputs
+            consumers = [
+                consumer
+                for output_name in node.output
+                for consumer in model.graph.node
+                if str(output_name) in tuple(str(value) for value in consumer.input)
+            ]
+            output_casts = [
+                consumer for consumer in consumers if str(consumer.op_type) == "Cast"
+            ]
+            cast_output_types = [
+                _dtype_name(element_types.get(str(output_name), 0))
+                for consumer in output_casts
+                for output_name in consumer.output
+            ]
+            row["av_output_cast_nodes"] = [str(value.name) for value in output_casts]
+            row["av_output_boundary_types"] = cast_output_types
+            row["onnx_contract_exact"] = (
+                len(dq_inputs) == 2
+                and all(value == "DequantizeLinear" for value in dq_inputs)
+                and len(output_casts) == 1
+                and cast_output_types == ["FP16"]
+            )
         rows.append(row)
 
     origins_by_module: dict[str, list[str]] = {}
@@ -348,8 +412,12 @@ def audit_trt_v2xvit_functional_precision(
         elif role == "ffn_activation_input":
             token = {"FP32": "float", "FP16": "half", "INT8": "int8"}[requested]
             format_ok = any(token in value for value in input_formats)
-        elif role in {"residual_add", "attention_merge"}:
+        elif role == "residual_add":
             format_ok = all(value == "FP16" for value in source.get("output_types", ()))
+        elif role == "attention_merge":
+            format_ok = all(
+                value == requested for value in source.get("output_types", ())
+            )
         else:
             format_ok = bool(source.get("onnx_contract_exact"))
         passed = bool(matches) and bool(source.get("onnx_contract_exact")) and format_ok
