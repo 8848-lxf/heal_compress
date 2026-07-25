@@ -434,3 +434,40 @@
 ---
 时间戳：2026-07-24 12:45:00 CST｜轮次：Round 16
 ---
+
+## Round 17：V2X-ViT 0.30 联合 Gate/Activation Taylor Greedy 与部署闭环
+
+### 代理、校准和部署代码
+
+- 本轮从 clean commit `3ffcd93021a90743a71f677152e0757e7b2bc1b8` 开始，独立 run root 为 `/data/lxf/heal_data/outputs/h800_v2xvit_greedy030_joint_taylor_deployment_closed_20260725_041303/`；正式 unified-search worktree 和外部进程未被修改或发送信号。
+- 新增 `search/proxy/conservative_gate_activation_taylor.py`：保留 tracer 的物理依赖闭包和 legal-by-construction 宽度状态，结构 fitness 改用功能 gate/output Taylor。CNN 使用 BN/activation 后输出，shrinker 使用送入 Transformer 的输出，FFN 使用 W1+activation hidden coordinate，Attention 对 Q/K/V per-head coordinate 去重计分；W_O input column 只作为物理依赖，不重复计分。缺少 gate mapping 时 fail closed。
+- 精度风险恢复为 `J_precision=J_WQ+J_AQ`，两者均执行 `elementwise abs → tensor/channel/token/parameter sum → sample aggregation`；joint/cross 仅诊断，禁止负交互返还且不进入 fitness。Greedy 主循环 forward/backward/physical export/ONNX export/TRT build 均为 0。
+- `search/model_family/deployment.py` 和 `search/calibration/v2xvit_train200.py` 建立严格 train200 EntropyCalibration2 等价闭环：200 processed、0 skipped，并绑定 manifest/checkpoint/physical/state-shape/precision/ONNX/algorithm/cache/scale hash。共享 module 的每次真实调用均保留，要求 observation count 是 200 的确定性整数倍并记录 calls-per-frame；`a_linears.0` 的 400 次对应每帧 2 次调用，不再被错误拒绝。
+- INT8 per-channel weight scale 修复两个 fail-closed 数值问题：FP16 数组中的 `1e-8` sentinel 下溢，以及正 FP32 subnormal amax 除以 127 后下溢。现在先提升到 FP32，再对所有 `<1e-8` amax 钳位，并分别审计 zero/clamped channel count；不做 precision fallback。
+- 新增旧 0.05 budget 审计、precision-only floor、train200 审计、old005 precision bisection、0.30 Greedy、Stage-2 输入冻结、三控制构建/评估、正式延迟和最终报告脚本。`tests/conftest.py` 固定隔离 worktree 导入路径，generic tracer einsum/matmul 回归不再解析到 sibling worktree。
+
+### 旧 0.05 与 precision/deployment 审计
+
+- 旧 0.05 预算带实际含 1457 个候选；Taylor min/second=`68.631519/68.756292`，相对差 `0.1818%`，在最优值 0.1%/0.5%/1% 内分别有 1/49/53 个。原 selector、纯 Taylor selector、移除 mixed-size tie-break 均选同一个 rank-1 winner，因此旧 structural collapse 由 Greedy 轨迹产生，不是最终 parameter/mixed-size tie-break 推升。
+- 原始 all-keep precision floor：P32=`1.0`，P16-max=`0.4296048704`，P8-max requested/buildable=`0.2869916195`。P32、P16 和 P8 均已真实构建；最终 per-call-observer P8 fixed50 mAP=`0.426456`，显著低于 P16 的 `0.575587`，说明理论可达不代表精度安全。
+- 旧产物没有证明 train200：仅 4 帧，缺少 processed/skipped/state-shape/ONNX/cache hash，所以 `old_train200_calibration_verified=false`。修复后 old005 S32、S16、INT8-CNN、shrinker、FFN、Attention 和完整 77-INT8 profile 全部可构建且 requested/realized exact。旧 Myelin/CUDA716 未复现；当前没有永久 unsupported locus，真实阻塞点是 observer alias 计数和非正 Q/DQ weight scale 生成。
+
+### 0.30 Greedy、Stage-2、精度和时延
+
+- Greedy 目标带 `[0.295,0.305]`，访问 400 个 selected steps 并捕获 1965 个预算带候选；winner hash=`5e84b1364a0ad2ac51fc861f021fdeffed61cc1741a15eae461c7e78a76fff4f`，`R_BOPS=0.3048414446`，累计 total/structural/WQ/AQ Taylor=`0.0770993/0.0125022/0.0326570/0.0319400`，repair/budget projection 均为 0。
+- Winner 参数保留率=`0.7375836`，mixed weight 保留率=`0.4302756`；variable precision 为 59 FP16 + 21 FP32、0 INT8。stage0=`64×4`，stage1=`128×6`，stage2=`140,172,216,176,208,176,228,232,64`，shrinker=`116`；12 个 Attention d_h 全保持原始 `32,16,32,64` 三层重复，3 个 FFN 均保持 `256`。
+- 五个物理差异 Stage-2 S32 候选全部真实构建并完成 fixed50（50 evaluated、0 skipped），mAP=`0.575248,0.573929,0.574384,0.573110,0.574452`；均通过 `B0-0.01` 安全门。Top-1 JMIX strongly typed engine 构建成功，requested/realized exact。
+- 同一 fixed500 manifest 下三者均 `500 evaluated, 0 skipped`：B0 AP30/50/70/mAP=`0.770102/0.692798/0.513111/0.658670`；S32=`0.771183/0.693725/0.512579/0.659162`；JMIX=`0.771420/0.693551/0.512801/0.659257`。结构损失=`-0.000492`、量化附加损失=`-0.000095`，统计上均未观察到 collapse。
+- GPU5（`GPU-4d414d37-9a66-becc-0ffe-f5544e75fb38`）串行 `B0→S32→JMIX→B0 replay`，200 warmup、500 timed×5：p50=`15.9393/15.2464/11.7599 ms`，S32/JMIX speedup=`1.04545×/1.35539×`，最大 baseline replay drift=`0.1058%`。BOPS/参数/mixed-weight 压缩比分别为 `3.28039×/1.35578×/2.32409×`。
+- 全量 pytest=`990 passed, 82 warnings, 0 failed`；定向测试=`21 passed`；compileall 和 `git diff --check` 通过。本轮未运行 GA、六预算搜索或 full1789；successful 0.30 说明 0.05 对无训练压缩是高风险极端预算，但不能单独证明任何 0.05 候选天然不可行。
+
+### 4090 独立复现对照
+
+- 只读获取 `origin/4090-transformer-unified-search@dde31e9b6e830b41bc96c1c4c7a2b790c55e6a21`，未 cherry-pick。4090 winner `f1921e...` 与 H800 winner 的共同结论是 Attention/FFN 全宽、FP16+适度 CNN/shrinker 剪枝、fixed500 无结构坍塌；不同硬件正式延迟不直接合并。
+- 4090 replay 的旧预算带候选数 1418 与历史 H800 1457 不一致，继续标记 unresolved；两边 selector 均证明 tie-break 没有改变纯 Taylor winner。
+- precision count 必须区分 80 个搜索基因、最终 engine 的 113 个 policy units 和 maximal INT8 graph 的 68 个 canonical weighted nodes，三者不是冲突。
+- 4090 报告的 P32 retention=`0.97335261` 使用绝对 all-op FP32 分母，而当前 H800 使用 strict-search-B0 归一化后 P32=`1.0`。在统一为 `BOPS(candidate)/BOPS(strict-search-B0)` 前，两边 target retention 不作直接数值合并。
+
+---
+时间戳：2026-07-25 13:35:00 CST｜轮次：Round 17
+---
