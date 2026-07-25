@@ -346,6 +346,20 @@ def test_parallel_worker_domain_payload_roundtrip_preserves_physical_ranking() -
     assert restored.decode_width(4) == domain.decode_width(4)
 
 
+def test_ga_final_report_precision_counts_only_mutable_loci() -> None:
+    from scripts.finalize_v2xvit_ga_gen10_reports import precision_counts
+
+    genotype = {
+        "precision_genes": {
+            "mutable_a": "FP32",
+            "mutable_b": "FP16",
+            "mutable_c": "INT8",
+            "mutable_d": "INT8",
+        }
+    }
+    assert precision_counts(genotype) == {"FP32": 1, "FP16": 1, "INT8": 2}
+
+
 def test_anchor_constrained_space_restores_serialized_nested_mask_and_hash() -> None:
     from search.ga.anchor_constrained_space import constrain_domains_to_frozen_anchors
     from search.pruning_space.local_domains import LocalPruningDomain
