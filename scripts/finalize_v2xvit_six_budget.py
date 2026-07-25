@@ -46,6 +46,11 @@ def _write_csv(path: Path, rows: Iterable[dict[str, Any]]) -> None:
         writer.writerows(materialized)
 
 
+def _read_csv(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -147,6 +152,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     b0_engine = root / "engines/B0/candidate.plan"
     b0_size = b0_engine.stat().st_size
     latency_by_budget = {str(row["budget"]): row for row in latency_raw["rows"]}
+    stage1_summary = {
+        f"{float(row['budget']):.2f}": row
+        for row in _read_csv(reports / "six_budget_greedy_summary.csv")
+    }
     snapshot_path = root / "latency/process_snapshots.jsonl"
     snapshots = [json.loads(line) for line in snapshot_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     observed_pids = sorted({int(pid) for row in snapshots for pid in row["compute_pids"]})
@@ -177,7 +186,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         widths = {key: int(value) for key, value in genotype["pruning_width_genes"].items()}
         groups = _width_groups(widths)
         genes = {key: str(value) for key, value in genotype["precision_genes"].items()}
-        counts = _precision_counts(genes)
+        mutable_counts = _precision_counts(genes)
+        realized_counts = {
+            precision: int(stage1_summary[f"{float(winner['budget']):.2f}"][f"{precision}_count"])
+            for precision in ("FP32", "FP16", "INT8")
+        }
         metrics = winner["metrics"]
         size = winner["size"]
         resource = compression_metrics(
@@ -190,7 +203,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         s32_class = classify_ap_drop(b0_eval["mAP"], s32_eval["mAP"])
         jmix_class = classify_ap_drop(b0_eval["mAP"], jmix_eval["mAP"])
         latency = latency_by_budget[code]
-        calibration_required = counts["INT8"] > 0
+        calibration_required = realized_counts["INT8"] > 0
         calibration_ok = (
             int(calibration["processed_frames"]) == 200 and int(calibration["skipped_frames"]) == 0
             if calibration_required
@@ -227,7 +240,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             **resource,
             "parameter_count": float(size["parameter_count_after"]),
             "mixed_weight_bits": float(size["size_bits_total"]),
-            **{f"{key}_count": value for key, value in counts.items()},
+            **{f"{key}_count": value for key, value in realized_counts.items()},
+            **{f"mutable_gene_{key}_count": value for key, value in mutable_counts.items()},
             "shrinker_width": min(groups["shrinker"].values()),
             "minimum_attention_dh": min(groups["attention"].values()),
             "minimum_ffn_dff": min(groups["ffn"].values()),
@@ -294,7 +308,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         precisions.append(
             {
                 "budget": row["budget"],
-                **{f"{key}_count": value for key, value in counts.items()},
+                **{f"realized_{key}_count": value for key, value in realized_counts.items()},
+                **{f"mutable_gene_{key}_count": value for key, value in mutable_counts.items()},
                 "precision_genes": json.dumps(genes, sort_keys=True),
                 "precision_hash": winner["precision_hash"],
                 "requested_realized_exact": exact,
