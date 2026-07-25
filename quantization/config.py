@@ -207,6 +207,8 @@ class TensorRTBuildConfig(ConfigMixin):
     skip_inference: bool = True
     export_layer_info: bool = True
     strongly_typed: bool = False
+    production_mode: bool = False
+    plugin_boundary_dtype: str = ""
     policy_version: str = "trt-fp16-int8-explicit-qdq-v2-optional-strong-typing"
 
     @classmethod

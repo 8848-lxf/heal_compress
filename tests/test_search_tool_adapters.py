@@ -310,12 +310,54 @@ def test_modelopt_subprocess_env_pins_conda_cuda_and_compilers(tmp_path: Path, m
     assert env["CUDA_VISIBLE_DEVICES"] == "7"
 
 
-def test_modelopt_python_command_removes_system_cuda_runtime_precedence() -> None:
-    from search.integration.runtime_environment import modelopt_python_command
+def test_modelopt_source_is_resolved_from_tensorrt_sibling(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from search.integration import runtime_environment
 
-    command = modelopt_python_command("modelopt")
+    trt_root = tmp_path / "TensorRT-10.9_x86_cu118"
+    source = tmp_path / "Model-Optimizer-0.29.0"
+    package = source / "modelopt" / "__init__.py"
+    package.parent.mkdir(parents=True)
+    package.write_text("__version__ = '0.29.0'\n", encoding="utf-8")
+    trt_root.mkdir()
+    monkeypatch.delenv("MODELOPT_SOURCE_ROOT", raising=False)
+    monkeypatch.setattr(runtime_environment, "DEFAULT_MODELOPT_SOURCE_ROOTS", ())
+
+    assert runtime_environment.resolve_modelopt_source_root(trt_root) == source.resolve()
+
+
+def test_modelopt_source_resolution_fails_closed(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    import pytest
+    from search.integration import runtime_environment
+
+    monkeypatch.delenv("MODELOPT_SOURCE_ROOT", raising=False)
+    monkeypatch.setattr(runtime_environment, "DEFAULT_MODELOPT_SOURCE_ROOTS", ())
+    with pytest.raises(RuntimeError, match="modelopt_0_29_source_missing"):
+        runtime_environment.resolve_modelopt_source_root(tmp_path / "missing-trt")
+
+
+def test_modelopt_python_command_removes_system_cuda_runtime_precedence(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from search.integration import runtime_environment
+
+    prefix = tmp_path / "anaconda3/envs/modelopt"
+    conda_sh = tmp_path / "anaconda3/etc/profile.d/conda.sh"
+    conda_sh.parent.mkdir(parents=True)
+    conda_sh.write_text("# test conda activation\n", encoding="utf-8")
+    (prefix / "bin").mkdir(parents=True)
+    monkeypatch.setattr(
+        runtime_environment, "resolve_conda_env_prefix", lambda _name: prefix
+    )
+
+    command = runtime_environment.modelopt_python_command("modelopt")
     script = command[2]
 
+    assert str(conda_sh) in script
+    assert "/home/lixingfeng/miniconda3/etc/profile.d/conda.sh" not in script
     assert "requested_ld_library_path" in script
     assert "requested_path" in script
     assert "/usr/local/cuda*" in script

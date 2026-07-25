@@ -377,6 +377,8 @@ class PrecisionRealizationResult(ResultMixin):
     realized_int8_count: int
     realized_fp16_count: int
     mismatches: list[dict[str, Any]]
+    realized_bf16_count: int = 0
+    realized_fp8_count: int = 0
     hidden_cast_count: int = 0
     reformat_count: int = 0
     boundary_count: int = 0

@@ -26,6 +26,24 @@ def write(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
 
 
+def _measure_repeat(runner: Any, prepared: Any, repeat: int) -> dict[str, float | int]:
+    values = []
+    for _ in range(500):
+        _outputs, profile = runner.run_profiled(prepared)
+        values.append(float(profile["execute_async_ms"]))
+    tensor = torch.tensor(values)
+    return {
+        "repeat": int(repeat),
+        "mean_ms": statistics.mean(values),
+        "p50_ms": statistics.median(values),
+        "p90_ms": float(tensor.quantile(0.90)),
+        "p95_ms": float(tensor.quantile(0.95)),
+        "min_ms": min(values),
+        "max_ms": max(values),
+        "std_ms": statistics.pstdev(values),
+    }
+
+
 def run(args: argparse.Namespace) -> int:
     if torch.cuda.device_count() != 1:
         raise RuntimeError(f"latency_requires_one_visible_gpu:{torch.cuda.device_count()}")
@@ -59,27 +77,79 @@ def run(args: argparse.Namespace) -> int:
         break
     if prepared is None:
         raise RuntimeError("latency_reference_frame_not_found")
-    results = {}
+    runners = {}
     for control in args.controls:
         engine = args.output_root / "engines" / control / "candidate.plan"
         runner = TensorRTEngineRunner(engine, device)
         for _ in range(200):
             runner.run(prepared)
-        torch.cuda.synchronize(device)
-        repeats = []
-        for repeat in range(5):
-            values = []
-            for _ in range(500):
-                _outputs, profile = runner.run_profiled(prepared)
-                values.append(float(profile["execute_async_ms"]))
-            repeats.append({"repeat": repeat, "mean_ms": statistics.mean(values), "p50_ms": statistics.median(values), "p90_ms": float(torch.tensor(values).quantile(0.90)), "p95_ms": float(torch.tensor(values).quantile(0.95)), "min_ms": min(values), "max_ms": max(values), "std_ms": statistics.pstdev(values)})
-        all_values = [row["p50_ms"] for row in repeats]
-        results[control] = {"engine": str(engine), "repeats": repeats, "repeat_p50_ms": statistics.median(all_values), "forward_p50_ms": statistics.median(all_values), "fps": 1000.0 / statistics.median(all_values), "gpu_uuid": args.gpu_uuid, "warmup_iterations": 200, "timed_iterations": 500, "repeat_count": 5, "scope": "TensorRT execute_async_ms only", "allocation_report": runner.allocation_report()}
-    b0 = results["B0"]["forward_p50_ms"]
-    for name in args.controls:
-        if name != "B0":
-            results[name]["speedup_p50_vs_B0"] = b0 / results[name]["forward_p50_ms"]
-    write(args.output_root / "reports" / args.report_name, {"protocol": {"warmup": 200, "timed": 500, "repeats": 5, "scope": "pure TensorRT execute_async_ms", "gpu_uuid": args.gpu_uuid}, "controls": results})
+        runners[control] = {"runner": runner, "engine": engine}
+    torch.cuda.synchronize(device)
+    if "B0" not in runners:
+        raise RuntimeError("latency_matched_replay_requires_B0")
+
+    baseline_replays = []
+    candidate_repeats = {name: [] for name in args.controls if name != "B0"}
+    matched_speedups = {name: [] for name in candidate_repeats}
+    sequence = []
+    for repeat in range(5):
+        baseline = _measure_repeat(runners["B0"]["runner"], prepared, repeat)
+        baseline["position"] = "round_start"
+        baseline_replays.append(baseline)
+        sequence.append({"round": repeat, "control": "B0", "position": "round_start"})
+        for name in candidate_repeats:
+            candidate = _measure_repeat(runners[name]["runner"], prepared, repeat)
+            candidate_repeats[name].append(candidate)
+            sequence.append({"round": repeat, "control": name, "position": "candidate"})
+            replay = _measure_repeat(runners["B0"]["runner"], prepared, repeat)
+            replay["position"] = f"after_{name}"
+            baseline_replays.append(replay)
+            sequence.append({"round": repeat, "control": "B0", "position": f"after_{name}"})
+            matched = statistics.median(
+                [float(baseline["p50_ms"]), float(replay["p50_ms"])]
+            )
+            matched_speedups[name].append(matched / float(candidate["p50_ms"]))
+            baseline = replay
+
+    results = {}
+    baseline_values = [float(row["p50_ms"]) for row in baseline_replays]
+    baseline_p50 = statistics.median(baseline_values)
+    baseline_drift = (
+        max(baseline_values) - min(baseline_values)
+    ) / max(baseline_p50, 1.0e-12)
+    results["B0"] = {
+        "engine": str(runners["B0"]["engine"]),
+        "repeats": baseline_replays,
+        "repeat_p50_ms": baseline_p50,
+        "forward_p50_ms": baseline_p50,
+        "fps": 1000.0 / baseline_p50,
+        "baseline_replay_drift": baseline_drift,
+        "gpu_uuid": args.gpu_uuid,
+        "warmup_iterations": 200,
+        "timed_iterations": 500,
+        "repeat_count": len(baseline_replays),
+        "scope": "TensorRT execute_async_ms only",
+        "allocation_report": runners["B0"]["runner"].allocation_report(),
+    }
+    for name, repeats in candidate_repeats.items():
+        values = [float(row["p50_ms"]) for row in repeats]
+        p50 = statistics.median(values)
+        results[name] = {
+            "engine": str(runners[name]["engine"]),
+            "repeats": repeats,
+            "repeat_p50_ms": p50,
+            "forward_p50_ms": p50,
+            "fps": 1000.0 / p50,
+            "speedup_p50_vs_matched_B0": statistics.median(matched_speedups[name]),
+            "matched_speedup_repeats": matched_speedups[name],
+            "gpu_uuid": args.gpu_uuid,
+            "warmup_iterations": 200,
+            "timed_iterations": 500,
+            "repeat_count": 5,
+            "scope": "TensorRT execute_async_ms only",
+            "allocation_report": runners[name]["runner"].allocation_report(),
+        }
+    write(args.output_root / "reports" / args.report_name, {"protocol": {"warmup": 200, "timed": 500, "candidate_repeats": 5, "baseline_replay": "B0_before_and_after_each_candidate", "measurement_sequence": sequence, "scope": "pure TensorRT execute_async_ms", "gpu_uuid": args.gpu_uuid}, "controls": results})
     print(json.dumps({key: row["forward_p50_ms"] for key, row in results.items()}, sort_keys=True))
     return 0
 

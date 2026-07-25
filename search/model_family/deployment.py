@@ -241,6 +241,38 @@ def _entropy_threshold(histogram: torch.Tensor, absolute_maximum: float) -> tupl
     }
 
 
+def _sanitize_weight_channel_amax(
+    channel_amax: np.ndarray, *, module_path: str
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return positive per-channel amax values and audited floored indices."""
+
+    values = np.asarray(channel_amax)
+    if np.any(~np.isfinite(values)) or np.any(values < 0.0):
+        raise RuntimeError(f"v2xvit_entropy_weight_channel_invalid:{module_path}")
+    zero_indices = np.flatnonzero(values == 0.0).astype(np.int64)
+    floor_indices = np.flatnonzero(values < 1.0e-8).astype(np.int64)
+    safe = values.astype(np.float32, copy=True)
+    safe[floor_indices] = np.float32(1.0e-8)
+    return safe, floor_indices, zero_indices
+
+
+def _validate_calibration_observation_count(
+    module_path: str, *, input_count: int, output_count: int, frame_count: int
+) -> int:
+    """Validate deterministic reused-module observations per processed frame."""
+
+    if (
+        input_count <= 0
+        or input_count != output_count
+        or input_count % frame_count != 0
+    ):
+        raise RuntimeError(
+            f"v2xvit_entropy_observation_count:{module_path}:"
+            f"{input_count}:{output_count}:{frame_count}"
+        )
+    return input_count // frame_count
+
+
 def collect_v2xvit_train200_entropy_scales(
     *,
     bundle: Any,
@@ -367,10 +399,15 @@ def collect_v2xvit_train200_entropy_scales(
     nodes = {str(node.name): node for node in onnx_model.graph.node}
     scales = {}
     threshold_audit = {}
+    module_calls_per_frame = {}
     for name in module_paths:
         row = state[name]
-        if row["input_count"] != 200 or row["output_count"] != 200:
-            raise RuntimeError(f"v2xvit_entropy_observation_count:{name}:{row['input_count']}:{row['output_count']}")
+        module_calls_per_frame[name] = _validate_calibration_observation_count(
+            name,
+            input_count=int(row["input_count"]),
+            output_count=int(row["output_count"]),
+            frame_count=len(rows),
+        )
         input_threshold, input_audit = _entropy_threshold(
             row["input_hist"], float(row["input_amax"].item())
         )
@@ -395,13 +432,19 @@ def collect_v2xvit_train200_entropy_scales(
             raise RuntimeError(f"v2xvit_entropy_weight_axis_unsupported:{name}:{entry.onnx_op_type}")
         reduce_axes = tuple(index for index in range(weight.ndim) if index != weight_axis)
         channel_amax = np.max(np.abs(weight), axis=reduce_axes)
-        if np.any(~np.isfinite(channel_amax)) or np.any(channel_amax <= 0.0):
-            raise RuntimeError(f"v2xvit_entropy_weight_channel_invalid:{name}")
+        (
+            safe_channel_amax,
+            floored_channel_indices,
+            zero_channel_indices,
+        ) = _sanitize_weight_channel_amax(channel_amax, module_path=name)
+        # A physically all-zero output channel is represented exactly by any
+        # positive Q/DQ scale.  ONNX forbids a zero scale, so use a deterministic
+        # floor only for those exact-zero channels and retain explicit evidence.
         boundary = resolve_activation_output_boundary(onnx_model, entry.canonical_node_name)
         scales[name] = {
             "activation_input_scale": input_threshold / 127.0,
             "activation_output_scale": output_threshold / 127.0,
-            "weight_scale": (channel_amax / 127.0).astype(np.float32).tolist(),
+            "weight_scale": (safe_channel_amax / 127.0).astype(np.float32).tolist(),
             "weight_axis": weight_axis,
             "weight_granularity": "per_channel",
             "weight_scale_shape": [int(channel_amax.size)],
@@ -413,11 +456,20 @@ def collect_v2xvit_train200_entropy_scales(
             "insert_activation_output_qdq": False,
             "output_qdq_policy": "next_weighted_input_owns_requantization_after_fp16_output",
             "weight_scale_source": "final_canonical_onnx_initializer",
+            "zero_weight_channel_indices": zero_channel_indices.tolist(),
+            "zero_weight_channel_count": int(zero_channel_indices.size),
+            "floored_weight_channel_indices": floored_channel_indices.tolist(),
+            "floored_weight_channel_count": int(floored_channel_indices.size),
+            "weight_channel_scale_floor_policy": "amax_below_1e-8_to_1e-8_before_div127",
         }
         threshold_audit[name] = {
             "input": input_audit,
             "output": output_audit,
             "resolved_output_boundary": boundary,
+            "zero_weight_channel_indices": zero_channel_indices.tolist(),
+            "zero_weight_channel_count": int(zero_channel_indices.size),
+            "floored_weight_channel_indices": floored_channel_indices.tolist(),
+            "floored_weight_channel_count": int(floored_channel_indices.size),
         }
     metadata = {
         "schema_version": "heal-v2xvit-train200-entropy-calibration-v1",
@@ -427,6 +479,7 @@ def collect_v2xvit_train200_entropy_scales(
         "histogram_bins": int(histogram_bins),
         "module_count": len(module_paths),
         "module_paths": module_paths,
+        "module_calls_per_frame": module_calls_per_frame,
         "sample_evidence": evidence,
         "thresholds": threshold_audit,
         "observer_q_input_exact_match": True,
