@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
+import os
 import random
 import shutil
 import subprocess
@@ -206,6 +208,7 @@ class RealStage2Evaluator:
         plugin: Path,
         tensorrt_root: Path,
         physical_gpu: int,
+        stage2_gpus: tuple[int, ...] = (),
     ) -> None:
         self.root = root
         self.label = label
@@ -222,6 +225,125 @@ class RealStage2Evaluator:
         self.plugin = plugin
         self.tensorrt_root = tensorrt_root
         self.physical_gpu = physical_gpu
+        self.stage2_gpus = tuple(int(value) for value in stage2_gpus)
+
+    def evaluate_many(
+        self, genotypes: list[CandidateGenotype], generation: int
+    ) -> list[Stage2Result]:
+        """Evaluate one deterministic Stage-2 batch on isolated physical GPUs.
+
+        The scheduler never changes candidate order: subprocess completion order
+        is ignored and results are reloaded in the Stage-1 order.  Each job owns
+        a distinct phenotype cache, CUDA context, calibration directory and
+        engine directory.  When no GPU pool is configured this deliberately
+        falls back to the established sequential evaluator.
+        """
+
+        if len(genotypes) <= 1 or not self.stage2_gpus:
+            return [self(genotype, generation) for genotype in genotypes]
+        if len(set(self.stage2_gpus)) != len(self.stage2_gpus):
+            raise RuntimeError("ga_stage2_gpu_pool_contains_duplicates")
+
+        results: list[Stage2Result | None] = [None] * len(genotypes)
+        jobs: list[tuple[int, Path, Path, int, str]] = []
+        for index, genotype in enumerate(genotypes):
+            identity = phenotype_identity(genotype, self.space)
+            complete_hash = str(identity["complete_phenotype_hash"])
+            cache = self.root / f"ga/stage2_cache/budget_{self.label}/{complete_hash}"
+            result_path = cache / "stage2_result.json"
+            generation_dir = self.root / (
+                f"ga/budget_{self.label}/seed_{self.seed}/generation_{generation:02d}/"
+                f"candidate_{complete_hash}"
+            )
+            generation_dir.mkdir(parents=True, exist_ok=True)
+            if result_path.is_file():
+                results[index] = stage2_from_payload(json.loads(result_path.read_text()))
+                atomic_write(generation_dir / "cache_reference.json", {
+                    "stage2_cache": str(cache), "reused": True,
+                    "complete_phenotype_hash": complete_hash,
+                })
+                print(json.dumps({"stage2": "cache_hit", "budget": self.label,
+                                  "seed": self.seed, "generation": generation,
+                                  "candidate": complete_hash}), flush=True)
+                continue
+            gpu = self.stage2_gpus[len(jobs) % len(self.stage2_gpus)]
+            job_dir = generation_dir / "worker"
+            job_dir.mkdir(parents=True, exist_ok=True)
+            job_path = job_dir / "request.json"
+            log_path = job_dir / "worker.log"
+            atomic_write(job_path, {
+                "root": str(self.root), "label": self.label, "seed": self.seed,
+                "generation": generation, "genotype": genotype.to_dict(),
+                "complete_phenotype_hash": complete_hash,
+                "phenotype": canonicalize_candidate(genotype, self.space).to_dict(),
+                "domains": [domain.to_dict() for domain in self.space.pruning_domains],
+                "qkv_paths": list(self.qkv_paths), "request": dict(self.request),
+                "fixed50_manifest": str(self.fixed50_manifest),
+                "plugin": str(self.plugin), "tensorrt_root": str(self.tensorrt_root),
+                "physical_gpu": gpu,
+            })
+            jobs.append((index, job_path, log_path, gpu, complete_hash))
+
+        def launch(job: tuple[int, Path, Path, int, str]) -> tuple[int, int, str]:
+            index, job_path, log_path, gpu, complete_hash = job
+            environment = dict(os.environ)
+            environment["CUDA_VISIBLE_DEVICES"] = str(gpu)
+            command = [
+                sys.executable,
+                str(REPO / "scripts/run_v2xvit_ga_stage2_worker.py"),
+                "--request", str(job_path),
+            ]
+            with log_path.open("ab", buffering=0) as log:
+                completed = subprocess.run(
+                    command, env=environment, stdout=log, stderr=subprocess.STDOUT,
+                    check=False,
+                )
+            return index, int(completed.returncode), complete_hash
+
+        if jobs:
+            print(json.dumps({
+                "stage2": "parallel_batch_start", "budget": self.label,
+                "seed": self.seed, "generation": generation,
+                "candidate_count": len(jobs),
+                "physical_gpus": [job[3] for job in jobs],
+            }), flush=True)
+            gpu_queues: dict[int, list[tuple[int, Path, Path, int, str]]] = {}
+            for job in jobs:
+                gpu_queues.setdefault(job[3], []).append(job)
+
+            def launch_queue(
+                queue: list[tuple[int, Path, Path, int, str]],
+            ) -> list[tuple[int, int, str]]:
+                # One worker at a time per physical GPU.  Different GPUs run
+                # concurrently, while calibration/build/evaluation on one GPU
+                # can never overlap another candidate from this scheduler.
+                return [launch(job) for job in queue]
+
+            with ThreadPoolExecutor(max_workers=len(gpu_queues)) as pool:
+                grouped = list(pool.map(launch_queue, gpu_queues.values()))
+            completed_jobs = [item for group in grouped for item in group]
+            completed_jobs.sort(key=lambda item: item[0])
+            for index, returncode, complete_hash in completed_jobs:
+                cache = self.root / f"ga/stage2_cache/budget_{self.label}/{complete_hash}"
+                result_path = cache / "stage2_result.json"
+                if returncode != 0 or not result_path.is_file():
+                    genotype = genotypes[index]
+                    failure = Stage2Result(
+                        complete_hash, genotype, "failed", None, None, False, 0, 0,
+                        {"generation": generation,
+                         "failure": f"parallel_stage2_worker_exit:{returncode}",
+                         "precision_fallback": False},
+                    )
+                    atomic_write(result_path, stage2_payload(failure))
+                results[index] = stage2_from_payload(json.loads(result_path.read_text()))
+            print(json.dumps({
+                "stage2": "parallel_batch_complete", "budget": self.label,
+                "seed": self.seed, "generation": generation,
+                "candidate_count": len(jobs),
+            }), flush=True)
+        if any(result is None for result in results):
+            raise RuntimeError("ga_stage2_parallel_result_missing")
+        return [result for result in results if result is not None]
 
     def __call__(self, genotype: CandidateGenotype, generation: int) -> Stage2Result:
         identity = phenotype_identity(genotype, self.space)
@@ -538,6 +660,7 @@ def run(args: argparse.Namespace) -> int:
                 space=space, qkv_paths=qkv_paths, request=request,
                 fixed50_manifest=args.fixed50_manifest, plugin=args.plugin,
                 tensorrt_root=args.tensorrt_root, physical_gpu=args.physical_gpu,
+                stage2_gpus=args.stage2_gpus,
             )
             runner = StrictStage12V3Runner(
                 space, config, stage1_evaluator=stage1, stage2_evaluator=real,
@@ -603,7 +726,11 @@ def run(args: argparse.Namespace) -> int:
         "configuration": {"seeds": len(FORMAL_SEEDS), "seed_ids": list(FORMAL_SEEDS),
                           "population_size": 64, "offspring_size": 64,
                           "generations": 10, "generation_zero_counted": False,
-                          "stage2_new_candidate_quota": 5},
+                          "stage2_new_candidate_quota": 5,
+                          "stage2_parallel": bool(args.stage2_gpus),
+                          "stage2_physical_gpus": list(args.stage2_gpus),
+                          "stage2_result_merge_order": "stage1_rank_order",
+                          "formal_fixed500_and_latency_parallel": False},
         "budgets": all_budget_results,
         "seed_summaries": seed_summaries,
     })
@@ -614,6 +741,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, default=6)
+    parser.add_argument(
+        "--stage2-gpus", type=lambda value: tuple(
+            int(item.strip()) for item in value.split(",") if item.strip()
+        ), default=(),
+        help="Comma-separated physical GPU pool for deterministic Stage-2 batches",
+    )
     parser.add_argument("--seed", type=int, default=20260725)
     parser.add_argument("--fixed50-manifest", type=Path, required=True)
     parser.add_argument("--plugin", type=Path, required=True)

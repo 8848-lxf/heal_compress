@@ -640,9 +640,32 @@ class StrictStage12V3Runner:
                 evaluated_hashes=set(evaluated),
                 quota=self.config.stage2_new_candidate_quota,
             )
-            new_results = [
-                self.stage2_evaluator(row["genotype"], generation) for row in new_rows
-            ]
+            # Stage-2 candidates are independent once Stage-1 has fixed their
+            # deterministic order.  A deployment evaluator may therefore
+            # execute the batch on isolated GPUs.  Results MUST be returned in
+            # ``new_rows`` order so scheduling latency cannot perturb GA state.
+            evaluate_many = getattr(self.stage2_evaluator, "evaluate_many", None)
+            if callable(evaluate_many):
+                new_results = list(
+                    evaluate_many(
+                        [row["genotype"] for row in new_rows], generation
+                    )
+                )
+                if len(new_results) != len(new_rows):
+                    raise RuntimeError("ga_stage2_batch_result_count_mismatch")
+                expected_hashes = [
+                    str(row["complete_phenotype_hash"]) for row in new_rows
+                ]
+                realized_hashes = [
+                    result.complete_phenotype_hash for result in new_results
+                ]
+                if realized_hashes != expected_hashes:
+                    raise RuntimeError("ga_stage2_batch_result_order_mismatch")
+            else:
+                new_results = [
+                    self.stage2_evaluator(row["genotype"], generation)
+                    for row in new_rows
+                ]
             for result in new_results:
                 evaluated[result.complete_phenotype_hash] = result
             stage1_by_hash = {

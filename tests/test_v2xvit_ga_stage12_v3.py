@@ -269,6 +269,83 @@ def test_runner_generation_zero_is_initialization_and_evolution_is_one_to_ten() 
     assert all(row.get("greedy_anchor_retained", True) for row in result["history"])
 
 
+def test_runner_parallel_stage2_batch_preserves_stage1_order() -> None:
+    from search.ga.stage12_v3 import (
+        Stage2Result,
+        StrictGAConfig,
+        StrictStage12V3Runner,
+        phenotype_identity,
+    )
+
+    space = _space(domain_count=8)
+    population = [
+        _candidate(space, mask, ("FP32", "FP16", "INT8")[mask % 3])
+        for mask in range(64)
+    ]
+
+    def stage1(genotype):
+        identity = phenotype_identity(genotype, space)
+        return {
+            **identity,
+            "J_total": float(sum(genotype.pruning_width_genes.values())),
+            "J_struct_gate": 0.0,
+            "J_WQ": 0.0,
+            "J_AQ": 0.0,
+            "bops_feasible": True,
+            "bops_deviation": 0.0,
+            "R_parameter_retention": 0.8,
+            "mixed_weight_retention": 0.7,
+            "genotype": genotype,
+        }
+
+    greedy = population[0]
+    greedy_hash = phenotype_identity(greedy, space)["complete_phenotype_hash"]
+    anchor = Stage2Result(greedy_hash, greedy, "ok", 0.60, 10.0, True, 50, 0)
+
+    class BatchOnlyEvaluator:
+        def __init__(self):
+            self.calls = []
+
+        def __call__(self, _genotype, _generation):
+            raise AssertionError("scalar_stage2_must_not_run_when_batch_api_exists")
+
+        def evaluate_many(self, genotypes, generation):
+            hashes = [
+                phenotype_identity(genotype, space)["complete_phenotype_hash"]
+                for genotype in genotypes
+            ]
+            self.calls.append((generation, hashes))
+            return [
+                Stage2Result(identity, genotype, "ok", 0.60, 9.5, True, 50, 0)
+                for identity, genotype in zip(hashes, genotypes)
+            ]
+
+    evaluator = BatchOnlyEvaluator()
+    result = StrictStage12V3Runner(
+        space,
+        StrictGAConfig(target_bops_retention=0.30, random_seed=23),
+        stage1_evaluator=stage1,
+        stage2_evaluator=evaluator,
+    ).run(population, greedy_anchor=anchor)
+    assert result["completed_evolution_generations"] == 10
+    assert [generation for generation, _ in evaluator.calls] == list(range(1, 11))
+    assert all(1 <= len(hashes) <= 5 for _, hashes in evaluator.calls)
+    for record, (_, hashes) in zip(result["history"][1:], evaluator.calls):
+        assert record["stage2_new_candidate_hashes"] == hashes
+
+
+def test_parallel_worker_domain_payload_roundtrip_preserves_physical_ranking() -> None:
+    from scripts.run_v2xvit_ga_stage2_worker import domain_from_payload
+
+    domain = _domain(0)
+    restored = domain_from_payload(domain.to_dict())
+    assert restored.domain_id == domain.domain_id
+    assert restored.legal_widths == domain.legal_widths
+    assert restored.ordered_unit_ids == domain.ordered_unit_ids
+    assert restored.width_to_pruned_unit_ids == domain.width_to_pruned_unit_ids
+    assert restored.decode_width(4) == domain.decode_width(4)
+
+
 def test_anchor_constrained_space_restores_serialized_nested_mask_and_hash() -> None:
     from search.ga.anchor_constrained_space import constrain_domains_to_frozen_anchors
     from search.pruning_space.local_domains import LocalPruningDomain
