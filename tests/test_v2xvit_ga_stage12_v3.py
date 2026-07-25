@@ -69,9 +69,11 @@ def _candidate(space, mask: int = 0, precision: str = "FP32"):
 
 def test_formal_configuration_is_exactly_ten_generations() -> None:
     from search.ga.stage12_v3 import StrictGAConfig
+    from scripts.run_v2xvit_formal_ga_gen10 import FORMAL_SEEDS
 
     config = StrictGAConfig(target_bops_retention=0.30)
     assert config.generations == 10
+    assert FORMAL_SEEDS == (0,)
     with pytest.raises(ValueError, match="generations_must_equal_10"):
         StrictGAConfig(target_bops_retention=0.30, generations=11)
 

@@ -110,3 +110,20 @@ Timestamp: 2026-07-25T19:15:00+08:00
 
 ---
 Timestamp: 2026-07-25T19:50:00+08:00
+
+## Development progress
+
+- The user superseded the original three-seed request. Formal GA now uses only
+  `seed_0`; generation 0 remains initialization and generations 1--10 remain
+  exactly ten evolution generations. The initial run was stopped during
+  budget-0.30 seed-0 generation 3 before any second seed existed. Completed
+  phenotype Stage-2 cache entries remain reusable; no external process was
+  signalled.
+- Added the 0.10/0.08/0.07/0.06/0.05 compression audit. Parameter pruning
+  ratios are respectively 46.8658%, 54.2981%, 58.1139%, 63.8103% and 68.4594%.
+  INT8 mutable-locus coverage is respectively 49/80, 50/80, 53/80, 55/80 and
+  56/80 (61.25%, 62.50%, 66.25%, 68.75%, 70.00%). Fixed protected loci are
+  deliberately excluded from this coverage denominator.
+
+---
+Timestamp: 2026-07-25T20:15:00+08:00

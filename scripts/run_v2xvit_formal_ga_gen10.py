@@ -60,6 +60,7 @@ from search.proxy.joint_weight_taylor import JointWeightTaylorProxy
 
 LABELS = ("030", "025", "020", "015", "010")
 TARGETS = {label: int(label) / 100.0 for label in LABELS}
+FORMAL_SEEDS = (0,)
 
 
 def atomic_write(path: Path, value: Any) -> None:
@@ -515,7 +516,7 @@ def run(args: argparse.Namespace) -> int:
         )
         budget_real: dict[str, Stage2Result] = {greedy.complete_phenotype_hash: greedy}
         budget_seed_rows = []
-        for seed in (0, 1, 2):
+        for seed in FORMAL_SEEDS:
             config = StrictGAConfig(target_bops_retention=target, random_seed=seed)
             stage1 = UnifiedTaylorStage1Evaluator(
                 space, baseline=baseline,
@@ -599,7 +600,8 @@ def run(args: argparse.Namespace) -> int:
         atomic_write(root / f"ga/budget_{label}/budget_summary.json", all_budget_results[label])
 
     atomic_write(root / "reports/ga_formal_results.json", {
-        "configuration": {"seeds": 3, "population_size": 64, "offspring_size": 64,
+        "configuration": {"seeds": len(FORMAL_SEEDS), "seed_ids": list(FORMAL_SEEDS),
+                          "population_size": 64, "offspring_size": 64,
                           "generations": 10, "generation_zero_counted": False,
                           "stage2_new_candidate_quota": 5},
         "budgets": all_budget_results,
