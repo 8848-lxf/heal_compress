@@ -326,12 +326,15 @@ class RealStage2Evaluator:
             for index, returncode, complete_hash in completed_jobs:
                 cache = self.root / f"ga/stage2_cache/budget_{self.label}/{complete_hash}"
                 result_path = cache / "stage2_result.json"
-                if returncode != 0 or not result_path.is_file():
+                # A worker always persists its fail-closed result, including
+                # the actionable exception.  Only synthesize a generic crash
+                # when the subprocess produced no result at all.
+                if not result_path.is_file():
                     genotype = genotypes[index]
                     failure = Stage2Result(
                         complete_hash, genotype, "failed", None, None, False, 0, 0,
                         {"generation": generation,
-                         "failure": f"parallel_stage2_worker_exit:{returncode}",
+                         "failure": f"parallel_stage2_worker_no_result:{returncode}",
                          "precision_fallback": False},
                     )
                     atomic_write(result_path, stage2_payload(failure))

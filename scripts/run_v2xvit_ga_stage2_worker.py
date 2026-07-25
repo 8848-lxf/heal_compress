@@ -171,7 +171,7 @@ def run(request_path: Path) -> int:
                 export_dir.rename(incomplete)
             export_dir.mkdir(parents=True, exist_ok=False)
             exported = _export_candidate(
-                export_dir, physical.model, adapter, representative, representative,
+                export_dir, physical.model, adapter, representative,
                 hypes, phenotype, complete_hash, physical.report.structure_hash,
                 build_engine=True, tensorrt_root=Path(job["tensorrt_root"]),
                 plugin=Path(job["plugin"]),
@@ -242,6 +242,7 @@ def run(request_path: Path) -> int:
         "generation": generation, "candidate": complete_hash,
         "physical_gpu": physical_gpu, "status": result.status,
         "mAP": result.map, "p50_ms": result.p50_ms,
+        "failure": result.metadata.get("failure"),
     }), flush=True)
     return 0 if result.status in {"ok", "deployment_invalid", "fixed50_failed"} else 2
 
