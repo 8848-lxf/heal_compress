@@ -282,11 +282,14 @@ def build_transformer_precision_units(
             family=spec.family,
             paths=tuple(av_functional_paths),
             role="av_matmul",
-            states=("A32", "A16"),
+            states=("A32",),
             default="A32",
             activation_only=True,
-            protected=False,
-            reason="av32_av16_h800_deployment_and_fixed50_closed_av8_excluded",
+            protected=True,
+            reason=(
+                "av32_only_after_pruned_shape_closure_audit; av16_is_valid_on_the_"
+                "original_shape_but_not_deployment_closed_for_legal_pruned_dh"
+            ),
             metadata={
                 "functional_owner": spec.module_path,
                 "functional_op": "einsum",
@@ -295,7 +298,11 @@ def build_transformer_precision_units(
                 # the true P and V Q/DQ operands are arguments 1 and 2.
                 "av_operand_tensor_indices": [1, 2],
                 "av_operand_semantics": ["post_softmax_probability", "value_activation"],
-                "av_profile_contracts": ["AV32", "AV16"],
+                "av_profile_contracts": ["AV32"],
+                "av16_exclusion_reason": (
+                    "six_of_twelve_requested_av16_instances_had_no_exact_fp16_av_"
+                    "compute_layer_on_the_r010_pruned_shape"
+                ),
                 "av8_exclusion_reason": "trt_realized_non_int8_tactic_12_of_12",
             },
         )

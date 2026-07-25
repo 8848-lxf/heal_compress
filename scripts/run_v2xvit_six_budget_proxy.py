@@ -482,10 +482,8 @@ def run(args: argparse.Namespace) -> int:
         if "::av::" in str(row.get("unit_id", ""))
         or "av_matmul" in str(row.get("unit_id", ""))
     ]
-    if len(av_mapping) != 24 or any(
-        row.get("boundary") != "functional_input" for row in av_mapping
-    ):
-        raise RuntimeError(f"v2xvit_av_aq_mapping_not_24_inputs:{av_mapping}")
+    if av_mapping:
+        raise RuntimeError(f"v2xvit_fixed_av32_has_mutable_aq_mapping:{av_mapping}")
     _write_json(root / "reports/taylor_collection_contract.json", {
         "sample_count": 32,
         "sample_first": True,
@@ -498,14 +496,15 @@ def run(args: argparse.Namespace) -> int:
         "mapped_unit_count": len(mapped_unit_ids),
         "action_unit_count": len(action_unit_ids),
         "av_aq_boundary_count": len(av_mapping),
-        "av_aq_boundary": "real_einsum_P_and_V_functional_inputs",
+        "av_aq_boundary": "none_AV32_is_fixed_after_pruned_shape_closure",
+        "av_profile_policy": "AV32_fixed_no_chromosome_locus",
         "derived_merge_has_independent_aq_gene": False,
         "precision_gene_permutation_invariant": True,
     })
     _write_json(root / "reports/taylor_cache_manifest.json", {
-        "schema_version": "v2xvit-h800-formal-ga-r010-taylor-cache-v1",
-        "search_space_schema_version": "v2xvit-h800-formal-ga-r010-v1",
-        "precision_contract_schema_version": "v2xvit-av-profile-window-merge-derived-join-v1",
+        "schema_version": "v2xvit-h800-formal-ga-r010-taylor-cache-v2-av32-shape-closed",
+        "search_space_schema_version": "v2xvit-h800-formal-ga-r010-v2-av32-shape-closed",
+        "precision_contract_schema_version": "v2xvit-av-profile-window-merge-derived-join-v2-av32-shape-closed",
         "manifest_hash": calibration_hash,
         "sample_count": 32,
         "gate_domain_count": len(gate32),

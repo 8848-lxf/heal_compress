@@ -308,11 +308,12 @@ def test_active_projection_keeps_only_deployment_closed_activation_contracts() -
             model, components.precision_units, active_module_paths=active_paths
         )
     }
-    # Softmax compute/output remains a protected FP32 contract and therefore
-    # has no searched Taylor locus.  AV is the deployment-validated mutable
-    # boundary (AV32/AV16) and contributes through its real P/V inputs.
+    # Softmax and AV remain protected FP32 contracts.  AV16 is a valid
+    # diagnostic profile on the original shape, but a pruned-shape engine
+    # proved it is not deployment-closed and therefore it has no chromosome
+    # or Taylor locus.
     assert "softmax" not in taylor_roles
-    assert "av_matmul" in taylor_roles
+    assert "av_matmul" not in taylor_roles
     assert "ffn_activation" not in taylor_roles
 
 

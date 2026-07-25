@@ -89,25 +89,17 @@ def test_qk_and_layernorm_are_protected_fp32_and_illegal_requests_fail() -> None
         validate_external_precision_profile({qk.unit_id: "A8"}, units)
 
 
-def test_av32_av16_are_mutable_and_map_exact_p_v_functional_inputs() -> None:
+def test_av32_is_fixed_after_pruned_shape_closure() -> None:
     model = Model()
     units = _precision_units()
     av = next(unit for unit in units if unit.role == "av_matmul")
-    assert av.allowed_states == ("A32", "A16")
-    assert av.protected is False
+    assert av.allowed_states == ("A32",)
+    assert av.protected is True
     mapped = [
         row for row in taylor_units_from_transformer_precision(model, units)
         if row.metadata.get("precision_unit_id") == av.unit_id
     ]
-    assert len(mapped) == 2
-    assert {row.boundary for row in mapped} == {"functional_input"}
-    assert {row.tensor_index for row in mapped} == {1, 2}
-    assert {row.metadata["av_operand_semantic"] for row in mapped} == {
-        "post_softmax_probability", "value_activation"
-    }
-    assert {
-        row.metadata["precision_group_id"] for row in mapped
-    } == {av.unit_id}
+    assert mapped == []
 
 
 def test_activation_mapping_contains_only_real_qdq_action_boundaries() -> None:

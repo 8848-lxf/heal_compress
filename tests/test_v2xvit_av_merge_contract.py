@@ -14,6 +14,34 @@ def test_av_profiles_use_probability_and_value_operand_bits() -> None:
     assert av_contract("AV8").value_precision == "INT8"
 
 
+def test_formal_v2xvit_space_excludes_shape_dependent_av16() -> None:
+    from search.quantization_space.transformer_precision import (
+        AttentionInstanceSpec,
+        build_transformer_precision_units,
+    )
+
+    spec = AttentionInstanceSpec(
+        model="v2xvit",
+        module_path="fusion.attn",
+        family="window",
+        block_path="fusion.block",
+        qkv_layout="separate_qkv",
+        heads=4,
+        original_d_h=32,
+        d_model=128,
+        q_projection_paths=("fusion.attn.q",),
+        k_projection_paths=("fusion.attn.k",),
+        v_projection_paths=("fusion.attn.v",),
+        output_projection_paths=("fusion.attn.o",),
+        softmax_paths=("fusion.attn.softmax",),
+    )
+    units = build_transformer_precision_units((spec,), ())
+    av = next(unit for unit in units if unit.role == "av_matmul")
+    assert av.allowed_states == ("A32",)
+    assert av.protected is True
+    assert av.metadata["av_profile_contracts"] == ["AV32"]
+
+
 @pytest.mark.parametrize(
     "op,inputs,scales,capability,expected",
     [

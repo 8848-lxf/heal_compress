@@ -53,7 +53,7 @@ def run(args: argparse.Namespace) -> int:
     av = json.loads((reports / "av_profile_acceptance.json").read_text())
     merge = json.loads((reports / "window_merge_acceptance.json").read_text())
     legal_av = list(av["legal_av_profiles"])
-    if legal_av != ["AV32", "AV16"]:
+    if legal_av != ["AV32"]:
         raise RuntimeError(f"v2xvit_av_legal_profile_freeze_conflict:{legal_av}")
     if not merge.get("derived_join_valid") or merge.get("all_int8_add_supported"):
         raise RuntimeError("v2xvit_window_merge_capability_freeze_conflict")
@@ -81,22 +81,24 @@ def run(args: argparse.Namespace) -> int:
     derived = [group for group in groups if group.metadata.get("derived_precision")]
     av_groups = [group for group in groups if group.metadata.get("transformer_role") == "av_matmul"]
     if len(av_groups) != 12 or any(
-        tuple(group.allowed_precisions) != ("FP32", "FP16") or group.protected
+        tuple(group.allowed_precisions) != ("FP32",) or not group.protected
         for group in av_groups
     ):
-        raise RuntimeError("v2xvit_av_search_groups_not_12_fp32_fp16")
+        raise RuntimeError("v2xvit_av_search_groups_not_12_fixed_fp32")
     merge_groups = [group for group in groups if group.metadata.get("transformer_role") == "attention_merge"]
     if len(merge_groups) != 3 or any(group.group_id in space.precision_gene_ids for group in merge_groups):
         raise RuntimeError("v2xvit_window_merge_independent_gene_present")
 
     contract = {
         "transformer_bops_schema_version": "unified-bops-v2-hgt-relation-closure",
-        "precision_contract_schema_version": "v2xvit-av-profile-window-merge-derived-join-v1",
+        "precision_contract_schema_version": "v2xvit-av-profile-window-merge-derived-join-v2-av32-shape-closed",
         "legal_av_profiles": legal_av,
         "av_profiles": {
             "AV32": {"softmax_compute": "FP32", "P": "FP32", "V": "FP32", "compute": "FP32", "output": "FP32", "operand_bits": [32, 32]},
-            "AV16": {"softmax_compute": "FP32", "P": "FP16", "V": "FP16", "compute": "FP16", "output": "FP16", "operand_bits": [16, 16]},
+            "AV16": {"audit_only": True, "softmax_compute": "FP32", "P": "FP16", "V": "FP16", "compute": "FP16", "output": "FP16", "operand_bits": [16, 16]},
         },
+        "av16_excluded": True,
+        "av16_reason": "not_deployment_closed_for_legal_pruned_dh_shapes_6_of_12_fallback",
         "av8_excluded": True,
         "av8_reason": "12_of_12_trt_av_compute_nodes_realized_non_int8_fallback",
         "window_merge": {
@@ -113,7 +115,7 @@ def run(args: argparse.Namespace) -> int:
     }
     write_json(reports / "final_precision_contract.json", contract)
     spec = {
-        "search_space_schema_version": "v2xvit-h800-formal-ga-r010-v1",
+        "search_space_schema_version": "v2xvit-h800-formal-ga-r010-v2-av32-shape-closed",
         "precision_contract_schema_version": contract["precision_contract_schema_version"],
         "precision_policy_version": space.precision_policy_version,
         "pruning_domain_count": len(space.pruning_domains),
@@ -122,7 +124,12 @@ def run(args: argparse.Namespace) -> int:
         "fixed_fp32_count": len(fixed_fp32),
         "fixed_fp16_count": len(fixed_fp16),
         "derived_precision_group_count": len(derived),
-        "av_mutable_gene_count": len(av_groups),
+        "av_mutable_gene_count": sum(
+            group.group_id in set(space.precision_gene_ids) for group in av_groups
+        ),
+        "av_fixed_group_count": sum(
+            group.group_id not in set(space.precision_gene_ids) for group in av_groups
+        ),
         "window_merge_derived_count": len(merge_groups),
         "precision_gene_ids": list(space.precision_gene_ids),
         "constant_precision_group_ids": list(space.constant_precision_group_ids),
@@ -139,7 +146,7 @@ def run(args: argparse.Namespace) -> int:
     write_json(reports / "final_search_space_spec.json", spec)
     write_json(reports / "pre_search_precision_acceptance.json", {
         "av32_deployment_valid": True,
-        "av16_deployment_valid": True,
+        "av16_deployment_valid": False,
         "av8_deployment_valid": False,
         "legal_av_profiles": legal_av,
         "window_merge_inventory_complete": True,
