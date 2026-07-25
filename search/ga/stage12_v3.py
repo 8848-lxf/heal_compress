@@ -37,10 +37,25 @@ class StrictGAConfig:
     stage2_new_candidate_quota: int = 5
     random_seed: int = 0
     stage2_accuracy_tolerance: float = 0.005
+    generation_contract: str = "formal_gen10"
 
     def __post_init__(self) -> None:
-        if self.generations != 10:
-            raise ValueError(f"formal_ga_generations_must_equal_10:{self.generations}")
+        contracts = {"formal_gen10": 10, "formal_gen5": 5}
+        expected = contracts.get(str(self.generation_contract))
+        if expected is None:
+            raise ValueError(
+                f"unsupported_formal_ga_generation_contract:{self.generation_contract}"
+            )
+        if self.generations != expected:
+            if self.generation_contract == "formal_gen10":
+                raise ValueError(
+                    f"formal_ga_generations_must_equal_10:{self.generations}"
+                )
+            raise ValueError(
+                "formal_ga_generations_contract_mismatch:"
+                f"contract={self.generation_contract}:"
+                f"expected={expected}:actual={self.generations}"
+            )
         if self.population_size != 64 or self.offspring_size != 64:
             raise ValueError("formal_ga_population_and_offspring_must_equal_64")
         if self.stage2_new_candidate_quota != 5:
@@ -201,6 +216,7 @@ class UnifiedTaylorStage1Evaluator:
         size_evaluator: Callable[[Any], Mapping[str, Any]],
         target: float,
         tolerance_abs: float = 0.005,
+        enforce_bops_hard_gate: bool = True,
     ) -> None:
         validate_genotype_schema(baseline, space)
         self.space = space
@@ -212,6 +228,7 @@ class UnifiedTaylorStage1Evaluator:
         self.size_evaluator = size_evaluator
         self.target = float(target)
         self.tolerance_abs = float(tolerance_abs)
+        self.enforce_bops_hard_gate = bool(enforce_bops_hard_gate)
         self._baseline_phenotype = canonicalize_candidate(baseline, space)
         self._groups = {str(row.group_id): row for row in space.quantization_groups}
         self._cache: dict[str, dict[str, Any]] = {}
@@ -230,7 +247,7 @@ class UnifiedTaylorStage1Evaluator:
         retention = float(bops["R_bops_vs_fp32"])
         deviation = abs(retention - self.target)
         feasible = deviation <= self.tolerance_abs
-        if not feasible:
+        if not feasible and self.enforce_bops_hard_gate:
             result = {
                 **identity,
                 "J_struct_gate": None,
@@ -552,7 +569,7 @@ def select_new_stage2_candidates(
 
 
 class StrictStage12V3Runner:
-    """Run initialization generation 0 plus exactly ten evolution generations."""
+    """Run initialization generation 0 plus the explicitly contracted generations."""
 
     def __init__(
         self,
@@ -615,7 +632,7 @@ class StrictStage12V3Runner:
         if generation_callback:
             generation_callback(history[-1])
 
-        termination = "completed_generation_10"
+        termination = f"completed_generation_{self.config.generations}"
         for generation in range(1, self.config.generations + 1):
             scored_population = [dict(self.stage1_evaluator(row)) for row in population]
             ranked_population = rank_stage1(scored_population)
@@ -639,7 +656,7 @@ class StrictStage12V3Runner:
                 offspring.append(child)
             if len(offspring) != self.config.offspring_size:
                 raise RuntimeError(
-                    "ga_offspring_population_not_exactly_64:"
+                    "ga_offspring_population_not_exact_size:"
                     f"generated={len(offspring)}:attempts={attempts}"
                 )
 
@@ -732,7 +749,7 @@ class StrictStage12V3Runner:
                 or len(survivor_hashes) != self.config.population_size
             ):
                 raise RuntimeError(
-                    "ga_survivor_population_not_exactly_64_unique:"
+                    "ga_survivor_population_not_exact_size_unique:"
                     f"size={len(population)}:unique={len(survivor_hashes)}"
                 )
             survivor_metrics = [self.stage1_evaluator(row) for row in population]

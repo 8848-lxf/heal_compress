@@ -485,6 +485,7 @@ def collect_or_load_fisher_statistics(
     count = float(len(batches))
     for name in list(gradients):
         gradients[name] = gradients[name] / count
+        absolute_gradients[name] = absolute_gradients[name] / count
         fisher[name] = fisher[name] / count
     manifest_hash = canonical_json_hash({"split": "train", "num_batches": int(num_batches), "model_config": str(model_config_path)})
     path.parent.mkdir(parents=True, exist_ok=True)
