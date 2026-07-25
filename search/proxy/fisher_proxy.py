@@ -18,6 +18,9 @@ class FisherStatistics:
     gradients: dict[str, torch.Tensor] = field(default_factory=dict)
     fisher_diag: dict[str, torch.Tensor] = field(default_factory=dict)
     absolute_gradients: dict[str, torch.Tensor] = field(default_factory=dict)
+    prefix_gradients: dict[int, dict[str, torch.Tensor]] = field(default_factory=dict)
+    prefix_absolute_gradients: dict[int, dict[str, torch.Tensor]] = field(default_factory=dict)
+    prefix_fisher_diag: dict[int, dict[str, torch.Tensor]] = field(default_factory=dict)
     manifest_hash: str = ""
     statistics_version: str = "fisher-diagonal-abs-reduction-v2"
 
@@ -29,6 +32,7 @@ def collect_task_loss_fisher_statistics(
     forward_fn: Callable[[torch.nn.Module, Any], Any],
     loss_fn: Callable[[Any, Any], torch.Tensor],
     calibration_manifest_hash: str,
+    audit_prefixes: Sequence[int] = (),
 ) -> tuple[FisherStatistics, dict[str, Any]]:
     """Collect mean gradients and empirical Fisher from one common task loss."""
 
@@ -40,8 +44,20 @@ def collect_task_loss_fisher_statistics(
     fisher: dict[str, torch.Tensor] = {}
     absolute_gradients: dict[str, torch.Tensor] = {}
     losses: list[float] = []
+    prefixes = tuple(
+        sorted(
+            {
+                int(value)
+                for value in audit_prefixes
+                if 0 < int(value) <= len(calibration_batches)
+            }
+        )
+    )
+    prefix_gradients: dict[int, dict[str, torch.Tensor]] = {}
+    prefix_absolute_gradients: dict[int, dict[str, torch.Tensor]] = {}
+    prefix_fisher: dict[int, dict[str, torch.Tensor]] = {}
     model.train(False)
-    for batch in calibration_batches:
+    for sample_index, batch in enumerate(calibration_batches, start=1):
         model.zero_grad(set_to_none=True)
         outputs = forward_fn(model, batch)
         loss = loss_fn(outputs, batch)
@@ -56,6 +72,17 @@ def collect_task_loss_fisher_statistics(
             gradients.setdefault(name, torch.zeros_like(value)).add_(value)
             absolute_gradients.setdefault(name, torch.zeros_like(value)).add_(value.abs())
             fisher.setdefault(name, torch.zeros_like(value)).add_(value.square())
+        if sample_index in prefixes:
+            prefix_gradients[sample_index] = {
+                name: value.clone() / sample_index for name, value in gradients.items()
+            }
+            prefix_absolute_gradients[sample_index] = {
+                name: value.clone() / sample_index
+                for name, value in absolute_gradients.items()
+            }
+            prefix_fisher[sample_index] = {
+                name: value.clone() / sample_index for name, value in fisher.items()
+            }
     sample_count = len(calibration_batches)
     gradients = {name: value / sample_count for name, value in gradients.items()}
     absolute_gradients = {
@@ -80,6 +107,9 @@ def collect_task_loss_fisher_statistics(
         gradients=gradients,
         fisher_diag=fisher,
         absolute_gradients=absolute_gradients,
+        prefix_gradients=prefix_gradients,
+        prefix_absolute_gradients=prefix_absolute_gradients,
+        prefix_fisher_diag=prefix_fisher,
         manifest_hash=statistics_hash,
         statistics_version="common-task-loss-fisher-abs-reduction-v2",
     )
@@ -91,6 +121,10 @@ def collect_task_loss_fisher_statistics(
         "all_gradients_finite": all(bool(torch.isfinite(row).all()) for row in gradients.values()),
         "all_fisher_finite": all(bool(torch.isfinite(row).all()) for row in fisher.values()),
         "statistics_tensors_persisted": False,
+        "audit_prefixes": list(prefixes),
+        "prefix_statistics_available": {
+            str(prefix): len(prefix_gradients[prefix]) for prefix in prefixes
+        },
     }
 
 

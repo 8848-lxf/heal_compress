@@ -292,6 +292,71 @@ def _coordinate_terms(
     return first, second
 
 
+def _structural_unit_terms_from_roles(
+    domains: Sequence[LocalPruningDomain],
+    domain_role_terms: Mapping[tuple[str, str], tuple[torch.Tensor, torch.Tensor]],
+) -> tuple[dict[str, dict[str, float]], list[dict[str, Any]]]:
+    """Materialize tracer units from already sample-averaged semantic tensors."""
+
+    unit_terms: dict[str, dict[str, float]] = {}
+    mapping_rows: list[dict[str, Any]] = []
+    attention_pattern = re.compile(
+        r"::head(?P<head>\d+)::(?P<role>qk|vo)::(?P<local>\d+)$"
+    )
+    for domain in domains:
+        for unit_id in domain.ordered_unit_ids:
+            if domain.domain_type in {"cnn_channel", "grouped_conv_channel"}:
+                first, second = domain_role_terms[(domain.domain_id, "cnn_output")]
+                indices = domain.unit_root_indices.get(unit_id)
+                if not indices:
+                    raise RuntimeError(f"structural_gate_cnn_unit_index_missing:{unit_id}")
+                first_value = float(first[list(indices)].sum())
+                second_value = float(second[list(indices)].sum())
+                coordinate: Any = list(indices)
+                role = "cnn_output"
+            elif domain.domain_type == "ffn_hidden":
+                first, second = domain_role_terms[(domain.domain_id, "ffn_hidden")]
+                index = int(unit_id.rsplit("::", 1)[1])
+                first_value = float(first[index])
+                second_value = float(second[index])
+                coordinate = index
+                role = "ffn_hidden"
+            else:
+                matched = attention_pattern.search(unit_id)
+                if matched is None:
+                    raise RuntimeError(f"structural_gate_attention_unit_parse:{unit_id}")
+                head = int(matched.group("head"))
+                local = int(matched.group("local"))
+                semantic_role = matched.group("role")
+                source_roles = ("q", "k") if semantic_role == "qk" else ("v",)
+                first_value = 0.0
+                second_value = 0.0
+                for source_role in source_roles:
+                    first, second = domain_role_terms[(domain.domain_id, source_role)]
+                    first_value += float(first[head, local])
+                    second_value += float(second[head, local])
+                coordinate = {"head": head, "local": local}
+                role = semantic_role
+            unit_terms[unit_id] = {"first": first_value, "second": second_value}
+            mapping_rows.append(
+                {
+                    "structural_domain": domain.domain_id,
+                    "tracer_group_id": domain.scope_id,
+                    "unit_id": unit_id,
+                    "gate_role": role,
+                    "coordinate": coordinate,
+                    "physical_dependent_parameters": [
+                        dict(member) for member in domain.dependency_members
+                    ],
+                    "gate_first_order": first_value,
+                    "gate_second_order": second_value,
+                    "gate_score": first_value + second_value,
+                    "legacy_coupled_weight_taylor_used_for_fitness": False,
+                }
+            )
+    return unit_terms, mapping_rows
+
+
 def collect_structural_gate_statistics(
     model: nn.Module,
     domains: Sequence[LocalPruningDomain],
@@ -299,6 +364,7 @@ def collect_structural_gate_statistics(
     *,
     forward_fn: Callable[[nn.Module, Any], Any],
     loss_fn: Callable[[Any, Any], torch.Tensor],
+    audit_prefixes: Sequence[int] = (),
 ) -> tuple[StructuralGateTaylorProxy, dict[str, Any]]:
     """Collect sample-mean functional gate scores for tracer-defined units.
 
@@ -345,6 +411,18 @@ def collect_structural_gate_statistics(
             )
 
     domain_role_terms: dict[tuple[str, str], tuple[torch.Tensor, torch.Tensor]] = {}
+    prefixes = tuple(
+        sorted(
+            {
+                int(value)
+                for value in audit_prefixes
+                if 0 < int(value) <= len(calibration_batches)
+            }
+        )
+    )
+    prefix_role_terms: dict[
+        int, dict[tuple[str, str], tuple[torch.Tensor, torch.Tensor]]
+    ] = {}
     capture_summary: dict[tuple[str, str, str], dict[str, Any]] = {}
     losses: list[float] = []
     for sample_index, calibration_batch in enumerate(calibration_batches):
@@ -464,6 +542,12 @@ def collect_structural_gate_statistics(
                     shape = list(tensors[0].shape)
                     if shape not in summary["shapes"]:
                         summary["shapes"].append(shape)
+            prefix = sample_index + 1
+            if prefix in prefixes:
+                prefix_role_terms[prefix] = {
+                    key: (first.clone() / prefix, second.clone() / prefix)
+                    for key, (first, second) in domain_role_terms.items()
+                }
         finally:
             for handle in handles:
                 handle.remove()
@@ -477,60 +561,13 @@ def collect_structural_gate_statistics(
     }
     capture_rows = list(capture_summary.values())
 
-    unit_terms: dict[str, dict[str, float]] = {}
-    mapping_rows: list[dict[str, Any]] = []
-    attention_pattern = re.compile(r"::head(?P<head>\d+)::(?P<role>qk|vo)::(?P<local>\d+)$")
-    for domain in domains:
-        for unit_id in domain.ordered_unit_ids:
-            if domain.domain_type in {"cnn_channel", "grouped_conv_channel"}:
-                first, second = domain_role_terms[(domain.domain_id, "cnn_output")]
-                indices = domain.unit_root_indices.get(unit_id)
-                if not indices:
-                    raise RuntimeError(f"structural_gate_cnn_unit_index_missing:{unit_id}")
-                first_value = float(first[list(indices)].sum())
-                second_value = float(second[list(indices)].sum())
-                coordinate = list(indices)
-                role = "cnn_output"
-            elif domain.domain_type == "ffn_hidden":
-                first, second = domain_role_terms[(domain.domain_id, "ffn_hidden")]
-                index = int(unit_id.rsplit("::", 1)[1])
-                first_value = float(first[index])
-                second_value = float(second[index])
-                coordinate = index
-                role = "ffn_hidden"
-            else:
-                matched = attention_pattern.search(unit_id)
-                if matched is None:
-                    raise RuntimeError(f"structural_gate_attention_unit_parse:{unit_id}")
-                head = int(matched.group("head"))
-                local = int(matched.group("local"))
-                semantic_role = matched.group("role")
-                source_roles = ("q", "k") if semantic_role == "qk" else ("v",)
-                first_value = 0.0
-                second_value = 0.0
-                for source_role in source_roles:
-                    first, second = domain_role_terms[(domain.domain_id, source_role)]
-                    first_value += float(first[head, local])
-                    second_value += float(second[head, local])
-                coordinate = {"head": head, "local": local}
-                role = semantic_role
-            unit_terms[unit_id] = {"first": first_value, "second": second_value}
-            mapping_rows.append(
-                {
-                    "structural_domain": domain.domain_id,
-                    "tracer_group_id": domain.scope_id,
-                    "unit_id": unit_id,
-                    "gate_role": role,
-                    "coordinate": coordinate,
-                    "physical_dependent_parameters": [
-                        dict(member) for member in domain.dependency_members
-                    ],
-                    "gate_first_order": first_value,
-                    "gate_second_order": second_value,
-                    "gate_score": first_value + second_value,
-                    "legacy_coupled_weight_taylor_used_for_fitness": False,
-                }
-            )
+    unit_terms, mapping_rows = _structural_unit_terms_from_roles(
+        domains, domain_role_terms
+    )
+    prefix_unit_terms = {
+        str(prefix): _structural_unit_terms_from_roles(domains, terms)[0]
+        for prefix, terms in prefix_role_terms.items()
+    }
     model.zero_grad(set_to_none=True)
     proxy = StructuralGateTaylorProxy(
         unit_terms=unit_terms,
@@ -547,6 +584,8 @@ def collect_structural_gate_statistics(
         "unit_count": len(unit_terms),
         "capture_rows": capture_rows,
         "mapping_rows": mapping_rows,
+        "audit_prefixes": list(prefixes),
+        "prefix_unit_terms": prefix_unit_terms,
     }
 
 
@@ -671,6 +710,7 @@ def collect_streaming_activation_action_statistics(
     gene_to_unit_ids: Mapping[str, Sequence[str]],
     precision_ladders: Mapping[str, Sequence[str]],
     calibration_manifest_hash: str,
+    audit_prefixes: Sequence[int] = (),
 ) -> tuple[ActivationActionTaylorProxy, dict[str, Any]]:
     """Precompute adjacent Q/DQ action costs without persisting activations."""
 
@@ -704,6 +744,18 @@ def collect_streaming_activation_action_statistics(
         transitions[gene_id] = tuple(zip(ladder[:-1], ladder[1:]))
 
     accumulators: dict[tuple[str, str, str], list[float | int]] = {}
+    prefixes = tuple(
+        sorted(
+            {
+                int(value)
+                for value in audit_prefixes
+                if 0 < int(value) <= len(calibration_batches)
+            }
+        )
+    )
+    prefix_precomputed: dict[
+        int, dict[tuple[str, str, str], tuple[float, float, int]]
+    ] = {}
     shapes: dict[str, list[list[int]]] = {unit.unit_id: [] for unit in selected}
     losses: list[float] = []
     model.train(False)
@@ -750,6 +802,16 @@ def collect_streaming_activation_action_statistics(
                         row[0] = float(row[0]) + float(first.sum())
                         row[1] = float(row[1]) + float(second.sum())
                         row[2] = int(row[2]) + int(value.numel())
+            prefix = sample_index + 1
+            if prefix in prefixes:
+                prefix_precomputed[prefix] = {
+                    key: (
+                        float(values[0]) / prefix,
+                        float(values[1]) / prefix,
+                        int(values[2]),
+                    )
+                    for key, values in accumulators.items()
+                }
         model.zero_grad(set_to_none=True)
 
     sample_count = len(calibration_batches)
@@ -778,6 +840,20 @@ def collect_streaming_activation_action_statistics(
         }
         for (unit_id, current, successor), values in sorted(precomputed.items())
     ]
+    prefix_transition_terms = {
+        str(prefix): [
+            {
+                "unit_id": unit_id,
+                "current_precision": current,
+                "next_precision": successor,
+                "first_order_abs_sample_mean": values[0],
+                "second_order_abs_sample_mean": values[1],
+                "element_count_prefix_samples": values[2],
+            }
+            for (unit_id, current, successor), values in sorted(terms.items())
+        ]
+        for prefix, terms in prefix_precomputed.items()
+    }
     return proxy, {
         "schema_version": "v2xvit-streaming-activation-action-taylor-v2",
         "calibration_manifest_hash": str(calibration_manifest_hash),
@@ -788,6 +864,8 @@ def collect_streaming_activation_action_statistics(
         "statistics_tensors_persisted": False,
         "units": shapes,
         "transitions": transition_rows,
+        "audit_prefixes": list(prefixes),
+        "prefix_transition_terms": prefix_transition_terms,
         "formula": "mean_samples(sum(abs(g*delta_A)+0.5*abs(g^2*delta_A^2)))",
         "elementwise_abs_before_reduction": True,
         "joint_taylor_used_for_fitness": False,

@@ -134,6 +134,7 @@ def test_streaming_activation_taylor_precomputes_sample_mean_without_tensors() -
         gene_to_unit_ids={"gene": (unit.unit_id,)},
         precision_ladders={"gene": ("FP32", "FP16", "INT8")},
         calibration_manifest_hash="fixed-manifest",
+        audit_prefixes=(1, 2),
     )
 
     first = proxy.quantization_action_breakdown(
@@ -151,6 +152,7 @@ def test_streaming_activation_taylor_precomputes_sample_mean_without_tensors() -
     assert manifest["sample_reduction"].startswith("mean_of_per_sample")
     assert first["delta_J_AQ"] >= 0.0
     assert second["delta_J_AQ"] >= 0.0
+    assert set(manifest["prefix_transition_terms"]) == {"1", "2"}
 
 
 def test_structural_gate_statistics_average_multiple_batches() -> None:
@@ -187,12 +189,33 @@ def test_structural_gate_statistics_average_multiple_batches() -> None:
         (torch.tensor([[1.0, 2.0]]), torch.tensor([[2.0, 1.0]])),
         forward_fn=lambda module, value: module(value),
         loss_fn=lambda output, _batch: output.square().sum(),
+        audit_prefixes=(1, 2),
     )
 
     assert manifest["sample_count"] == 2
     assert len(manifest["task_losses"]) == 2
     assert proxy.unit_terms["u0"]["first"] > 0.0
     assert proxy.unit_terms["u1"]["first"] > 0.0
+    assert set(manifest["prefix_unit_terms"]) == {"1", "2"}
+
+
+def test_taylor_prefix_convergence_uses_fixed_action_identity() -> None:
+    from search.proxy.taylor_convergence import audit_prefix_action_convergence
+
+    rows = {
+        prefix: [
+            {"action_id": f"a{index}", "domain_type": "cnn", "J_total": value}
+            for index, value in enumerate(values)
+        ]
+        for prefix, values in {
+            8: (1.0, 2.0, 3.0),
+            16: (1.1, 2.0, 3.1),
+            32: (1.0, 2.2, 3.0),
+        }.items()
+    }
+    audit = audit_prefix_action_convergence(rows, top_k=2)
+    assert audit["same_action_identity"] is True
+    assert audit["passed"] is True
 
 
 def test_winner_selector_does_not_reward_pruning_or_mixed_size() -> None:

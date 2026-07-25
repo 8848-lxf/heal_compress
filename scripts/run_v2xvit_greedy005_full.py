@@ -215,6 +215,7 @@ def _formal_space(
     calibration_hash: str,
     fisher_forward_fn: Callable[[Any, Any], Any] | None = None,
     fisher_batches: Sequence[Any] | None = None,
+    fisher_audit_prefixes: Sequence[int] = (),
 ) -> dict[str, Any]:
     fisher, fisher_report = collect_task_loss_fisher_statistics(
         model,
@@ -222,6 +223,7 @@ def _formal_space(
         forward_fn=fisher_forward_fn or adapter.forward_for_task,
         loss_fn=adapter.compute_task_loss,
         calibration_manifest_hash=calibration_hash,
+        audit_prefixes=fisher_audit_prefixes,
     )
     scores, ranking_report = score_atomic_units_for_fixed_ranking(
         model,

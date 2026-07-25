@@ -19,6 +19,25 @@ def test_fisher_collector_preserves_elementwise_abs_before_sample_reduction():
     assert report["absolute_value_before_sample_reduction"] is True
 
 
+def test_fisher_prefixes_use_mean_abs_and_mean_square_not_signed_mean_square():
+    from search.proxy.fisher_proxy import collect_task_loss_fisher_statistics
+
+    model = torch.nn.Linear(1, 1, bias=False)
+    stats, _report = collect_task_loss_fisher_statistics(
+        model,
+        (torch.tensor([[1.0]]), torch.tensor([[-1.0]])),
+        forward_fn=lambda module, batch: module(batch),
+        loss_fn=lambda output, _batch: output.sum(),
+        calibration_manifest_hash="prefix-audit",
+        audit_prefixes=(1, 2),
+    )
+    assert set(stats.prefix_fisher_diag) == {1, 2}
+    assert stats.prefix_gradients[2]["weight"].item() == pytest.approx(0.0)
+    assert stats.prefix_absolute_gradients[2]["weight"].item() == pytest.approx(1.0)
+    assert stats.prefix_fisher_diag[2]["weight"].item() == pytest.approx(1.0)
+    assert stats.prefix_fisher_diag[2]["weight"].item() > stats.prefix_gradients[2]["weight"].square().item()
+
+
 def test_elementwise_abs_prevents_cross_parameter_cancellation():
     from search.proxy.joint_weight_taylor import JointWeightTaylorProxy
 
