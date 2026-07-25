@@ -237,7 +237,13 @@ class RealStage2Evaluator:
                 "stage2_cache": str(cache), "reused": True,
                 "complete_phenotype_hash": complete_hash,
             })
+            print(json.dumps({"stage2": "cache_hit", "budget": self.label,
+                              "seed": self.seed, "generation": generation,
+                              "candidate": complete_hash}), flush=True)
             return result
+        print(json.dumps({"stage2": "start", "budget": self.label,
+                          "seed": self.seed, "generation": generation,
+                          "candidate": complete_hash}), flush=True)
         cache.mkdir(parents=True, exist_ok=True)
         if not (cache / "genotype.json").is_file():
             atomic_write(cache / "genotype.json", genotype.to_dict())
@@ -349,6 +355,10 @@ class RealStage2Evaluator:
             "stage2_cache": str(cache), "reused": False,
             "complete_phenotype_hash": complete_hash,
         })
+        print(json.dumps({"stage2": "complete", "budget": self.label,
+                          "seed": self.seed, "generation": generation,
+                          "candidate": complete_hash, "status": result.status,
+                          "mAP": result.map, "p50_ms": result.p50_ms}), flush=True)
         return result
 
 
@@ -419,11 +429,13 @@ def run(args: argparse.Namespace) -> int:
                                 manifest=train200, count=32)
     calibration_hash = json.loads((root / "reports/input_provenance.json").read_text())["taylor_manifest_hash"]
     identity = _build_full_space(model, adapter, hypes, representative)
+    print("[formal-ga] collect train32 Fisher E[g^2]", flush=True)
     formal = _formal_space(
         model, adapter, hypes, representative, identity, calibration_hash,
         fisher_forward_fn=lambda current_model, batch: _type_coverage_forward(adapter, current_model, batch),
         fisher_batches=train32,
     )
+    print("[formal-ga] collect train32 functional gate Taylor", flush=True)
     gate32, gate_mapping = collect_functional_gate_scores_multi(
         model, formal["space"].pruning_domains,
         forward_fn=lambda current_model, batch: _type_coverage_forward(adapter, current_model, batch),
@@ -440,6 +452,7 @@ def run(args: argparse.Namespace) -> int:
         active_module_paths=formal["active_paths"],
     )
     activation_units, group_to_units = build_activation_units(model, space, transformer_units)
+    print("[formal-ga] collect train32 activation Q/DQ Taylor", flush=True)
     activation32 = collect_activation_taylor_cache_multi(
         model, activation_units, group_to_units,
         forward_fn=lambda current_model, batch: _type_coverage_forward(adapter, current_model, batch),
@@ -525,6 +538,11 @@ def run(args: argparse.Namespace) -> int:
                 destination = seed_root / f"generation_{generation:02d}"
                 destination.mkdir(parents=True, exist_ok=True)
                 atomic_write(destination / "generation_summary.json", dict(record))
+                print(json.dumps({"budget": label, "seed": seed,
+                                  "generation": generation,
+                                  "stage2_new_candidate_count": record.get("stage2_new_candidate_count", 0),
+                                  "generation_winner_hash": record.get("generation_winner_hash")}),
+                      flush=True)
 
             result = runner.run(initial, greedy_anchor=greedy, generation_callback=callback)
             for identity_hash, row in result["evaluated"].items():
@@ -544,6 +562,9 @@ def run(args: argparse.Namespace) -> int:
             atomic_write(seed_root / "seed_summary.json", row)
             seed_summaries.append(row)
             budget_seed_rows.append(row)
+            print(json.dumps({"budget": label, "seed": seed,
+                              "completed_generations": row["completed_evolution_generations"],
+                              "seed_winner": seed_winner.complete_phenotype_hash}), flush=True)
         final = best_real_candidate(list(budget_real.values()), greedy)
         all_budget_results[label] = {
             "budget": target,

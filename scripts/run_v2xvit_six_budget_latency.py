@@ -7,6 +7,7 @@ import argparse
 import ctypes
 import hashlib
 import json
+import subprocess
 import statistics
 import sys
 from pathlib import Path
@@ -33,12 +34,23 @@ def sha256(path: Path) -> str:
 
 def write(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        raise RuntimeError(f"refusing_to_overwrite:{path}")
-    path.write_text(
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
         json.dumps(value, indent=2, sort_keys=True, default=str) + "\n",
         encoding="utf-8",
     )
+    temporary.replace(path)
+
+
+def gpu_telemetry(gpu_uuid: str) -> dict[str, Any]:
+    fields = "uuid,temperature.gpu,power.draw,clocks.sm,utilization.gpu,memory.used"
+    completed = subprocess.run(
+        ["nvidia-smi", f"--id={gpu_uuid}", f"--query-gpu={fields}",
+         "--format=csv,noheader,nounits"],
+        text=True, capture_output=True, check=True,
+    )
+    values = [value.strip() for value in completed.stdout.strip().split(",")]
+    return dict(zip(fields.split(","), values))
 
 
 def measure(runner: Any, prepared: Any, repeat: int, phase: str) -> dict[str, Any]:
@@ -120,8 +132,16 @@ def run(args: argparse.Namespace) -> int:
 
     root = args.output_root.resolve()
     b0_path = root / "engines/greedy_exact_winners/B0/candidate.plan"
-    results = {}
-    for label in LABELS:
+    report_path = root / "reports/six_budget_latency.json"
+    existing = json.loads(report_path.read_text()) if report_path.is_file() else {}
+    results = dict(existing.get("budgets") or {})
+    selected_labels = tuple(
+        value.strip() for value in str(args.labels).split(",") if value.strip()
+    )
+    if not selected_labels or any(value not in LABELS for value in selected_labels):
+        raise ValueError(f"invalid_latency_labels:{selected_labels}")
+    for label in selected_labels:
+        before_telemetry = gpu_telemetry(args.gpu_uuid)
         paths = {
             "B0": b0_path,
             "S32": root / f"engines/greedy_exact_winners/budget_{label}/S32/candidate.plan",
@@ -136,6 +156,8 @@ def run(args: argparse.Namespace) -> int:
             for _ in range(200):
                 runner.run(prepared)
         torch.cuda.synchronize(device)
+        prior = results.get(label) or {}
+        prior_attempts = list(prior.get("attempt_history") or prior.get("attempts") or [])
         attempts = []
         accepted = None
         for attempt in range(1, 4):
@@ -170,8 +192,16 @@ def run(args: argparse.Namespace) -> int:
                 accepted = attempt_row
                 break
         if accepted is None:
-            results[label] = {"status": "invalid_baseline_replay_drift", "attempts": attempts}
+            results[label] = {
+                "status": "invalid_baseline_replay_drift",
+                "attempt_history": [*prior_attempts, *attempts],
+                "gpu_telemetry_before": before_telemetry,
+                "gpu_telemetry_after": gpu_telemetry(args.gpu_uuid),
+            }
             print(json.dumps({"budget": label, "status": "invalid_drift"}), flush=True)
+            write(report_path, {"gpu_uuid": args.gpu_uuid, "budgets": results})
+            del runners
+            torch.cuda.empty_cache()
             continue
         controls = {}
         for name, path in paths.items():
@@ -192,9 +222,12 @@ def run(args: argparse.Namespace) -> int:
         results[label] = {
             "status": "ok",
             "accepted_attempt": accepted["attempt"],
+            "attempt_history": [*prior_attempts, *attempts],
             "baseline_replay_drift": accepted["drift"],
             "controls": controls,
             "gpu_uuid": args.gpu_uuid,
+            "gpu_telemetry_before": before_telemetry,
+            "gpu_telemetry_after": gpu_telemetry(args.gpu_uuid),
             "protocol": {
                 "warmup": 200,
                 "timed_iterations": 500,
@@ -217,10 +250,11 @@ def run(args: argparse.Namespace) -> int:
             ),
             flush=True,
         )
+        write(report_path, {"gpu_uuid": args.gpu_uuid, "budgets": results})
         del runners
         torch.cuda.empty_cache()
     write(
-        root / "reports/six_budget_latency.json",
+        report_path,
         {"gpu_uuid": args.gpu_uuid, "budgets": results},
     )
     return 0
@@ -232,6 +266,7 @@ def main() -> int:
     parser.add_argument("--request-json", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--gpu-uuid", required=True)
+    parser.add_argument("--labels", default=",".join(LABELS))
     return run(parser.parse_args())
 
 
