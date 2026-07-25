@@ -160,3 +160,29 @@ Timestamp: 2026-07-25T20:15:00+08:00
 
 ---
 Timestamp: 2026-07-25T20:40:00+08:00
+
+## Development progress
+
+- At the user's request, terminated only the task-owned GA process group
+  `1104139`, including its Stage-2 and TensorRT descendants. This released
+  physical GPUs 4, 5 and 6. GPU7 remained occupied by an unrelated
+  `/opt/conda/bin/python` process and was not signalled. The shared generation
+  and phenotype caches were preserved.
+- The subsequent GPU policy permits only physical GPUs 2 and 3, with at most
+  two GPUs probed or used. Both cards were empty at resume time. Formal GA was
+  restarted with main collection on GPU2 and the only Stage-2 pool set to
+  `2,3`; `CUDA_VISIBLE_DEVICES=2` is explicit on the parent and each Stage-2
+  worker receives its explicit physical assignment.
+- Budgets 0.30 and 0.25 already have complete seed summaries with exactly ten
+  evolution generations and are skipped on resume. Budget 0.20 was interrupted
+  during generation 2 before a generation summary was committed. Deterministic
+  replay starts from its frozen initial population, reuses only complete
+  phenotype caches, and isolates incomplete exports rather than counting a
+  partial generation.
+- Resume PID is `3471207`; log is
+  `logs/formal_ga_gen10_resume_gpu23.log` under the run root. The resumed job is
+  currently collecting the fixed train32 Fisher/gate/activation caches on
+  GPU2; GPU3 remains unused until real Stage-2 begins.
+
+---
+Timestamp: 2026-07-25T21:15:00+08:00
