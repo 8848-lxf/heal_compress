@@ -128,7 +128,7 @@ def _profile_for_origin(phenotype: Any, origin_map: Any) -> dict[str, str]:
 
 
 def _force_attention_fp32_contract(path: Path, attention_audit: Mapping[str, Any]) -> dict[str, Any]:
-    """Insert explicit FLOAT casts at QK/Softmax boundaries after Q/DQ.
+    """Insert explicit FLOAT casts at protected Transformer boundaries.
 
     INT8/FP16 projection outputs are allowed, but the contract requires the
     QK operands, QK result and Softmax input/output to be FLOAT.  The generic
@@ -142,10 +142,23 @@ def _force_attention_fp32_contract(path: Path, attention_audit: Mapping[str, Any
         str(row["node_name"]): "qk" for row in attention_audit.get("qk_nodes", ())
     }
     target_names.update({str(row["node_name"]): "softmax" for row in attention_audit.get("softmax_nodes", ())})
-    softmax_output_types = {
-        str(row["node_name"]): int((row.get("output_element_types") or [1])[0])
-        for row in attention_audit.get("softmax_nodes", ())
-    }
+    # The deployment-closed contract keeps the Softmax output tensor FLOAT.
+    # AV is a separate, fixed-FP32 boundary and receives explicit FLOAT casts;
+    # never infer Softmax output precision from the pre-rewrite graph.
+    target_names.update(
+        {str(row["node_name"]): "av" for row in attention_audit.get("av_nodes", ())}
+    )
+    # LayerNorm is a fixed-FP32 deployment unit, not a precision chromosome
+    # locus.  Export may otherwise inherit HALF from its surrounding branch;
+    # make the protected compute and output boundary explicit for strongly
+    # typed TensorRT instead of relying on a tactic-dependent promotion.
+    target_names.update(
+        {
+            str(node.name): "layernorm"
+            for node in graph.node
+            if str(node.op_type) == "LayerNormalization"
+        }
+    )
     nodes = list(graph.node)
     by_name = {str(node.name): node for node in nodes}
     consumers: dict[str, list[Any]] = {}
@@ -189,14 +202,19 @@ def _force_attention_fp32_contract(path: Path, attention_audit: Mapping[str, Any
                 continue
             cast_out = f"{source}__{role}_fp32_input"
             cast_name = f"{node.name}__{role}_fp32_input_cast_{input_index}"
-            input_insertions.setdefault(index, []).append(helper.make_node("Cast", [source], [cast_out], name=cast_name, to=1))
+            input_insertions.setdefault(index, []).append(
+                helper.make_node(
+                    "Cast", [source], [cast_out], name=cast_name,
+                    to=1,
+                )
+            )
             node.input[input_index] = cast_out
             inserted += 1
         for output_index, source in enumerate(list(node.output)):
             raw = f"{source}__{role}_raw"
             node.output[output_index] = raw
             cast_name = f"{node.name}__{role}_fp32_output_cast_{output_index}"
-            output_type = softmax_output_types.get(str(node.name), 1) if role == "softmax" else 1
+            output_type = 1
             output_insertions.setdefault(index, []).append(helper.make_node("Cast", [raw], [source], name=cast_name, to=output_type))
             inserted += 1
     rebuilt: list[Any] = []
@@ -214,7 +232,7 @@ def _force_attention_fp32_contract(path: Path, attention_audit: Mapping[str, Any
         "inserted_cast_count": inserted,
         "roles": {
             role: sum(value == role for value in target_names.values())
-            for role in ("qk", "attention_logits", "softmax")
+            for role in ("qk", "attention_logits", "softmax", "av", "layernorm")
         },
     }
 
@@ -380,6 +398,35 @@ def _export_candidate(
             _write(candidate_dir / "qdq_attention_fp32_audit.json", qdq_audit)
             if not qdq_audit.get("passed"):
                 raise RuntimeError("qdq_qk_softmax_fp32_contract_failed")
+            from search.adapters.transformer_models import build_transformer_search_components
+            from search.stage2.v2xvit_functional_precision import (
+                audit_trt_v2xvit_functional_precision,
+                build_v2xvit_functional_onnx_mapping,
+                requested_states_from_phenotype,
+            )
+            active_module_paths = sorted(
+                {str(entry.module_path) for entry in origin_map.entries}
+            )
+            transformer_components = build_transformer_search_components(
+                model,
+                hypes,
+                allow_identity_ranking=True,
+                active_module_paths=active_module_paths,
+            )
+            requested_transformer_states = requested_states_from_phenotype(
+                phenotype, transformer_components.precision_units
+            )
+            functional_onnx = build_v2xvit_functional_onnx_mapping(
+                qdq_path,
+                origin_map=origin_map,
+                precision_units=transformer_components.precision_units,
+                attention_instances=transformer_components.attention_instances,
+                ffn_instances=transformer_components.ffn_instances,
+                requested_states=requested_transformer_states,
+            )
+            _write(candidate_dir / "functional_precision_onnx_mapping.json", functional_onnx)
+            if not functional_onnx.get("passed"):
+                raise RuntimeError("functional_precision_onnx_mapping_failed")
             if plugin is None or not plugin.is_file():
                 raise RuntimeError(f"trt_plugin_missing:{plugin}")
             from search.stage2.trt_modelopt import build_engine_modelopt
@@ -403,7 +450,24 @@ def _export_candidate(
             _write(candidate_dir / "trt_attention_fp32_audit.json", trt_attention)
             if not trt_attention.get("passed"):
                 raise RuntimeError("trt_qk_softmax_fp32_contract_failed")
-            result["engine"] = {"attempted": True, "passed": True, "build": build, "trt_attention": trt_attention}
+            functional_trt = audit_trt_v2xvit_functional_precision(
+                candidate_dir / "engine_build" / "engine_layer_info.json",
+                functional_onnx,
+            )
+            _write(candidate_dir / "functional_precision_trt_audit.json", functional_trt)
+            if not functional_trt.get("passed"):
+                raise RuntimeError(
+                    "trt_functional_precision_contract_failed:"
+                    f"unmapped={functional_trt.get('unmapped_count')}:"
+                    f"conflict={functional_trt.get('conflict_count')}"
+                )
+            result["engine"] = {
+                "attempted": True,
+                "passed": True,
+                "build": build,
+                "trt_attention": trt_attention,
+                "functional_precision": functional_trt,
+            }
             torch.cuda.empty_cache()
     except Exception as exc:
         result.setdefault("onnx", {}).setdefault("attempted", True)

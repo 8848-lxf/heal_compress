@@ -279,7 +279,7 @@ def build_transformer_search_components(
     layernorm_paths = tuple(
         path
         for path, module in model.named_modules()
-        if isinstance(module, nn.LayerNorm) and (not active or path in active)
+        if isinstance(module, nn.LayerNorm)
     )
     units = build_transformer_precision_units(
         attention,

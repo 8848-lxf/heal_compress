@@ -241,7 +241,13 @@ def discover_attention_instances(model: nn.Module, *, model_name: str) -> list[A
                 v_projection_paths=v_rows,
                 output_projection_paths=o_rows,
                 adapter="v2xvit_hgt",
-                metadata={"relation_att_path": f"{raw_path}.relation_att", "relation_msg_path": f"{raw_path}.relation_msg"},
+                metadata={
+                    "relation_att_path": f"{raw_path}.relation_att",
+                    "relation_msg_path": f"{raw_path}.relation_msg",
+                    "relation_count": int(module.relation_att.shape[0]),
+                    "relation_att_operand_precision": "FP32",
+                    "relation_msg_operand_precision_source": "av_precision_unit",
+                },
             ))
             seen_paths.add(path)
             continue

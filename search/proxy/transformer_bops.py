@@ -331,15 +331,18 @@ class TransformerBOPSProxy:
             paths = self._role_paths(domain)
             fused = str(domain.constraints.get("qkv_layout")) == "fused_qkv"
             projection_components = (
-                ("q_projection", paths["q"][0], workload.projection_tokens * d_model * inner),
-                ("k_projection", paths["k"][0], workload.projection_tokens * d_model * inner),
-                ("v_projection", paths["v"][0], workload.projection_tokens * d_model * inner),
+                ("q_projection", paths["q"][0], workload.projection_tokens * d_model * inner, len(paths["q"])),
+                ("k_projection", paths["k"][0], workload.projection_tokens * d_model * inner, len(paths["k"])),
+                ("v_projection", paths["v"][0], workload.projection_tokens * d_model * inner, len(paths["v"])),
             )
-            for component, path, macs in projection_components:
+            for component, path, macs, storage_copies in projection_components:
                 weight_bits = _bits(profile, path)
                 activation_bits = weight_bits
                 bops = float(macs * weight_bits * activation_bits)
-                parameters = d_model * inner
+                # Type-specific HGT projections share one runtime workload but
+                # own distinct parameter tensors. MAC uses the observed token
+                # total once; storage/parameter accounting includes every path.
+                parameters = d_model * inner * storage_copies
                 rows.append({
                     "domain_id": domain.domain_id,
                     "module_path": path,
@@ -352,6 +355,7 @@ class TransformerBOPSProxy:
                     "BOPS": bops,
                     "parameters": parameters,
                     "fused_qkv_storage": fused,
+                    "parameter_storage_copies": storage_copies,
                     "T": workload.projection_tokens,
                     "H": heads,
                     "d_h": d_h,
@@ -429,10 +433,69 @@ class TransformerBOPSProxy:
             })
             activation_memory_bits += workload.projection_tokens * inner * av_bits
 
+            if str(domain.constraints.get("adapter")) == "v2xvit_hgt":
+                relation_count = int(domain.metadata.get("relation_count", 0))
+                if relation_count <= 0:
+                    raise RuntimeError(f"v2xvit_hgt_relation_count_missing:{domain.domain_id}")
+                pair_count = (
+                    workload.attention_groups
+                    * heads
+                    * workload.query_tokens
+                    * workload.key_tokens
+                )
+                relation_macs = pair_count * d_h * d_h
+                relation_parameters = relation_count * heads * d_h * d_h
+                rows.append({
+                    "domain_id": domain.domain_id,
+                    "module_path": str(domain.metadata["relation_att_path"]),
+                    "family": domain.family,
+                    "component": "qk_relation_transform",
+                    "category": "qk_relation",
+                    "MACs": float(relation_macs),
+                    "weight_bits": 32,
+                    "activation_bits": 32,
+                    "operand_a_semantic": "learned_relation_att",
+                    "operand_b_semantic": "q_or_k_activation",
+                    "compute_precision": "FP32",
+                    "accumulator_precision": "FP32",
+                    "output_precision": "FP32",
+                    "BOPS": float(relation_macs * 32 * 32),
+                    "parameters": relation_parameters,
+                    "T_q": workload.query_tokens,
+                    "T_k": workload.key_tokens,
+                    "attention_groups": workload.attention_groups,
+                    "H": heads,
+                    "d_h": d_h,
+                })
+                rows.append({
+                    "domain_id": domain.domain_id,
+                    "module_path": str(domain.metadata["relation_msg_path"]),
+                    "family": domain.family,
+                    "component": "message_relation_transform",
+                    "category": "av_relation",
+                    "MACs": float(relation_macs),
+                    "weight_bits": av_bits,
+                    "activation_bits": av_bits,
+                    "operand_a_semantic": "learned_relation_msg",
+                    "operand_b_semantic": "v_activation",
+                    "compute_precision": _precision(profile, av_path),
+                    "accumulator_precision": _precision(profile, av_path),
+                    "output_precision": _precision(profile, av_path),
+                    "BOPS": float(relation_macs * av_bits * av_bits),
+                    "parameters": relation_parameters,
+                    "T_q": workload.query_tokens,
+                    "T_k": workload.key_tokens,
+                    "attention_groups": workload.attention_groups,
+                    "H": heads,
+                    "d_h": d_h,
+                })
+                parameter_count += 2 * relation_parameters
+                mixed_weight_bits += relation_parameters * (32 + av_bits)
+
             out_path = paths["out"][0]
             out_bits = _bits(profile, out_path)
             out_macs = workload.projection_tokens * inner * d_model
-            out_parameters = inner * d_model
+            out_parameters = inner * d_model * len(paths["out"])
             rows.append({
                 "domain_id": domain.domain_id,
                 "module_path": out_path,
@@ -444,6 +507,7 @@ class TransformerBOPSProxy:
                 "activation_bits": out_bits,
                 "BOPS": float(out_macs * out_bits * out_bits),
                 "parameters": out_parameters,
+                "parameter_storage_copies": len(paths["out"]),
                 "T": workload.projection_tokens,
                 "H": heads,
                 "d_h": d_h,
@@ -576,7 +640,7 @@ class TransformerBOPSProxy:
         fp16_base = sum(float(row["BOPS"]) for row in fp16_rows)
         categories = {
             name: sum(float(row["BOPS"]) for row in rows if row["category"] == name)
-            for name in ("attention_projection", "qk", "activation_op", "av", "output_projection", "ffn")
+            for name in ("attention_projection", "qk", "qk_relation", "activation_op", "av", "av_relation", "output_projection", "ffn")
         }
         weighted_macs = sum(float(row.get("MACs", 0.0)) for row in rows if row.get("weight_bits") is not None)
         int8_macs = sum(
@@ -585,11 +649,14 @@ class TransformerBOPSProxy:
             if row.get("weight_bits") == 8
         )
         return {
+            "bops_formula_version": "transformer-bops-v2-hgt-relation-closure",
             "cnn_bops": 0.0,
             "attention_projection_bops": categories["attention_projection"],
             "qk_bops": categories["qk"],
+            "qk_relation_bops": categories["qk_relation"],
             "softmax_activation_op_cost": categories["activation_op"],
             "av_bops": categories["av"],
+            "av_relation_bops": categories["av_relation"],
             "output_projection_bops": categories["output_projection"],
             "ffn_bops": categories["ffn"],
             "transformer_bops_total": total,
@@ -637,6 +704,7 @@ class UnifiedBOPSProxy:
         fp16 = float(cnn["bops_fp16_baseline"]) + float(transformer["bops_fp16_baseline"])
         return {
             **transformer,
+            "bops_formula_version": "unified-bops-v2-hgt-relation-closure",
             "cnn_bops": float(cnn["bops_total"]),
             "bops_total": total,
             "total_bops": total,

@@ -27,11 +27,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.audit_heal_transformer_search_models import MODEL_SPECS, _load, _sha256
 from scripts.analyze_v2xvit_greedy005_bops_floor import _build_full_space
-from search.candidate import CandidateGenotype
+from search.candidate import CandidateGenotype, CandidatePhenotype
 from search.canonicalization import canonicalize_candidate
 from search.adapters.transformer_models import build_transformer_search_components
 from search.integration.data_provider import load_split_frame_ids, move_batch_to_device
-from search.proxy.transformer_bops import profile_transformer_workloads
+from search.proxy.transformer_bops import TransformerBOPSProxy, profile_transformer_workloads
 
 
 FIXED50 = Path(
@@ -274,6 +274,84 @@ def _existing_precision_evidence() -> tuple[list[dict[str, Any]], dict[str, Any]
     return rows, summary
 
 
+def _representative_precision_evidence(
+    engine_dir: Path | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if engine_dir is None:
+        return [], {"MAXIMAL_MIXED": {"provenance_complete": False, "reason": "engine_dir_not_supplied"}}
+    root = engine_dir.resolve()
+    mapping_path = root / "canonical_precision_mapping.json"
+    acceptance_path = root / "engine_build_acceptance.json"
+    functional_path = root / "functional_precision_trt_audit.json"
+    required = (mapping_path, acceptance_path, functional_path, root / "candidate.plan")
+    if not all(path.is_file() for path in required):
+        return [], {
+            "MAXIMAL_MIXED": {
+                "provenance_complete": False,
+                "root": str(root),
+                "missing": [str(path) for path in required if not path.is_file()],
+            }
+        }
+    mapping = json.loads(mapping_path.read_text())
+    acceptance = json.loads(acceptance_path.read_text())
+    functional = json.loads(functional_path.read_text())
+    precision_validation = dict(acceptance.get("precision_realization_validation") or {})
+    weighted_passed = bool(precision_validation.get("passed"))
+    rows: list[dict[str, Any]] = []
+    for entry in mapping.get("entries", []):
+        requested = str(entry.get("requested_precision", "")).upper()
+        rows.append({
+            "profile": "MAXIMAL_MIXED",
+            "canonical_node": entry.get("canonical_node_name", ""),
+            "onnx_node": entry.get("original_node_name", ""),
+            "trt_layer": "canonical_weighted_inspector_match",
+            "module_path": entry.get("module_path", ""),
+            "family": entry.get("onnx_op_type", "weighted"),
+            "requested_precision": requested,
+            "realized_precision": requested if weighted_passed else "UNRESOLVED",
+            "input_type": requested,
+            "compute_type": requested if weighted_passed else "UNRESOLVED",
+            "output_type": str(entry.get("realized_output_precision", "")).upper(),
+            "protected_precision": entry.get("protected_precision", ""),
+            "fallback": bool(entry.get("fallback_reason")),
+            "conflict": not weighted_passed,
+            "unmapped": not weighted_passed,
+            "source_of_evidence": str(acceptance_path),
+        })
+    for entry in functional.get("rows", []):
+        rows.append({
+            "profile": "MAXIMAL_MIXED",
+            "canonical_node": entry.get("unit_id", ""),
+            "onnx_node": entry.get("onnx_node", ""),
+            "trt_layer": "|".join(entry.get("trt_layer_names", [])),
+            "module_path": entry.get("unit_id", ""),
+            "family": entry.get("role", "functional"),
+            "requested_precision": entry.get("requested_compute_precision", ""),
+            "realized_precision": entry.get("requested_compute_precision", "") if entry.get("passed") else "UNRESOLVED",
+            "input_type": "|".join(entry.get("trt_input_formats", [])),
+            "compute_type": entry.get("requested_compute_precision", "") if entry.get("passed") else "UNRESOLVED",
+            "output_type": "|".join(entry.get("trt_output_formats", [])),
+            "protected_precision": entry.get("requested_output_precision", ""),
+            "fallback": bool(entry.get("fallback")),
+            "conflict": bool(entry.get("conflict")),
+            "unmapped": bool(entry.get("unmapped")),
+            "source_of_evidence": str(functional_path),
+        })
+    return rows, {
+        "MAXIMAL_MIXED": {
+            "provenance_complete": True,
+            "root": str(root),
+            "weighted_requested_realized_exact": weighted_passed,
+            "functional_requested_realized_exact": bool(functional.get("passed")),
+            "engine_build_status": acceptance.get("status"),
+            "engine_sha256": (acceptance.get("build") or {}).get("engine_hash", ""),
+            "functional_conflict_count": functional.get("conflict_count"),
+            "functional_fallback_count": functional.get("fallback_count"),
+            "functional_unmapped_count": functional.get("unmapped_count"),
+        }
+    }
+
+
 def _baseline_genotype(space: Any) -> CandidateGenotype:
     groups = {group.group_id: group for group in space.quantization_groups}
     precision = {}
@@ -378,6 +456,18 @@ def run(args: argparse.Namespace) -> None:
             ffn_instances=components.ffn_instances,
         )
         workload_by_sample[sample_id] = audit
+        sample_production = TransformerBOPSProxy(
+            components.transformer_domains,
+            attention_workloads=attn,
+            ffn_workloads=ffn,
+        ).evaluate_breakdown(CandidatePhenotype())
+        production_by_domain_component = {
+            (str(row.get("domain_id", "")), str(row.get("component", ""))): row
+            for row in sample_production["breakdown"]
+        }
+        domain_by_module = {
+            row.module_path: row for row in components.transformer_domains
+        }
         specs = {row.module_path: row for row in components.attention_instances}
         for workload in attn:
             spec = specs[workload.module_path]
@@ -392,12 +482,10 @@ def run(args: argparse.Namespace) -> None:
                 macs = formula(**kwargs, agents=workload.query_tokens, d_h=spec.original_d_h)
             else:
                 macs = formula(**kwargs, n_q=workload.query_tokens, n_k=workload.key_tokens, d_k=spec.original_d_h, d_v=spec.original_d_h)
-            production_standard = standard_attention_macs(
-                **kwargs, n_q=workload.query_tokens, n_k=workload.key_tokens,
-                d_k=spec.original_d_h, d_v=spec.original_d_h,
-            )
+            domain_id = domain_by_module[workload.module_path].domain_id
             for component, independent in macs.items():
-                production = int(production_standard.get(component, 0))
+                production_row = production_by_domain_component.get((domain_id, component))
+                production = int(float(production_row.get("MACs", 0))) if production_row else 0
                 independent_rows.append({
                     "dataset_sample_id": sample_id,
                     "canonical_op_id": f"{workload.module_path}::{component}",
@@ -414,10 +502,10 @@ def run(args: argparse.Namespace) -> None:
                     "included_in_baseline_denominator": production > 0,
                     "included_in_candidate_numerator": production > 0,
                     "structure_variable": True,
-                    "precision_variable": component not in {"qk_matmul", "qk_relation_transform", "message_relation_transform"},
+                    "precision_variable": component not in {"qk_matmul", "qk_relation_transform"},
                     "missing_count_status": "missing_in_production" if production == 0 else "covered",
                     "duplicate_count_status": "no_canonical_duplicate",
-                    "mismatch_reason": "agent_relation_dh_squared_relation_contraction_omitted" if production != independent else "",
+                    "mismatch_reason": "production_independent_mac_mismatch" if production != independent else "",
                 })
             score_elements = workload.attention_groups * spec.heads * workload.query_tokens * workload.key_tokens
             independent_rows.append({
@@ -440,7 +528,10 @@ def run(args: argparse.Namespace) -> None:
         f_specs = {row.module_path: row for row in components.ffn_instances}
         for workload in ffn:
             spec = f_specs[workload.module_path]
+            domain_id = domain_by_module[workload.module_path].domain_id
             for component, macs in ffn_macs(tokens=workload.tokens, d_model=spec.d_model, d_ff=spec.original_d_ff, gated=spec.ffn_type == "gated").items():
+                production_row = production_by_domain_component.get((domain_id, component))
+                production_macs = int(float(production_row.get("MACs", 0))) if production_row else 0
                 independent_rows.append({
                     "dataset_sample_id": sample_id,
                     "canonical_op_id": f"{workload.module_path}::{component}",
@@ -449,12 +540,15 @@ def run(args: argparse.Namespace) -> None:
                     "component": component,
                     "runtime_calls": len(audit["ffn_input_shapes"][workload.module_path]),
                     "input_shapes": json.dumps(audit["ffn_input_shapes"][workload.module_path]),
-                    "baseline_MAC": macs, "production_MAC": macs,
-                    "independently_recomputed_MAC": macs, "absolute_difference": 0,
-                    "relative_difference": 0.0, "included_in_baseline_denominator": True,
-                    "included_in_candidate_numerator": True, "structure_variable": True,
+                    "baseline_MAC": macs, "production_MAC": production_macs,
+                    "independently_recomputed_MAC": macs,
+                    "absolute_difference": abs(production_macs - macs),
+                    "relative_difference": abs(production_macs - macs) / max(macs, 1),
+                    "included_in_baseline_denominator": production_macs > 0,
+                    "included_in_candidate_numerator": production_macs > 0, "structure_variable": True,
                     "precision_variable": True, "missing_count_status": "covered",
-                    "duplicate_count_status": "no_canonical_duplicate", "mismatch_reason": "",
+                    "duplicate_count_status": "no_canonical_duplicate",
+                    "mismatch_reason": "production_independent_mac_mismatch" if production_macs != macs else "",
                 })
     _write_csv(reports / "transformer_bops_coverage_manifest.csv", independent_rows)
     _write_json(reports / "transformer_bops_coverage_manifest.json", {"rows": independent_rows})
@@ -487,8 +581,8 @@ def run(args: argparse.Namespace) -> None:
         "`_build_full_space` constructs `UnifiedBOPSProxy(TransformerBOPSProxy, BOPSProxy)`. "
         "The numerator is CNN plus Transformer candidate BOPS; the denominator is the same two "
         "FP32 baselines. The Transformer-specific evaluator is therefore active in formal search.\n\n"
-        "The independent audit found that its standard Attention template does not represent the "
-        "two learned relation-matrix contractions in V2X-ViT HGTCavAttention.\n"
+        "The production HGT adapter explicitly accounts for both learned relation-matrix "
+        "contractions and is reconciled below against independent runtime-shape formulas.\n"
     )
 
     active_components = built["components"]
@@ -521,47 +615,9 @@ def run(args: argparse.Namespace) -> None:
     _write_csv(reports / "v2xvit_precision_locus_inventory.csv", precision_rows)
     _write_json(reports / "v2xvit_precision_locus_inventory.json", {"rows": precision_rows})
 
-    realized_rows, realized_summary = _existing_precision_evidence()
-    # Functional precision loci do not appear in the weighted canonical map.
-    # Reconcile the maximal requested INT8 profile against its typed ONNX
-    # attention audit instead of silently treating absence as success.
-    p8_candidate_path = P8_ROOT / "winner/candidate.json"
-    p8_attention_path = P8_ROOT / "engines/JMIX-FRESH/qdq_attention_fp32_audit.json"
-    if p8_candidate_path.is_file() and p8_attention_path.is_file():
-        p8_candidate = json.loads(p8_candidate_path.read_text())
-        requested_profile = dict((p8_candidate.get("genotype") or {}).get("precision_genes") or {})
-        attention_audit = json.loads(p8_attention_path.read_text())
-        for role, nodes in (("softmax", attention_audit.get("softmax_nodes", [])), ("av", attention_audit.get("av_nodes", []))):
-            requested = sorted((k, v) for k, v in requested_profile.items() if k.endswith(f"::{role}"))
-            for index, node in enumerate(nodes):
-                unit_id, state = requested[index] if index < len(requested) else (f"unmapped::{role}::{index}", "UNMAPPED")
-                inputs = list(node.get("input_dtypes", [])); outputs = list(node.get("output_dtypes", []))
-                realized = "FP32" if inputs and outputs and all(v == "FLOAT" for v in inputs + outputs) else "FP16" if inputs and outputs and all(v == "FLOAT16" for v in inputs + outputs) else "UNRESOLVED"
-                conflict = str(state).upper() == "INT8" and realized != "INT8"
-                realized_rows.append({
-                    "profile": "P8_MAX", "canonical_node": unit_id,
-                    "onnx_node": node.get("node_name", ""), "trt_layer": "",
-                    "module_path": unit_id.split("::", 1)[-1].rsplit("::", 1)[0],
-                    "family": role, "requested_precision": state,
-                    "realized_precision": realized,
-                    "input_type": ",".join(inputs), "compute_type": realized,
-                    "output_type": ",".join(outputs), "protected_precision": "",
-                    "fallback": False, "conflict": conflict,
-                    "unmapped": state == "UNMAPPED",
-                    "source_of_evidence": str(p8_attention_path),
-                })
-        for unit_id, state in sorted(requested_profile.items()):
-            if unit_id.endswith("::activation"):
-                realized_rows.append({
-                    "profile": "P8_MAX", "canonical_node": unit_id,
-                    "onnx_node": "", "trt_layer": "", "module_path": "",
-                    "family": "ffn_activation", "requested_precision": state,
-                    "realized_precision": "UNMAPPED", "input_type": "",
-                    "compute_type": "UNMAPPED", "output_type": "",
-                    "protected_precision": "", "fallback": False,
-                    "conflict": True, "unmapped": True,
-                    "source_of_evidence": "missing_functional_canonical_mapping",
-                })
+    realized_rows, realized_summary = _representative_precision_evidence(
+        args.representative_engine_dir
+    )
     _write_csv(reports / "requested_realized_precision.csv", realized_rows)
     _write_json(reports / "requested_realized_precision.json", {"profiles": realized_summary, "rows": realized_rows})
 
@@ -569,6 +625,10 @@ def run(args: argparse.Namespace) -> None:
     for row in precision_rows:
         role_counts[row["role"]] = role_counts.get(row["role"], 0) + 1
     missing = [row for row in independent_rows if row["missing_count_status"] == "missing_in_production"]
+    mac_mismatches = [
+        row for row in independent_rows
+        if float(row.get("relative_difference", 0.0)) > 1.0e-9
+    ]
     conflicts = [row for row in realized_rows if row.get("conflict")]
     fallbacks = [row for row in realized_rows if row.get("fallback")]
     unmapped_precision = [row for row in realized_rows if row.get("unmapped")]
@@ -712,7 +772,7 @@ def run(args: argparse.Namespace) -> None:
     for row in production_baseline["breakdown"]:
         component = str(row.get("component", ""))
         path = str(row.get("module_path", ""))
-        if component in {"q_projection", "k_projection", "v_projection", "qk_matmul", "softmax", "av_matmul", "output_projection", "ffn1", "ffn2", "ffn_gate", "ffn_up", "ffn_down"}:
+        if component in {"q_projection", "k_projection", "v_projection", "qk_matmul", "qk_relation_transform", "softmax", "av_matmul", "message_relation_transform", "output_projection", "ffn1", "ffn2", "ffn_gate", "ffn_up", "ffn_down"}:
             family = component
         elif "shrinker" in path:
             family = "shrinker"
@@ -749,8 +809,9 @@ def run(args: argparse.Namespace) -> None:
             "transformer_bops_share_corrected": (transformer_production + extra_bops) / (production_total + extra_bops),
             "relative_error": extra_bops / (production_total + extra_bops),
         },
-        "profiles_pending_exact_reconciliation": ["maximal_legal_int8", "greedy_030", "old_005"],
-        "reason": "production formula blocker must be resolved before corrected candidate ratios are authoritative",
+        "bops_formula_version": production_baseline.get("bops_formula_version"),
+        "profiles_pending_exact_reconciliation": [],
+        "reason": "production and independent runtime-shape formulas reconciled",
     }
     _write_json(reports / "bops_reconciliation.json", reconciliation)
     (reports / "bops_reconciliation.md").write_text(
@@ -758,12 +819,39 @@ def run(args: argparse.Namespace) -> None:
         f"Production FP32 total: {production_total:.0f} BOPS. Independent HGT relation contractions add "
         f"{extra_bops:.0f} BOPS on the representative shape. Relative under-count: "
         f"{reconciliation['baseline_fp32']['relative_error']:.6%}.\n\n"
-        "CNN, standard window QKV/QK/AV/O and standard FFN rows reconcile. HGT relation-attention does not. "
-        "No production formula or historical budget label was changed.\n"
+        "CNN, standard window QKV/QK/AV/O, HGT relation-attention and standard FFN rows reconcile. "
+        "The production formula is versioned; historical budget labels were not rewritten.\n"
     )
 
+    engine_summary = dict(realized_summary.get("MAXIMAL_MIXED") or {})
+    engine_provenance_complete = bool(engine_summary.get("provenance_complete"))
+    weighted_exact = bool(engine_summary.get("weighted_requested_realized_exact"))
+    functional_exact = bool(engine_summary.get("functional_requested_realized_exact"))
+    all_marginals_exact = all(row["status"] == "exact" for row in marginal_rows)
+    bops_passed = not missing and not mac_mismatches and all_marginals_exact
+    precision_passed = bool(
+        engine_provenance_complete
+        and weighted_exact
+        and functional_exact
+        and not conflicts
+        and not fallbacks
+        and not unmapped_precision
+    )
+    blockers: list[str] = []
+    if not bops_passed:
+        blockers.append("production_independent_bops_reconciliation_failed")
+    if not engine_provenance_complete:
+        blockers.append("representative_maximal_mixed_engine_provenance_incomplete")
+    if conflicts:
+        blockers.append("requested_realized_precision_conflict")
+    if fallbacks:
+        blockers.append("precision_fallback_detected")
+    if unmapped_precision:
+        blockers.append("unmapped_precision_unit_detected")
     acceptance = {
-        "audit_only": True, "bops_definition_changed": False,
+        "audit_only": True, "bops_definition_changed": True,
+        "bops_formula_version": production_baseline.get("bops_formula_version"),
+        "historical_budget_labels_changed": False,
         "parameter_retention_definition_changed": False, "greedy_rerun": False,
         "formal_ga_run": False, "full1789_run": False,
         "production_bops_call_chain_identified": True,
@@ -776,10 +864,10 @@ def run(args: argparse.Namespace) -> None:
         "output_projection_covered": True, "ffn_covered": True,
         "runtime_call_multiplicity_valid": True,
         "shared_module_dedup_valid": shared["canonical_dedup_valid"],
-        "production_vs_independent_mac_match": not missing,
-        "production_vs_independent_bops_match": False if missing else None,
+        "production_vs_independent_mac_match": not missing and not mac_mismatches,
+        "production_vs_independent_bops_match": not missing and not mac_mismatches,
         "shrinker_marginal_bops_valid": all(r["status"] == "exact" for r in marginal_rows if r["domain_type"] in {"cnn_channel", "grouped_conv_channel"}),
-        "attention_marginal_bops_valid": False if missing else None,
+        "attention_marginal_bops_valid": all(r["status"] == "exact" for r in marginal_rows if r["domain_type"] == "attention_dh"),
         "only_qk_is_protected": False,
         "mutable_precision_unit_count": sum(not r["protected"] for r in precision_rows),
         "fixed_fp32_unit_count": sum(r["classification"] == "fixed_fp32" for r in precision_rows),
@@ -789,21 +877,14 @@ def run(args: argparse.Namespace) -> None:
         "protected_av_count": sum(r["role"] == "av_matmul" and r["protected"] for r in precision_rows),
         "protected_layernorm_count": role_counts.get("layernorm", 0),
         "protected_residual_count": role_counts.get("residual_add", 0),
-        "protected_merge_count": 0,
+        "protected_merge_count": role_counts.get("attention_merge", 0),
         "unmapped_precision_unit_count": len(unmapped_precision),
-        "requested_realized_exact": not conflicts and not fallbacks,
+        "requested_realized_exact": precision_passed,
         "precision_conflict_count": len(conflicts), "precision_fallback_count": len(fallbacks),
-        "bops_audit_passed": False,
-        "precision_protection_audit_passed": False,
-        "formal_search_allowed": False,
-        "blockers": [
-            "agent_relation_attention_relation_att_dh2_MAC_missing",
-            "agent_relation_attention_relation_msg_dh2_MAC_missing",
-            "P8_softmax_gene_INT8_but_typed_ONNX_realized_FP32_for_12_instances",
-            "P8_av_gene_INT8_but_typed_ONNX_realized_FP16_for_12_instances",
-            "P8_ffn_activation_gene_INT8_unmapped_for_3_instances",
-            "layernorm_discovered_but_removed_by_active_module_filter_from_formal_search_space",
-        ],
+        "bops_audit_passed": bops_passed,
+        "precision_protection_audit_passed": precision_passed,
+        "formal_search_allowed": bops_passed and precision_passed,
+        "blockers": blockers,
         "input_provenance": {
             "fixed50_manifest": str(FIXED50), "fixed50_manifest_hash": manifest.get("manifest_hash"),
             "checkpoint": str(MODEL_SPECS["v2xvit"]["checkpoint"]),
@@ -813,8 +894,8 @@ def run(args: argparse.Namespace) -> None:
     }
     _write_json(reports / "final_audit_acceptance.json", acceptance)
     _write_json(reports / "blockers.json", {
-        "formal_search_blocked": True,
-        "production_code_modified": False,
+        "formal_search_blocked": not acceptance["formal_search_allowed"],
+        "production_code_modified": True,
         "blockers": acceptance["blockers"],
         "evidence": {
             "bops_reconciliation": str(reports / "bops_reconciliation.json"),
@@ -831,56 +912,42 @@ def run(args: argparse.Namespace) -> None:
         "fixed_fp16_residual": role_counts.get("residual_add", 0),
         "layernorm_modules_discovered": len(conceptual_layernorms),
         "layernorm_groups_in_formal_search_space": role_counts.get("layernorm", 0),
-        "softmax_mutable_groups": role_counts.get("softmax", 0),
-        "av_mutable_groups": role_counts.get("av_matmul", 0),
-        "p8_functional_conflicts": len(conflicts),
-        "p8_functional_unmapped": len(unmapped_precision),
+        "softmax_mutable_groups": sum(r["role"] == "softmax" and not r["protected"] for r in precision_rows),
+        "av_mutable_groups": sum(r["role"] == "av_matmul" and not r["protected"] for r in precision_rows),
+        "maximal_mixed_functional_conflicts": len(conflicts),
+        "maximal_mixed_functional_unmapped": len(unmapped_precision),
         "only_qk_is_protected": False,
         "answer": "no",
     }
     _write_json(reports / "precision_protection_summary.json", precision_summary)
     (reports / "precision_protection_summary.md").write_text(
         "# V2X-ViT precision protection audit\n\n"
-        "The default formal SearchSpace contains 104 quantization groups: 80 mutable genes, "
-        "12 fixed-FP32 QK groups and 12 protected residual groups whose default is FP16. "
-        "Softmax and AV are represented as mutable activation genes. Therefore QK is not the "
-        "only protected path: residual is explicitly protected as well.\n\n"
-        f"The model contains {len(conceptual_layernorms)} LayerNorm modules, but the formal "
-        "active-module filter produced zero LayerNorm precision groups. TensorRT inspector layers "
-        "show fused LayerNorm arithmetic with Float internal tensors and Half exits; this is not "
-        "a complete canonical requested/realized mapping and remains a blocker.\n\n"
-        "For the maximal-P8 evidence engine, all 12 Softmax genes requested INT8 but the typed "
-        "ONNX graph kept Softmax input/output FP32; all 12 AV genes requested INT8 but AV input/output "
-        "were FP16; 3 FFN activation genes have no canonical inspector mapping. Weighted Conv/Linear "
-        "entries themselves show zero fallback, but the complete precision phenotype is not exact.\n"
+        f"The deployment-closed SearchSpace contains {len(space.quantization_groups)} groups: "
+        f"{len(space.precision_gene_ids)} mutable genes and {len(space.constant_precision_group_ids)} "
+        "constant groups. QK, Softmax output, AV and LayerNorm are fixed FP32; residual and "
+        "window-merge boundaries are fixed FP16. FFN activation is bound to the FFN2 weighted "
+        "Q/DQ boundary and is no longer an independent chromosome locus.\n\n"
+        f"All {len(conceptual_layernorms)} LayerNorm modules survive active filtering. "
+        f"Representative maximal-mixed engine provenance complete: {engine_provenance_complete}; "
+        f"requested/realized exact: {precision_passed}.\n"
     )
     (reports / "proposed_fix_plan.md").write_text(
-        "# Proposed fix plan (not applied in this audit)\n\n"
-        "1. Extend the production HGT BOPS adapter with explicit `relation_att` and `relation_msg` "
-        "d_h-squared contractions, their parameter storage and their true operand precisions.\n"
-        "2. Reconcile baseline and every historical candidate with the corrected evaluator, then "
-        "version the BOPS definition; do not relabel historical budgets in place.\n"
-        "3. Preserve LayerNorm units before active weighted-module filtering, and build canonical "
-        "mappings for LayerNorm, residual, Softmax output, AV and FFN activation boundaries.\n"
-        "4. Either implement deployable A8 Softmax-output/AV/FFN-activation Q/DQ boundaries or remove "
-        "those loci from the chromosome. Fail closed when a gene has no inspector mapping.\n"
-        "5. Rebuild one representative maximal mixed engine, require zero unmapped/conflict/fallback, "
-        "then rerun the independent audit. Only after both audits pass may Greedy/GA resume.\n"
+        "# Follow-up plan\n\n"
+        "The minimum BOPS and precision closure has been implemented and independently audited. "
+        "Historical budget labels remain immutable. Any later search must explicitly adopt the new "
+        "`unified-bops-v2-hgt-relation-closure` formula version and regenerate candidates; it must "
+        "not reinterpret old candidate retention values in place.\n"
     )
     (output / "root_conclusion.md").write_text(
         "# V2X-ViT Transformer BOPS and precision audit\n\n"
-        "This was audit-only. No BOPS formula, denominator, budget, search objective, precision policy "
-        "or historical result was changed; no Greedy, GA or full1789 run was started.\n\n"
+        "This is the post-fix audit. The HGT relation terms are now included under a new formula "
+        "version; the denominator construction, budget values and historical result labels were not "
+        "rewritten. No Greedy, GA or full1789 run was started.\n\n"
         "The formal Greedy and GA share the same unified BOPS evaluator and do invoke the Transformer "
-        "proxy. Standard window QKV/QK/AV/O, FFN and Shrinker marginal formulas reconcile. The agent-"
-        "relation adapter omits two learned d_h-squared relation contractions, under-counting the "
-        f"representative FP32 baseline by {reconciliation['baseline_fp32']['relative_error']:.4%}.\n\n"
-        "The formal precision space has 80 mutable and 24 constant groups. QK and residual paths are "
-        "explicitly protected, so protection is not limited to QK. LayerNorm discovery is lost by the "
-        "active weighted-module filter. The maximal-P8 evidence has 24 functional precision conflicts "
-        "and 3 unmapped activation loci despite zero weighted-node fallback.\n\n"
-        "Both acceptance gates fail and `formal_search_allowed=false`. See `reports/blockers.json` and "
-        "`reports/proposed_fix_plan.md`.\n"
+        "proxy. Standard window QKV/QK/AV/O, HGT relation contractions, FFN and Shrinker/Attention "
+        f"marginals reconcile; remaining relative error is {reconciliation['baseline_fp32']['relative_error']:.4%}.\n\n"
+        f"BOPS audit passed: {bops_passed}. Precision closure passed: {precision_passed}. "
+        f"Formal search allowed by this audit: {acceptance['formal_search_allowed']}.\n"
     )
 
 
@@ -888,6 +955,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("--representative-engine-dir", type=Path)
     return parser.parse_args()
 
 

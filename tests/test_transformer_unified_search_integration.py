@@ -219,7 +219,7 @@ def test_qk_fp32_is_constant_contract_not_mutable_or_repaired_gene() -> None:
         validate_external_precision_profile({"precision::qk": "A8"}, (unit,))
 
 
-def test_active_projection_keeps_softmax_and_ffn_activation_contracts() -> None:
+def test_active_projection_keeps_only_deployment_closed_activation_contracts() -> None:
     from search.adapters.transformer_models import build_transformer_search_components
     from search.proxy.joint_weight_activation_taylor import (
         taylor_units_from_transformer_precision,
@@ -295,8 +295,13 @@ def test_active_projection_keeps_softmax_and_ffn_activation_contracts() -> None:
     }
     assert "softmax" in by_owner["layers.0.grid_attention.fn"]
     assert "softmax" in by_owner["layers.0.window_attention.fn"]
-    assert "ffn_activation" in by_owner["layers.0.grid_ffd.fn"]
-    assert "ffn_activation" in by_owner["layers.0.window_ffd.fn"]
+    # FFN activation precision is the activation input of FFN2 and is bound to
+    # that weighted deployment unit.  The old independent activation locus did
+    # not insert a distinct Q/DQ boundary and must not enter the chromosome.
+    assert "ffn_activation" not in by_owner["layers.0.grid_ffd.fn"]
+    assert "ffn_activation" not in by_owner["layers.0.window_ffd.fn"]
+    assert "ffn2" in by_owner["layers.0.grid_ffd.fn"]
+    assert "ffn2" in by_owner["layers.0.window_ffd.fn"]
     taylor_roles = {
         unit.unit_type
         for unit in taylor_units_from_transformer_precision(
@@ -304,7 +309,7 @@ def test_active_projection_keeps_softmax_and_ffn_activation_contracts() -> None:
         )
     }
     assert "softmax" in taylor_roles
-    assert "ffn_activation" in taylor_roles
+    assert "ffn_activation" not in taylor_roles
 
 
 def test_ga_near_taylor_tie_prefers_latency_before_parameter_retention() -> None:

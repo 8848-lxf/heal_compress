@@ -49,6 +49,24 @@ class Model(nn.Module):
         return self.ffn(self.attn(value))
 
 
+class HGTCavAttention(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.heads = 2
+        self.q_linears = nn.ModuleList((nn.Linear(8, 8, bias=False), nn.Linear(8, 8, bias=False)))
+        self.k_linears = nn.ModuleList((nn.Linear(8, 8, bias=False), nn.Linear(8, 8, bias=False)))
+        self.v_linears = nn.ModuleList((nn.Linear(8, 8, bias=False), nn.Linear(8, 8, bias=False)))
+        self.a_linears = nn.ModuleList((nn.Linear(8, 8, bias=False), nn.Linear(8, 8, bias=False)))
+        self.relation_att = nn.Parameter(torch.randn(3, 2, 4, 4))
+        self.relation_msg = nn.Parameter(torch.randn(3, 2, 4, 4))
+
+
+class HGTModel(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.attn = HGTCavAttention()
+
+
 def _proxy():
     domains, _, _ = build_transformer_pruning_domains(
         Model(), model_name="toy", allow_identity_ranking=True
@@ -162,3 +180,60 @@ def test_projection_free_attention_has_activation_cost_without_fake_weight_bits(
     assert softmax["weight_bits"] is None
     assert softmax["activation_bits"] == 8
     assert metrics["parameter_count"] == 0
+
+
+def test_hgt_relation_macs_parameters_and_operand_precisions_are_production_accounted() -> None:
+    model = HGTModel()
+    domains, attention, _ffn = build_transformer_pruning_domains(
+        model, model_name="v2xvit", allow_identity_ranking=True
+    )
+    assert len(attention) == 1
+    proxy = TransformerBOPSProxy(
+        domains,
+        attention_workloads=(
+            AttentionWorkload(
+                "attn",
+                projection_tokens=10,
+                query_tokens=2,
+                key_tokens=2,
+                attention_groups=5,
+            ),
+        ),
+        ffn_workloads=(),
+    )
+    domain = domains[0]
+    baseline = CandidatePhenotype(
+        metadata={"domain_width_profile": {domain.domain_id: 4}}
+    )
+    metrics = proxy.evaluate_breakdown(baseline)
+    relation_macs = 5 * 2 * 2 * 2 * 4 * 4
+    relation_parameters = 3 * 2 * 4 * 4
+    qk_relation = next(
+        row for row in metrics["breakdown"]
+        if row["component"] == "qk_relation_transform"
+    )
+    msg_relation = next(
+        row for row in metrics["breakdown"]
+        if row["component"] == "message_relation_transform"
+    )
+    assert qk_relation["MACs"] == relation_macs
+    assert msg_relation["MACs"] == relation_macs
+    assert qk_relation["parameters"] == relation_parameters
+    assert msg_relation["parameters"] == relation_parameters
+    assert qk_relation["weight_bits"] == qk_relation["activation_bits"] == 32
+    assert msg_relation["weight_bits"] == msg_relation["activation_bits"] == 32
+    assert metrics["qk_relation_bops"] == relation_macs * 32 * 32
+    assert metrics["av_relation_bops"] == relation_macs * 32 * 32
+
+    av_path = "attn::__av_matmul__"
+    fp16 = CandidatePhenotype(
+        precision_profile={av_path: PrecisionDecision("FP16", "FP16")},
+        metadata={"domain_width_profile": {domain.domain_id: 4}},
+    )
+    fp16_metrics = proxy.evaluate_breakdown(fp16)
+    msg_fp16 = next(
+        row for row in fp16_metrics["breakdown"]
+        if row["component"] == "message_relation_transform"
+    )
+    assert msg_fp16["weight_bits"] == msg_fp16["activation_bits"] == 16
+    assert msg_fp16["BOPS"] == relation_macs * 16 * 16

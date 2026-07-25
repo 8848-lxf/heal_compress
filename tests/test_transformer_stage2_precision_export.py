@@ -191,3 +191,67 @@ def test_fused_int8_gemm_is_weighted_compute_but_pointwise_fusion_is_not() -> No
     )
     assert precision.passed and precision.realized_int8_count == 1
     assert structure.passed and structure.matched_canonical_count == 1
+
+
+def test_attention_rewrite_keeps_softmax_and_av_fp32(tmp_path) -> None:
+    from scripts.run_v2xvit_greedy005_stage2 import _force_attention_fp32_contract
+    from search.stage2.transformer_precision_export import (
+        audit_onnx_attention_fp32_contract,
+    )
+
+    path = tmp_path / "attention.onnx"
+    _attention_onnx(path)
+    before = audit_onnx_attention_fp32_contract(
+        path, qkv_canonical_node_names=("qkv_canonical",)
+    )
+    report = _force_attention_fp32_contract(path, before)
+    after = audit_onnx_attention_fp32_contract(
+        path, qkv_canonical_node_names=("qkv_canonical",)
+    )
+    assert report["roles"]["av"] == 1
+    softmax = next(row for row in after["softmax_nodes"] if row["node_name"] == "softmax")
+    av = next(row for row in after["av_nodes"] if row["node_name"] == "av")
+    assert softmax["output_dtypes"] == ["FLOAT"]
+    assert av["input_dtypes"] == ["FLOAT", "FLOAT"]
+    assert av["output_dtypes"] == ["FLOAT"]
+
+
+def test_attention_rewrite_promotes_fixed_layernorm_boundary_to_fp32(tmp_path) -> None:
+    import onnx
+    from onnx import TensorProto, helper
+
+    from scripts.run_v2xvit_greedy005_stage2 import _force_attention_fp32_contract
+
+    path = tmp_path / "layernorm_half.onnx"
+    inputs = [
+        helper.make_tensor_value_info("x", TensorProto.FLOAT16, [1, 4]),
+        helper.make_tensor_value_info("scale", TensorProto.FLOAT16, [4]),
+        helper.make_tensor_value_info("bias", TensorProto.FLOAT16, [4]),
+    ]
+    node = helper.make_node(
+        "LayerNormalization",
+        ["x", "scale", "bias"],
+        ["y"],
+        name="/layers.0.1/norm/LayerNormalization",
+        axis=-1,
+    )
+    model = helper.make_model(
+        helper.make_graph(
+            [node],
+            "layernorm_fp32_contract",
+            inputs,
+            [helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4])],
+        ),
+        opset_imports=[helper.make_opsetid("", 17)],
+    )
+    onnx.save(model, path)
+    report = _force_attention_fp32_contract(
+        path, {"qk_nodes": [], "softmax_nodes": [], "av_nodes": []}
+    )
+    rewritten = onnx.shape_inference.infer_shapes(onnx.load(path))
+    layernorm = next(
+        row for row in rewritten.graph.node if row.op_type == "LayerNormalization"
+    )
+    assert report["roles"]["layernorm"] == 1
+    assert all("layernorm_fp32_input" in value for value in layernorm.input)
+    assert all("layernorm_raw" in value for value in layernorm.output)

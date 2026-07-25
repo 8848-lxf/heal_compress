@@ -130,6 +130,8 @@ def build_transformer_precision_units(
     """Emit deployable units without assigning one module to two genes."""
 
     units: list[TransformerPrecisionUnit] = []
+    residual_boundaries: set[str] = set()
+    window_merge_boundaries: set[str] = set()
 
     def add(
         *,
@@ -206,11 +208,14 @@ def build_transformer_precision_units(
                 default="W32A32",
                 activation_only=False,
             )
+        qk_functional_paths = [f"{spec.module_path}::__qk_matmul__"]
+        if spec.adapter == "v2xvit_hgt" and spec.metadata.get("relation_att_path"):
+            qk_functional_paths.append(str(spec.metadata["relation_att_path"]))
         add(
             unit_id=f"{prefix}::qk_matmul",
             model_name=spec.model,
             family=spec.family,
-            paths=(f"{spec.module_path}::__qk_matmul__",),
+            paths=tuple(qk_functional_paths),
             role="qk_matmul",
             states=("A32",),
             default="A32",
@@ -228,15 +233,20 @@ def build_transformer_precision_units(
                 "functional_call_index": 0,
             },
         )
+        av_functional_paths = [f"{spec.module_path}::__av_matmul__"]
+        if spec.adapter == "v2xvit_hgt" and spec.metadata.get("relation_msg_path"):
+            av_functional_paths.append(str(spec.metadata["relation_msg_path"]))
         add(
             unit_id=f"{prefix}::softmax",
             model_name=spec.model,
             family=spec.family,
             paths=spec.softmax_paths or (f"{spec.module_path}::__softmax_output__",),
             role="softmax",
-            states=ACTIVATION_PRECISION_STATES,
+            states=("A32",),
             default="A32",
             activation_only=True,
+            protected=True,
+            reason="deployment_closed_contract_floating_softmax_fp32_output",
             metadata={
                 "A8_semantics": "floating_softmax_then_qdq_int8_output",
                 "native_int8_compute_label": "INT8_PLUGIN",
@@ -249,11 +259,13 @@ def build_transformer_precision_units(
             unit_id=f"{prefix}::av",
             model_name=spec.model,
             family=spec.family,
-            paths=(f"{spec.module_path}::__av_matmul__",),
+            paths=tuple(av_functional_paths),
             role="av_matmul",
-            states=ACTIVATION_PRECISION_STATES,
+            states=("A32",),
             default="A32",
             activation_only=True,
+            protected=True,
+            reason="deployment_closed_contract_av_fp32",
             metadata={
                 "functional_owner": spec.module_path,
                 "functional_op": "einsum",
@@ -270,18 +282,47 @@ def build_transformer_precision_units(
             default="W32A32",
             activation_only=False,
         )
-        if include_residual_boundaries:
+        if include_residual_boundaries and spec.block_path not in residual_boundaries:
+            residual_boundaries.add(spec.block_path)
             add(
-                unit_id=f"{prefix}::residual_add",
+                unit_id=f"transformer_precision::{spec.block_path}::attention_residual_add",
                 model_name=spec.model,
                 family=spec.family,
                 paths=(f"{spec.block_path}::__attention_residual_add__",),
                 role="residual_add",
-                states=("A32", "A16"),
+                states=("A16",),
                 default="A16",
                 activation_only=True,
                 protected=True,
                 reason="int8_residual_add_not_open_without_realized_engine_audit",
+                metadata={
+                    "functional_owner": spec.module_path,
+                    "attention_adapter": spec.adapter,
+                    "boundary_kind": "attention_residual_add",
+                },
+            )
+        if (
+            include_residual_boundaries
+            and spec.adapter == "v2xvit_window"
+            and spec.block_path not in window_merge_boundaries
+        ):
+            window_merge_boundaries.add(spec.block_path)
+            add(
+                unit_id=f"transformer_precision::{spec.block_path}::window_merge",
+                model_name=spec.model,
+                family=spec.family,
+                paths=(f"{spec.block_path}::__window_family_merge__",),
+                role="attention_merge",
+                states=("A16",),
+                default="A16",
+                activation_only=True,
+                protected=True,
+                reason="window_family_merge_fixed_fp16_deployment_contract",
+                metadata={
+                    "functional_owner": spec.block_path,
+                    "attention_adapter": spec.adapter,
+                    "boundary_kind": "window_family_merge",
+                },
             )
 
     for spec in ffn:
@@ -301,16 +342,6 @@ def build_transformer_precision_units(
             states=SEARCH_PRECISION_STATES,
             default="W32A32",
             activation_only=False,
-        )
-        add(
-            unit_id=f"{prefix}::activation",
-            model_name=spec.model,
-            family=spec.family,
-            paths=(spec.activation_path or f"{spec.module_path}::__activation_output__",),
-            role="ffn_activation",
-            states=ACTIVATION_PRECISION_STATES,
-            default="A32",
-            activation_only=True,
         )
         add(
             unit_id=f"{prefix}::ffn2",
@@ -336,7 +367,30 @@ def build_transformer_precision_units(
             activation_only=True,
             protected=True,
             reason="layernorm_initial_contract_fp32",
+            metadata={
+                "functional_owner": path,
+                "boundary_kind": "layernorm",
+            },
         )
+
+    if include_residual_boundaries:
+        for spec in ffn:
+            add(
+                unit_id=f"transformer_precision::{spec.block_path}::ffn_residual_add",
+                model_name=spec.model,
+                family=spec.family,
+                paths=(f"{spec.block_path}::__ffn_residual_add__",),
+                role="residual_add",
+                states=("A16",),
+                default="A16",
+                activation_only=True,
+                protected=True,
+                reason="ffn_residual_add_fixed_fp16_deployment_contract",
+                metadata={
+                    "functional_owner": spec.module_path,
+                    "boundary_kind": "ffn_residual_add",
+                },
+            )
 
     module_owners: dict[str, str] = {}
     for unit in units:
