@@ -92,3 +92,14 @@ def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
     assert "single_seed_zero_required" in source
     assert '"StrictStage12V3Runner"' in source
     assert "full1789_executed" in source
+
+
+def test_size_proxy_field_is_mapped_to_strict_stage1_contract() -> None:
+    from search.ga.cnn_stage12_v3 import canonical_size_metrics
+
+    row = canonical_size_metrics({
+        "R_size_vs_fp32": 0.375,
+        "R_parameter_retention": 0.75,
+    })
+    assert row["mixed_weight_retention"] == 0.375
+    assert row["R_parameter_retention"] == 0.75

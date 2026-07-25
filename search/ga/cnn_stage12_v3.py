@@ -131,6 +131,14 @@ def write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def canonical_size_metrics(size: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose SizeProxy values under the strict Stage-1 ranking contract."""
+
+    result = dict(size)
+    result["mixed_weight_retention"] = float(result["R_size_vs_fp32"])
+    return result
+
+
 def stage2_payload(result: Stage2Result) -> dict[str, Any]:
     return {
         "complete_phenotype_hash": result.complete_phenotype_hash,
@@ -475,10 +483,11 @@ def greedy_anchors(
     )
     def resource_metrics(candidate: CandidateGenotype) -> dict[str, Any]:
         phenotype = canonicalize_candidate(candidate, prepared.space)
+        size = canonical_size_metrics(prepared.size.evaluate_breakdown(phenotype))
         return {
             **phenotype_identity(candidate, prepared.space),
             **prepared.bops.evaluate_breakdown(phenotype),
-            **prepared.size.evaluate_breakdown(phenotype),
+            **size,
         }
 
     current = prepared.baseline
@@ -899,6 +908,7 @@ __all__ = [
     "baseline_genotype",
     "best_real_candidate",
     "build_initial_population",
+    "canonical_size_metrics",
     "create_real_evaluator",
     "greedy_anchors",
     "prepare_search",

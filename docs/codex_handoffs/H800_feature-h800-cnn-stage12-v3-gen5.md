@@ -6,6 +6,22 @@ read-only and are never used as current-framework search results.
 
 ---
 
+## 2026-07-25 15:52:00 -07:00
+
+- First concurrent launch exposed a fail-closed reporting alias defect after
+  full Greedy trajectory generation: `SizeProxy` reports
+  `R_size_vs_fp32`, while the strict winner selector consumes
+  `mixed_weight_retention`. DiscoNet and F-Cooper exited before GA generation
+  0; no candidate engine was built and no historical output was overwritten.
+- Added the explicit `canonical_size_metrics` adapter and regression coverage.
+  The value is unchanged; only the production field name is mapped into the
+  strict Stage-1 contract.
+- V2X-ViT GPU3 was not stopped: its generation-8 worker exited normally and a
+  generation-9 Stage-2 worker subsequently occupied GPU3. The main process on
+  GPU2 remained alive throughout.
+
+---
+
 ## 2026-07-25 23:40:00 +08:00
 
 - Created branch `feature/h800-cnn-stage12-v3-gen5` and worktree
