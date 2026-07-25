@@ -82,3 +82,31 @@ Timestamp: 2026-07-25T16:05:00+08:00
 
 ---
 Timestamp: 2026-07-25T19:15:00+08:00
+
+## Development progress
+
+- Completed all seven requested structure-only fixed500 controls with 500
+  evaluated and zero skipped. Relative to B0 mAP `0.658313773`, the frozen 0.05
+  S32 mAP is `0.265250739`. Restoring FFN gives `0.265711425`, restoring
+  backbone Stage-2 gives `0.267924153`, restoring Attention to the 0.10 widths
+  gives `0.365126036`, and restoring only the shrinker gives `0.477695194`.
+- The primary single subsystem is therefore the shrinker, Attention d_h is
+  secondary, and FFN/backbone Stage-2 are rejected as primary causes. No single
+  restore reaches the safe range, so the residual failure is an extreme
+  multi-subsystem structure interaction.
+- Exact intermediate Greedy structures produce S32 fixed500 mAP
+  `0.614610649` at 0.08, `0.552461098` at 0.07 and `0.463600488` at 0.06.
+  Significant structural loss first appears at sampled budget 0.08, severe
+  loss at 0.07, and catastrophic loss at 0.05.
+- Added an anchor-constrained domain reconstruction. Six serialized exact
+  winners bind every observed prune mask, Attention/FFN decoded keep set, and
+  ranking hash; newly sampled widths use the fresh train32 order only inside
+  unconstrained nested segments. This prevents CUDA near-tie replay from
+  changing the frozen physical anchor.
+- Full canonical phenotypes for 0.10 and 0.05 match byte-for-byte. Candidate
+  identity hashes are explicitly rebased because the hash contract also binds
+  the newly generated trace snapshot hash; source and rebased hashes are both
+  retained rather than misreporting this as physical drift.
+
+---
+Timestamp: 2026-07-25T19:50:00+08:00

@@ -43,6 +43,7 @@ from search.ga.stage12_v3 import (
     validate_genotype_schema,
 )
 from search.hashing import canonical_json_hash
+from search.ga.anchor_constrained_space import constrain_domains_to_frozen_anchors
 from search.model_family.calibration_manifest import load_v2xvit_train_manifest
 from search.model_family.evaluation import evaluate_v2xvit_engine_modelopt
 from search.pruning_space.unified_physical_pruner import materialize_unified_widths
@@ -441,7 +442,18 @@ def run(args: argparse.Namespace) -> int:
         forward_fn=lambda current_model, batch: _type_coverage_forward(adapter, current_model, batch),
         loss_fn=adapter.compute_task_loss, calibration_batches=train32,
     )
-    domains = rerank_domains_by_gate_scores(formal["space"].pruning_domains, gate32)
+    replay_domains = rerank_domains_by_gate_scores(
+        formal["space"].pruning_domains, gate32
+    )
+    frozen_anchor_payloads = [
+        json.loads((root / f"greedy/budget_{label}/exact_winner.json").read_text())[
+            "phenotype"
+        ]
+        for label in ("030", "025", "020", "015", "010", "005")
+    ]
+    domains = constrain_domains_to_frozen_anchors(
+        replay_domains, frozen_anchor_payloads
+    )
     space = replace(
         formal["space"], pruning_domains=domains,
         pruning_unit_ids=[unit for domain in domains for unit in domain.ordered_unit_ids],
@@ -480,11 +492,21 @@ def run(args: argparse.Namespace) -> int:
         greedy_genotype = CandidateGenotype.from_dict(exact["genotype"])
         validate_genotype_schema(greedy_genotype, space)
         greedy_identity = phenotype_identity(greedy_genotype, space)
-        if greedy_identity["complete_phenotype_hash"] != exact["candidate_hash"]:
+        greedy_phenotype = canonicalize_candidate(greedy_genotype, space)
+        if greedy_phenotype.to_dict() != exact["phenotype"]:
             raise RuntimeError(
-                f"greedy_anchor_hash_drift:budget_{label}:"
-                f"{greedy_identity['complete_phenotype_hash']}!={exact['candidate_hash']}"
+                f"greedy_anchor_physical_phenotype_drift:budget_{label}"
             )
+        if greedy_identity["complete_phenotype_hash"] != exact["candidate_hash"]:
+            print(json.dumps({
+                "budget": label,
+                "greedy_anchor_source_hash": exact["candidate_hash"],
+                "greedy_anchor_current_trace_hash": greedy_identity[
+                    "complete_phenotype_hash"
+                ],
+                "physical_phenotype_exact": True,
+                "candidate_hash_rebased_to_current_trace": True,
+            }), flush=True)
         greedy = ensure_greedy_anchor_fixed50(
             root=root, label=label, genotype=greedy_genotype,
             complete_hash=greedy_identity["complete_phenotype_hash"], request=request,

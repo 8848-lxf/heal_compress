@@ -265,3 +265,64 @@ def test_runner_generation_zero_is_initialization_and_evolution_is_one_to_ten() 
     assert result["completed_evolution_generations"] == 10
     assert all(row["stage2_new_candidate_count"] <= 5 for row in result["history"])
     assert all(row.get("greedy_anchor_retained", True) for row in result["history"])
+
+
+def test_anchor_constrained_space_restores_serialized_nested_mask_and_hash() -> None:
+    from search.ga.anchor_constrained_space import constrain_domains_to_frozen_anchors
+    from search.pruning_space.local_domains import LocalPruningDomain
+
+    domain = LocalPruningDomain(
+        domain_id="cnn",
+        root_module_path="cnn",
+        root_axis="out",
+        scope_id="cnn",
+        kind="dense",
+        original_width=4,
+        total_original_width=4,
+        ordered_unit_ids=("u3", "u2", "u1", "u0"),
+        legal_widths=(2, 4),
+        width_to_pruned_unit_ids={2: ("u3", "u2"), 4: ()},
+        unit_root_indices={f"u{i}": (i,) for i in range(4)},
+        ranking_hash="replayed-rank",
+        domain_type="cnn_channel",
+    )
+    all_keep = {
+        "metadata": {
+            "domains": {
+                "cnn": {
+                    "retained_width": 4,
+                    "pruned_unit_ids": [],
+                    "ranking_hash": "frozen-rank",
+                    "decoded_width_state": {
+                        "domain_id": "cnn",
+                        "domain_type": "cnn_channel",
+                        "retained_width": 4,
+                        "pruned_unit_ids": [],
+                    },
+                }
+            }
+        }
+    }
+    pruned = {
+        "metadata": {
+            "domains": {
+                "cnn": {
+                    "retained_width": 2,
+                    "pruned_unit_ids": ["u0", "u1"],
+                    "ranking_hash": "frozen-rank",
+                    "decoded_width_state": {
+                        "domain_id": "cnn",
+                        "domain_type": "cnn_channel",
+                        "retained_width": 2,
+                        "pruned_unit_ids": ["u0", "u1"],
+                    },
+                }
+            }
+        }
+    }
+    constrained = constrain_domains_to_frozen_anchors(
+        (domain,), (all_keep, pruned)
+    )[0]
+    assert constrained.ranking_hash == "frozen-rank"
+    assert constrained.pruned_unit_ids_for_width(2) == ("u0", "u1")
+    assert constrained.decode_width(2)["pruned_unit_ids"] == ["u0", "u1"]

@@ -38,7 +38,8 @@ from scripts.run_v2xvit_six_budget_proxy import (
 from scripts.smoke_transformer_unified_search import _multi_agent_validation_batch
 from search.candidate import CandidateGenotype
 from search.canonicalization import canonicalize_candidate
-from search.hashing import candidate_hash
+from search.hashing import candidate_hash, candidate_hash_payload
+from search.ga.anchor_constrained_space import constrain_domains_to_frozen_anchors
 from search.model_family.calibration_manifest import load_v2xvit_train_manifest
 from search.model_family.evaluation import evaluate_v2xvit_engine_modelopt
 from search.pruning_space.unified_physical_pruner import materialize_unified_widths
@@ -185,27 +186,40 @@ def run(args: argparse.Namespace) -> int:
     )
     payload005 = json.loads((root / "greedy/budget_005/exact_winner.json").read_text())
     payload010 = json.loads((root / "greedy/budget_010/exact_winner.json").read_text())
+    anchor_payloads = [
+        json.loads((root / f"greedy/budget_{label}/exact_winner.json").read_text())
+        for label in ("030", "025", "020", "015", "010", "005")
+    ]
     source005 = CandidateGenotype.from_dict(payload005["genotype"])
     source010 = CandidateGenotype.from_dict(payload010["genotype"])
 
     model, adapter, hypes, _ = _load("v2xvit", device)
     representative, _, _ = _multi_agent_validation_batch(adapter, hypes, device)
-    identity = _build_full_space(model, adapter, hypes, representative)
-    calibration_hash = json.loads((root / "reports/input_provenance.json").read_text())[
-        "taylor_manifest_hash"
-    ]
-    # Fisher is not used by this diagnostic.  A single sample is sufficient to
-    # instantiate the identical schema; train32 below reconstructs the frozen
-    # functional-gate channel ordering used by the formal Greedy trajectory.
-    formal = _formal_space(
-        model, adapter, hypes, representative, identity, calibration_hash
-    )
     train_manifest_path = (
         REPO / "search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json"
     )
     train200 = load_v2xvit_train_manifest(train_manifest_path)
     train32 = FrozenTrainPrefix(
         adapter=adapter, hypes=hypes, device=device, manifest=train200, count=32
+    )
+    identity = _build_full_space(model, adapter, hypes, representative)
+    calibration_hash = json.loads((root / "reports/input_provenance.json").read_text())[
+        "taylor_manifest_hash"
+    ]
+    # Rebuild both formal Fisher rankings and functional-gate rankings from the
+    # identical frozen train32 prefix.  Using a one-sample schema initializer is
+    # intentionally rejected because it changes the nested coordinate order.
+    formal = _formal_space(
+        model,
+        adapter,
+        hypes,
+        representative,
+        identity,
+        calibration_hash,
+        fisher_forward_fn=lambda current_model, batch: _type_coverage_forward(
+            adapter, current_model, batch
+        ),
+        fisher_batches=train32,
     )
     gate32, gate_mapping = collect_functional_gate_scores_multi(
         model,
@@ -216,7 +230,12 @@ def run(args: argparse.Namespace) -> int:
         loss_fn=adapter.compute_task_loss,
         calibration_batches=train32,
     )
-    domains = rerank_domains_by_gate_scores(formal["space"].pruning_domains, gate32)
+    replay_domains = rerank_domains_by_gate_scores(
+        formal["space"].pruning_domains, gate32
+    )
+    domains = constrain_domains_to_frozen_anchors(
+        replay_domains, [payload["phenotype"] for payload in anchor_payloads]
+    )
     space = replace(
         formal["space"],
         pruning_domains=domains,
@@ -228,13 +247,45 @@ def run(args: argparse.Namespace) -> int:
         ("005", payload005, source005),
         ("010", payload010, source010),
     ):
-        actual = candidate_hash(canonicalize_candidate(genotype, space), space)
+        actual_phenotype = canonicalize_candidate(genotype, space)
+        actual = candidate_hash(actual_phenotype, space)
+        phenotype_exact = actual_phenotype.to_dict() == payload["phenotype"]
         endpoint_hashes[label] = {
             "expected": payload["candidate_hash"], "actual": actual,
             "match": actual == payload["candidate_hash"],
+            "physical_phenotype_exact": phenotype_exact,
+            "candidate_hash_rebased_to_current_trace": (
+                phenotype_exact and actual != payload["candidate_hash"]
+            ),
         }
-        if actual != payload["candidate_hash"]:
-            raise RuntimeError(f"diagnostic_frozen_ranking_hash_drift:{label}")
+        if not phenotype_exact:
+            expected_domains = dict(payload["phenotype"]["metadata"]["domains"])
+            actual_domains = dict(actual_phenotype.metadata["domains"])
+            differences = {
+                key: {
+                    "expected_pruned": expected_domains[key]["pruned_unit_ids"],
+                    "actual_pruned": actual_domains[key]["pruned_unit_ids"],
+                    "expected_decoded": expected_domains[key].get("decoded_width_state"),
+                    "actual_decoded": actual_domains[key].get("decoded_width_state"),
+                }
+                for key in expected_domains
+                if expected_domains[key]["pruned_unit_ids"]
+                != actual_domains[key]["pruned_unit_ids"]
+            }
+            atomic_write(
+                root / f"reports/old005_structural_rescue_hash_drift_{label}.json",
+                {
+                    "endpoint_hashes": endpoint_hashes,
+                    "domain_difference_count": len(differences),
+                    "domain_differences": differences,
+                    "expected_phenotype": payload["phenotype"],
+                    "actual_phenotype": actual_phenotype.to_dict(),
+                    "actual_candidate_hash_payload": candidate_hash_payload(
+                        actual_phenotype, space
+                    ),
+                },
+            )
+            raise RuntimeError(f"diagnostic_frozen_physical_phenotype_drift:{label}")
 
     domain_by_id = {domain.domain_id: domain for domain in domains}
     restore_ffn = {
