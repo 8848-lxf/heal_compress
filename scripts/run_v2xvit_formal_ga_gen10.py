@@ -570,12 +570,43 @@ def run(args: argparse.Namespace) -> int:
         )
     if len(set(args.stage2_gpus)) > 2:
         raise RuntimeError("formal_ga_stage2_gpu_pool_exceeds_two")
+    pre_ga = json.loads((root / "reports/pre_ga_acceptance.json").read_text())
+    if not pre_ga.get("formal_search_allowed") or pre_ga.get("blockers"):
+        raise RuntimeError(
+            f"formal_ga_pre_acceptance_not_passed:{pre_ga.get('blockers')}"
+        )
     admission = json.loads((root / "reports/ga_budget_admission.json").read_text())
     labels = [f"{int(round(float(value) * 100)):03d}" for value in admission["ga_admissible_budgets"]]
     if labels != ["010"]:
         raise RuntimeError(f"formal_ga_requires_only_budget_010:{labels}")
     if torch.cuda.device_count() != 1:
         raise RuntimeError(f"formal_ga_requires_one_visible_gpu:{torch.cuda.device_count()}")
+    search_spec = json.loads((root / "reports/final_search_space_spec.json").read_text())
+    taylor_manifest = json.loads((root / "reports/taylor_cache_manifest.json").read_text())
+    atomic_write(root / "reports/formal_ga_config.json", {
+        "target_bops": 0.10,
+        "bops_tolerance_abs": 0.005,
+        "population_size": 64,
+        "offspring_size": 64,
+        "survivor_size": 64,
+        "seed": 0,
+        "seed_count": 1,
+        "executed_seeds": [0],
+        "formal_generations": 10,
+        "generation_zero_counted": False,
+        "formal_generation_ids": list(range(1, 11)),
+        "stage2_new_candidate_quota_per_generation": 5,
+        "main_physical_gpu": int(args.physical_gpu),
+        "stage2_physical_gpus": list(args.stage2_gpus),
+        "stage2_serial_per_gpu": True,
+        "search_space_schema_version": search_spec["search_space_schema_version"],
+        "search_space_schema_hash": search_spec["schema_hash"],
+        "taylor_cache_schema_version": taylor_manifest["schema_version"],
+        "legal_av_profiles": pre_ga["legal_av_profiles"],
+        "black_box_surrogate": False,
+        "repair_enabled": False,
+        "full1789": False,
+    })
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
     random.seed(args.seed)
