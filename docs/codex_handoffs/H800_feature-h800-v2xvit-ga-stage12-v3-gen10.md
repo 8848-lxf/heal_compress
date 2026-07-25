@@ -57,3 +57,28 @@ six latency batches satisfy the <=1% replay-drift gate.
 
 ---
 Timestamp: 2026-07-25T16:05:00+08:00
+
+## Development progress
+
+- Completed matched B0 pre/post latency for every Greedy budget. Thermal
+  preconditioning was added as an explicitly unmeasured protocol field; the
+  acceptance gate remains an uncompromised maximum absolute replay drift of
+  1%. All six budgets now pass, including 0.25 (0.259% maximum drift) and 0.05
+  (0.188% maximum drift).
+- Frozen GA admission to 0.30, 0.25, 0.20, 0.15 and 0.10. Budget 0.05 is
+  `GA_UNSAFE` because its exact-winner fixed500 S32/JMIX accuracy is
+  catastrophic; its valid 2.717x latency speedup does not override accuracy.
+- Added `scripts/run_v2xvit_005_structural_rescue.py` for the requested
+  independent root-cause controls: restore FFN to 256/256/256, restore only the
+  shrinker, restore Attention to the exact 0.10 widths, restore only backbone
+  stage 2, and reconstruct exact 0.08/0.07/0.06 winners from the frozen Greedy
+  trace. These are marked `diagnostic_control=true` and cannot alter formal
+  Greedy winners or GA admission.
+- The diagnostic reconstructs the train32 gate ordering and requires the known
+  0.10 and 0.05 complete phenotype hashes to match before building any control.
+  Each control is physically materialized, exported as S32 TensorRT, and
+  evaluated on the shared fixed500 manifest with a 500/0 evaluated/skipped
+  hard gate.
+
+---
+Timestamp: 2026-07-25T19:15:00+08:00

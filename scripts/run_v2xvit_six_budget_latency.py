@@ -152,6 +152,12 @@ def run(args: argparse.Namespace) -> int:
         runners = {
             name: TensorRTEngineRunner(path, device) for name, path in paths.items()
         }
+        # Establish a stable clock/thermal state before the protocol's 200
+        # control-specific warmups.  These unmeasured B0 executions are reported
+        # separately and never included in forward latency.
+        for _ in range(int(args.stabilization_warmup)):
+            runners["B0"].run(prepared)
+        torch.cuda.synchronize(device)
         for runner in runners.values():
             for _ in range(200):
                 runner.run(prepared)
@@ -230,6 +236,7 @@ def run(args: argparse.Namespace) -> int:
             "gpu_telemetry_after": gpu_telemetry(args.gpu_uuid),
             "protocol": {
                 "warmup": 200,
+                "unmeasured_b0_stabilization_warmup": int(args.stabilization_warmup),
                 "timed_iterations": 500,
                 "repeats": 5,
                 "scope": "TensorRT execute_async_ms only",
@@ -267,6 +274,7 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--gpu-uuid", required=True)
     parser.add_argument("--labels", default=",".join(LABELS))
+    parser.add_argument("--stabilization-warmup", type=int, default=0)
     return run(parser.parse_args())
 
 
