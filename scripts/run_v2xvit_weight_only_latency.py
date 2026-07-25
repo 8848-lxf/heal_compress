@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import hashlib
 import json
 from pathlib import Path
 import statistics
@@ -24,6 +25,32 @@ def write(path: Path, value: Any) -> None:
     if path.exists():
         raise RuntimeError(f"refusing_to_overwrite:{path}")
     path.write_text(json.dumps(value, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def measure(runner: Any, prepared: Any, repeat: int, phase: str) -> dict[str, Any]:
+    values = []
+    for _ in range(500):
+        _outputs, profile = runner.run_profiled(prepared)
+        values.append(float(profile["execute_async_ms"]))
+    return {
+        "repeat": repeat,
+        "phase": phase,
+        "mean_ms": statistics.mean(values),
+        "p50_ms": statistics.median(values),
+        "p90_ms": float(torch.tensor(values).quantile(0.90)),
+        "p95_ms": float(torch.tensor(values).quantile(0.95)),
+        "min_ms": min(values),
+        "max_ms": max(values),
+        "std_ms": statistics.pstdev(values),
+    }
 
 
 def run(args: argparse.Namespace) -> int:
@@ -60,26 +87,53 @@ def run(args: argparse.Namespace) -> int:
     if prepared is None:
         raise RuntimeError("latency_reference_frame_not_found")
     results = {}
+    runners = {}
     for control in args.controls:
         engine = args.output_root / "engines" / control / "candidate.plan"
         runner = TensorRTEngineRunner(engine, device)
         for _ in range(200):
             runner.run(prepared)
         torch.cuda.synchronize(device)
-        repeats = []
-        for repeat in range(5):
-            values = []
-            for _ in range(500):
-                _outputs, profile = runner.run_profiled(prepared)
-                values.append(float(profile["execute_async_ms"]))
-            repeats.append({"repeat": repeat, "mean_ms": statistics.mean(values), "p50_ms": statistics.median(values), "p90_ms": float(torch.tensor(values).quantile(0.90)), "p95_ms": float(torch.tensor(values).quantile(0.95)), "min_ms": min(values), "max_ms": max(values), "std_ms": statistics.pstdev(values)})
-        all_values = [row["p50_ms"] for row in repeats]
-        results[control] = {"engine": str(engine), "repeats": repeats, "repeat_p50_ms": statistics.median(all_values), "forward_p50_ms": statistics.median(all_values), "fps": 1000.0 / statistics.median(all_values), "gpu_uuid": args.gpu_uuid, "warmup_iterations": 200, "timed_iterations": 500, "repeat_count": 5, "scope": "TensorRT execute_async_ms only", "allocation_report": runner.allocation_report()}
+        runners[control] = runner
+        results[control] = {
+            "engine": str(engine),
+            "engine_sha256": sha256(engine),
+            "engine_size_bytes": engine.stat().st_size,
+            "repeats": [],
+            "gpu_uuid": args.gpu_uuid,
+            "warmup_iterations": 200,
+            "timed_iterations": 500,
+            "repeat_count": 5,
+            "scope": "TensorRT execute_async_ms only",
+            "allocation_report": runner.allocation_report(),
+        }
+    # Each candidate measurement is bracketed by a baseline replay.  This is
+    # deliberately serial: no engines execute concurrently on the device.
+    baseline_drift = []
+    candidates = [name for name in args.controls if name != "B0"]
+    for repeat in range(5):
+        pre = measure(runners["B0"], prepared, repeat, "baseline_pre")
+        results["B0"]["repeats"].append(pre)
+        for name in candidates:
+            results[name]["repeats"].append(measure(runners[name], prepared, repeat, "candidate"))
+        post = measure(runners["B0"], prepared, repeat, "baseline_post")
+        results["B0"]["repeats"].append(post)
+        baseline_drift.append({
+            "repeat": repeat,
+            "pre_p50_ms": pre["p50_ms"],
+            "post_p50_ms": post["p50_ms"],
+            "relative_drift": (post["p50_ms"] - pre["p50_ms"]) / pre["p50_ms"],
+        })
+    for control, row in results.items():
+        all_values = [item["p50_ms"] for item in row["repeats"]]
+        row["repeat_p50_ms"] = statistics.median(all_values)
+        row["forward_p50_ms"] = statistics.median(all_values)
+        row["fps"] = 1000.0 / row["forward_p50_ms"]
     b0 = results["B0"]["forward_p50_ms"]
     for name in args.controls:
         if name != "B0":
             results[name]["speedup_p50_vs_B0"] = b0 / results[name]["forward_p50_ms"]
-    write(args.output_root / "reports" / args.report_name, {"protocol": {"warmup": 200, "timed": 500, "repeats": 5, "scope": "pure TensorRT execute_async_ms", "gpu_uuid": args.gpu_uuid}, "controls": results})
+    write(args.output_root / "reports" / args.report_name, {"protocol": {"warmup": 200, "timed": 500, "repeats": 5, "scope": "pure TensorRT execute_async_ms", "gpu_uuid": args.gpu_uuid, "serial_order": ["B0", *candidates, "B0_replay"]}, "baseline_replay_drift": baseline_drift, "controls": results})
     print(json.dumps({key: row["forward_p50_ms"] for key, row in results.items()}, sort_keys=True))
     return 0
 

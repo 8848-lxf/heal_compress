@@ -291,55 +291,84 @@ def _export_candidate(
         # is collected on this exact physical structure; no historical scale is
         # ever reused.
         if build_engine:
-            from opencood.data_utils.datasets import build_dataset
-            from quantization.config import CalibrationConfig, QDQConfig, TensorRTBuildConfig
-            from quantization.precision.calibration import collect_calibration_scales
+            from types import SimpleNamespace
+            from quantization.config import QDQConfig, TensorRTBuildConfig
             from quantization.precision.qdq_inserter import insert_explicit_qdq
             from quantization.types import stable_json_hash
-            from search.integration.data_provider import move_batch_to_device
-            dataset_hypes = adapter._absolutize_dataset_paths(dict(hypes))
-            dataset = build_dataset(dataset_hypes, visualize=False, train=True)
-            split_path = Path(str(dataset_hypes["root_dir"])).resolve()
-            split_ids = json.loads(split_path.read_text(encoding="utf-8"))
-            batches = []
-            frame_ids = []
-            for index in range(len(dataset)):
-                item = dataset[index]
-                train_batch = dataset.collate_batch_train([item])
-                if train_batch is None:
-                    continue
-                batches.append(move_batch_to_device(train_batch, next(model.parameters()).device))
-                frame_ids.append(str(split_ids[index]) if index < len(split_ids) else f"index:{index}")
-                if len(batches) >= int(calibration_frames):
-                    break
-            if len(batches) != int(calibration_frames):
-                raise RuntimeError(f"structure_specific_calibration_incomplete:{len(batches)}:{calibration_frames}")
+            from search.calibration.v2xvit_train200 import build_train200_contract
+            from search.model_family.calibration_manifest import load_v2xvit_train_manifest
+            from search.model_family.deployment import collect_v2xvit_train200_entropy_scales
             int8_paths = sorted(path for path, value in profile.items() if value == "int8")
-            scales_result = collect_calibration_scales(
-                model, batches, module_paths=int8_paths,
-                forward_fn=adapter.forward_for_task,
-                config=CalibrationConfig(split="train", frame_count=len(batches), require_observed_scales=True, schema_version="v2xvit-greedy005-physical-calibration-v1"),
-            )
-            scales = scales_result.scales()
-            calibration_manifest = {
-                "schema_version": "v2xvit-greedy005-physical-calibration-v1",
-                "split": "train", "frame_count": len(batches), "frame_ids": frame_ids,
-                "module_paths": int8_paths,
-                "dataset_manifest_path": str(split_path),
-                "dataset_manifest_sha256": _sha256_file(split_path),
-                "checkpoint_sha256": _sha256(MODEL_SPECS["v2xvit"]["checkpoint"]),
-                "physical_structure_hash": physical_structure_hash,
-                "precision_map_hash": stable_json_hash(profile),
-                "scale_hash": stable_json_hash(scales),
+            if int8_paths and int(calibration_frames) != 200:
+                raise RuntimeError(f"v2xvit_int8_requires_fresh_train200:{calibration_frames}")
+            train200_path = REPO_ROOT / "search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json"
+            train200 = load_v2xvit_train_manifest(train200_path)
+            algorithm_config = {
+                "algorithm": "ModelOptEntropyKL2048To128",
+                "formal_equivalence": "project_current_entropy_KL_calibrator",
+                "histogram_bins": 2048,
+                "quantized_bins": 128,
+                "passes": 2,
+                "requested_frames": 200,
+                "dataset_split": "train",
             }
-            calibration_manifest["manifest_hash"] = stable_json_hash(calibration_manifest)
+            state_dict_shape_hash = stable_json_hash({name: [str(value.dtype), list(value.shape)] for name, value in sorted(model.state_dict().items())})
+            precision_map_hash = stable_json_hash(profile)
+            onnx_hash = _sha256_file(onnx_path)
+            if int8_paths:
+                bundle = SimpleNamespace(model=model, adapter=adapter, config_path=MODEL_SPECS["v2xvit"]["config"])
+                scales, entropy_metadata = collect_v2xvit_train200_entropy_scales(
+                    bundle=bundle,
+                    manifest=train200,
+                    mapping=mapping,
+                    canonical_onnx_path=onnx_path,
+                    device=next(model.parameters()).device,
+                    histogram_bins=2048,
+                )
+            else:
+                scales, entropy_metadata = {}, {"frame_count": 0, "reason": "profile_has_no_int8_layers"}
+            scale_hash = stable_json_hash(scales)
+            cache_payload = {"schema_version": "v2xvit-train200-entropy-cache-v1", "entropy_metadata": entropy_metadata, "scales": scales}
+            entropy_cache_path = candidate_dir / "train200_entropy_cache.json"
+            _write(entropy_cache_path, cache_payload)
+            cache_hash = _sha256_file(entropy_cache_path)
+            if int8_paths:
+                calibration_manifest = build_train200_contract(
+                    manifest_hash=str(train200["manifest_hash"]),
+                    checkpoint_hash=_sha256(MODEL_SPECS["v2xvit"]["checkpoint"]),
+                    physical_hash=physical_structure_hash,
+                    state_dict_shape_hash=state_dict_shape_hash,
+                    precision_map_hash=precision_map_hash,
+                    onnx_hash=onnx_hash,
+                    calibration_algorithm_config_hash=stable_json_hash(algorithm_config),
+                    cache_hash=cache_hash,
+                    scale_hash=scale_hash,
+                    processed_frames=200,
+                    skipped_frames=0,
+                    algorithm="ModelOptEntropyKL2048To128",
+                )
+                calibration_manifest.update({"module_paths": int8_paths, "entropy_metadata": entropy_metadata, "manifest_path": str(train200_path.resolve())})
+            else:
+                calibration_manifest = {
+                    "schema_version": "v2xvit-train200-not-applicable-v1",
+                    "algorithm": "not_applicable_no_int8",
+                    "requested_frames": 0,
+                    "processed_frames": 0,
+                    "skipped_frames": 0,
+                    "physical_hash": physical_structure_hash,
+                    "state_dict_shape_hash": state_dict_shape_hash,
+                    "precision_map_hash": precision_map_hash,
+                    "onnx_hash": onnx_hash,
+                    "cache_hash": cache_hash,
+                    "scale_hash": scale_hash,
+                }
             _write(candidate_dir / "calibration_manifest.json", calibration_manifest)
-            _write(candidate_dir / "calibration_scales.json", {"scales": scales, "scale_hash": stable_json_hash(scales), "calibration_manifest_hash": calibration_manifest["manifest_hash"]})
+            _write(candidate_dir / "calibration_scales.json", {"scales": scales, "scale_hash": scale_hash, "calibration_contract_hash": calibration_manifest.get("contract_hash")})
             qdq_path = candidate_dir / "physical_mixed_qdq.onnx"
             qdq = insert_explicit_qdq(
                 onnx_path, qdq_path, mapping, scales=scales,
                 config=QDQConfig(allowed_precisions=("fp32", "fp16", "int8"), require_calibration_scales=True, insert_activation_input_qdq=True, insert_weight_qdq=True, insert_activation_output_qdq=False, merge_policy="fp16_merge", explicit_fp16_compute_casts=True, explicit_fp32_compute_casts=True, policy_version="v2xvit-greedy005-w8a8-qk-fp32-v1"),
-                calibration_metadata={"calibration_manifest_hash": calibration_manifest["manifest_hash"], "physical_structure_hash": physical_structure_hash, "precision_map_hash": calibration_manifest["precision_map_hash"]},
+                calibration_metadata={"calibration_contract_hash": calibration_manifest.get("contract_hash"), "physical_structure_hash": physical_structure_hash, "state_dict_shape_hash": state_dict_shape_hash, "precision_map_hash": precision_map_hash, "onnx_hash": onnx_hash, "cache_hash": cache_hash, "scale_hash": scale_hash},
             )
             _write(candidate_dir / "qdq_insertion_report.json", qdq.to_dict())
             import onnx
@@ -375,7 +404,6 @@ def _export_candidate(
             if not trt_attention.get("passed"):
                 raise RuntimeError("trt_qk_softmax_fp32_contract_failed")
             result["engine"] = {"attempted": True, "passed": True, "build": build, "trt_attention": trt_attention}
-            del batches
             torch.cuda.empty_cache()
     except Exception as exc:
         result.setdefault("onnx", {}).setdefault("attempted", True)
