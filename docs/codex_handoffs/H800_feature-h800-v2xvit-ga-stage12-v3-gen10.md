@@ -127,3 +127,36 @@ Timestamp: 2026-07-25T19:50:00+08:00
 
 ---
 Timestamp: 2026-07-25T20:15:00+08:00
+
+## Development progress
+
+- Completed an interim same-protocol final comparison for the only fully
+  completed formal-GA budget, 0.30. The GA run uses seed 0, generation 0 for
+  initialization, and exactly generations 1--10 for evolution. It performed
+  50 real Stage-2 evaluations and selected phenotype
+  `fa1c14bdc183ab293afe55295667e220521bf6bcf489e1b694064ac948900ee4`.
+- Re-evaluated that GA winner on the frozen fixed500 manifest
+  `912b2d367be26af967474f6271f60034004f7ee8d68119d65b5e41c722fd24c1`:
+  AP30/AP50/AP70/mAP are
+  `0.771701424/0.694040246/0.512465172/0.659402281`, with 500 evaluated and
+  zero skipped. The same-manifest B0 mAP is `0.658313773`; the exact Greedy
+  winner mAP is `0.659306638`. The GA-minus-Greedy difference is only
+  `+0.000095643` and is treated as evaluation noise rather than an accuracy
+  improvement.
+- Ran a new matched B0 pre/post TensorRT latency batch on physical GPU1
+  (`GPU-fecad09b-d28a-8f1a-6da8-a29fd4ddd659`). B0, exact Greedy, and GA-final
+  p50 are `15.936368/11.730688/11.700176 ms`, equivalent to
+  `1.0000x/1.35852x/1.36206x` versus B0. Maximum absolute B0 replay drift is
+  `0.1083%`, below the 1% acceptance threshold. GA is only `0.2608%` faster
+  than Greedy in this batch, so the practical latency difference is marginal.
+- GPU1 also hosted an external user01 training process at approximately 17%
+  utilization and 10.7 GiB memory before the test. No signal was sent to it.
+  Matched replay drift passed, but the co-resident load is retained in the
+  process snapshots and should be considered when interpreting sub-percent
+  Greedy-versus-GA differences.
+- Formal GA for budget 0.25 continued independently on the multi-GPU Stage-2
+  pool and had reached generation 9 at the end of this comparison. No result
+  for an incomplete budget is reported as final.
+
+---
+Timestamp: 2026-07-25T20:40:00+08:00
