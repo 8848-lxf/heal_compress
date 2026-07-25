@@ -246,6 +246,18 @@ class _BoundaryCapture(AbstractContextManager):
 
     def _record(self, unit: TaylorDeploymentUnit, tensor: torch.Tensor) -> torch.Tensor:
         value = tensor
+        # Raw floating model inputs (for example the first PFN activation
+        # Q/DQ boundary) are leaves supplied by the dataloader and therefore
+        # do not require gradients by default.  Activation Taylor still needs
+        # dL/dA at that real deployment boundary.  Promoting only such leaf
+        # inputs preserves the forward value and lets autograd populate the
+        # boundary gradient; integer/shape tensors remain untouched.
+        if (
+            self.retain_grad
+            and not value.requires_grad
+            and (value.is_floating_point() or value.is_complex())
+        ):
+            value = value.detach().requires_grad_(True)
         if self.quantize:
             value = pseudo_quantize_activation(
                 tensor,
