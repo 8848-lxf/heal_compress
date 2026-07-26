@@ -98,6 +98,8 @@ def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
     assert "full1789_executed" in source
     assert "all_six_greedy_exact_anchors_in_band" in source
     assert "greedy_only" in source
+    import scripts.run_cnn_formal_ga_gen5 as runner
+    assert callable(runner.stage2_payload)
 
 
 def test_physical_gpu_is_mapped_to_process_local_cuda_ordinal(monkeypatch) -> None:
@@ -349,3 +351,23 @@ def test_cnn_greedy_frontier_and_recovery_are_deterministic(tmp_path: Path) -> N
     assert (first / "reports/greedy_exact_winners.json").read_text() == (
         second / "reports/greedy_exact_winners.json"
     ).read_text()
+
+
+def test_completed_exact_greedy_anchors_resume_with_strict_validation(
+    tmp_path: Path,
+) -> None:
+    from search.ga.cnn_stage12_v3 import greedy_anchors, load_greedy_anchors
+
+    prepared = _frontier_recovery_prepared()
+    original = greedy_anchors(
+        prepared, targets=(0.75, 0.55), output_root=tmp_path,
+        recovery_beam_width=2, recovery_seed_pool_size=4,
+    )
+    resumed = load_greedy_anchors(
+        prepared, targets=(0.75, 0.55), output_root=tmp_path,
+    )
+    assert {
+        target: candidate.to_dict() for target, candidate in resumed.items()
+    } == {
+        target: candidate.to_dict() for target, candidate in original.items()
+    }

@@ -48,6 +48,17 @@ read-only and are never used as current-framework search results.
 - The failed output
   `h800_cnn_frontier_beam_greedy_then_ga_gen5_20260726_020852/pyramid`
   contains only startup provenance and a log; it will not be reused.
+- The next fresh run proved DiscoNet all six budgets analytically reachable;
+  five anchors came from already-evaluated legal neighbors and 0.05 from the
+  selected path. It used 726 primary iterations, 38,827 neighbor evaluations,
+  zero beam iterations, zero repair, and zero projection.
+- DiscoNet then built and evaluated its first exact anchor successfully, but
+  the reporting layer failed on a missing explicit import of
+  `stage2_payload`. No GA began. Added that import plus a fail-closed resume
+  loader which accepts an existing exact Greedy report only after current
+  schema, complete phenotype hash, and exact current BOPS hard-gate checks.
+  The immutable Stage-2 cache is reused by hash; analytic neighbors and the
+  already-built anchor are not needlessly recomputed.
 
 ---
 
