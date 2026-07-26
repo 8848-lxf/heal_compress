@@ -65,3 +65,25 @@ No full1789 has been run.  No second seed has been started.
 Timestamp separator: 2026-07-25T19:18:00+08:00
 
 ---
+
+## 2026-07-25 19:25:00 +0800
+
+- Commits `79b9901a` and `36f785dc` were pushed; remote divergence was verified
+  as `0 0` after each push.
+- Full pytest completed with `1037 passed`; the focused CoBEVT provider test
+  now additionally verifies model-family detection, Transformer merge policy,
+  and unified pruning strategy.
+- CoBEVT Stage-2 now explicitly audits the original ONNX QK/Softmax/AV FP32
+  contract, inserts typed FP32 protection casts after weighted Q/DQ insertion,
+  and checks the realized TensorRT attention contract.  Missing mappings or a
+  non-FP32 protected path fail the candidate without fallback.
+- GPU2 queue is frozen as: V2X-ViT six-budget Greedy -> corrected CoBEVT
+  six-budget Greedy -> V2X-ViT six-budget formal GA -> CoBEVT six-budget formal
+  GA.  GPU3 independently runs AttFusion formal GA.  All formal searches use
+  seed 0 and generations 1--10 exactly.
+
+---
+
+Timestamp separator: 2026-07-25T19:25:00+08:00
+
+---

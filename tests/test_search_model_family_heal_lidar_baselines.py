@@ -81,6 +81,10 @@ class MaxFusion(nn.Module):
     pass
 
 
+class CoBEVT(nn.Module):
+    pass
+
+
 class PixelWeightLayer(nn.Module):
     def __init__(self, last_channels: int = 1) -> None:
         super().__init__()
@@ -131,9 +135,12 @@ def _config(fusion_method: str) -> dict:
 def test_baseline_providers_detect_only_their_own_config() -> None:
     from search.model_family import detect_model_family, registered_model_families
 
-    assert {"heal_lidar_fcooper", "heal_lidar_disco"} <= set(registered_model_families())
+    assert {
+        "heal_lidar_fcooper", "heal_lidar_disco", "heal_lidar_cobevt"
+    } <= set(registered_model_families())
     assert detect_model_family(_config("max")).family_id == "heal_lidar_fcooper"
     assert detect_model_family(_config("disconet")).family_id == "heal_lidar_disco"
+    assert detect_model_family(_config("cobevt")).family_id == "heal_lidar_cobevt"
     bad = _config("max")
     bad["model"]["args"]["m1"]["core_method"] = "second"
     with pytest.raises(RuntimeError, match="no_model_family_provider_matches_config"):
@@ -186,6 +193,21 @@ def test_fcooper_max_merge_and_fixed_input_plugin_contract() -> None:
     assert all(row.production_enabled for row in audit.deployment_operators)
     assert merge.production_enabled is True
     assert audit.blockers == ("baseline_train200_entropy_calibration_and_int8_accuracy_evidence_not_available",)
+
+
+def test_cobevt_provider_records_transformer_merge_and_unified_strategy() -> None:
+    from search.model_family import get_model_family
+
+    audit = get_model_family("heal_lidar_cobevt").audit(
+        HeterModelBaseline(CoBEVT()), _config("cobevt")
+    )
+    assert audit.merge_boundaries[0].merge_kind == "transformer_residual_window_merge"
+    assert audit.merge_boundaries[0].policy == (
+        "explicit_qk_softmax_av_fp32_with_weighted_qdq"
+    )
+    assert audit.metadata["fusion_pruning_strategy"] == (
+        "unified_tracer_cnn_attention_dh_ffn_domains"
+    )
 
 
 def test_provider_physical_audit_accepts_consistently_pruned_width_only_when_explicit() -> None:
