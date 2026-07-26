@@ -59,6 +59,21 @@ read-only and are never used as current-framework search results.
   schema, complete phenotype hash, and exact current BOPS hard-gate checks.
   The immutable Stage-2 cache is reused by hash; analytic neighbors and the
   already-built anchor are not needlessly recomputed.
+- Strict resume then exposed a deeper reproducibility defect: canonical width
+  and precision hashes matched, while the physical structure hash changed
+  across identical restarts. The cause is re-collecting floating functional
+  gate scores and re-ranking physical channel IDs on every process start.
+  Therefore a width genotype can denote different physical coordinates after
+  resume even with the same seed; relaxing the hash check would be unsafe.
+- Added a provenance-bound pre-search proxy cache containing the finalized
+  re-ranked SearchSpace, functional gate scores/mapping, and AQ transition
+  cache. Its contract binds checkpoint, config, calibration manifest,
+  Taylor-sample count, base domains, precision groups, runtime shapes,
+  TensorRT/plugin/build flags and GPU capability. Resume must load the exact
+  contract or fail closed. This freezes physical channel semantics and Taylor
+  transitions across the Greedy-only → GA process boundary.
+- The partially completed run root remains read-only evidence of these two
+  fail-closed runner bugs. A new root is required after proxy-cache acceptance.
 
 ---
 

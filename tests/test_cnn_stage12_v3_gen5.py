@@ -100,6 +100,10 @@ def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
     assert "greedy_only" in source
     import scripts.run_cnn_formal_ga_gen5 as runner
     assert callable(runner.stage2_payload)
+    adapter_source = (__import__("pathlib").Path(__file__).parents[1]
+                      / "search/ga/cnn_stage12_v3.py").read_text()
+    assert "cnn-formal-presearch-proxy-cache-v1" in adapter_source
+    assert "physical_ranking_frozen_across_resume" in adapter_source
 
 
 def test_physical_gpu_is_mapped_to_process_local_cuda_ordinal(monkeypatch) -> None:

@@ -32,6 +32,8 @@ from ..integration.heal_lidar_baseline_context import (
     build_heal_lidar_baseline_context,
 )
 from ..integration.lidar_pyramid_context import build_lidar_pyramid_context
+from ..integration.model_provider import sha256_file
+from ..hashing import canonical_json_hash
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.conservative_gate_activation_taylor import (
     FunctionalGateTaylorProxy,
@@ -347,58 +349,131 @@ def prepare_search(
         cache_path=output_root / "proxy/fisher_statistics.pt",
         num_batches=int(taylor_samples),
     )
-    # Reset the data RNG so gate/AQ use the same deterministic train prefix as
-    # Fisher.  Each collector still performs an independent per-sample backward.
-    torch.manual_seed(0)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(0)
-    _dataset, loader = build_dataset_and_loader(
-        context.model_bundle.adapter,
-        context.model_config,
-        split="train",
-        num_workers=0,
-        visualize=False,
-    )
-    cpu_batches = iter_limited(loader, int(taylor_samples))
-    if len(cpu_batches) != int(taylor_samples):
-        raise RuntimeError(
-            f"formal_cnn_taylor_prefix_incomplete:{len(cpu_batches)}!={taylor_samples}"
+    base_space = context.search_space
+    proxy_cache_contract = {
+        "schema": "cnn-formal-presearch-proxy-cache-v1",
+        "model_id": spec.model_id,
+        "checkpoint_sha256": sha256_file(spec.checkpoint),
+        "config_sha256": sha256_file(spec.config),
+        "calibration_manifest_sha256": sha256_file(spec.calibration_manifest),
+        "taylor_samples": int(taylor_samples),
+        "base_domain_contract_hash": canonical_json_hash([
+            {
+                "domain_id": str(domain.domain_id),
+                "legal_widths": [int(value) for value in domain.legal_widths],
+                "ordered_unit_ids": list(domain.ordered_unit_ids),
+                "width_to_pruned_unit_ids": {
+                    str(width): list(units)
+                    for width, units in domain.width_to_pruned_unit_ids.items()
+                },
+            }
+            for domain in base_space.pruning_domains
+        ]),
+        "precision_group_contract_hash": canonical_json_hash([
+            group.to_dict() for group in base_space.quantization_groups
+        ]),
+        "runtime_shape_hash": canonical_json_hash(runtime.to_dict()),
+        "trace_snapshot_hash": base_space.trace_snapshot_hash,
+        "calibration_manifest_hash": base_space.calibration_manifest_hash,
+        "onnx_export_config_hash": base_space.onnx_export_config_hash,
+        "tensorrt_version": base_space.tensorrt_version,
+        "gpu_compute_capability": base_space.gpu_compute_capability,
+        "builder_flags": dict(base_space.builder_flags),
+        "plugin_hashes": dict(base_space.plugin_hashes),
+    }
+    proxy_cache_contract_hash = canonical_json_hash(proxy_cache_contract)
+    proxy_cache_path = output_root / "proxy/formal_presearch_proxy_cache.pt"
+    proxy_cache_loaded = False
+    if proxy_cache_path.is_file():
+        cached = torch.load(proxy_cache_path, map_location="cpu")
+        if str(cached.get("contract_hash")) != proxy_cache_contract_hash:
+            raise RuntimeError(
+                "formal_cnn_proxy_cache_contract_mismatch:"
+                f"{cached.get('contract_hash')}!={proxy_cache_contract_hash}"
+            )
+        space = cached["space"]
+        gate_scores = cached["gate_scores"]
+        gate_mapping = list(cached["gate_mapping"])
+        activation = cached["activation"]
+        if int(cached.get("sample_count", -1)) != int(taylor_samples):
+            raise RuntimeError("formal_cnn_proxy_cache_sample_count_mismatch")
+        proxy_cache_loaded = True
+    else:
+        # Reset the data RNG so gate/AQ use the same deterministic train prefix
+        # as Fisher. Each collector performs an independent per-sample backward.
+        torch.manual_seed(0)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(0)
+        _dataset, loader = build_dataset_and_loader(
+            context.model_bundle.adapter,
+            context.model_config,
+            split="train",
+            num_workers=0,
+            visualize=False,
         )
-    batches = DeviceBatchPrefix(cpu_batches, device)
-    adapter = context.model_bundle.adapter
-    gate_scores, gate_mapping = collect_functional_gate_scores_multi(
-        context.model,
-        context.search_space.pruning_domains,
-        forward_fn=adapter.forward_for_task,
-        loss_fn=adapter.compute_task_loss,
-        calibration_batches=batches,
-    )
-    domains = rerank_domains_by_gate_scores(
-        context.search_space.pruning_domains,
-        gate_scores,
-    )
-    space = replace(
-        context.search_space,
-        pruning_domains=tuple(domains),
-        pruning_unit_ids=[
-            str(unit)
-            for domain in domains
-            for unit in domain.ordered_unit_ids
-        ],
-        pruning_policy_version="cnn-functional-gate-fixed-ranking-v1",
-    )
+        cpu_batches = iter_limited(loader, int(taylor_samples))
+        if len(cpu_batches) != int(taylor_samples):
+            raise RuntimeError(
+                f"formal_cnn_taylor_prefix_incomplete:{len(cpu_batches)}!={taylor_samples}"
+            )
+        batches = DeviceBatchPrefix(cpu_batches, device)
+        adapter = context.model_bundle.adapter
+        gate_scores, gate_mapping = collect_functional_gate_scores_multi(
+            context.model,
+            base_space.pruning_domains,
+            forward_fn=adapter.forward_for_task,
+            loss_fn=adapter.compute_task_loss,
+            calibration_batches=batches,
+        )
+        domains = rerank_domains_by_gate_scores(
+            base_space.pruning_domains,
+            gate_scores,
+        )
+        space = replace(
+            base_space,
+            pruning_domains=tuple(domains),
+            pruning_unit_ids=[
+                str(unit)
+                for domain in domains
+                for unit in domain.ordered_unit_ids
+            ],
+            pruning_policy_version="cnn-functional-gate-fixed-ranking-v1",
+        )
+        activation_units, group_to_units = build_activation_units(
+            context.model, space, transformer_units=()
+        )
+        activation = collect_activation_taylor_cache_multi(
+            context.model,
+            activation_units,
+            group_to_units,
+            forward_fn=adapter.forward_for_task,
+            loss_fn=adapter.compute_task_loss,
+            calibration_batches=batches,
+        )
+        temporary_cache = proxy_cache_path.with_suffix(".pt.tmp")
+        torch.save(
+            {
+                "contract_hash": proxy_cache_contract_hash,
+                "contract": proxy_cache_contract,
+                "sample_count": int(taylor_samples),
+                "space": space,
+                "gate_scores": gate_scores,
+                "gate_mapping": list(gate_mapping),
+                "activation": activation,
+            },
+            temporary_cache,
+        )
+        temporary_cache.replace(proxy_cache_path)
     context.search_space = space
-    activation_units, group_to_units = build_activation_units(
-        context.model, space, transformer_units=()
-    )
-    activation = collect_activation_taylor_cache_multi(
-        context.model,
-        activation_units,
-        group_to_units,
-        forward_fn=adapter.forward_for_task,
-        loss_fn=adapter.compute_task_loss,
-        calibration_batches=batches,
-    )
+    write_json(output_root / "proxy/formal_presearch_proxy_cache_manifest.json", {
+        "schema": "cnn-formal-presearch-proxy-cache-v1",
+        "cache_path": str(proxy_cache_path),
+        "contract_hash": proxy_cache_contract_hash,
+        "loaded": proxy_cache_loaded,
+        "sample_count": int(taylor_samples),
+        "physical_ranking_frozen_across_resume": True,
+        "activation_taylor_frozen_across_resume": True,
+    })
     baseline = baseline_genotype(space)
     result = PreparedCNNFormalSearch(
         spec=spec,
