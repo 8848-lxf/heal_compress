@@ -23,7 +23,9 @@ from .joint_weight_activation_taylor import (
 )
 
 
-def _score(value: torch.Tensor, grad: torch.Tensor) -> torch.Tensor:
+def _score_terms(
+    value: torch.Tensor, grad: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     # Model activations/gradients are FP32, but squaring both operands before
     # multiplying can overflow FP32 even when the mathematical Taylor score is
     # finite.  Accumulate the audit/cache statistic in FP64; this does not alter
@@ -37,7 +39,11 @@ def _score(value: torch.Tensor, grad: torch.Tensor) -> torch.Tensor:
     result = first + second
     if not bool(torch.isfinite(result).all()) or bool((result < 0).any()):
         raise RuntimeError("gate_taylor_element_score_invalid")
-    return result
+    return first, second, result
+
+
+def _score(value: torch.Tensor, grad: torch.Tensor) -> torch.Tensor:
+    return _score_terms(value, grad)[2]
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,8 @@ class GateDomainScores:
     gate_tensor: str
     physical_dependencies: tuple[str, ...]
     family: str
+    unit_first_scores: Mapping[str, float] | None = None
+    unit_second_scores: Mapping[str, float] | None = None
     sample_count: int = 1
     per_sample_unit_scores: tuple[Mapping[str, float], ...] = ()
 
@@ -60,6 +68,9 @@ class FunctionalGateTaylorProxy:
 
     def pruning_action_breakdown(self, current: CandidatePhenotype, successor: CandidatePhenotype) -> dict[str, Any]:
         total = 0.0
+        first_total = 0.0
+        second_total = 0.0
+        component_breakdown_available = True
         count = 0
         domains: dict[str, float] = {}
         for domain_id, row in self.scores.items():
@@ -68,6 +79,15 @@ class FunctionalGateTaylorProxy:
             units = sorted((after - before) & set(row.unit_scores))
             value = sum(float(row.unit_scores[u]) for u in units)
             total += value
+            if row.unit_first_scores is None or row.unit_second_scores is None:
+                component_breakdown_available = False
+            else:
+                first_total += sum(
+                    float(row.unit_first_scores[u]) for u in units
+                )
+                second_total += sum(
+                    float(row.unit_second_scores[u]) for u in units
+                )
             count += len(units)
             if units:
                 domains[domain_id] = value
@@ -75,7 +95,13 @@ class FunctionalGateTaylorProxy:
             raise RuntimeError("gate_taylor_action_negative")
         return {
             "delta_J_prune": float(total), "delta_J_WQ": 0.0,
-            "first_order_abs_sum": float(total), "second_order_abs_sum": 0.0,
+            "first_order_abs_sum": (
+                float(first_total) if component_breakdown_available else None
+            ),
+            "second_order_abs_sum": (
+                float(second_total) if component_breakdown_available else None
+            ),
+            "component_breakdown_available": component_breakdown_available,
             "newly_pruned_parameter_count": int(count), "risk_refund": 0.0,
             "formula": "sum_newly_removed(abs(g_gate*u_gate)+0.5*abs(h_gate*u_gate^2))",
             "proxy": "functional_gate_output_taylor", "domain_breakdown": domains,
@@ -133,6 +159,8 @@ class ActivationTaylorCache:
     unit_to_owner: Mapping[str, str] = None
     sample_count: int = 1
     per_sample_transitions: tuple[Mapping[tuple[str, str, str], float], ...] = ()
+    transition_first: Mapping[tuple[str, str, str], float] | None = None
+    transition_second: Mapping[tuple[str, str, str], float] | None = None
 
     def action_breakdown(self, current: CandidatePhenotype, successor: CandidatePhenotype) -> dict[str, Any]:
         total = 0.0; first = 0.0; second = 0.0; changed: list[str] = []
@@ -148,8 +176,23 @@ class ActivationTaylorCache:
                     # Search contracts only permit adjacent transitions.  A
                     # missing cache is a hard error, never a zero fallback.
                     raise RuntimeError(f"activation_taylor_transition_missing:{key}")
-                total += float(value); changed.append(group)
+                total += float(value)
+                if self.transition_first is not None:
+                    first += float(self.transition_first[key])
+                if self.transition_second is not None:
+                    second += float(self.transition_second[key])
+                changed.append(group)
         return {"delta_J_AQ": float(total), "activation_taylor_units": sorted(set(changed)),
+                "first_order_abs_sum": (
+                    float(first) if self.transition_first is not None else None
+                ),
+                "second_order_abs_sum": (
+                    float(second) if self.transition_second is not None else None
+                ),
+                "component_breakdown_available": (
+                    self.transition_first is not None
+                    and self.transition_second is not None
+                ),
                 "formula": "sum_elementwise(abs(g_A*delta_A)+0.5*abs(h_A*delta_A^2))",
                 "elementwise_abs_before_reduction": True}
 
@@ -226,51 +269,100 @@ def collect_functional_gate_scores(
         # Replace the second tuple entry by the gradient after backward.
         loss.backward()
         scores: dict[str, dict[str, float]] = {str(d.domain_id): {} for d in domains}
+        first_scores: dict[str, dict[str, float]] = {
+            str(d.domain_id): {} for d in domains
+        }
+        second_scores: dict[str, dict[str, float]] = {
+            str(d.domain_id): {} for d in domains
+        }
         mapping: list[dict[str, Any]] = []
+
+        def accumulate(
+            bucket: dict[str, dict[str, float]],
+            local_score: torch.Tensor,
+            domain: Any,
+            role: str,
+        ) -> str:
+            domain_scores = bucket[str(domain.domain_id)]
+            if domain.domain_type in {"cnn_channel", "grouped_conv_channel"}:
+                vector = _axis_reduce(
+                    local_score, 1 if local_score.ndim >= 2 else 0
+                ).reshape(-1)
+                for unit, indices in domain.unit_root_indices.items():
+                    key = str(unit)
+                    domain_scores[key] = domain_scores.get(key, 0.0) + float(
+                        vector[list(indices)].sum()
+                    )
+                return path
+            if domain.domain_type == "ffn_hidden":
+                vector = _axis_reduce(local_score, local_score.ndim - 1).reshape(-1)
+                for unit, indices in domain.unit_root_indices.items():
+                    key = str(unit)
+                    domain_scores[key] = domain_scores.get(key, 0.0) + float(
+                        vector[list(indices)].sum()
+                    )
+                return path
+            heads = int(domain.constraints.get("heads", 1))
+            width = int(domain.original_width)
+            vector = _axis_reduce(local_score, local_score.ndim - 1).reshape(-1)
+            if vector.numel() < heads * width:
+                raise RuntimeError(
+                    f"gate_mapping_attention_shape:{domain.domain_id}:"
+                    f"{tuple(local_score.shape)}"
+                )
+            if vector.numel() >= 3 * heads * width:
+                vector = vector[: 3 * heads * width].reshape(3, heads, width)[
+                    {"q": 0, "k": 1, "v": 2}[role]
+                ]
+            else:
+                vector = vector[: heads * width].reshape(heads, width)
+            for unit in domain.ordered_unit_ids:
+                text = str(unit)
+                parts = text.split("::")
+                head = int(next(p[4:] for p in parts if p.startswith("head")))
+                local_index = int(parts[-1])
+                role_token = next(
+                    (p for p in parts if p in {"qk", "vo"}), "qk"
+                )
+                if (
+                    role in {"q", "k"} and role_token != "qk"
+                ) or (role == "v" and role_token != "vo"):
+                    continue
+                domain_scores[text] = domain_scores.get(text, 0.0) + float(
+                    vector[head, local_index]
+                )
+            return path + f"::{role}"
+
         for path, rows in wanted.items():
             for value, _ in rows and captures[path]:
                 grad = value.grad
                 if grad is None:
                     continue
-                local = _score(value, grad)
+                local_first, local_second, local = _score_terms(value, grad)
                 for domain, role in wanted[path]:
-                    if domain.domain_type in {"cnn_channel", "grouped_conv_channel"}:
-                        vector = _axis_reduce(local, 1 if local.ndim >= 2 else 0).reshape(-1)
-                        for unit, indices in domain.unit_root_indices.items():
-                            scores[domain.domain_id][str(unit)] = scores[domain.domain_id].get(str(unit), 0.0) + float(vector[list(indices)].sum())
-                        semantic = path
-                    elif domain.domain_type == "ffn_hidden":
-                        vector = _axis_reduce(local, local.ndim - 1).reshape(-1)
-                        for unit, indices in domain.unit_root_indices.items():
-                            scores[domain.domain_id][str(unit)] = scores[domain.domain_id].get(str(unit), 0.0) + float(vector[list(indices)].sum())
-                        semantic = path
-                    else:
-                        heads = int(domain.constraints.get("heads", 1)); width = int(domain.original_width)
-                        vector = _axis_reduce(local, local.ndim - 1).reshape(-1)
-                        if vector.numel() < heads * width:
-                            raise RuntimeError(f"gate_mapping_attention_shape:{domain.domain_id}:{tuple(value.shape)}")
-                        # fused QKV carries three contiguous blocks; separate
-                        # projections carry one H*d_h block.
-                        if vector.numel() >= 3 * heads * width:
-                            vector = vector[: 3 * heads * width].reshape(3, heads, width)[{"q": 0, "k": 1, "v": 2}[role]]
-                        else:
-                            vector = vector[: heads * width].reshape(heads, width)
-                        for unit in domain.ordered_unit_ids:
-                            text = str(unit)
-                            parts = text.split("::")
-                            head = int(next(p[4:] for p in parts if p.startswith("head")))
-                            local_index = int(parts[-1])
-                            role_token = next((p for p in parts if p in {"qk", "vo"}), "qk")
-                            if (role in {"q", "k"} and role_token != "qk") or (role == "v" and role_token != "vo"):
-                                continue
-                            # q/k are one functional coordinate; v is the VO coordinate.
-                            scores[domain.domain_id][text] = scores[domain.domain_id].get(text, 0.0) + float(vector[head, local_index])
-                        semantic = path + f"::{role}"
+                    semantic = accumulate(scores, local, domain, role)
+                    accumulate(first_scores, local_first, domain, role)
+                    accumulate(second_scores, local_second, domain, role)
                     mapping.append({"domain_id": str(domain.domain_id), "tracer_group_id": str(domain.domain_id), "semantic_root_tensor": semantic, "gate_tensor": semantic, "physical_dependencies": [str(member_value(m, "module_path")) for m in domain.dependency_members], "family": str(domain.family)})
     finally:
         for handle in handles: handle.remove()
         model.zero_grad(set_to_none=True)
-    out = {str(d.domain_id): GateDomainScores(str(d.domain_id), scores[str(d.domain_id)], str(d.module_path), str(d.module_path), tuple(str(member_value(m, "module_path")) for m in d.dependency_members), str(d.family)) for d in domains}
+    out = {
+        str(d.domain_id): GateDomainScores(
+            str(d.domain_id),
+            scores[str(d.domain_id)],
+            str(d.module_path),
+            str(d.module_path),
+            tuple(
+                str(member_value(m, "module_path"))
+                for m in d.dependency_members
+            ),
+            str(d.family),
+            unit_first_scores=first_scores[str(d.domain_id)],
+            unit_second_scores=second_scores[str(d.domain_id)],
+        )
+        for d in domains
+    }
     return out, mapping
 
 
@@ -310,6 +402,8 @@ def build_activation_units(model: nn.Module, space: SearchSpaceSpec, transformer
 def collect_activation_taylor_cache(model: nn.Module, units: Sequence[TaylorDeploymentUnit], group_to_units: Mapping[str, tuple[str, ...]], *, forward_fn: Any, loss_fn: Any, batch: Any) -> ActivationTaylorCache:
     selected, _ = coalesce_deployment_units(units)
     transitions: dict[tuple[str, str, str], float] = {}
+    transition_first: dict[tuple[str, str, str], float] = {}
+    transition_second: dict[tuple[str, str, str], float] = {}
     with _BoundaryCapture(model, selected, quantize=False, retain_grad=True) as capture:
         model.zero_grad(set_to_none=True)
         loss = loss_fn(forward_fn(model, batch), batch)
@@ -344,9 +438,22 @@ def collect_activation_taylor_cache(model: nn.Module, units: Sequence[TaylorDepl
                         f"activation_taylor_element_invalid:{unit.unit_id}:{old}->{new}"
                     )
                 transitions[(unit.unit_id, old, new)] = float(score.sum().detach().cpu())
+                transition_first[(unit.unit_id, old, new)] = float(
+                    first.sum().detach().cpu()
+                )
+                transition_second[(unit.unit_id, old, new)] = float(
+                    second.sum().detach().cpu()
+                )
     model.zero_grad(set_to_none=True)
     mapping = tuple({"unit_id": u.unit_id, "precision_group_id": u.metadata.get("precision_group_id"), "module_path": u.module_path, "boundary": u.boundary, "quantizer_id": u.quantizer_id} for u in selected)
-    return ActivationTaylorCache(dict(group_to_units), transitions, mapping, {u.unit_id: u.precision_owner for u in selected})
+    return ActivationTaylorCache(
+        dict(group_to_units),
+        transitions,
+        mapping,
+        {u.unit_id: u.precision_owner for u in selected},
+        transition_first=transition_first,
+        transition_second=transition_second,
+    )
 
 
 def collect_functional_gate_scores_multi(
@@ -409,6 +516,22 @@ def collect_functional_gate_scores_multi(
             gate_tensor=template.gate_tensor,
             physical_dependencies=template.physical_dependencies,
             family=template.family,
+            unit_first_scores={
+                unit_id: sum(
+                    float((rows[domain_id].unit_first_scores or {})[unit_id])
+                    for rows in sample_rows
+                )
+                / len(sample_rows)
+                for unit_id in unit_ids
+            },
+            unit_second_scores={
+                unit_id: sum(
+                    float((rows[domain_id].unit_second_scores or {})[unit_id])
+                    for rows in sample_rows
+                )
+                / len(sample_rows)
+                for unit_id in unit_ids
+            },
             sample_count=len(per_sample),
             per_sample_unit_scores=per_sample,
         )
@@ -446,6 +569,16 @@ def collect_activation_taylor_cache_multi(
         key: sum(float(row[key]) for row in per_sample) / len(per_sample)
         for key in keys
     }
+    transition_first = {
+        key: sum(float((row.transition_first or {})[key]) for row in rows)
+        / len(rows)
+        for key in keys
+    }
+    transition_second = {
+        key: sum(float((row.transition_second or {})[key]) for row in rows)
+        / len(rows)
+        for key in keys
+    }
     template = rows[0]
     return ActivationTaylorCache(
         group_to_units=dict(template.group_to_units),
@@ -454,4 +587,6 @@ def collect_activation_taylor_cache_multi(
         unit_to_owner=dict(template.unit_to_owner or {}),
         sample_count=len(per_sample),
         per_sample_transitions=per_sample,
+        transition_first=transition_first,
+        transition_second=transition_second,
     )

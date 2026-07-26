@@ -5,7 +5,9 @@ The six exact Greedy winners are immutable V1 anchors.  Every budget runs one
 seed (zero), generation 0 is initialization, and generations 1--10 are the ten
 formal evolution generations. Every real Stage-2 candidate uses materialization,
 fresh calibration, export, TensorRT, and the same frozen 500-frame validation
-manifest before it can influence selection.
+manifest before it can influence selection.  Top-5 candidates use a 300-frame
+screen, while the one selected winner from every generation is re-evaluated on
+500 frames before the unique budget winner is chosen.
 """
 
 from __future__ import annotations
@@ -75,9 +77,12 @@ GENERATIONS = 10
 POPULATION = 64
 OFFSPRING = 64
 STAGE2_QUOTA = 5
-STAGE2_EVALUATION_FRAMES = 500
-STAGE2_EVALUATION_WARMUP_FRAMES = 200
-STAGE2_EVALUATION_PROTOCOL = "fixed500_full_validation_per_candidate"
+STAGE2_EVALUATION_FRAMES = 300
+STAGE2_EVALUATION_WARMUP_FRAMES = 100
+STAGE2_EVALUATION_PROTOCOL = "top5_fixed300_warmup100_screening"
+GENERATION_WINNER_EVALUATION_FRAMES = 500
+GENERATION_WINNER_EVALUATION_WARMUP_FRAMES = 200
+GENERATION_WINNER_EVALUATION_PROTOCOL = "generation_winner_fixed500_warmup200"
 
 
 def _label(target: float) -> str:
@@ -359,6 +364,15 @@ def run(args: argparse.Namespace) -> int:
             "stage2_evaluation_protocol": STAGE2_EVALUATION_PROTOCOL,
             "stage2_evaluation_frames": STAGE2_EVALUATION_FRAMES,
             "stage2_evaluation_warmup_frames": STAGE2_EVALUATION_WARMUP_FRAMES,
+            "generation_winner_evaluation_protocol": (
+                GENERATION_WINNER_EVALUATION_PROTOCOL
+            ),
+            "generation_winner_evaluation_frames": (
+                GENERATION_WINNER_EVALUATION_FRAMES
+            ),
+            "generation_winner_evaluation_warmup_frames": (
+                GENERATION_WINNER_EVALUATION_WARMUP_FRAMES
+            ),
             "stage2_physical_gpus": list(args.stage2_gpus),
             "framework": "StrictStage12V3Runner",
             "artifact_source_root": str(source_root),
@@ -422,7 +436,7 @@ def run(args: argparse.Namespace) -> int:
                 evaluation_manifest=args.stage2_manifest,
                 evaluation_frames=STAGE2_EVALUATION_FRAMES,
                 evaluation_warmup_frames=STAGE2_EVALUATION_WARMUP_FRAMES,
-                evaluation_protocol="stage2_full_fixed500",
+                evaluation_protocol=STAGE2_EVALUATION_PROTOCOL,
                 plugin=args.plugin,
                 tensorrt_root=args.tensorrt_root,
                 physical_gpu=args.physical_gpu,
@@ -481,7 +495,55 @@ def run(args: argparse.Namespace) -> int:
                 greedy_anchor=greedy,
                 generation_callback=callback,
             )
-            final = best_real_candidate(list(outcome["evaluated"].values()), greedy)
+            # The 300-frame Top-5 screen drives online V1/V2/V3 feedback.  The
+            # authoritative budget winner is selected only from the Greedy
+            # anchor and the unique per-generation winners after 500-frame
+            # validation with a 200-frame warmup.
+            greedy_validated = real.validate_generation_winner(
+                greedy,
+                0,
+                evaluation_frames=GENERATION_WINNER_EVALUATION_FRAMES,
+                evaluation_warmup_frames=(
+                    GENERATION_WINNER_EVALUATION_WARMUP_FRAMES
+                ),
+                evaluation_protocol=GENERATION_WINNER_EVALUATION_PROTOCOL,
+            )
+            if not greedy_validated.deployable:
+                raise RuntimeError(
+                    f"v2xvit_greedy_anchor_fixed500_failed:budget_{label}"
+                )
+            generation_winner_generations: dict[str, int] = {}
+            for record in outcome["history"]:
+                winner_hash = record.get("generation_winner_hash")
+                if winner_hash:
+                    generation_winner_generations.setdefault(
+                        str(winner_hash), int(record["generation"])
+                    )
+            generation_winner_validations = []
+            for winner_hash, generation in generation_winner_generations.items():
+                screening = outcome["evaluated"].get(winner_hash)
+                if screening is None:
+                    raise RuntimeError(
+                        "generation_winner_screening_result_missing:"
+                        f"{winner_hash}"
+                    )
+                generation_winner_validations.append(
+                    real.validate_generation_winner(
+                        screening,
+                        generation,
+                        evaluation_frames=GENERATION_WINNER_EVALUATION_FRAMES,
+                        evaluation_warmup_frames=(
+                            GENERATION_WINNER_EVALUATION_WARMUP_FRAMES
+                        ),
+                        evaluation_protocol=(
+                            GENERATION_WINNER_EVALUATION_PROTOCOL
+                        ),
+                    )
+                )
+            final = best_real_candidate(
+                [greedy_validated, *generation_winner_validations],
+                greedy_validated,
+            )
             row = {
                 "budget": target,
                 "seed": 0,
@@ -490,7 +552,8 @@ def run(args: argparse.Namespace) -> int:
                 ],
                 "generation_zero_counted": outcome["generation_zero_counted"],
                 "termination_reason": outcome["termination_reason"],
-                "greedy_anchor": stage2_payload(greedy),
+                "greedy_anchor_screening": stage2_payload(greedy),
+                "greedy_anchor": stage2_payload(greedy_validated),
                 "global_anchors": [
                     stage2_payload(item) for item in outcome["anchors"].unique()
                 ],
@@ -500,6 +563,22 @@ def run(args: argparse.Namespace) -> int:
                     != greedy.complete_phenotype_hash
                 ),
                 "stage2_real_evaluation_count": len(outcome["evaluated"]) - 1,
+                "stage2_top5_screening_frames": STAGE2_EVALUATION_FRAMES,
+                "stage2_top5_screening_warmup_frames": (
+                    STAGE2_EVALUATION_WARMUP_FRAMES
+                ),
+                "generation_winner_validation_frames": (
+                    GENERATION_WINNER_EVALUATION_FRAMES
+                ),
+                "generation_winner_validation_warmup_frames": (
+                    GENERATION_WINNER_EVALUATION_WARMUP_FRAMES
+                ),
+                "generation_winner_validation_count": len(
+                    generation_winner_validations
+                ),
+                "generation_winner_validations": [
+                    stage2_payload(item) for item in generation_winner_validations
+                ],
                 "repair_counts": outcome["formal_ga_repair_counts"],
             }
             atomic_write(budget_root / "budget_summary.json", row)
@@ -530,6 +609,15 @@ def run(args: argparse.Namespace) -> int:
             "stage2_new_candidate_quota": 5,
             "stage2_evaluation_protocol": STAGE2_EVALUATION_PROTOCOL,
             "stage2_evaluation_frames": STAGE2_EVALUATION_FRAMES,
+            "stage2_evaluation_warmup_frames": (
+                STAGE2_EVALUATION_WARMUP_FRAMES
+            ),
+            "generation_winner_evaluation_frames": (
+                GENERATION_WINNER_EVALUATION_FRAMES
+            ),
+            "generation_winner_evaluation_warmup_frames": (
+                GENERATION_WINNER_EVALUATION_WARMUP_FRAMES
+            ),
             "stage2_physical_gpus": list(args.stage2_gpus),
             "results": results,
             "failures": failures,

@@ -546,6 +546,158 @@ class RealStage2Evaluator:
                           "mAP": result.map, "p50_ms": result.p50_ms}), flush=True)
         return result
 
+    def validate_generation_winner(
+        self,
+        screening_result: Stage2Result,
+        generation: int,
+        *,
+        evaluation_frames: int = 500,
+        evaluation_warmup_frames: int = 200,
+        evaluation_protocol: str = "generation_winner_fixed500_warmup200",
+    ) -> Stage2Result:
+        """Re-evaluate one already-built generation winner without rebuilding it.
+
+        Top-5 Stage-2 screening and generation-winner validation deliberately
+        use separate result namespaces.  The engine is immutable and is reused
+        only after its phenotype hash, file SHA and requested/realized audit
+        have been checked.  This avoids repeating physical export/calibration/
+        TensorRT build while preventing a 300-frame screening result from being
+        mistaken for the authoritative 500-frame result.
+        """
+
+        complete_hash = str(screening_result.complete_phenotype_hash)
+        expected_hash = str(
+            phenotype_identity(screening_result.genotype, self.space)[
+                "complete_phenotype_hash"
+            ]
+        )
+        if complete_hash != expected_hash:
+            raise RuntimeError(
+                "generation_winner_phenotype_hash_mismatch:"
+                f"{complete_hash}!={expected_hash}"
+            )
+        destination = self.root / (
+            f"ga/generation_winner_validation/budget_{self.label}/{complete_hash}"
+        )
+        result_path = destination / "generation_winner_result.json"
+        if result_path.is_file():
+            result = stage2_from_payload(json.loads(result_path.read_text()))
+            frames = int(result.metadata.get("stage2_evaluation_frames", -1))
+            warmup = int(result.metadata.get("stage2_evaluation_warmup_frames", -1))
+            protocol = str(result.metadata.get("evaluation_protocol", ""))
+            if (
+                frames != int(evaluation_frames)
+                or warmup != int(evaluation_warmup_frames)
+                or protocol != str(evaluation_protocol)
+            ):
+                raise RuntimeError(
+                    "generation_winner_cache_protocol_mismatch:"
+                    f"frames={frames}:warmup={warmup}:protocol={protocol}"
+                )
+            return result
+
+        destination.mkdir(parents=True, exist_ok=True)
+        try:
+            if not screening_result.deployable:
+                raise RuntimeError("generation_winner_screening_not_deployable")
+            engine_text = str(screening_result.metadata.get("engine_path", ""))
+            if not engine_text:
+                raise RuntimeError("generation_winner_engine_path_missing")
+            engine_path = Path(engine_text)
+            if not engine_path.is_file():
+                raise RuntimeError(f"generation_winner_engine_missing:{engine_path}")
+            expected_engine_hash = str(
+                screening_result.metadata.get("engine_sha256", "")
+            )
+            realized_engine_hash = sha256(engine_path)
+            if expected_engine_hash and expected_engine_hash != realized_engine_hash:
+                raise RuntimeError(
+                    "generation_winner_engine_hash_mismatch:"
+                    f"{expected_engine_hash}!={realized_engine_hash}"
+                )
+            exact, acceptance = precision_realized_exact(engine_path.parent)
+            if not exact:
+                raise RuntimeError(
+                    "generation_winner_precision_not_exact:"
+                    f"{acceptance.get('status')}"
+                )
+            evaluation = evaluate_v2xvit_engine_modelopt(
+                engine_path=engine_path,
+                model_config=self.request["model_config"],
+                heal_root=self.request["heal_root"],
+                output_dir=destination / "evaluation_fixed500",
+                tensorrt_root=self.tensorrt_root,
+                plugin_path=self.plugin,
+                eval_manifest_path=self.evaluation_manifest,
+                physical_gpu_id=self.physical_gpu,
+                fixed_k=int(self.request["fixed_k"]),
+                max_agents=int(self.request["max_agents"]),
+                num_frames=int(evaluation_frames),
+                warmup_frames=int(evaluation_warmup_frames),
+                latency_rounds=1,
+                dataloader_num_workers=8,
+            )
+            ok = bool(
+                evaluation.get("status") == "ok"
+                and int(evaluation.get("num_evaluated_frames", -1))
+                == int(evaluation_frames)
+                and int(evaluation.get("num_skipped_frames", -1)) == 0
+            )
+            result = Stage2Result(
+                complete_hash,
+                screening_result.genotype,
+                "ok" if ok else "generation_winner_fixed500_failed",
+                float(evaluation["mAP"]) if ok else None,
+                float(evaluation["forward_p50_ms"]) if ok else None,
+                exact,
+                int(evaluation.get("num_evaluated_frames", 0)),
+                int(evaluation.get("num_skipped_frames", 0)),
+                {
+                    "generation": int(generation),
+                    "engine_path": str(engine_path),
+                    "engine_sha256": realized_engine_hash,
+                    "screening_evaluation_frames": int(
+                        screening_result.metadata.get(
+                            "stage2_evaluation_frames", -1
+                        )
+                    ),
+                    "screening_result": stage2_payload(screening_result),
+                    "stage2_evaluation_frames": int(evaluation_frames),
+                    "stage2_evaluation_warmup_frames": int(
+                        evaluation_warmup_frames
+                    ),
+                    "evaluation_protocol": str(evaluation_protocol),
+                    "generation_winner_fixed500_result": evaluation,
+                    "precision_acceptance_status": acceptance.get("status"),
+                    "precision_fallback": False,
+                    "engine_rebuilt_for_validation": False,
+                },
+            )
+        except Exception as exc:
+            result = Stage2Result(
+                complete_hash,
+                screening_result.genotype,
+                "failed",
+                None,
+                None,
+                False,
+                0,
+                0,
+                {
+                    "generation": int(generation),
+                    "failure": f"{type(exc).__name__}:{exc}",
+                    "stage2_evaluation_frames": int(evaluation_frames),
+                    "stage2_evaluation_warmup_frames": int(
+                        evaluation_warmup_frames
+                    ),
+                    "evaluation_protocol": str(evaluation_protocol),
+                    "precision_fallback": False,
+                    "engine_rebuilt_for_validation": False,
+                },
+            )
+        atomic_write(result_path, stage2_payload(result))
+        return result
+
 
 def ensure_greedy_anchor_fixed50(
     *, root: Path, label: str, genotype: CandidateGenotype, complete_hash: str,
