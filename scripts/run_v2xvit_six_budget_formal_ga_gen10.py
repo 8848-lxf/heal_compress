@@ -73,6 +73,27 @@ def _label(target: float) -> str:
     return f"{int(round(float(target) * 100)):03d}"
 
 
+def _parse_targets(value: str) -> tuple[float, ...]:
+    targets = tuple(float(item.strip()) for item in value.split(",") if item.strip())
+    if not targets:
+        raise argparse.ArgumentTypeError("at least one target budget is required")
+    if len(set(targets)) != len(targets):
+        raise argparse.ArgumentTypeError("target budgets must be unique")
+    unsupported = tuple(target for target in targets if target not in TARGETS)
+    if unsupported:
+        raise argparse.ArgumentTypeError(f"unsupported target budgets: {unsupported}")
+    return targets
+
+
+def _shard_suffix(shard_id: str) -> str:
+    value = str(shard_id).strip()
+    if not value:
+        return ""
+    if not all(character.isalnum() or character in "-_" for character in value):
+        raise RuntimeError(f"invalid_shard_id:{value}")
+    return f"_{value}"
+
+
 def _load_winner(root: Path, target: float) -> CandidateGenotype:
     path = root / f"greedy/budget_{_label(target)}/exact_winner.json"
     if not path.is_file():
@@ -97,6 +118,8 @@ def _fixed_request(fixed_k: int) -> dict[str, Any]:
 
 def run(args: argparse.Namespace) -> int:
     root = args.output_root.resolve()
+    targets = tuple(args.targets)
+    shard_suffix = _shard_suffix(args.shard_id)
     if int(args.seed) != SEED:
         raise RuntimeError("v2xvit_six_budget_ga_requires_seed_zero")
     if int(args.generations) != GENERATIONS:
@@ -210,7 +233,7 @@ def run(args: argparse.Namespace) -> int:
         for path in (spec.q_projection_paths + spec.k_projection_paths)
     )
     atomic_write(
-        root / "ga/formal_cache_audit.json",
+        root / f"ga/formal_cache_audit{shard_suffix}.json",
         {
             "sample_count": 32,
             "calibration_hash": calibration_hash,
@@ -225,10 +248,10 @@ def run(args: argparse.Namespace) -> int:
         },
     )
     atomic_write(
-        root / "reports/formal_ga_config.json",
+        root / f"reports/formal_ga_config{shard_suffix}.json",
         {
             "model": "v2xvit",
-            "targets": list(TARGETS),
+            "targets": list(targets),
             "tolerance_abs": TOLERANCE,
             "seed_count": 1,
             "executed_seeds": [0],
@@ -247,7 +270,7 @@ def run(args: argparse.Namespace) -> int:
     request = _fixed_request(fixed_k)
     results: dict[str, Any] = {}
     failures: list[dict[str, Any]] = []
-    for target in TARGETS:
+    for target in targets:
         label = _label(target)
         try:
             anchor = _load_winner(root, target)
@@ -386,12 +409,14 @@ def run(args: argparse.Namespace) -> int:
             print(json.dumps(failure, sort_keys=True), flush=True)
 
     atomic_write(
-        root / "reports/formal_ga_results.json",
+        root / f"reports/formal_ga_results{shard_suffix}.json",
         {
             "model": "v2xvit",
             "framework": "StrictStage12V3Runner",
             "seed_count": 1,
             "executed_seeds": [0],
+            "targets": list(targets),
+            "shard_id": str(args.shard_id),
             "formal_generations": 10,
             "generation_zero_counted": False,
             "population_size": 64,
@@ -411,6 +436,17 @@ def main() -> int:
     parser.add_argument("--physical-gpu", type=int, required=True)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--generations", type=int, default=10)
+    parser.add_argument(
+        "--targets",
+        type=_parse_targets,
+        default=TARGETS,
+        help="Comma-separated subset of the frozen six budgets.",
+    )
+    parser.add_argument(
+        "--shard-id",
+        default="",
+        help="Unique suffix for shard-level cache/config/result reports.",
+    )
     parser.add_argument("--fixed50-manifest", type=Path, required=True)
     parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument(
