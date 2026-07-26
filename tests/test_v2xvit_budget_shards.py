@@ -11,6 +11,7 @@ from scripts.run_v2xvit_six_budget_formal_ga_gen10 import (
     _shard_suffix,
 )
 from scripts.run_v2xvit_ga_final_latency import load_budget_summary
+from scripts.summarize_v2xvit_six_budget_results import build_summary
 from scripts.watch_and_evaluate_v2xvit_final_budget import run as run_watcher
 from scripts.watch_and_run_v2xvit_six_budget_latency import completion_state
 
@@ -105,3 +106,17 @@ def test_six_budget_latency_watcher_requires_every_valid_fixed500(tmp_path) -> N
     state = completion_state(tmp_path)
     assert state["ready"] is False
     assert "fixed500_invalid:005:ga" in state["failures"]
+
+
+def test_six_budget_summary_is_explicitly_partial_without_formal_results(tmp_path) -> None:
+    baseline = tmp_path / "baseline_fixed500/B0/evaluation.json"
+    baseline.parent.mkdir(parents=True)
+    baseline.write_text(
+        '{"AP@0.3":0.7,"AP@0.5":0.6,"AP@0.7":0.4,"mAP":0.5666666667,'
+        '"num_evaluated_frames":500,"num_skipped_frames":0,"eval_manifest_hash":"m"}\n',
+        encoding="utf-8",
+    )
+    result = build_summary(tmp_path)
+    assert result["status"] == "partial"
+    assert result["baseline_evaluated"] == 500
+    assert result["budgets"]["030"]["status"] == "pending"

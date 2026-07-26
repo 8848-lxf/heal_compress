@@ -148,6 +148,13 @@ def run(args: argparse.Namespace) -> int:
         "latency_output": str(output_json), "status": "complete" if result.returncode == 0 else "failed",
     })
     _write(status_path, final)
+    if result.returncode == 0:
+        summary_script = Path(__file__).with_name("summarize_v2xvit_six_budget_results.py")
+        subprocess.run(
+            [sys.executable, str(summary_script), "--output-root", str(root), "--require-complete"],
+            env=env,
+            check=True,
+        )
     return result.returncode
 
 
