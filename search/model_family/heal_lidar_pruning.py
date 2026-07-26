@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+import math
 from typing import Any, Sequence
 
 import torch.nn as nn
@@ -89,6 +90,40 @@ def _require_module(
             f"expected={expected_name}"
         )
     return module
+
+
+def _attfusion_scale_audit(model: nn.Module, feature_width: int) -> dict[str, Any]:
+    """Require AttFusion's parameter-free attention scale to match its width.
+
+    ``ScaledDotProductAttention.sqrt_dim`` is plain Python/NumPy metadata and
+    therefore is not rewritten by channel pruning or ``state_dict`` replay.
+    Leaving it at ``sqrt(original_width)`` changes the physical model after the
+    shrinker output is pruned even though every tensor shape remains legal.
+    """
+
+    attention = _require_module(model, "fusion_net.att", nn.Module)
+    if not hasattr(attention, "sqrt_dim"):
+        raise RuntimeError("heal_lidar_attfusion_sqrt_dim_missing")
+    observed = float(getattr(attention, "sqrt_dim"))
+    expected = math.sqrt(float(feature_width))
+    return {
+        "feature_width": int(feature_width),
+        "observed_sqrt_dim": observed,
+        "expected_sqrt_dim": expected,
+        "passed": bool(math.isfinite(observed) and math.isclose(observed, expected, rel_tol=0.0, abs_tol=1.0e-12)),
+    }
+
+
+def _synchronize_attfusion_scale(model: nn.Module, feature_width: int) -> dict[str, Any]:
+    attention = _require_module(model, "fusion_net.att", nn.Module)
+    if not hasattr(attention, "sqrt_dim"):
+        raise RuntimeError("heal_lidar_attfusion_sqrt_dim_missing")
+    before = float(getattr(attention, "sqrt_dim"))
+    setattr(attention, "sqrt_dim", math.sqrt(float(feature_width)))
+    audit = _attfusion_scale_audit(model, feature_width)
+    if not audit["passed"]:
+        raise RuntimeError(f"heal_lidar_attfusion_sqrt_dim_update_failed:{audit}")
+    return {**audit, "before_sqrt_dim": before, "updated": not math.isclose(before, audit["expected_sqrt_dim"], rel_tol=0.0, abs_tol=1.0e-12)}
 
 
 def _conv_bn_paths(model: nn.Module, prefix: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -243,6 +278,12 @@ def validate_heal_lidar_baseline_pruning_topology(
     fusion = _require_module(model, "fusion_net", nn.Module)
     if type(fusion).__name__ != expected_fusion_class:
         raise RuntimeError(f"heal_lidar_pruning_fusion_type:{type(fusion).__name__}")
+    if family_id == "heal_lidar_attfusion":
+        scale_audit = _attfusion_scale_audit(model, feature_width)
+        if not scale_audit["passed"]:
+            raise RuntimeError(
+                f"heal_lidar_attfusion_sqrt_dim_mismatch:{scale_audit}"
+            )
 
     domains: list[HealLidarPruningDomainSpec] = []
     for level, (conv_paths, bn_paths) in enumerate(zip(all_conv_paths, all_bn_paths)):
@@ -465,11 +506,19 @@ def materialize_heal_lidar_baseline(
     validation = result["validation"]
     if not validation.passed:
         raise RuntimeError(f"heal_lidar_physical_validation_failed:{validation.issues}")
+    attfusion_scale_audit: dict[str, Any] = {}
+    if family_id == "heal_lidar_attfusion":
+        realized_width = int(_require_module(result["model"], "cls_head", nn.Conv2d).in_channels)
+        attfusion_scale_audit = _synchronize_attfusion_scale(
+            result["model"], realized_width
+        )
     physical_topology = validate_heal_lidar_baseline_pruning_topology(
         result["model"], family_id, require_original_widths=False
     )
 
     replayed = replay_pruning(model, result["plan"], in_place=False).model
+    if family_id == "heal_lidar_attfusion":
+        _synchronize_attfusion_scale(replayed, physical_topology.feature_width)
     incompatible = replayed.load_state_dict(result["model"].state_dict(), strict=True)
     if incompatible.missing_keys or incompatible.unexpected_keys:
         raise RuntimeError("heal_lidar_strict_replay_reload_failed")
@@ -486,6 +535,7 @@ def materialize_heal_lidar_baseline(
         "original_topology": original,
         "physical_topology": physical_topology,
         "strict_replay_reload_verified": True,
+        "attfusion_scale_audit": attfusion_scale_audit,
         "ledger_summary": ledger,
     }
 

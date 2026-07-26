@@ -87,3 +87,29 @@ Timestamp separator: 2026-07-25T19:18:00+08:00
 Timestamp separator: 2026-07-25T19:25:00+08:00
 
 ---
+
+## 2026-07-26 10:40:00 +0800
+
+- AttFusion's first formal exact-anchor builds failed before ONNX export at
+  fixed-K wrapper parity.  Intermediate hooks proved the encoder, all three
+  backbone stages/deblocks and shrinker were bit-identical; the first
+  divergence was the parameter-free attention fusion.
+- Root cause: pruning changed the shared fusion width while the physical
+  model retained `ScaledDotProductAttention.sqrt_dim=sqrt(256)`.  The export
+  wrapper correctly used `sqrt(realized_width)`, exposing the stale physical
+  metadata.  This was not a TensorRT tolerance or precision fallback issue.
+- Physical materialization now synchronizes and audits the AttFusion scale in
+  both the returned model and strict replay.  Topology validation fails closed
+  on a stale or missing scale.  Exact-anchor parity was rechecked at realized
+  widths 128, 120 and 108; all three pass with maximum head-output error below
+  `1e-3`.
+- Added regression coverage for scale synchronization and stale-scale
+  rejection.  Focused pruning/deployment tests report `29 passed`.
+- The failed first attempt remains immutable under `attfusion/formal_ga`; the
+  corrected run will use a new `attfusion/formal_ga_v2` directory.
+
+---
+
+Timestamp separator: 2026-07-26T10:40:00+08:00
+
+---
