@@ -113,3 +113,27 @@ Timestamp separator: 2026-07-25T19:25:00+08:00
 Timestamp separator: 2026-07-26T10:40:00+08:00
 
 ---
+
+## 2026-07-26 10:50:00 +0800
+
+- V2X-ViT train32 completed with all six budgets captured in one 912-step
+  selected trajectory.  Its 16-to-32 Taylor rank convergence passes and the
+  formal GPU2 run has begun budget 0.30 generation 1 real Stage-2 builds.
+- CoBEVT's corrected model-specific train prefix reached AQ collection but
+  failed closed on a non-finite FP32 elementwise second-order score before any
+  Greedy/GA/engine work.
+- The Taylor statistic now converts already-collected finite FP32 activation,
+  gradient and perturbation tensors to FP64 before squaring and reduction.
+  This prevents numerical overflow in `g^2 * delta^2` without changing model
+  execution, quantization, elementwise absolute-value order or the Fisher
+  definition.  Truly non-finite base/gradient/delta inputs still fail with the
+  exact unit and transition in the error.
+- Added a regression whose finite FP32 operands overflow under FP32
+  second-order accumulation but remain finite under the audited FP64
+  accumulator.  Focused gate/AQ tests report `14 passed`.
+
+---
+
+Timestamp separator: 2026-07-26T10:50:00+08:00
+
+---
