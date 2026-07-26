@@ -20,7 +20,13 @@ if str(REPO) not in sys.path:
 
 from search.ga.cnn_stage12_v3 import (  # noqa: E402
     CNNRealStage2Evaluator,
+    GENERATION_WINNER_FRAMES,
+    GENERATION_WINNER_PROTOCOL,
+    GENERATION_WINNER_WARMUP_FRAMES,
     MODEL_SPECS,
+    STAGE2_SCREENING_FRAMES,
+    STAGE2_SCREENING_PROTOCOL,
+    STAGE2_SCREENING_WARMUP_FRAMES,
     create_real_evaluator,
     greedy_anchors,
     load_greedy_anchors,
@@ -72,7 +78,14 @@ def run(args: argparse.Namespace) -> int:
             f"{os.environ.get('CUDA_VISIBLE_DEVICES')}!={args.physical_gpu}"
         )
     targets = tuple(float(value) for value in args.targets.split(",") if value)
-    if targets != DEFAULT_TARGETS:
+    if (
+        not targets
+        or len(set(targets)) != len(targets)
+        or any(target not in DEFAULT_TARGETS for target in targets)
+        or targets != tuple(
+            target for target in DEFAULT_TARGETS if target in set(targets)
+        )
+    ):
         raise RuntimeError(f"cnn_formal_ga_budget_contract_mismatch:{targets}")
     root = args.output_root.resolve()
     if root.exists() and any(root.iterdir()) and not args.resume:
@@ -112,6 +125,14 @@ def run(args: argparse.Namespace) -> int:
         "population_size": 64,
         "offspring_size": 64,
         "stage2_quota": 5,
+        "stage2_top5_screening_frames": STAGE2_SCREENING_FRAMES,
+        "stage2_top5_screening_warmup_frames": (
+            STAGE2_SCREENING_WARMUP_FRAMES
+        ),
+        "generation_winner_validation_frames": GENERATION_WINNER_FRAMES,
+        "generation_winner_validation_warmup_frames": (
+            GENERATION_WINNER_WARMUP_FRAMES
+        ),
         "seed": 0,
         "targets": list(targets),
         "old_framework_started": False,
@@ -147,7 +168,20 @@ def run(args: argparse.Namespace) -> int:
         }, sort_keys=True), flush=True)
     else:
         anchors = greedy_anchors(prepared, targets=targets, output_root=root)
-    real_evaluator = create_real_evaluator(prepared, output_root=root)
+    real_evaluator = create_real_evaluator(
+        prepared,
+        output_root=root,
+        num_frames=STAGE2_SCREENING_FRAMES,
+        warmup_frames=STAGE2_SCREENING_WARMUP_FRAMES,
+        run_dir_name="stage2_screening_runtime",
+    )
+    validation_evaluator = create_real_evaluator(
+        prepared,
+        output_root=root,
+        num_frames=GENERATION_WINNER_FRAMES,
+        warmup_frames=GENERATION_WINNER_WARMUP_FRAMES,
+        run_dir_name="generation_winner_validation_runtime",
+    )
     results: dict[str, dict] = {}
     failures: list[dict] = []
     greedy_gate_rows: list[dict] = []
@@ -211,7 +245,7 @@ def run(args: argparse.Namespace) -> int:
     if failures or len(greedy_gate_results) != len(targets):
         write_json(root / "reports/pre_ga_greedy_anchor_gate.json", {
             "formal_ga_allowed": False,
-            "reason": "all_six_greedy_exact_anchors_must_exist_and_be_deployable",
+            "reason": "all_requested_greedy_exact_anchors_must_exist_and_be_deployable",
             "failures": failures,
         })
         print(json.dumps({
@@ -223,8 +257,8 @@ def run(args: argparse.Namespace) -> int:
         return 2
     write_json(root / "reports/pre_ga_greedy_anchor_gate.json", {
         "formal_ga_allowed": not args.greedy_only,
-        "all_six_greedy_exact_anchors_in_band": True,
-        "all_six_greedy_exact_anchors_deployable": True,
+        "all_requested_greedy_exact_anchors_in_band": True,
+        "all_requested_greedy_exact_anchors_deployable": True,
         "greedy_only_requested": bool(args.greedy_only),
         "frontier_and_recovery_used": True,
         "budget_projection_used": False,
@@ -236,8 +270,8 @@ def run(args: argparse.Namespace) -> int:
             "mode": "six_budget_greedy_anchor_gate_only",
             "new_ga_framework_used": True,
             "formal_ga_executed": False,
-            "all_six_greedy_exact_anchors_in_band": True,
-            "all_six_greedy_exact_anchors_deployable": True,
+            "all_requested_greedy_exact_anchors_in_band": True,
+            "all_requested_greedy_exact_anchors_deployable": True,
             "greedy_frontier_recovery_enabled": True,
             "budget_projection_used": False,
             "repair_enabled": False,
@@ -280,6 +314,7 @@ def run(args: argparse.Namespace) -> int:
                 seed=args.seed,
                 generations=args.generations,
                 real_evaluator=real_evaluator,
+                validation_evaluator=validation_evaluator,
             )
         except Exception as exc:  # preserve other completed budgets, fail closed per budget
             failure = {
@@ -322,6 +357,16 @@ def run(args: argparse.Namespace) -> int:
         "offspring_size": 64,
         "survivor_size": 64,
         "stage2_new_candidate_quota": 5,
+        "stage2_top5_screening_protocol": STAGE2_SCREENING_PROTOCOL,
+        "stage2_top5_screening_frames": STAGE2_SCREENING_FRAMES,
+        "stage2_top5_screening_warmup_frames": (
+            STAGE2_SCREENING_WARMUP_FRAMES
+        ),
+        "generation_winner_validation_protocol": GENERATION_WINNER_PROTOCOL,
+        "generation_winner_validation_frames": GENERATION_WINNER_FRAMES,
+        "generation_winner_validation_warmup_frames": (
+            GENERATION_WINNER_WARMUP_FRAMES
+        ),
         "targets": list(targets),
         "results": results,
         "failures": failures,
@@ -339,6 +384,14 @@ def run(args: argparse.Namespace) -> int:
         "population_size": 64,
         "offspring_size": 64,
         "stage2_quota": 5,
+        "stage2_top5_screening_frames": STAGE2_SCREENING_FRAMES,
+        "stage2_top5_screening_warmup_frames": (
+            STAGE2_SCREENING_WARMUP_FRAMES
+        ),
+        "generation_winner_validation_frames": GENERATION_WINNER_FRAMES,
+        "generation_winner_validation_warmup_frames": (
+            GENERATION_WINNER_WARMUP_FRAMES
+        ),
         "greedy_anchor_gate_completed_before_ga": True,
         "greedy_frontier_recovery_enabled": True,
         "stage1_proxy": "J_struct_gate + J_WQ + J_AQ",

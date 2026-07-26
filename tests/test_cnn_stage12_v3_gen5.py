@@ -96,7 +96,7 @@ def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
     assert "single_seed_zero_required" in source
     assert '"StrictStage12V3Runner"' in source
     assert "full1789_executed" in source
-    assert "all_six_greedy_exact_anchors_in_band" in source
+    assert "all_requested_greedy_exact_anchors_in_band" in source
     assert "greedy_only" in source
     assert "formal_ga_start_authorized_by_gate" in source
     import scripts.run_cnn_formal_ga_gen5 as runner
@@ -105,6 +105,24 @@ def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
                       / "search/ga/cnn_stage12_v3.py").read_text()
     assert "cnn-formal-presearch-proxy-cache-v1" in adapter_source
     assert "physical_ranking_frozen_across_resume" in adapter_source
+
+
+def test_cnn_two_tier_real_evaluation_protocol_is_frozen() -> None:
+    from search.ga.cnn_stage12_v3 import (
+        GENERATION_WINNER_FRAMES,
+        GENERATION_WINNER_PROTOCOL,
+        GENERATION_WINNER_WARMUP_FRAMES,
+        STAGE2_SCREENING_FRAMES,
+        STAGE2_SCREENING_PROTOCOL,
+        STAGE2_SCREENING_WARMUP_FRAMES,
+    )
+
+    assert STAGE2_SCREENING_FRAMES == 300
+    assert STAGE2_SCREENING_WARMUP_FRAMES == 100
+    assert STAGE2_SCREENING_PROTOCOL == "top5_fixed300_warmup100_screening"
+    assert GENERATION_WINNER_FRAMES == 500
+    assert GENERATION_WINNER_WARMUP_FRAMES == 200
+    assert GENERATION_WINNER_PROTOCOL == "generation_winner_fixed500_warmup200"
 
 
 def test_physical_gpu_is_mapped_to_process_local_cuda_ordinal(monkeypatch) -> None:
