@@ -6,6 +6,37 @@ read-only and are never used as current-framework search results.
 
 ---
 
+## 2026-07-26 02:05:30 -07:00
+
+- Root-caused the new-run budget failures to the specialized CNN Greedy
+  adapter, not to an exact-BOPS arithmetic defect. It captured only selected
+  trajectory states. DiscoNet jumped from `0.3230040913` to `0.2234232808`,
+  and F-Cooper from `0.2774228250` to `0.1904317909`, crossing valid bands in
+  one legal FP32→FP16 action.
+- Restored two audited capabilities from the generic Greedy engine without
+  restoring repair: (1) capture of already-evaluated legal neighbor frontier
+  states and (2) bounded target-directed beam recovery with adjacent legal
+  actions only. No candidate is projected or rewritten to meet a budget.
+- Added explicit iteration accounting. A selected primary action or one beam
+  depth expansion counts as one search iteration; parallel neighbor candidate
+  evaluations are reported separately. Thus recovery work is included in
+  `total_search_iteration_count` rather than hidden.
+- Added a formal pre-GA gate: all six exact Greedy anchors must first exist in
+  their `[target-0.005,target+0.005]` bands and pass real engine/fixed50
+  deployment validation. Formal GA cannot begin for any budget until this
+  six-budget gate passes. `--greedy-only` permits an explicit stop after the
+  gate; a resumed GA run reuses immutable Stage-2 anchor caches.
+- Added deterministic regression cases where the selected path jumps over
+  both targets: one target is recovered from the evaluated-neighbor frontier,
+  the second at beam depth 1. The audit reports primary steps `1`, recovery
+  iterations `1`, total search iterations `2`, and all repair counts `0`.
+- Tests: targeted `11 passed`; full suite `1040 passed`; `compileall`,
+  `py_compile`, and `git diff --check` passed. GPU2/GPU3 remain occupied by
+  the independent V2X-ViT/AttFusion formal runs, so the new three-model
+  Greedy gate and GA reruns have not yet been launched at this checkpoint.
+
+---
+
 ## 2026-07-25 15:52:00 -07:00
 
 - First concurrent launch exposed a fail-closed reporting alias defect after

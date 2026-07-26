@@ -476,19 +476,246 @@ def greedy_anchors(
     *,
     targets: Sequence[float],
     output_root: Path,
+    bops_tolerance_abs: float = 0.005,
+    recovery_beam_width: int = 8,
+    recovery_seed_pool_size: int = 32,
+    recovery_max_depth: int = 64,
 ) -> dict[float, CandidateGenotype]:
+    """Build exact-budget anchors without repair or budget projection.
+
+    The primary trajectory remains the strict single-path Greedy search.  Two
+    bounded recovery mechanisms from the audited generic Greedy engine are
+    deliberately retained:
+
+    * every already-evaluated legal neighbor may enter a budget frontier;
+    * a finite target-directed beam may continue from legal above-budget
+      frontier states when the selected path jumps across a budget band.
+
+    A frontier candidate costs no additional search iteration because it was
+    evaluated in the primary step.  Every beam *depth expansion* is an
+    additional search iteration and is included in
+    ``total_search_iteration_count``.  Candidate evaluations are reported
+    separately because one iteration evaluates many neighbors in parallel.
+    Neither mechanism changes a candidate to satisfy a budget.
+    """
+
+    if float(bops_tolerance_abs) <= 0.0:
+        raise ValueError("strict_greedy_bops_tolerance_must_be_positive")
+    if int(recovery_beam_width) <= 0:
+        raise ValueError("strict_greedy_recovery_beam_width_must_be_positive")
+    if int(recovery_seed_pool_size) < int(recovery_beam_width):
+        raise ValueError("strict_greedy_recovery_seed_pool_smaller_than_beam")
+    if int(recovery_max_depth) <= 0:
+        raise ValueError("strict_greedy_recovery_max_depth_must_be_positive")
+    target_values = tuple(sorted({float(value) for value in targets}, reverse=True))
+    if not target_values:
+        raise ValueError("strict_greedy_targets_empty")
     evaluator = prepared.evaluator(
-        target=min(float(value) for value in targets),
+        target=min(target_values),
         enforce_bops_hard_gate=False,
     )
+    metrics_cache: dict[str, dict[str, Any]] = {}
+
     def resource_metrics(candidate: CandidateGenotype) -> dict[str, Any]:
         phenotype = canonicalize_candidate(candidate, prepared.space)
+        identity = phenotype_identity(candidate, prepared.space)
+        cache_key = str(identity["complete_phenotype_hash"])
+        cached = metrics_cache.get(cache_key)
+        if cached is not None:
+            return dict(cached)
         size = canonical_size_metrics(prepared.size.evaluate_breakdown(phenotype))
-        return {
-            **phenotype_identity(candidate, prepared.space),
+        result = {
+            **identity,
             **prepared.bops.evaluate_breakdown(phenotype),
             **size,
         }
+        metrics_cache[cache_key] = dict(result)
+        return result
+
+    def action_risk(
+        parent: CandidateGenotype,
+        successor: CandidateGenotype,
+        action_type: str,
+        locus: str,
+    ) -> float:
+        parent_phenotype = canonicalize_candidate(parent, prepared.space)
+        successor_phenotype = canonicalize_candidate(successor, prepared.space)
+        if action_type == "structure":
+            value = float(
+                prepared.structure.pruning_action_breakdown(
+                    parent_phenotype, successor_phenotype
+                )["delta_J_prune"]
+            )
+        elif action_type == "precision":
+            value = float(
+                prepared.weight.weight_quantization_action_breakdown(
+                    parent_phenotype, successor_phenotype
+                )["delta_J_WQ"]
+            ) + float(
+                prepared.activation.action_breakdown(
+                    parent_phenotype, successor_phenotype
+                )["delta_J_AQ"]
+            )
+        else:
+            raise RuntimeError(f"strict_greedy_unknown_action_type:{action_type}")
+        if value < 0.0 or not math.isfinite(value):
+            raise RuntimeError(f"strict_greedy_negative_or_nonfinite_risk:{locus}")
+        return value
+
+    def make_record(
+        candidate: CandidateGenotype,
+        metrics: Mapping[str, Any],
+        cumulative_risk: float,
+        *,
+        source: str,
+        primary_step: int | None,
+        recovery_depth: int,
+        search_iteration: int,
+        selected_primary_path: bool,
+        parent_hash: str | None = None,
+        action_type: str | None = None,
+        locus: str | None = None,
+    ) -> dict[str, Any]:
+        if cumulative_risk < 0.0 or not math.isfinite(cumulative_risk):
+            raise RuntimeError("strict_greedy_invalid_cumulative_risk")
+        return {
+            "candidate": candidate,
+            "metrics": dict(metrics),
+            "cumulative_J_total": float(cumulative_risk),
+            "capture_source": str(source),
+            "capture_sources": [str(source)],
+            "primary_step": primary_step,
+            "recovery_depth": int(recovery_depth),
+            "search_iteration": int(search_iteration),
+            "selected_primary_path": bool(selected_primary_path),
+            "parent_hash": parent_hash,
+            "action_type": action_type,
+            "locus": locus,
+        }
+
+    captured: dict[float, dict[str, dict[str, Any]]] = {
+        target: {} for target in target_values
+    }
+    recovery_seed_pools: dict[float, dict[str, dict[str, Any]]] = {
+        target: {} for target in target_values
+    }
+    nearest: dict[float, dict[str, Any]] = {}
+
+    def merge_record(
+        incumbent: dict[str, Any] | None,
+        candidate_record: dict[str, Any],
+    ) -> dict[str, Any]:
+        if incumbent is None:
+            return dict(candidate_record)
+        incumbent_key = (
+            float(incumbent["cumulative_J_total"]),
+            int(incumbent["search_iteration"]),
+            str(incumbent["metrics"]["complete_phenotype_hash"]),
+        )
+        candidate_key = (
+            float(candidate_record["cumulative_J_total"]),
+            int(candidate_record["search_iteration"]),
+            str(candidate_record["metrics"]["complete_phenotype_hash"]),
+        )
+        result = dict(candidate_record if candidate_key < incumbent_key else incumbent)
+        sources = sorted({
+            *incumbent.get("capture_sources", [incumbent["capture_source"]]),
+            *candidate_record.get(
+                "capture_sources", [candidate_record["capture_source"]]
+            ),
+        })
+        result["capture_sources"] = sources
+        result["selected_primary_path"] = bool(
+            incumbent.get("selected_primary_path", False)
+            or candidate_record.get("selected_primary_path", False)
+        )
+        if result["selected_primary_path"]:
+            result["capture_source"] = "primary_selected_trajectory"
+        return result
+
+    def update_budget_frontier(record: dict[str, Any]) -> None:
+        retention = float(record["metrics"]["R_bops_vs_fp32"])
+        candidate_hash = str(record["metrics"]["complete_phenotype_hash"])
+        for target in target_values:
+            nearest_key = (
+                abs(retention - target),
+                float(record["cumulative_J_total"]),
+                candidate_hash,
+            )
+            incumbent_nearest = nearest.get(target)
+            if incumbent_nearest is None:
+                nearest[target] = dict(record)
+            else:
+                incumbent_key = (
+                    abs(
+                        float(incumbent_nearest["metrics"]["R_bops_vs_fp32"])
+                        - target
+                    ),
+                    float(incumbent_nearest["cumulative_J_total"]),
+                    str(incumbent_nearest["metrics"]["complete_phenotype_hash"]),
+                )
+                if nearest_key < incumbent_key:
+                    nearest[target] = dict(record)
+
+            if retention > target + float(bops_tolerance_abs):
+                pool = recovery_seed_pools[target]
+                pool[candidate_hash] = merge_record(pool.get(candidate_hash), record)
+                if len(pool) > int(recovery_seed_pool_size):
+                    retained = sorted(
+                        pool.items(),
+                        key=lambda row: (
+                            float(row[1]["metrics"]["R_bops_vs_fp32"]) - target,
+                            float(row[1]["cumulative_J_total"]),
+                            row[0],
+                        ),
+                    )[: int(recovery_seed_pool_size)]
+                    recovery_seed_pools[target] = dict(retained)
+
+            if abs(retention - target) <= float(bops_tolerance_abs):
+                pool = captured[target]
+                pool[candidate_hash] = merge_record(pool.get(candidate_hash), record)
+
+    def select_recovery_beam(
+        records: Sequence[dict[str, Any]], target: float
+    ) -> list[dict[str, Any]]:
+        unique: dict[str, dict[str, Any]] = {}
+        for record in records:
+            candidate_hash = str(record["metrics"]["complete_phenotype_hash"])
+            unique[candidate_hash] = merge_record(unique.get(candidate_hash), record)
+        values = list(unique.values())
+        closest = sorted(
+            values,
+            key=lambda row: (
+                max(0.0, float(row["metrics"]["R_bops_vs_fp32"]) - target),
+                float(row["cumulative_J_total"]),
+                str(row["metrics"]["complete_phenotype_hash"]),
+            ),
+        )
+        quality = sorted(
+            values,
+            key=lambda row: (
+                float(row["cumulative_J_total"])
+                / max(1.0 - float(row["metrics"]["R_bops_vs_fp32"]), 1.0e-18),
+                float(row["cumulative_J_total"]),
+                max(0.0, float(row["metrics"]["R_bops_vs_fp32"]) - target),
+                str(row["metrics"]["complete_phenotype_hash"]),
+            ),
+        )
+        selected: list[dict[str, Any]] = []
+        selected_hashes: set[str] = set()
+        for index in range(max(len(closest), len(quality))):
+            for ordered in (closest, quality):
+                if index >= len(ordered):
+                    continue
+                record = ordered[index]
+                candidate_hash = str(record["metrics"]["complete_phenotype_hash"])
+                if candidate_hash in selected_hashes:
+                    continue
+                selected.append(record)
+                selected_hashes.add(candidate_hash)
+                if len(selected) >= int(recovery_beam_width):
+                    return selected
+        return selected
 
     current = prepared.baseline
     current_metrics = resource_metrics(current)
@@ -500,17 +727,36 @@ def greedy_anchors(
         "cumulative_J_total": 0.0,
         "selected": True,
     }]
-    captured: dict[float, list[tuple[float, CandidateGenotype, dict[str, Any]]]] = {
-        float(target): [] for target in targets
-    }
+    initial_record = make_record(
+        current,
+        current_metrics,
+        0.0,
+        source="initial_candidate",
+        primary_step=0,
+        recovery_depth=0,
+        search_iteration=0,
+        selected_primary_path=True,
+    )
+    update_budget_frontier(initial_record)
     step = 0
+    primary_neighbor_candidate_count = 0
+    recovery_iteration_count = 0
+    recovery_evaluated_candidate_count = 0
+    recovery_trace: list[dict[str, Any]] = []
     epsilon = 1.0e-18
-    while float(current_metrics["R_bops_vs_fp32"]) > min(targets) - 0.005:
+    while (
+        float(current_metrics["R_bops_vs_fp32"])
+        > min(target_values) - float(bops_tolerance_abs)
+    ):
         actions = decreasing_neighbors(current, prepared.space)
         if not actions:
             break
-        current_phenotype = canonicalize_candidate(current, prepared.space)
-        candidates: list[tuple[tuple[Any, ...], str, str, CandidateGenotype, dict[str, Any], float, float]] = []
+        candidates: list[
+            tuple[
+                tuple[Any, ...], str, str, CandidateGenotype,
+                dict[str, Any], float, float, dict[str, Any]
+            ]
+        ] = []
         for action_type, locus, successor in actions:
             validate_genotype_schema(successor, prepared.space)
             # Greedy action ordering only needs the action-local Taylor risk
@@ -524,26 +770,23 @@ def greedy_anchors(
             )
             if delta_bops <= 0.0:
                 continue
-            successor_phenotype = canonicalize_candidate(successor, prepared.space)
-            if action_type == "structure":
-                delta_j = float(
-                    prepared.structure.pruning_action_breakdown(
-                        current_phenotype, successor_phenotype
-                    )["delta_J_prune"]
-                )
-            else:
-                delta_j = float(
-                    prepared.weight.weight_quantization_action_breakdown(
-                        current_phenotype, successor_phenotype
-                    )["delta_J_WQ"]
-                ) + float(
-                    prepared.activation.action_breakdown(
-                        current_phenotype, successor_phenotype
-                    )["delta_J_AQ"]
-                )
-            if delta_j < 0.0 or not math.isfinite(delta_j):
-                raise RuntimeError(f"strict_greedy_negative_or_nonfinite_risk:{locus}")
+            delta_j = action_risk(current, successor, action_type, locus)
             utility = delta_j / max(delta_bops, epsilon)
+            record = make_record(
+                successor,
+                successor_metrics,
+                cumulative + delta_j,
+                source="primary_evaluated_neighbor_frontier",
+                primary_step=step + 1,
+                recovery_depth=0,
+                search_iteration=step + 1,
+                selected_primary_path=False,
+                parent_hash=str(current_metrics["complete_phenotype_hash"]),
+                action_type=action_type,
+                locus=locus,
+            )
+            update_budget_frontier(record)
+            primary_neighbor_candidate_count += 1
             key = (
                 utility,
                 action_type,
@@ -551,11 +794,15 @@ def greedy_anchors(
                 str(successor_metrics["complete_phenotype_hash"]),
             )
             candidates.append((
-                key, action_type, locus, successor, successor_metrics, delta_j, delta_bops
+                key, action_type, locus, successor, successor_metrics, delta_j,
+                delta_bops, record
             ))
         if not candidates:
             break
-        _key, action_type, locus, successor, successor_metrics, delta_j, delta_bops = min(
+        (
+            _key, action_type, locus, successor, successor_metrics, delta_j,
+            delta_bops, selected_record
+        ) = min(
             candidates, key=lambda row: row[0]
         )
         cumulative += delta_j
@@ -574,33 +821,164 @@ def greedy_anchors(
             "cumulative_J_total": cumulative,
             "selected": True,
         })
-        retention = float(current_metrics["R_bops_vs_fp32"])
-        for target in captured:
-            if abs(retention - target) <= 0.005:
-                captured[target].append((cumulative, current, dict(current_metrics)))
+        selected_record = {
+            **selected_record,
+            "capture_source": "primary_selected_trajectory",
+            "capture_sources": sorted({
+                *selected_record["capture_sources"],
+                "primary_selected_trajectory",
+            }),
+            "selected_primary_path": True,
+        }
+        update_budget_frontier(selected_record)
+
+    recovery_reports: dict[float, dict[str, Any]] = {}
+    for target in target_values:
+        if captured[target]:
+            recovery_reports[target] = {
+                "status": "reached_primary_frontier",
+                "depth": 0,
+                "search_iteration_count": 0,
+                "evaluated_candidate_count": 0,
+                "beam_width": int(recovery_beam_width),
+                "stop_reason": "legal_primary_frontier_capture",
+            }
+            continue
+        seeds = select_recovery_beam(
+            list(recovery_seed_pools[target].values()) or [initial_record], target
+        )
+        beam = list(seeds)
+        visited = {
+            str(record["metrics"]["complete_phenotype_hash"]): record
+            for record in beam
+        }
+        target_evaluated = 0
+        target_iterations = 0
+        reached_depth = 0
+        stop_reason = "recovery_depth_exhausted"
+        for depth in range(1, int(recovery_max_depth) + 1):
+            expansion: dict[str, dict[str, Any]] = {}
+            for parent_record in beam:
+                parent = parent_record["candidate"]
+                parent_metrics = parent_record["metrics"]
+                for action_type, locus, successor in decreasing_neighbors(
+                    parent, prepared.space
+                ):
+                    validate_genotype_schema(successor, prepared.space)
+                    successor_metrics = resource_metrics(successor)
+                    candidate_hash = str(
+                        successor_metrics["complete_phenotype_hash"]
+                    )
+                    delta_bops = float(parent_metrics["R_bops_vs_fp32"]) - float(
+                        successor_metrics["R_bops_vs_fp32"]
+                    )
+                    if delta_bops <= 0.0:
+                        continue
+                    delta_j = action_risk(parent, successor, action_type, locus)
+                    record = make_record(
+                        successor,
+                        successor_metrics,
+                        float(parent_record["cumulative_J_total"]) + delta_j,
+                        source=f"target_directed_beam_recovery:{target:.6f}",
+                        primary_step=parent_record.get("primary_step"),
+                        recovery_depth=depth,
+                        search_iteration=step + recovery_iteration_count + 1,
+                        selected_primary_path=False,
+                        parent_hash=str(parent_metrics["complete_phenotype_hash"]),
+                        action_type=action_type,
+                        locus=locus,
+                    )
+                    incumbent = expansion.get(candidate_hash)
+                    expansion[candidate_hash] = merge_record(incumbent, record)
+            expansion = {
+                candidate_hash: record
+                for candidate_hash, record in expansion.items()
+                if candidate_hash not in visited
+            }
+            if not expansion:
+                stop_reason = "no_unvisited_recovery_neighbor"
+                break
+            recovery_iteration_count += 1
+            target_iterations += 1
+            expansion_records = list(expansion.values())
+            recovery_evaluated_candidate_count += len(expansion_records)
+            target_evaluated += len(expansion_records)
+            visited.update(expansion)
+            feasible: list[dict[str, Any]] = []
+            for record in expansion_records:
+                update_budget_frontier(record)
+                retention = float(record["metrics"]["R_bops_vs_fp32"])
+                recovery_trace.append({
+                    "target": target,
+                    "recovery_depth": depth,
+                    "search_iteration": int(record["search_iteration"]),
+                    "candidate_hash": record["metrics"]["complete_phenotype_hash"],
+                    "parent_hash": record["parent_hash"],
+                    "action_type": record["action_type"],
+                    "locus": record["locus"],
+                    "R_bops_vs_fp32": retention,
+                    "cumulative_J_total": record["cumulative_J_total"],
+                })
+                if retention >= target - float(bops_tolerance_abs):
+                    feasible.append(record)
+            if captured[target]:
+                reached_depth = depth
+                stop_reason = "strict_budget_reached"
+                break
+            if not feasible:
+                stop_reason = "all_recovery_neighbors_undershoot_budget"
+                break
+            beam = select_recovery_beam(feasible, target)
+            if not beam:
+                stop_reason = "empty_recovery_beam"
+                break
+        recovery_reports[target] = {
+            "status": (
+                "reached_budget_recovery"
+                if captured[target]
+                else "unreachable_after_budget_recovery"
+            ),
+            "depth": int(reached_depth),
+            "search_iteration_count": int(target_iterations),
+            "evaluated_candidate_count": int(target_evaluated),
+            "seed_count": len(seeds),
+            "beam_width": int(recovery_beam_width),
+            "maximum_depth": int(recovery_max_depth),
+            "stop_reason": stop_reason,
+        }
     write_csv(output_root / "reports/greedy_shared_trajectory.csv", trace)
+    write_csv(output_root / "reports/greedy_recovery_trace.csv", recovery_trace)
     winners: dict[float, CandidateGenotype] = {}
     capture_rows: list[dict[str, Any]] = []
-    for target in sorted(captured, reverse=True):
-        pool = captured[target]
-        for risk, candidate, metrics in pool:
+    winner_records: dict[float, dict[str, Any]] = {}
+    for target in target_values:
+        pool = list(captured[target].values())
+        for record in pool:
+            metrics = record["metrics"]
             capture_rows.append({
                 "target": target,
                 "candidate_hash": metrics["complete_phenotype_hash"],
                 "R_bops_vs_fp32": metrics["R_bops_vs_fp32"],
                 "bops_deviation": abs(float(metrics["R_bops_vs_fp32"]) - target),
-                "cumulative_J_total": risk,
+                "cumulative_J_total": record["cumulative_J_total"],
+                "capture_source": record["capture_source"],
+                "capture_sources": "|".join(record["capture_sources"]),
+                "selected_primary_path": record["selected_primary_path"],
+                "primary_step": record["primary_step"],
+                "recovery_depth": record["recovery_depth"],
+                "search_iteration": record["search_iteration"],
             })
         if not pool:
             continue
         pool.sort(key=lambda row: (
-            float(row[0]),
-            abs(float(row[2]["R_bops_vs_fp32"]) - target),
-            -float(row[2]["R_parameter_retention"]),
-            -float(row[2]["mixed_weight_retention"]),
-            str(row[2]["complete_phenotype_hash"]),
+            float(row["cumulative_J_total"]),
+            abs(float(row["metrics"]["R_bops_vs_fp32"]) - target),
+            -float(row["metrics"]["R_parameter_retention"]),
+            -float(row["metrics"]["mixed_weight_retention"]),
+            str(row["metrics"]["complete_phenotype_hash"]),
         ))
-        winners[target] = pool[0][1]
+        winner_records[target] = pool[0]
+        winners[target] = pool[0]["candidate"]
     write_csv(output_root / "reports/greedy_budget_capture.csv", capture_rows)
     write_json(
         output_root / "reports/greedy_exact_winners.json",
@@ -609,8 +987,57 @@ def greedy_anchors(
                 "genotype": candidate.to_dict(),
                 "identity": phenotype_identity(candidate, prepared.space),
                 "metrics": evaluator(candidate),
+                "cumulative_path_J_total": winner_records[target][
+                    "cumulative_J_total"
+                ],
+                "capture_source": winner_records[target]["capture_source"],
+                "capture_sources": winner_records[target]["capture_sources"],
+                "selected_primary_path": winner_records[target][
+                    "selected_primary_path"
+                ],
+                "primary_step": winner_records[target]["primary_step"],
+                "recovery_depth": winner_records[target]["recovery_depth"],
+                "search_iteration": winner_records[target]["search_iteration"],
             }
             for target, candidate in winners.items()
+        },
+    )
+    write_json(
+        output_root / "reports/greedy_search_audit.json",
+        {
+            "capture_contract": (
+                "primary selected trajectory plus already-evaluated legal-neighbor "
+                "frontier plus finite legal adjacent-action beam recovery"
+            ),
+            "budget_projection_used": False,
+            "structure_repair_count": 0,
+            "precision_repair_count": 0,
+            "budget_repair_count": 0,
+            "primary_selected_step_count": int(step),
+            "primary_neighbor_candidate_count": int(
+                primary_neighbor_candidate_count
+            ),
+            "recovery_iteration_count": int(recovery_iteration_count),
+            "recovery_evaluated_candidate_count": int(
+                recovery_evaluated_candidate_count
+            ),
+            "total_search_iteration_count": int(step + recovery_iteration_count),
+            "iteration_accounting": (
+                "one selected primary action or one beam depth expansion equals "
+                "one search iteration; parallel neighbor candidates are counted "
+                "separately"
+            ),
+            "bops_tolerance_abs": float(bops_tolerance_abs),
+            "recovery_beam_width": int(recovery_beam_width),
+            "recovery_seed_pool_size": int(recovery_seed_pool_size),
+            "recovery_max_depth": int(recovery_max_depth),
+            "recovery_reports": {
+                str(target): report
+                for target, report in recovery_reports.items()
+            },
+            "unreachable_targets": [
+                target for target in target_values if target not in winners
+            ],
         },
     )
     return winners
