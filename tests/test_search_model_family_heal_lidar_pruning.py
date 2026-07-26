@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -85,6 +86,21 @@ class DownsampleConv(nn.Module):
 class MaxFusion(nn.Module):
     def forward(self, value: torch.Tensor) -> torch.Tensor:
         return value.amax(dim=0, keepdim=True)
+
+
+class ScaledDotProductAttention(nn.Module):
+    def __init__(self, width: int) -> None:
+        super().__init__()
+        self.sqrt_dim = math.sqrt(float(width))
+
+
+class AttFusion(nn.Module):
+    def __init__(self, width: int = 256) -> None:
+        super().__init__()
+        self.att = ScaledDotProductAttention(width)
+
+    def forward(self, value: torch.Tensor) -> torch.Tensor:
+        return value[:1]
 
 
 class PixelWeightLayer(nn.Module):
@@ -268,6 +284,43 @@ def test_feature_width_materialization_closes_fusion_heads_and_strict_replay(
     assert result["ledger_summary"]["status_counts"]["skipped"] == 0
     if family_id == "heal_lidar_disco":
         assert physical.fusion_net.pixel_weight_layer.conv1_1.in_channels == 504
+
+
+def test_attfusion_feature_width_materialization_updates_parameter_free_scale() -> None:
+    from search.model_family import materialize_heal_lidar_baseline
+
+    model = HeterModelBaseline(AttFusion()).eval()
+    units, feature_units = _feature_units(model, "heal_lidar_attfusion")
+    request = _request_for_units(units, feature_units[:4])
+
+    result = materialize_heal_lidar_baseline(
+        model,
+        request,
+        family="heal_lidar_attfusion",
+        example_inputs=torch.randn(2, 64, 16, 16),
+    )
+
+    assert result["physical_topology"].feature_width == 252
+    assert result["model"].fusion_net.att.sqrt_dim == pytest.approx(math.sqrt(252))
+    assert result["attfusion_scale_audit"] == {
+        "feature_width": 252,
+        "observed_sqrt_dim": pytest.approx(math.sqrt(252)),
+        "expected_sqrt_dim": pytest.approx(math.sqrt(252)),
+        "passed": True,
+        "before_sqrt_dim": pytest.approx(16.0),
+        "updated": True,
+    }
+
+
+def test_attfusion_topology_rejects_stale_parameter_free_scale() -> None:
+    from search.model_family import validate_heal_lidar_baseline_pruning_topology
+
+    model = HeterModelBaseline(AttFusion()).eval()
+    model.fusion_net.att.sqrt_dim = math.sqrt(128.0)
+    with pytest.raises(RuntimeError, match="attfusion_sqrt_dim_mismatch"):
+        validate_heal_lidar_baseline_pruning_topology(
+            model, "heal_lidar_attfusion"
+        )
 
 
 def test_disconet_alignment_repair_uses_complete_double_half_map() -> None:
