@@ -350,6 +350,61 @@ class HealLidarFCooperProvider(_HealLidarBaselineProvider):
         ),)
 
 
+class HealLidarAttFusionProvider(_HealLidarBaselineProvider):
+    """CNN-width adapter for projection-free HEAL AttFusion."""
+
+    family_id = "heal_lidar_attfusion"
+    fusion_method = "att"
+    fusion_class = "AttFusion"
+
+    def _fusion_operator_kinds(self) -> tuple[str, ...]:
+        return ("MatMul", "Softmax", "MatMul")
+
+    def _fusion_pruning_strategy(self) -> str:
+        return "shared_feature_width_closed_through_projection_free_agent_attention"
+
+    def _merge_boundaries(self) -> tuple[MergeBoundaryCapability, ...]:
+        return (MergeBoundaryCapability(
+            boundary_id="attfusion_projection_free_agent_attention",
+            merge_kind="activation_only_scaled_dot_product_attention",
+            member_modules=("fusion_net",),
+            policy="FP16_functional_island",
+            scale_policy="warped_agent_features_dequantized_to_fp16_before_qk_softmax_av",
+            output_requantization="optional_post_attention_qdq_owned_by_detection_head_input",
+            production_enabled=True,
+            gate_reason="no_trainable_qkvo_projection_and_no_attention_dh_gene",
+        ),)
+
+
+class HealLidarCoBEVTProvider(_HealLidarBaselineProvider):
+    """HEAL CoBEVT provider for the unified CNN/Transformer closure."""
+
+    family_id = "heal_lidar_cobevt"
+    fusion_method = "cobevt"
+    fusion_class = "CoBEVT"
+
+    def _fusion_operator_kinds(self) -> tuple[str, ...]:
+        return (
+            "MatMul", "Softmax", "LayerNormalization", "Add", "Reshape",
+            "Transpose",
+        )
+
+    def _fusion_pruning_strategy(self) -> str:
+        return "unified_tracer_cnn_attention_dh_ffn_domains"
+
+    def _merge_boundaries(self) -> tuple[MergeBoundaryCapability, ...]:
+        return (MergeBoundaryCapability(
+            boundary_id="cobevt_transformer_residual_window_merge",
+            merge_kind="transformer_residual_window_merge",
+            member_modules=("fusion_net",),
+            policy="explicit_qk_softmax_av_fp32_with_weighted_qdq",
+            scale_policy="canonical_transformer_precision_contract",
+            output_requantization="owned_by_downstream_weighted_input_qdq",
+            production_enabled=True,
+            gate_reason="",
+        ),)
+
+
 class HealLidarDiscoNetProvider(_HealLidarBaselineProvider):
     family_id = "heal_lidar_disco"
     fusion_method = "disconet"

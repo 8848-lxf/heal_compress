@@ -51,11 +51,16 @@ class HealLidarBaselineEvaluationConfig:
     search_space_policy: str = "legacy_family_static_dependency_closure_v1"
 
     def __post_init__(self) -> None:
-        if self.family_id not in {"heal_lidar_fcooper", "heal_lidar_disco"}:
+        if self.family_id not in {
+            "heal_lidar_fcooper", "heal_lidar_disco", "heal_lidar_attfusion",
+            "heal_lidar_cobevt",
+        }:
             raise ValueError(f"unsupported_baseline_evaluator_family:{self.family_id}")
         expected_model = {
             "heal_lidar_fcooper": "lidar_fcooper",
             "heal_lidar_disco": "lidar_disco",
+            "heal_lidar_attfusion": "lidar_attfuse",
+            "heal_lidar_cobevt": "lidar_cobevt",
         }[self.family_id]
         if self.model_name != expected_model:
             raise ValueError(
@@ -440,6 +445,53 @@ class HealLidarBaselineCandidateEvaluator:
         return dict(result)
 
     def _materialize(self, phenotype: Any, output_dir: Path) -> dict[str, Any]:
+        unified_domains = tuple(
+            getattr(self.context, "unified_pruning_domains", ()) or ()
+        )
+        if unified_domains:
+            from search.pruning_space.unified_physical_pruner import (
+                materialize_unified_widths,
+            )
+
+            width_profile = dict(
+                phenotype.metadata.get("domain_width_profile", {}) or {}
+            )
+            if set(width_profile) != {
+                str(domain.domain_id) for domain in unified_domains
+            }:
+                raise RuntimeError(
+                    "heal_transformer_unified_width_profile_mismatch:"
+                    f"observed={sorted(width_profile)}:"
+                    f"expected={sorted(str(domain.domain_id) for domain in unified_domains)}"
+                )
+            result = materialize_unified_widths(
+                self.context.model,
+                tuple(getattr(self.context, "unified_atomic_units", ())),
+                unified_domains,
+                width_profile,
+                model_name=str(
+                    getattr(self.context, "unified_model_name", self.context.model_name)
+                ),
+            )
+            self._write_json(output_dir / "phenotype.json", phenotype.to_dict())
+            self._write_json(
+                output_dir / "unified_physical_report.json", result.report.to_dict()
+            )
+            if not result.report.passed:
+                raise RuntimeError(
+                    f"heal_transformer_unified_physical_failed:{result.report.issues}"
+                )
+            __import__("torch").save(
+                result.model.state_dict(), output_dir / "pruned_checkpoint.pth"
+            )
+            return {
+                "model": result.model,
+                "unified": result,
+                "plan": result.cnn_plan,
+                "ledger": result.cnn_ledger,
+                "snapshot": result.cnn_snapshot,
+            }
+
         from search.adapters.pruning_adapter import FormalPruningAdapter
         from search.model_family.heal_lidar_pruning import materialize_heal_lidar_baseline
 

@@ -83,15 +83,29 @@ def query_gpus() -> list[dict[str, Any]]:
 def select_gpu(gpu_id: str = "auto", exclude_gpu_ids: list[int] | None = None) -> GPUSelection:
     excluded = [int(value) for value in (exclude_gpu_ids or [5, 6, 7])]
     report = query_gpus()
+    visible_text = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    visible = (
+        [int(value.strip()) for value in visible_text.split(",") if value.strip()]
+        if visible_text
+        else []
+    )
     if str(gpu_id) != "auto":
         selected = int(gpu_id)
-        return GPUSelection(str(gpu_id), selected, f"cuda:{selected}", excluded, report)
+        if visible and selected not in visible:
+            raise RuntimeError(
+                f"requested_physical_gpu_not_visible:{selected}:visible={visible}"
+            )
+        logical = visible.index(selected) if visible else selected
+        return GPUSelection(str(gpu_id), selected, f"cuda:{logical}", excluded, report)
     candidates = [row for row in report if int(row["index"]) not in set(excluded)]
+    if visible:
+        candidates = [row for row in candidates if int(row["index"]) in visible]
     if not candidates:
         raise RuntimeError(f"no_usable_gpu_after_exclusion:{excluded}")
     candidates.sort(key=lambda row: (-int(row["memory_free_mib"]), int(row["utilization_gpu_pct"]), int(row["memory_used_mib"]), int(row["index"])))
     selected = int(candidates[0]["index"])
-    return GPUSelection(str(gpu_id), selected, f"cuda:{selected}", excluded, report)
+    logical = visible.index(selected) if visible else selected
+    return GPUSelection(str(gpu_id), selected, f"cuda:{logical}", excluded, report)
 
 
 def discover_trt_environment(

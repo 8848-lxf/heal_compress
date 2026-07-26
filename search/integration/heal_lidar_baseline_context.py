@@ -90,6 +90,8 @@ def _model_name(family_id: str) -> str:
     names = {
         "heal_lidar_fcooper": "lidar_fcooper",
         "heal_lidar_disco": "lidar_disco",
+        "heal_lidar_attfusion": "lidar_attfuse",
+        "heal_lidar_cobevt": "lidar_cobevt",
     }
     if family_id not in names:
         raise RuntimeError(f"unsupported_heal_lidar_baseline_context_family:{family_id}")

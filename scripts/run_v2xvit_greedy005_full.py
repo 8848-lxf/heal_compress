@@ -276,7 +276,11 @@ def _formal_space(
         calibration_manifest_hash=calibration_hash,
         trace_snapshot_hash=identity["trace"].trace_hash,
         onnx_export_config_hash=canonical_json_hash(
-            {"model": "lidar_v2xvit", "fixed_shape": True, "stage2": True}
+            {
+                "model": f"lidar_{components.adapter.model_key}",
+                "fixed_shape": True,
+                "stage2": True,
+            }
         ),
         tensorrt_version="10.9",
         gpu_compute_capability=".".join(

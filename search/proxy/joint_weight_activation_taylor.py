@@ -299,6 +299,15 @@ class _BoundaryCapture(AbstractContextManager):
 
     def _record(self, unit: TaylorDeploymentUnit, tensor: torch.Tensor) -> torch.Tensor:
         value = tensor
+        # Floating deployment inputs can be dataloader leaves without
+        # requires_grad. Promote only these floating leaves so activation
+        # Taylor captures dL/dA at the real Q/DQ boundary.
+        if (
+            self.retain_grad
+            and not value.requires_grad
+            and (value.is_floating_point() or value.is_complex())
+        ):
+            value = value.detach().requires_grad_(True)
         if self.quantize:
             value = pseudo_quantize_activation(
                 tensor,
