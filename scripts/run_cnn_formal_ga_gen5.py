@@ -195,7 +195,7 @@ def run(args: argparse.Namespace) -> int:
             })
 
     write_csv(root / "reports/greedy_anchor_deployment_validation.csv", greedy_gate_rows)
-    write_json(root / "reports/greedy_anchor_deployment_validation.json", {
+    greedy_gate_payload = {
         "model": args.model,
         "all_budgets_checked_before_formal_ga": True,
         "formal_ga_started": False,
@@ -203,7 +203,11 @@ def run(args: argparse.Namespace) -> int:
         "anchors": greedy_gate_results,
         "failures": failures,
         "gate_passed": not failures and len(greedy_gate_results) == len(targets),
-    })
+    }
+    write_json(
+        root / "reports/greedy_anchor_deployment_validation.json",
+        greedy_gate_payload,
+    )
     if failures or len(greedy_gate_results) != len(targets):
         write_json(root / "reports/pre_ga_greedy_anchor_gate.json", {
             "formal_ga_allowed": False,
@@ -258,6 +262,12 @@ def run(args: argparse.Namespace) -> int:
 
     # Only now, after all budgets passed the exact-anchor gate, may formal GA
     # begin.  The Greedy anchor is loaded from the Stage-2 cache by run_budget.
+    greedy_gate_payload["formal_ga_started"] = True
+    greedy_gate_payload["formal_ga_start_authorized_by_gate"] = True
+    write_json(
+        root / "reports/greedy_anchor_deployment_validation.json",
+        greedy_gate_payload,
+    )
     for target in targets:
         label = f"{int(round(target * 100)):03d}"
         anchor = anchors[target]
