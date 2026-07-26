@@ -16,3 +16,11 @@ Base: `ebce76cda66b22530655418111b845b5e318098f`
 - Tests: 29 targeted tests passed; compileall, py_compile, and `git diff --check` passed.
 
 --- 2026-07-26T12:05:00-07:00 ---
+
+## 2026-07-26 12:15 PDT
+
+- Full regression suite passed: 1043 passed, 0 failed (82 warnings).
+- New run root: `/data/lxf/heal_data/outputs/h800_cnn_stage2_300_genwinner500_20260726_120900`.
+- Pyramid budgets 0.10/0.05 started on GPU3; DiscoNet 0.05 and all previously unstarted F-Cooper budgets are queued serially on the same GPU.
+
+--- 2026-07-26T12:15:00-07:00 ---
