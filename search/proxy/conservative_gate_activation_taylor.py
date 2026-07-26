@@ -108,13 +108,83 @@ def rerank_domains_by_gate_scores(domains: Sequence[Any], scores: Mapping[str, G
                     selected.extend(by_role_head.get(("qk", head), [])[:count])
                     selected.extend(by_role_head.get(("vo", head), [])[:count])
                 width_map[width] = tuple(selected)
+            replacement = {
+                "ordered_unit_ids": tuple(ordered),
+                "width_to_pruned_unit_ids": width_map,
+            }
+        elif domain.kind == "regular_grouped":
+            # A grouped-convolution domain owns one independent nested ranking
+            # per original group.  Re-ranking the flattened unit list (as for
+            # a dense domain) can select different removal counts per group
+            # while retaining the old group_keep_maps.  Such a phenotype looks
+            # width-legal to Stage-1 but cannot be replayed physically.  Build
+            # all derived masks from the same per-group gate ranking so the
+            # chromosome is legal by construction.
+            groups = int(domain.groups)
+            ordered_by_group: dict[int, tuple[str, ...]] = {}
+            for group in range(groups):
+                units = tuple(str(u) for u in domain.ordered_unit_ids_by_group[group])
+                ordered_by_group[group] = tuple(
+                    sorted(units, key=lambda u: (values.get(u, 0.0), u))
+                )
+            ordered = tuple(
+                unit_id
+                for group in range(groups)
+                for unit_id in ordered_by_group[group]
+            )
+            width_map: dict[int, tuple[str, ...]] = {}
+            keep_maps: dict[int, dict[int, list[int]]] = {}
+            prune_maps: dict[int, dict[int, list[int]]] = {}
+            for width in sorted(int(w) for w in domain.legal_widths):
+                remove_count = int(domain.original_width) - width
+                selected = tuple(
+                    unit_id
+                    for group in range(groups)
+                    for unit_id in ordered_by_group[group][:remove_count]
+                )
+                selected_set = set(selected)
+                width_map[width] = selected
+                keep_maps[width] = {
+                    group: sorted(
+                        int(local)
+                        for unit_id, local in domain.group_local_indices[group].items()
+                        if unit_id not in selected_set
+                    )
+                    for group in range(groups)
+                }
+                prune_maps[width] = {
+                    group: sorted(
+                        int(local)
+                        for unit_id, local in domain.group_local_indices[group].items()
+                        if unit_id in selected_set
+                    )
+                    for group in range(groups)
+                }
+            replacement = {
+                "ordered_unit_ids": ordered,
+                "ordered_unit_ids_by_group": ordered_by_group,
+                "width_to_pruned_unit_ids": width_map,
+                "group_keep_maps": keep_maps,
+                "group_prune_maps": prune_maps,
+            }
         else:
             ordered = sorted((str(u) for u in domain.ordered_unit_ids), key=lambda u: (values.get(u, 0.0), u))
             width_map = {int(domain.original_width): ()}
             for width in sorted(int(w) for w in domain.legal_widths if int(w) != int(domain.original_width)):
                 target = len(domain.width_to_pruned_unit_ids.get(width, ()))
                 width_map[width] = tuple(ordered[:target])
-        result.append(replace(domain, ordered_unit_ids=tuple(ordered), width_to_pruned_unit_ids=width_map, unit_scores=values, ranking_method="functional_gate_output_taylor_abs_sum"))
+            replacement = {
+                "ordered_unit_ids": tuple(ordered),
+                "width_to_pruned_unit_ids": width_map,
+            }
+        result.append(
+            replace(
+                domain,
+                **replacement,
+                unit_scores=values,
+                ranking_method="functional_gate_output_taylor_abs_sum",
+            )
+        )
     return tuple(result)
 
 
