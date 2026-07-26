@@ -12,6 +12,7 @@ from scripts.run_v2xvit_six_budget_formal_ga_gen10 import (
 )
 from scripts.run_v2xvit_ga_final_latency import load_budget_summary
 from scripts.watch_and_evaluate_v2xvit_final_budget import run as run_watcher
+from scripts.watch_and_run_v2xvit_six_budget_latency import completion_state
 
 
 def test_budget_shard_parser_preserves_frozen_budget_subset() -> None:
@@ -74,3 +75,33 @@ def test_final_latency_rejects_incomplete_budget_summary(tmp_path) -> None:
     summary.write_text('{"greedy_anchor":{}}\n', encoding="utf-8")
     with pytest.raises(RuntimeError, match="formal_budget_summary_incomplete:030"):
         load_budget_summary(tmp_path, "030")
+
+
+def test_six_budget_latency_watcher_requires_every_valid_fixed500(tmp_path) -> None:
+    for label in ("030", "025", "020", "015", "010", "005"):
+        summary = tmp_path / f"ga/budget_{label}/seed_0/budget_summary.json"
+        summary.parent.mkdir(parents=True)
+        summary.write_text(
+            '{"greedy_anchor":{"complete_phenotype_hash":"g"},'
+            '"final_winner":{"complete_phenotype_hash":"a"}}\n',
+            encoding="utf-8",
+        )
+        for control, candidate_hash in (("greedy", "g"), ("ga", "a")):
+            evaluation = (
+                tmp_path
+                / f"{control}_final_fixed500_partial/budget_{label}/{candidate_hash}/evaluation.json"
+            )
+            evaluation.parent.mkdir(parents=True)
+            evaluation.write_text(
+                '{"status":"ok","num_evaluated_frames":500,"num_skipped_frames":0}\n',
+                encoding="utf-8",
+            )
+    assert completion_state(tmp_path)["ready"] is True
+    broken = tmp_path / "ga_final_fixed500_partial/budget_005/a/evaluation.json"
+    broken.write_text(
+        '{"status":"ok","num_evaluated_frames":499,"num_skipped_frames":1}\n',
+        encoding="utf-8",
+    )
+    state = completion_state(tmp_path)
+    assert state["ready"] is False
+    assert "fixed500_invalid:005:ga" in state["failures"]
