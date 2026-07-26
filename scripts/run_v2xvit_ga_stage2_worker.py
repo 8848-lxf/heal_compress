@@ -90,6 +90,13 @@ def run(request_path: Path) -> int:
     phenotype = CandidatePhenotype.from_dict(job["phenotype"])
     domains = tuple(domain_from_payload(row) for row in job["domains"])
     request = dict(job["request"])
+    evaluation_frames = int(job["evaluation_frames"])
+    evaluation_warmup_frames = int(job["evaluation_warmup_frames"])
+    evaluation_protocol = str(job["evaluation_protocol"])
+    if evaluation_protocol == "stage2_full_fixed500" and evaluation_frames != 500:
+        raise RuntimeError(
+            f"formal_ga_stage2_requires_fixed500:{evaluation_frames}"
+        )
     cache = root / f"ga/stage2_cache/budget_{label}/{complete_hash}"
     result_path = cache / "stage2_result.json"
     generation_dir = root / (
@@ -100,6 +107,13 @@ def run(request_path: Path) -> int:
     generation_dir.mkdir(parents=True, exist_ok=True)
     atomic_write(generation_dir / "gpu_assignment.json", _gpu_snapshot(physical_gpu))
     if result_path.is_file():
+        cached = json.loads(result_path.read_text())
+        cached_meta = dict(cached.get("metadata") or {})
+        if (
+            int(cached_meta.get("stage2_evaluation_frames", -1)) != evaluation_frames
+            or str(cached_meta.get("evaluation_protocol", "")) != evaluation_protocol
+        ):
+            raise RuntimeError("stage2_worker_cache_evaluation_protocol_mismatch")
         atomic_write(generation_dir / "cache_reference.json", {
             "stage2_cache": str(cache), "reused": True,
             "complete_phenotype_hash": complete_hash,
@@ -155,27 +169,32 @@ def run(request_path: Path) -> int:
                 exact, 0, 0,
                 {"generation": generation, "export": exported,
                  "precision_acceptance_status": acceptance.get("status"),
-                 "physical_gpu": physical_gpu, "precision_fallback": False},
+                 "physical_gpu": physical_gpu, "precision_fallback": False,
+                 "stage2_evaluation_frames": evaluation_frames,
+                 "evaluation_protocol": evaluation_protocol},
             )
         else:
             evaluation = evaluate_v2xvit_engine_modelopt(
                 engine_path=engine_path,
                 model_config=request["model_config"], heal_root=request["heal_root"],
-                output_dir=cache / "fixed50",
+                output_dir=cache / "stage2_fixed500",
                 tensorrt_root=Path(job["tensorrt_root"]),
                 plugin_path=Path(job["plugin"]),
-                eval_manifest_path=Path(job["fixed50_manifest"]),
+                eval_manifest_path=Path(job["evaluation_manifest"]),
                 physical_gpu_id=physical_gpu, fixed_k=int(request["fixed_k"]),
-                max_agents=int(request["max_agents"]), num_frames=50,
-                warmup_frames=20, latency_rounds=1, dataloader_num_workers=8,
+                max_agents=int(request["max_agents"]),
+                num_frames=evaluation_frames,
+                warmup_frames=evaluation_warmup_frames,
+                latency_rounds=1, dataloader_num_workers=8,
             )
             ok = bool(
                 evaluation.get("status") == "ok"
-                and int(evaluation.get("num_evaluated_frames", -1)) == 50
+                and int(evaluation.get("num_evaluated_frames", -1))
+                == evaluation_frames
                 and int(evaluation.get("num_skipped_frames", -1)) == 0
             )
             result = Stage2Result(
-                complete_hash, genotype, "ok" if ok else "fixed50_failed",
+                complete_hash, genotype, "ok" if ok else "fixed500_failed",
                 float(evaluation["mAP"]) if ok else None,
                 float(evaluation["forward_p50_ms"]) if ok else None,
                 exact, int(evaluation.get("num_evaluated_frames", 0)),
@@ -187,7 +206,10 @@ def run(request_path: Path) -> int:
                  "calibration_manifest": str(export_dir / "calibration_manifest.json"),
                  "fresh_train200": has_int8, "physical_gpu": physical_gpu,
                  "gpu_snapshot": _gpu_snapshot(physical_gpu),
-                 "precision_fallback": False, "fixed50_result": evaluation},
+                 "precision_fallback": False,
+                 "stage2_fixed500_result": evaluation,
+                 "stage2_evaluation_frames": evaluation_frames,
+                 "evaluation_protocol": evaluation_protocol},
             )
         del physical
         torch.cuda.empty_cache()
@@ -196,7 +218,9 @@ def run(request_path: Path) -> int:
             complete_hash, genotype, "failed", None, None, False, 0, 0,
             {"generation": generation, "physical_gpu": physical_gpu,
              "failure": f"{type(exc).__name__}:{exc}",
-             "precision_fallback": False},
+             "precision_fallback": False,
+             "stage2_evaluation_frames": evaluation_frames,
+             "evaluation_protocol": evaluation_protocol},
         )
     atomic_write(result_path, stage2_payload(result))
     atomic_write(generation_dir / "cache_reference.json", {
@@ -210,7 +234,7 @@ def run(request_path: Path) -> int:
         "mAP": result.map, "p50_ms": result.p50_ms,
         "failure": result.metadata.get("failure"),
     }), flush=True)
-    return 0 if result.status in {"ok", "deployment_invalid", "fixed50_failed"} else 2
+    return 0 if result.status in {"ok", "deployment_invalid", "fixed500_failed"} else 2
 
 
 def main() -> int:

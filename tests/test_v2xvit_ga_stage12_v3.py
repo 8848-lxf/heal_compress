@@ -593,3 +593,28 @@ def test_frozen_domain_manifest_rejects_tracer_schema_drift() -> None:
     replay = LocalPruningDomain(**{**common, "root_module_path": "different"})
     with pytest.raises(RuntimeError, match="schema_drift:cnn:root_module_path"):
         validate_against_replay((frozen,), (replay,))
+
+
+def test_stage2_fixed50_cache_cannot_enter_fixed500_formal_protocol(tmp_path) -> None:
+    import json
+
+    import pytest
+
+    from scripts.run_v2xvit_formal_ga_gen10 import RealStage2Evaluator, stage2_payload
+    from search.candidate import CandidateGenotype
+    from search.ga.stage12_v3 import Stage2Result
+
+    result = Stage2Result(
+        "candidate", CandidateGenotype(), "ok", 0.5, 10.0, True, 50, 0,
+        {
+            "stage2_evaluation_frames": 50,
+            "evaluation_protocol": "legacy_fixed50_screening",
+        },
+    )
+    path = tmp_path / "stage2_result.json"
+    path.write_text(json.dumps(stage2_payload(result)), encoding="utf-8")
+    evaluator = object.__new__(RealStage2Evaluator)
+    evaluator.evaluation_frames = 500
+    evaluator.evaluation_protocol = "stage2_full_fixed500"
+    with pytest.raises(RuntimeError, match="stage2_cache_evaluation_protocol_mismatch"):
+        evaluator._load_cached_result(path)

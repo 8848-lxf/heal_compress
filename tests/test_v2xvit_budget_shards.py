@@ -35,6 +35,18 @@ def test_budget_shard_report_suffix_isolated_and_validated() -> None:
         _shard_suffix("../shared")
 
 
+def test_formal_stage2_uses_full_fixed500_for_every_real_candidate() -> None:
+    from scripts.run_v2xvit_six_budget_formal_ga_gen10 import (
+        STAGE2_EVALUATION_FRAMES,
+        STAGE2_EVALUATION_PROTOCOL,
+        STAGE2_EVALUATION_WARMUP_FRAMES,
+    )
+
+    assert STAGE2_EVALUATION_FRAMES == 500
+    assert STAGE2_EVALUATION_WARMUP_FRAMES == 200
+    assert STAGE2_EVALUATION_PROTOCOL == "fixed500_full_validation_per_candidate"
+
+
 def test_fixed500_watcher_fails_closed_when_formal_budget_failed(tmp_path) -> None:
     failure = tmp_path / "ga/budget_010/failure.json"
     failure.parent.mkdir(parents=True)

@@ -233,7 +233,10 @@ class RealStage2Evaluator:
         space: Any,
         qkv_paths: tuple[str, ...],
         request: Mapping[str, Any],
-        fixed50_manifest: Path,
+        evaluation_manifest: Path,
+        evaluation_frames: int,
+        evaluation_warmup_frames: int,
+        evaluation_protocol: str,
         plugin: Path,
         tensorrt_root: Path,
         physical_gpu: int,
@@ -250,11 +253,25 @@ class RealStage2Evaluator:
         self.space = space
         self.qkv_paths = qkv_paths
         self.request = request
-        self.fixed50_manifest = fixed50_manifest
+        self.evaluation_manifest = evaluation_manifest
+        self.evaluation_frames = int(evaluation_frames)
+        self.evaluation_warmup_frames = int(evaluation_warmup_frames)
+        self.evaluation_protocol = str(evaluation_protocol)
         self.plugin = plugin
         self.tensorrt_root = tensorrt_root
         self.physical_gpu = physical_gpu
         self.stage2_gpus = tuple(int(value) for value in stage2_gpus)
+
+    def _load_cached_result(self, path: Path) -> Stage2Result:
+        result = stage2_from_payload(json.loads(path.read_text()))
+        frames = int(result.metadata.get("stage2_evaluation_frames", -1))
+        protocol = str(result.metadata.get("evaluation_protocol", ""))
+        if frames != self.evaluation_frames or protocol != self.evaluation_protocol:
+            raise RuntimeError(
+                "stage2_cache_evaluation_protocol_mismatch:"
+                f"frames={frames}:expected={self.evaluation_frames}:protocol={protocol}"
+            )
+        return result
 
     def evaluate_many(
         self, genotypes: list[CandidateGenotype], generation: int
@@ -286,7 +303,7 @@ class RealStage2Evaluator:
             )
             generation_dir.mkdir(parents=True, exist_ok=True)
             if result_path.is_file():
-                results[index] = stage2_from_payload(json.loads(result_path.read_text()))
+                results[index] = self._load_cached_result(result_path)
                 atomic_write(generation_dir / "cache_reference.json", {
                     "stage2_cache": str(cache), "reused": True,
                     "complete_phenotype_hash": complete_hash,
@@ -307,7 +324,10 @@ class RealStage2Evaluator:
                 "phenotype": canonicalize_candidate(genotype, self.space).to_dict(),
                 "domains": [domain.to_dict() for domain in self.space.pruning_domains],
                 "qkv_paths": list(self.qkv_paths), "request": dict(self.request),
-                "fixed50_manifest": str(self.fixed50_manifest),
+                "evaluation_manifest": str(self.evaluation_manifest),
+                "evaluation_frames": self.evaluation_frames,
+                "evaluation_warmup_frames": self.evaluation_warmup_frames,
+                "evaluation_protocol": self.evaluation_protocol,
                 "plugin": str(self.plugin), "tensorrt_root": str(self.tensorrt_root),
                 "physical_gpu": gpu,
             })
@@ -364,7 +384,9 @@ class RealStage2Evaluator:
                         complete_hash, genotype, "failed", None, None, False, 0, 0,
                         {"generation": generation,
                          "failure": f"parallel_stage2_worker_no_result:{returncode}",
-                         "precision_fallback": False},
+                         "precision_fallback": False,
+                         "stage2_evaluation_frames": self.evaluation_frames,
+                         "evaluation_protocol": self.evaluation_protocol},
                     )
                     atomic_write(result_path, stage2_payload(failure))
                 results[index] = stage2_from_payload(json.loads(result_path.read_text()))
@@ -388,7 +410,7 @@ class RealStage2Evaluator:
         )
         generation_dir.mkdir(parents=True, exist_ok=True)
         if result_path.is_file():
-            result = stage2_from_payload(json.loads(result_path.read_text()))
+            result = self._load_cached_result(result_path)
             atomic_write(generation_dir / "cache_reference.json", {
                 "stage2_cache": str(cache), "reused": True,
                 "complete_phenotype_hash": complete_hash,
@@ -453,34 +475,37 @@ class RealStage2Evaluator:
                     exact, 0, 0,
                     {"generation": generation, "export": exported,
                      "precision_acceptance_status": acceptance.get("status"),
-                     "precision_fallback": False},
+                     "precision_fallback": False,
+                     "stage2_evaluation_frames": self.evaluation_frames,
+                     "evaluation_protocol": self.evaluation_protocol},
                 )
             else:
                 evaluation = evaluate_v2xvit_engine_modelopt(
                     engine_path=engine_path,
                     model_config=self.request["model_config"],
                     heal_root=self.request["heal_root"],
-                    output_dir=cache / "fixed50",
+                    output_dir=cache / "stage2_fixed500",
                     tensorrt_root=self.tensorrt_root,
                     plugin_path=self.plugin,
-                    eval_manifest_path=self.fixed50_manifest,
+                    eval_manifest_path=self.evaluation_manifest,
                     physical_gpu_id=self.physical_gpu,
                     fixed_k=int(self.request["fixed_k"]),
                     max_agents=int(self.request["max_agents"]),
-                    num_frames=50,
-                    warmup_frames=20,
+                    num_frames=self.evaluation_frames,
+                    warmup_frames=self.evaluation_warmup_frames,
                     latency_rounds=1,
                     dataloader_num_workers=8,
                 )
                 ok = bool(
                     evaluation.get("status") == "ok"
-                    and int(evaluation.get("num_evaluated_frames", -1)) == 50
+                    and int(evaluation.get("num_evaluated_frames", -1))
+                    == self.evaluation_frames
                     and int(evaluation.get("num_skipped_frames", -1)) == 0
                 )
                 result = Stage2Result(
                     complete_hash,
                     genotype,
-                    "ok" if ok else "fixed50_failed",
+                    "ok" if ok else "fixed500_failed",
                     float(evaluation["mAP"]) if ok else None,
                     float(evaluation["forward_p50_ms"]) if ok else None,
                     exact,
@@ -495,7 +520,9 @@ class RealStage2Evaluator:
                         "calibration_manifest": str(export_dir / "calibration_manifest.json"),
                         "fresh_train200": has_int8,
                         "precision_fallback": False,
-                        "fixed50_result": evaluation,
+                        "stage2_fixed500_result": evaluation,
+                        "stage2_evaluation_frames": self.evaluation_frames,
+                        "evaluation_protocol": self.evaluation_protocol,
                     },
                 )
             del physical
@@ -504,7 +531,9 @@ class RealStage2Evaluator:
             result = Stage2Result(
                 complete_hash, genotype, "failed", None, None, False, 0, 0,
                 {"generation": generation, "failure": f"{type(exc).__name__}:{exc}",
-                 "precision_fallback": False},
+                 "precision_fallback": False,
+                 "stage2_evaluation_frames": self.evaluation_frames,
+                 "evaluation_protocol": self.evaluation_protocol},
             )
         atomic_write(result_path, stage2_payload(result))
         atomic_write(generation_dir / "cache_reference.json", {
@@ -725,7 +754,11 @@ def run(args: argparse.Namespace) -> int:
                 root=root, label=label, seed=seed, model=model, adapter=adapter,
                 hypes=hypes, representative=representative, identity=identity,
                 space=space, qkv_paths=qkv_paths, request=request,
-                fixed50_manifest=args.fixed50_manifest, plugin=args.plugin,
+                evaluation_manifest=args.fixed50_manifest,
+                evaluation_frames=50,
+                evaluation_warmup_frames=20,
+                evaluation_protocol="legacy_fixed50_screening",
+                plugin=args.plugin,
                 tensorrt_root=args.tensorrt_root, physical_gpu=args.physical_gpu,
                 stage2_gpus=args.stage2_gpus,
             )

@@ -3,8 +3,9 @@
 
 The six exact Greedy winners are immutable V1 anchors.  Every budget runs one
 seed (zero), generation 0 is initialization, and generations 1--10 are the ten
-formal evolution generations.  Stage-2 materialization/calibration/export/TRT
-and fixed50 use the already deployment-closed V2X-ViT implementation.
+formal evolution generations. Every real Stage-2 candidate uses materialization,
+fresh calibration, export, TensorRT, and the same frozen 500-frame validation
+manifest before it can influence selection.
 """
 
 from __future__ import annotations
@@ -74,6 +75,9 @@ GENERATIONS = 10
 POPULATION = 64
 OFFSPRING = 64
 STAGE2_QUOTA = 5
+STAGE2_EVALUATION_FRAMES = 500
+STAGE2_EVALUATION_WARMUP_FRAMES = 200
+STAGE2_EVALUATION_PROTOCOL = "fixed500_full_validation_per_candidate"
 
 
 def _label(target: float) -> str:
@@ -133,6 +137,10 @@ def run(args: argparse.Namespace) -> int:
         raise RuntimeError("v2xvit_six_budget_ga_requires_seed_zero")
     if int(args.generations) != GENERATIONS:
         raise RuntimeError("v2xvit_six_budget_ga_requires_exactly_ten_generations")
+    if len(args.stage2_gpus) > 2:
+        raise RuntimeError("v2xvit_stage2_gpu_pool_exceeds_two")
+    if len(set(args.stage2_gpus)) != len(args.stage2_gpus):
+        raise RuntimeError("v2xvit_stage2_gpu_pool_contains_duplicates")
     if torch.cuda.device_count() != 1:
         raise RuntimeError(
             f"v2xvit_six_budget_ga_requires_one_visible_gpu:{torch.cuda.device_count()}"
@@ -141,7 +149,7 @@ def run(args: argparse.Namespace) -> int:
         source_root / "reports/six_budget_greedy_winners.json",
         source_root / "reports/taylor_sample_convergence.json",
         source_root / "reports/input_provenance.json",
-        args.fixed50_manifest,
+        args.stage2_manifest,
         args.plugin,
     )
     missing = [str(path) for path in required if not Path(path).is_file()]
@@ -348,6 +356,10 @@ def run(args: argparse.Namespace) -> int:
             "offspring_size": OFFSPRING,
             "survivor_size": POPULATION,
             "stage2_new_candidate_quota": STAGE2_QUOTA,
+            "stage2_evaluation_protocol": STAGE2_EVALUATION_PROTOCOL,
+            "stage2_evaluation_frames": STAGE2_EVALUATION_FRAMES,
+            "stage2_evaluation_warmup_frames": STAGE2_EVALUATION_WARMUP_FRAMES,
+            "stage2_physical_gpus": list(args.stage2_gpus),
             "framework": "StrictStage12V3Runner",
             "artifact_source_root": str(source_root),
             "isolated_run_root": str(root),
@@ -407,11 +419,14 @@ def run(args: argparse.Namespace) -> int:
                 space=space,
                 qkv_paths=qkv_paths,
                 request=request,
-                fixed50_manifest=args.fixed50_manifest,
+                evaluation_manifest=args.stage2_manifest,
+                evaluation_frames=STAGE2_EVALUATION_FRAMES,
+                evaluation_warmup_frames=STAGE2_EVALUATION_WARMUP_FRAMES,
+                evaluation_protocol="stage2_full_fixed500",
                 plugin=args.plugin,
                 tensorrt_root=args.tensorrt_root,
                 physical_gpu=args.physical_gpu,
-                stage2_gpus=(),
+                stage2_gpus=tuple(args.stage2_gpus),
             )
             greedy = real(anchor, 0)
             if not greedy.deployable:
@@ -513,6 +528,9 @@ def run(args: argparse.Namespace) -> int:
             "population_size": 64,
             "offspring_size": 64,
             "stage2_new_candidate_quota": 5,
+            "stage2_evaluation_protocol": STAGE2_EVALUATION_PROTOCOL,
+            "stage2_evaluation_frames": STAGE2_EVALUATION_FRAMES,
+            "stage2_physical_gpus": list(args.stage2_gpus),
             "results": results,
             "failures": failures,
             "full1789_executed": False,
@@ -555,7 +573,20 @@ def main() -> int:
         action="store_true",
         help="Prepare and validate the manifest, then exit before search.",
     )
-    parser.add_argument("--fixed50-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--stage2-manifest",
+        type=Path,
+        required=True,
+        help="Fixed500 manifest used by every real Stage-2 candidate.",
+    )
+    parser.add_argument(
+        "--stage2-gpus",
+        type=lambda value: tuple(
+            int(item.strip()) for item in value.split(",") if item.strip()
+        ),
+        default=(),
+        help="Comma-separated physical GPUs for parallel Stage-2 candidates.",
+    )
     parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument(
         "--tensorrt-root",
