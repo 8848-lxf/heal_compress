@@ -24,8 +24,14 @@ from .joint_weight_activation_taylor import (
 
 
 def _score(value: torch.Tensor, grad: torch.Tensor) -> torch.Tensor:
-    value = value.detach().float()
-    grad = grad.detach().float()
+    # Model activations/gradients are FP32, but squaring both operands before
+    # multiplying can overflow FP32 even when the mathematical Taylor score is
+    # finite.  Accumulate the audit/cache statistic in FP64; this does not alter
+    # the model forward, backward, quantizer, or elementwise-abs semantics.
+    value = value.detach().double()
+    grad = grad.detach().double()
+    if not bool(torch.isfinite(value).all()) or not bool(torch.isfinite(grad).all()):
+        raise RuntimeError("gate_taylor_input_nonfinite")
     first = (grad * (-value)).abs()
     second = 0.5 * (grad.square() * value.square()).abs()
     result = first + second
@@ -386,10 +392,27 @@ def collect_activation_taylor_cache(model: nn.Module, units: Sequence[TaylorDepl
             grad = value.grad.detach()
             for old, new in (("FP32", "FP16"), ("FP16", "INT8"), ("FP32", "INT8")):
                 delta = pseudo_quantize_activation(base, new) - pseudo_quantize_activation(base, old)
-                first = (grad.float() * delta.float()).abs()
-                second = 0.5 * (grad.float().square() * delta.float().square()).abs()
+                grad64 = grad.double()
+                delta64 = delta.double()
+                if not bool(torch.isfinite(base).all()):
+                    raise RuntimeError(
+                        f"activation_taylor_base_nonfinite:{unit.unit_id}:{old}->{new}"
+                    )
+                if not bool(torch.isfinite(grad64).all()):
+                    raise RuntimeError(
+                        f"activation_taylor_gradient_nonfinite:{unit.unit_id}:{old}->{new}"
+                    )
+                if not bool(torch.isfinite(delta64).all()):
+                    raise RuntimeError(
+                        f"activation_taylor_delta_nonfinite:{unit.unit_id}:{old}->{new}"
+                    )
+                first = (grad64 * delta64).abs()
+                second = 0.5 * (grad64.square() * delta64.square()).abs()
                 score = first + second
-                if not bool(torch.isfinite(score).all()) or bool((score < 0).any()): raise RuntimeError("activation_taylor_element_invalid")
+                if not bool(torch.isfinite(score).all()) or bool((score < 0).any()):
+                    raise RuntimeError(
+                        f"activation_taylor_element_invalid:{unit.unit_id}:{old}->{new}"
+                    )
                 transitions[(unit.unit_id, old, new)] = float(score.sum().detach().cpu())
     model.zero_grad(set_to_none=True)
     mapping = tuple({"unit_id": u.unit_id, "precision_group_id": u.metadata.get("precision_group_id"), "module_path": u.module_path, "boundary": u.boundary, "quantizer_id": u.quantizer_id} for u in selected)
