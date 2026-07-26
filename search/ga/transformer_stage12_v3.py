@@ -179,6 +179,11 @@ def prepare_cobevt_search(
     context.unified_pruning_domains = tuple(domains)
     context.unified_atomic_units = tuple(identity["cnn_units"])
     context.unified_model_name = "lidar_cobevt"
+    context.unified_qkv_paths = tuple(
+        path
+        for spec_row in formal["components"].attention_instances
+        for path in (spec_row.q_projection_paths + spec_row.k_projection_paths)
+    )
     result = PreparedCNNFormalSearch(
         spec=spec,
         context=context,

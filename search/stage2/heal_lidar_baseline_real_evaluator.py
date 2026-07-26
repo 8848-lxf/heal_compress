@@ -720,6 +720,37 @@ class HealLidarBaselineCandidateEvaluator:
                     output_dir=destination / "export",
                 ),
             )
+            qkv_paths = tuple(getattr(self.context, "unified_qkv_paths", ()) or ())
+            qkv_nodes: list[str] = []
+            onnx_attention = None
+            if qkv_paths:
+                from search.stage2.transformer_precision_export import (
+                    audit_onnx_attention_fp32_contract,
+                )
+
+                qkv_nodes = sorted({
+                    str(row.canonical_node_name)
+                    for row in export.export.origin_map.entries
+                    if any(
+                        str(row.module_path) == path
+                        or str(row.module_path).endswith(f".{path}")
+                        for path in qkv_paths
+                    )
+                })
+                if not qkv_nodes:
+                    raise RuntimeError("heal_transformer_qkv_origin_mapping_missing")
+                onnx_attention = audit_onnx_attention_fp32_contract(
+                    export.export.onnx_path,
+                    qkv_canonical_node_names=qkv_nodes,
+                )
+                self._write_json(
+                    destination / "export/onnx_attention_fp32_audit.json",
+                    onnx_attention,
+                )
+                if not onnx_attention.get("passed"):
+                    raise RuntimeError(
+                        f"heal_transformer_onnx_attention_contract_failed:{onnx_attention}"
+                    )
             profile = {
                 module_path: precision.lower()
                 for module_path, precision in phenotype.realized_precision_profile.items()
@@ -785,6 +816,39 @@ class HealLidarBaselineCandidateEvaluator:
                 "qdq_fusion_island": qdq_island,
                 "qdq_onnx_path": Path(qdq_result.output_onnx),
             }
+            qdq_attention = None
+            if qkv_paths:
+                from scripts.run_v2xvit_greedy005_stage2 import (
+                    _force_attention_fp32_contract,
+                )
+                from search.stage2.transformer_precision_export import (
+                    audit_onnx_attention_fp32_contract,
+                )
+
+                pre_cast = audit_onnx_attention_fp32_contract(
+                    qdq["qdq_onnx_path"],
+                    qkv_canonical_node_names=qkv_nodes,
+                )
+                cast_report = _force_attention_fp32_contract(
+                    qdq["qdq_onnx_path"], pre_cast, av_profile="AV32"
+                )
+                self._write_json(
+                    destination / "qdq/qk_softmax_av_fp32_cast_report.json",
+                    {"pre_cast": pre_cast, **cast_report},
+                )
+                qdq_attention = audit_onnx_attention_fp32_contract(
+                    qdq["qdq_onnx_path"],
+                    qkv_canonical_node_names=qkv_nodes,
+                )
+                self._write_json(
+                    destination / "qdq/qdq_attention_fp32_audit.json",
+                    qdq_attention,
+                )
+                if not qdq_attention.get("passed"):
+                    raise RuntimeError(
+                        "heal_transformer_qdq_attention_contract_failed:"
+                        f"{qdq_attention}"
+                    )
             self._write_json(
                 destination / "qdq/canonical_precision_mapping.json", mapping.to_dict()
             )
@@ -801,6 +865,25 @@ class HealLidarBaselineCandidateEvaluator:
                     model, qdq, output_dir=destination / "deployment"
                 ),
             )
+            trt_attention = None
+            if qkv_paths:
+                from search.stage2.transformer_precision_export import (
+                    audit_trt_attention_fp32_contract,
+                )
+
+                trt_attention = audit_trt_attention_fp32_contract(
+                    destination / "deployment/engine_build/engine_layer_info.json",
+                    qdq_attention,
+                )
+                self._write_json(
+                    destination / "deployment/trt_attention_fp32_audit.json",
+                    trt_attention,
+                )
+                if not trt_attention.get("passed"):
+                    raise RuntimeError(
+                        "heal_transformer_trt_attention_contract_failed:"
+                        f"{trt_attention}"
+                    )
             timings["total_build_pipeline_seconds"] = (
                 time.perf_counter() - total_started
             )
@@ -849,6 +932,17 @@ class HealLidarBaselineCandidateEvaluator:
                 "precision_acceptance": bool(engine["precision_acceptance"]["passed"]),
                 "merge_acceptance": bool(
                     engine["precision_acceptance"]["fusion_island"]["passed"]
+                ),
+                "transformer_attention_fp32_acceptance": bool(
+                    not qkv_paths
+                    or (
+                        onnx_attention
+                        and qdq_attention
+                        and trt_attention
+                        and onnx_attention.get("passed")
+                        and qdq_attention.get("passed")
+                        and trt_attention.get("passed")
+                    )
                 ),
                 "auxiliary_precision": auxiliary_precision,
                 "calibration_metadata_path": str(

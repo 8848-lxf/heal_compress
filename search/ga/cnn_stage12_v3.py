@@ -719,6 +719,10 @@ class CNNRealStage2Evaluator:
                 raw.get("status") == "ok"
                 and raw.get("precision_acceptance", False)
                 and raw.get("merge_acceptance", False)
+                and (
+                    self.prepared.spec.model_id != "cobevt"
+                    or raw.get("transformer_attention_fp32_acceptance", False)
+                )
                 and int(raw.get("requested_int8_count", 0))
                 == int(raw.get("realized_int8_count", 0))
             )
