@@ -10,6 +10,7 @@ from scripts.run_v2xvit_six_budget_formal_ga_gen10 import (
     _parse_targets,
     _shard_suffix,
 )
+from scripts.run_v2xvit_ga_final_latency import load_budget_summary
 from scripts.watch_and_evaluate_v2xvit_final_budget import run as run_watcher
 
 
@@ -52,3 +53,24 @@ def test_fixed500_watcher_fails_closed_when_formal_budget_failed(tmp_path) -> No
     assert run_watcher(args) == 2
     status = tmp_path / "reports/final_fixed500_watcher_010_ga.json"
     assert "formal_budget_failed" in status.read_text(encoding="utf-8")
+
+
+def test_final_latency_uses_completed_per_budget_summary(tmp_path) -> None:
+    summary = tmp_path / "ga/budget_030/seed_0/budget_summary.json"
+    summary.parent.mkdir(parents=True)
+    summary.write_text(
+        '{"greedy_anchor":{"complete_phenotype_hash":"g"},'
+        '"final_winner":{"complete_phenotype_hash":"a"}}\n',
+        encoding="utf-8",
+    )
+    assert load_budget_summary(tmp_path, "030")["final_winner"]["complete_phenotype_hash"] == "a"
+    with pytest.raises(RuntimeError, match="formal_budget_summary_missing:025"):
+        load_budget_summary(tmp_path, "025")
+
+
+def test_final_latency_rejects_incomplete_budget_summary(tmp_path) -> None:
+    summary = tmp_path / "ga/budget_030/seed_0/budget_summary.json"
+    summary.parent.mkdir(parents=True)
+    summary.write_text('{"greedy_anchor":{}}\n', encoding="utf-8")
+    with pytest.raises(RuntimeError, match="formal_budget_summary_incomplete:030"):
+        load_budget_summary(tmp_path, "030")

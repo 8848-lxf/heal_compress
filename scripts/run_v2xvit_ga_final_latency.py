@@ -22,6 +22,17 @@ if str(REPO) not in sys.path:
 from scripts.run_v2xvit_six_budget_latency import gpu_telemetry, measure, sha256, write
 
 
+def load_budget_summary(root: Path, label: str) -> dict[str, Any]:
+    """Load one completed formal-budget summary without consulting stale aggregates."""
+    summary_path = root / f"ga/budget_{label}/seed_0/budget_summary.json"
+    if not summary_path.is_file():
+        raise RuntimeError(f"formal_budget_summary_missing:{label}")
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    if "greedy_anchor" not in summary or "final_winner" not in summary:
+        raise RuntimeError(f"formal_budget_summary_incomplete:{label}")
+    return summary
+
+
 def run(args: argparse.Namespace) -> int:
     if torch.cuda.device_count() != 1:
         raise RuntimeError("ga_final_latency_requires_one_visible_gpu")
@@ -36,8 +47,10 @@ def run(args: argparse.Namespace) -> int:
     from tests.quant_deploy.deployment_equivalence import TensorRTEngineRunner
 
     root = args.output_root.resolve()
-    formal = json.loads((root / "reports/ga_formal_results.json").read_text())
-    request = json.loads((root / "evaluation_fixed500/B0/evaluation_request.json").read_text())
+    request_path = args.request_json or (
+        root / "evaluation_fixed500/B0/evaluation_request.json"
+    )
+    request = json.loads(Path(request_path).read_text())
     ctypes.CDLL(str(Path(request["plugin_path"])), mode=ctypes.RTLD_GLOBAL)
     adapter = HEALLiDARAdapter(
         heal_repo=request["heal_root"], config={"model": {"hypes_yaml": request["model_config"]}}
@@ -65,15 +78,19 @@ def run(args: argparse.Namespace) -> int:
     if prepared is None:
         raise RuntimeError("ga_final_latency_frame_missing")
 
-    output_path = root / "reports/greedy_vs_ga_latency.json"
+    output_path = args.output_json or (
+        root / "reports/greedy_vs_ga_latency.json"
+    )
     results = json.loads(output_path.read_text()).get("budgets", {}) if output_path.is_file() else {}
     labels = tuple(value.strip() for value in args.labels.split(",") if value.strip())
-    b0 = root / "engines/greedy_exact_winners/B0/candidate.plan"
+    b0 = args.b0_engine or (
+        root / "engines/greedy_exact_winners/B0/candidate.plan"
+    )
     for label in labels:
-        budget = formal["budgets"][label]
+        budget = load_budget_summary(root, label)
         greedy_hash = budget["greedy_anchor"]["complete_phenotype_hash"]
         ga = budget["final_winner"]
-        greedy_path = root / f"engines/greedy_exact_winners/budget_{label}/JMIX-FRESH/candidate.plan"
+        greedy_path = Path(budget["greedy_anchor"]["metadata"]["engine_path"])
         ga_path = (
             greedy_path
             if ga["complete_phenotype_hash"] == greedy_hash
@@ -162,6 +179,9 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--gpu-uuid", required=True)
     parser.add_argument("--labels", required=True)
+    parser.add_argument("--b0-engine", type=Path)
+    parser.add_argument("--request-json", type=Path)
+    parser.add_argument("--output-json", type=Path)
     return run(parser.parse_args())
 
 
