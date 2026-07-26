@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import random
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -223,6 +224,28 @@ class PreparedCNNFormalSearch:
         )
 
 
+def logical_cuda_device_index(physical_gpu: int) -> int:
+    """Resolve a physical GPU to its process-local CUDA ordinal.
+
+    Formal launchers pass ``CUDA_VISIBLE_DEVICES`` explicitly.  Once a single
+    physical device (for example GPU 3) is isolated, CUDA exposes it as logical
+    device 0; passing the physical ordinal to ``torch.cuda.set_device`` is an
+    invalid-device bug.  Provenance continues to record the physical index and
+    UUID, while model/TensorRT contexts receive this logical index.
+    """
+
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if not visible:
+        return int(physical_gpu)
+    devices = [value.strip() for value in visible.split(",") if value.strip()]
+    physical = str(int(physical_gpu))
+    if physical not in devices:
+        raise RuntimeError(
+            f"formal_cnn_physical_gpu_not_visible:{physical}:visible={devices}"
+        )
+    return devices.index(physical)
+
+
 def build_context(
     spec: CNNFormalModelSpec,
     *,
@@ -235,6 +258,7 @@ def build_context(
     for path in (spec.checkpoint, spec.config, spec.calibration_manifest, plugin):
         if not path.is_file():
             raise RuntimeError(f"formal_cnn_required_artifact_missing:{path}")
+    logical_gpu = logical_cuda_device_index(physical_gpu)
     if spec.model_id == "pyramid":
         return build_lidar_pyramid_context(
             checkpoint_path=spec.checkpoint,
@@ -243,7 +267,7 @@ def build_context(
             heal_root="/home/lixingfeng/UniAD_examine/HEAL",
             tensorrt_root=tensorrt_root,
             plugin_path=plugin,
-            gpu_id=str(physical_gpu),
+            gpu_id=str(logical_gpu),
             exclude_gpu_ids=[],
             tensorrt_env="modelopt",
             fisher_calibration_batches=int(taylor_samples),
@@ -266,7 +290,7 @@ def build_context(
         heal_root="/home/lixingfeng/UniAD_examine/HEAL",
         tensorrt_root=tensorrt_root,
         plugin_path=plugin,
-        gpu_id=str(physical_gpu),
+        gpu_id=str(logical_gpu),
         exclude_gpu_ids=[],
         tensorrt_env="modelopt",
         fisher_calibration_batches=int(taylor_samples),
@@ -1338,6 +1362,7 @@ __all__ = [
     "canonical_size_metrics",
     "create_real_evaluator",
     "greedy_anchors",
+    "logical_cuda_device_index",
     "prepare_search",
     "run_budget",
     "stage2_payload",

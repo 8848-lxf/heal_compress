@@ -100,6 +100,19 @@ def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
     assert "greedy_only" in source
 
 
+def test_physical_gpu_is_mapped_to_process_local_cuda_ordinal(monkeypatch) -> None:
+    from search.ga.cnn_stage12_v3 import logical_cuda_device_index
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "3")
+    assert logical_cuda_device_index(3) == 0
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "2,3")
+    assert logical_cuda_device_index(3) == 1
+    with pytest.raises(RuntimeError, match="physical_gpu_not_visible"):
+        logical_cuda_device_index(4)
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES")
+    assert logical_cuda_device_index(3) == 3
+
+
 def test_size_proxy_field_is_mapped_to_strict_stage1_contract() -> None:
     from search.ga.cnn_stage12_v3 import canonical_size_metrics
 

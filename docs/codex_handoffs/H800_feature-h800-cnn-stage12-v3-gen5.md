@@ -35,6 +35,20 @@ read-only and are never used as current-framework search results.
   the independent V2X-ViT/AttFusion formal runs, so the new three-model
   Greedy gate and GA reruns have not yet been launched at this checkpoint.
 
+### Runtime bug found during the first fresh launch
+
+- The first isolated Pyramid launch failed before model initialization and
+  before any candidate build. With `CUDA_VISIBLE_DEVICES=3`, CUDA exposes the
+  selected physical GPU as logical device 0, but the CNN context still called
+  `torch.cuda.set_device(3)`, causing `invalid device ordinal`.
+- Added an explicit physical-to-logical CUDA ordinal resolver. Provenance and
+  scheduling retain physical GPU index/UUID, while PyTorch/ModelOpt/TensorRT
+  contexts use the process-local ordinal. Regression tests cover single- and
+  two-device visibility plus fail-closed handling of a hidden physical GPU.
+- The failed output
+  `h800_cnn_frontier_beam_greedy_then_ga_gen5_20260726_020852/pyramid`
+  contains only startup provenance and a log; it will not be reused.
+
 ---
 
 ## 2026-07-25 15:52:00 -07:00
