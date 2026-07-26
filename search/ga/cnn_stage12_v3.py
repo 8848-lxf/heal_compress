@@ -63,6 +63,14 @@ from .stage12_v3 import (
 )
 
 
+STAGE2_SCREENING_FRAMES = 300
+STAGE2_SCREENING_WARMUP_FRAMES = 100
+STAGE2_SCREENING_PROTOCOL = "top5_fixed300_warmup100_screening"
+GENERATION_WINNER_FRAMES = 500
+GENERATION_WINNER_WARMUP_FRAMES = 200
+GENERATION_WINNER_PROTOCOL = "generation_winner_fixed500_warmup200"
+
+
 @dataclass(frozen=True)
 class CNNFormalModelSpec:
     model_id: str
@@ -1232,11 +1240,19 @@ class CNNRealStage2Evaluator:
         output_root: Path,
         budget_label: str,
         real_evaluator: Any,
+        cache_namespace: str = "stage2_screening_cache",
+        evaluation_frames: int = STAGE2_SCREENING_FRAMES,
+        evaluation_warmup_frames: int = STAGE2_SCREENING_WARMUP_FRAMES,
+        evaluation_protocol: str = STAGE2_SCREENING_PROTOCOL,
     ) -> None:
         self.prepared = prepared
         self.output_root = output_root
         self.budget_label = budget_label
         self.real_evaluator = real_evaluator
+        self.cache_namespace = str(cache_namespace)
+        self.evaluation_frames = int(evaluation_frames)
+        self.evaluation_warmup_frames = int(evaluation_warmup_frames)
+        self.evaluation_protocol = str(evaluation_protocol)
 
     @staticmethod
     def _counts(raw: Mapping[str, Any]) -> tuple[int, int]:
@@ -1250,11 +1266,24 @@ class CNNRealStage2Evaluator:
         identity = phenotype_identity(genotype, self.prepared.space)
         complete_hash = str(identity["complete_phenotype_hash"])
         destination = self.output_root / (
-            f"ga/budget_{self.budget_label}/stage2_cache/{complete_hash}"
+            f"ga/budget_{self.budget_label}/{self.cache_namespace}/{complete_hash}"
         )
         result_path = destination / "strict_stage2_result.json"
         if result_path.is_file():
             payload = json.loads(result_path.read_text(encoding="utf-8"))
+            metadata = dict(payload.get("metadata") or {})
+            if (
+                int(metadata.get("evaluation_frames", -1))
+                != self.evaluation_frames
+                or int(metadata.get("evaluation_warmup_frames", -1))
+                != self.evaluation_warmup_frames
+                or str(metadata.get("evaluation_protocol", ""))
+                != self.evaluation_protocol
+            ):
+                raise RuntimeError(
+                    "cnn_stage2_cache_protocol_mismatch:"
+                    f"{complete_hash}:{metadata}"
+                )
             return Stage2Result(
                 complete_phenotype_hash=complete_hash,
                 genotype=genotype,
@@ -1264,7 +1293,7 @@ class CNNRealStage2Evaluator:
                 requested_realized_exact=bool(payload["requested_realized_exact"]),
                 evaluated=int(payload["evaluated"]),
                 skipped=int(payload["skipped"]),
-                metadata=dict(payload.get("metadata") or {}),
+                metadata=metadata,
             )
         phenotype = canonicalize_candidate(genotype, self.prepared.space)
         raw = self.real_evaluator.evaluate_candidate(
@@ -1289,7 +1318,7 @@ class CNNRealStage2Evaluator:
         ok = bool(
             raw.get("status") == "ok"
             and exact
-            and evaluated == 50
+            and evaluated == self.evaluation_frames
             and skipped == 0
             and math.isfinite(float(raw.get("mAP")))
             and math.isfinite(float(raw.get("forward_p50_ms")))
@@ -1310,6 +1339,9 @@ class CNNRealStage2Evaluator:
                 "raw_status": raw.get("status"),
                 "failure_reason": raw.get("failure_reason", ""),
                 "precision_fallback": False,
+                "evaluation_frames": self.evaluation_frames,
+                "evaluation_warmup_frames": self.evaluation_warmup_frames,
+                "evaluation_protocol": self.evaluation_protocol,
             },
         )
         write_json(result_path, stage2_payload(result))
@@ -1320,13 +1352,16 @@ def create_real_evaluator(
     prepared: PreparedCNNFormalSearch,
     *,
     output_root: Path,
+    num_frames: int = STAGE2_SCREENING_FRAMES,
+    warmup_frames: int = STAGE2_SCREENING_WARMUP_FRAMES,
+    run_dir_name: str = "stage2_screening_runtime",
 ) -> Any:
     if prepared.spec.model_id == "pyramid":
         return LidarPyramidRealEvaluator(
             context=prepared.context,
-            run_dir=output_root / "stage2_runtime",
-            num_frames=50,
-            warmup_frames=20,
+            run_dir=output_root / run_dir_name,
+            num_frames=int(num_frames),
+            warmup_frames=int(warmup_frames),
             latency_rounds=1,
             stage2_config=Stage2ObjectiveConfig(
                 latency_metric="forward_p50_ms",
@@ -1338,10 +1373,10 @@ def create_real_evaluator(
         raise RuntimeError("formal_cnn_strict_fp32_engine_missing")
     return HealLidarBaselineCandidateEvaluator(
         context=prepared.context,
-        run_dir=output_root / "stage2_runtime",
+        run_dir=output_root / run_dir_name,
         baseline_engine_path=prepared.spec.strict_fp32_engine,
-        num_frames=50,
-        warmup_frames=20,
+        num_frames=int(num_frames),
+        warmup_frames=int(warmup_frames),
         latency_rounds=1,
         objective_config=Stage2ObjectiveConfig(
             latency_metric="forward_p50_ms",
@@ -1350,6 +1385,133 @@ def create_real_evaluator(
         ),
         dataloader_num_workers=8,
     )
+
+
+def validate_generation_winner(
+    prepared: PreparedCNNFormalSearch,
+    *,
+    screening_result: Stage2Result,
+    output_root: Path,
+    budget_label: str,
+    generation: int,
+    validation_evaluator: Any,
+) -> Stage2Result:
+    """Evaluate an already-built generation-winner engine on fixed500.
+
+    No structure materialization, calibration, ONNX export, Q/DQ insertion or
+    TensorRT build is repeated.  The model-family evaluator verifies the source
+    deployment/precision artifacts and engine hash before evaluation.
+    """
+
+    complete_hash = str(screening_result.complete_phenotype_hash)
+    destination = output_root / (
+        f"ga/budget_{budget_label}/generation_winner_validation/{complete_hash}"
+    )
+    result_path = destination / "generation_winner_result.json"
+    if result_path.is_file():
+        payload = json.loads(result_path.read_text(encoding="utf-8"))
+        metadata = dict(payload.get("metadata") or {})
+        if (
+            int(metadata.get("evaluation_frames", -1)) != GENERATION_WINNER_FRAMES
+            or int(metadata.get("evaluation_warmup_frames", -1))
+            != GENERATION_WINNER_WARMUP_FRAMES
+            or str(metadata.get("evaluation_protocol", ""))
+            != GENERATION_WINNER_PROTOCOL
+        ):
+            raise RuntimeError(
+                f"cnn_generation_winner_cache_protocol_mismatch:{complete_hash}"
+            )
+        return Stage2Result(
+            complete_hash,
+            screening_result.genotype,
+            str(payload["status"]),
+            payload.get("mAP"),
+            payload.get("p50_ms"),
+            bool(payload["requested_realized_exact"]),
+            int(payload["evaluated"]),
+            int(payload["skipped"]),
+            metadata,
+        )
+    destination.mkdir(parents=True, exist_ok=True)
+    try:
+        if not screening_result.deployable:
+            raise RuntimeError("cnn_generation_winner_screening_not_deployable")
+        source = Path(str(screening_result.metadata.get("artifact_dir", "")))
+        if not source.is_dir():
+            raise RuntimeError(f"cnn_generation_winner_source_missing:{source}")
+        phenotype = canonicalize_candidate(
+            screening_result.genotype, prepared.space
+        )
+        raw = validation_evaluator.reevaluate_existing_candidate_engine(
+            phenotype,
+            source_artifact_dir=source,
+            output_dir=destination / "evaluation_fixed500",
+            candidate_hash=complete_hash,
+        )
+        evaluated, skipped = CNNRealStage2Evaluator._counts(raw)
+        exact = bool(
+            raw.get("status") == "ok"
+            and (
+                prepared.spec.model_id == "pyramid"
+                or (
+                    raw.get("precision_acceptance", False)
+                    and raw.get("merge_acceptance", False)
+                )
+            )
+        )
+        ok = bool(
+            raw.get("status") == "ok"
+            and exact
+            and evaluated == GENERATION_WINNER_FRAMES
+            and skipped == 0
+            and math.isfinite(float(raw.get("mAP")))
+            and math.isfinite(float(raw.get("forward_p50_ms")))
+        )
+        result = Stage2Result(
+            complete_hash,
+            screening_result.genotype,
+            "ok" if ok else str(raw.get("status", "failed")),
+            float(raw["mAP"]) if ok else None,
+            float(raw["forward_p50_ms"]) if ok else None,
+            exact,
+            evaluated,
+            skipped,
+            {
+                "generation": int(generation),
+                "artifact_dir": str(destination),
+                "source_artifact_dir": str(source),
+                "screening_result": stage2_payload(screening_result),
+                "engine_hash": raw.get("engine_hash", raw.get("engine_sha256", "")),
+                "engine_rebuilt_for_validation": False,
+                "evaluation_frames": GENERATION_WINNER_FRAMES,
+                "evaluation_warmup_frames": GENERATION_WINNER_WARMUP_FRAMES,
+                "evaluation_protocol": GENERATION_WINNER_PROTOCOL,
+                "precision_fallback": False,
+                "raw": raw,
+            },
+        )
+    except Exception as exc:
+        result = Stage2Result(
+            complete_hash,
+            screening_result.genotype,
+            "failed",
+            None,
+            None,
+            False,
+            0,
+            0,
+            {
+                "generation": int(generation),
+                "failure": f"{type(exc).__name__}:{exc}",
+                "engine_rebuilt_for_validation": False,
+                "evaluation_frames": GENERATION_WINNER_FRAMES,
+                "evaluation_warmup_frames": GENERATION_WINNER_WARMUP_FRAMES,
+                "evaluation_protocol": GENERATION_WINNER_PROTOCOL,
+                "precision_fallback": False,
+            },
+        )
+    write_json(result_path, stage2_payload(result))
+    return result
 
 
 def best_real_candidate(
@@ -1401,6 +1563,7 @@ def run_budget(
     seed: int,
     generations: int,
     real_evaluator: Any,
+    validation_evaluator: Any,
 ) -> dict[str, Any]:
     label = f"{int(round(target * 100)):03d}"
     stage1 = prepared.evaluator(target=target, enforce_bops_hard_gate=True)
@@ -1452,7 +1615,45 @@ def run_budget(
         }, sort_keys=True), flush=True)
 
     result = runner.run(initial, greedy_anchor=greedy, generation_callback=callback)
-    final = best_real_candidate(list(result["evaluated"].values()), greedy)
+    greedy_validated = validate_generation_winner(
+        prepared,
+        screening_result=greedy,
+        output_root=output_root,
+        budget_label=label,
+        generation=0,
+        validation_evaluator=validation_evaluator,
+    )
+    if not greedy_validated.deployable:
+        raise RuntimeError(
+            f"formal_cnn_greedy_anchor_fixed500_failed:budget_{label}"
+        )
+    generation_winner_generations: dict[str, int] = {}
+    for record in result["history"]:
+        winner_hash = record.get("generation_winner_hash")
+        if winner_hash:
+            generation_winner_generations.setdefault(
+                str(winner_hash), int(record["generation"])
+            )
+    generation_winner_validations = []
+    for winner_hash, generation in generation_winner_generations.items():
+        screening = result["evaluated"].get(winner_hash)
+        if screening is None:
+            raise RuntimeError(
+                f"cnn_generation_winner_screening_missing:{winner_hash}"
+            )
+        generation_winner_validations.append(
+            validate_generation_winner(
+                prepared,
+                screening_result=screening,
+                output_root=output_root,
+                budget_label=label,
+                generation=generation,
+                validation_evaluator=validation_evaluator,
+            )
+        )
+    final = best_real_candidate(
+        [greedy_validated, *generation_winner_validations], greedy_validated
+    )
     summary = {
         "model": prepared.spec.model_id,
         "target_bops": target,
@@ -1460,11 +1661,24 @@ def run_budget(
         "generation_zero_counted": result["generation_zero_counted"],
         "completed_evolution_generations": result["completed_evolution_generations"],
         "termination_reason": result["termination_reason"],
-        "greedy_anchor": stage2_payload(greedy),
+        "greedy_anchor_screening": stage2_payload(greedy),
+        "greedy_anchor": stage2_payload(greedy_validated),
         "global_anchors": [stage2_payload(row) for row in result["anchors"].unique()],
         "final_winner": stage2_payload(final),
         "ga_improved_greedy": final.complete_phenotype_hash != greedy.complete_phenotype_hash,
         "stage2_real_evaluation_count": len(result["evaluated"]) - 1,
+        "stage2_top5_screening_frames": STAGE2_SCREENING_FRAMES,
+        "stage2_top5_screening_warmup_frames": STAGE2_SCREENING_WARMUP_FRAMES,
+        "generation_winner_validation_frames": GENERATION_WINNER_FRAMES,
+        "generation_winner_validation_warmup_frames": (
+            GENERATION_WINNER_WARMUP_FRAMES
+        ),
+        "generation_winner_validation_count": len(
+            generation_winner_validations
+        ),
+        "generation_winner_validations": [
+            stage2_payload(row) for row in generation_winner_validations
+        ],
         "repair_counts": result["formal_ga_repair_counts"],
         "population_size": 64,
         "offspring_size": 64,
@@ -1491,6 +1705,7 @@ __all__ = [
     "prepare_search",
     "run_budget",
     "stage2_payload",
+    "validate_generation_winner",
     "write_csv",
     "write_json",
 ]
