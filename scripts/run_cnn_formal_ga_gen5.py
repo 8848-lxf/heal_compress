@@ -23,8 +23,10 @@ from search.ga.cnn_stage12_v3 import (  # noqa: E402
     MODEL_SPECS,
     create_real_evaluator,
     greedy_anchors,
+    load_greedy_anchors,
     prepare_search,
     run_budget,
+    stage2_payload,
     write_csv,
     write_json,
 )
@@ -133,7 +135,18 @@ def run(args: argparse.Namespace) -> int:
         tensorrt_root=args.tensorrt_root.resolve(),
         taylor_samples=args.taylor_samples,
     )
-    anchors = greedy_anchors(prepared, targets=targets, output_root=root)
+    if args.resume and (root / "reports/greedy_exact_winners.json").is_file():
+        anchors = load_greedy_anchors(
+            prepared, targets=targets, output_root=root
+        )
+        print(json.dumps({
+            "event": "cnn_exact_greedy_anchors_resumed",
+            "model": args.model,
+            "anchor_count": len(anchors),
+            "validation": "schema+phenotype_hash+exact_current_bops_hard_gate",
+        }, sort_keys=True), flush=True)
+    else:
+        anchors = greedy_anchors(prepared, targets=targets, output_root=root)
     real_evaluator = create_real_evaluator(prepared, output_root=root)
     results: dict[str, dict] = {}
     failures: list[dict] = []

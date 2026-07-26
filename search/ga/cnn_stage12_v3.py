@@ -1067,6 +1067,55 @@ def greedy_anchors(
     return winners
 
 
+def load_greedy_anchors(
+    prepared: PreparedCNNFormalSearch,
+    *,
+    targets: Sequence[float],
+    output_root: Path,
+    bops_tolerance_abs: float = 0.005,
+) -> dict[float, CandidateGenotype]:
+    """Load completed exact anchors after a reporting-only interrupted run.
+
+    Resume is fail-closed: every requested target must exist, retain the saved
+    complete phenotype hash, satisfy the current schema, and still pass the
+    exact current BOPS hard gate.  No historical candidate is repaired or
+    projected.  This avoids repeating tens of thousands of analytic neighbor
+    evaluations when an already-completed Greedy run was interrupted later in
+    Stage-2 reporting.
+    """
+
+    path = output_root / "reports/greedy_exact_winners.json"
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    anchors: dict[float, CandidateGenotype] = {}
+    for target in targets:
+        key = str(float(target))
+        if key not in payload:
+            raise RuntimeError(f"resume_greedy_anchor_missing_target:{key}")
+        row = dict(payload[key])
+        candidate = CandidateGenotype.from_dict(row["genotype"])
+        validate_genotype_schema(candidate, prepared.space)
+        identity = phenotype_identity(candidate, prepared.space)
+        saved_hash = str(row["identity"]["complete_phenotype_hash"])
+        if str(identity["complete_phenotype_hash"]) != saved_hash:
+            raise RuntimeError(f"resume_greedy_anchor_hash_mismatch:{key}")
+        metrics = prepared.evaluator(
+            target=float(target), enforce_bops_hard_gate=True
+        )(candidate)
+        if not bool(metrics["bops_feasible"]):
+            raise RuntimeError(
+                f"resume_greedy_anchor_outside_budget_band:{key}:"
+                f"{metrics['R_bops_vs_fp32']}"
+            )
+        if abs(float(metrics["R_bops_vs_fp32"]) - float(target)) > float(
+            bops_tolerance_abs
+        ):
+            raise RuntimeError(f"resume_greedy_anchor_tolerance_mismatch:{key}")
+        anchors[float(target)] = candidate
+    return anchors
+
+
 def build_initial_population(
     anchor: CandidateGenotype,
     *,
@@ -1363,6 +1412,7 @@ __all__ = [
     "create_real_evaluator",
     "greedy_anchors",
     "logical_cuda_device_index",
+    "load_greedy_anchors",
     "prepare_search",
     "run_budget",
     "stage2_payload",
