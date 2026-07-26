@@ -19,6 +19,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from search.ga.cnn_stage12_v3 import (  # noqa: E402
+    CNNRealStage2Evaluator,
     MODEL_SPECS,
     create_real_evaluator,
     greedy_anchors,
@@ -136,15 +137,117 @@ def run(args: argparse.Namespace) -> int:
     real_evaluator = create_real_evaluator(prepared, output_root=root)
     results: dict[str, dict] = {}
     failures: list[dict] = []
+    greedy_gate_rows: list[dict] = []
+    greedy_gate_results: dict[str, dict] = {}
+
+    # Finish and validate every exact Greedy anchor before starting even one
+    # formal GA budget.  run_budget() reads the same immutable Stage-2 cache,
+    # so this ordering adds no duplicate engine build when GA is subsequently
+    # allowed.
     for target in targets:
         label = f"{int(round(target * 100)):03d}"
         anchor = anchors.get(target)
         if anchor is None:
             failures.append({
                 "target": target,
-                "status": "budget_unreachable_by_selected_greedy_trajectory",
+                "status": "budget_unreachable_after_legal_frontier_and_beam_recovery",
             })
             continue
+        greedy_stage2 = CNNRealStage2Evaluator(
+            prepared=prepared,
+            output_root=root,
+            budget_label=label,
+            real_evaluator=real_evaluator,
+        )(anchor, 0)
+        payload = stage2_payload(greedy_stage2)
+        greedy_gate_results[label] = payload
+        greedy_gate_rows.append({
+            "model": args.model,
+            "budget": target,
+            "candidate_hash": greedy_stage2.complete_phenotype_hash,
+            "status": greedy_stage2.status,
+            "deployable": greedy_stage2.deployable,
+            "mAP_fixed50": greedy_stage2.map,
+            "p50_ms": greedy_stage2.p50_ms,
+            "requested_realized_exact": greedy_stage2.requested_realized_exact,
+            "evaluated": greedy_stage2.evaluated,
+            "skipped": greedy_stage2.skipped,
+        })
+        if not greedy_stage2.deployable:
+            failures.append({
+                "target": target,
+                "status": "greedy_exact_anchor_deployment_gate_failed",
+                "candidate_hash": greedy_stage2.complete_phenotype_hash,
+                "stage2": payload,
+            })
+
+    write_csv(root / "reports/greedy_anchor_deployment_validation.csv", greedy_gate_rows)
+    write_json(root / "reports/greedy_anchor_deployment_validation.json", {
+        "model": args.model,
+        "all_budgets_checked_before_formal_ga": True,
+        "formal_ga_started": False,
+        "targets": list(targets),
+        "anchors": greedy_gate_results,
+        "failures": failures,
+        "gate_passed": not failures and len(greedy_gate_results) == len(targets),
+    })
+    if failures or len(greedy_gate_results) != len(targets):
+        write_json(root / "reports/pre_ga_greedy_anchor_gate.json", {
+            "formal_ga_allowed": False,
+            "reason": "all_six_greedy_exact_anchors_must_exist_and_be_deployable",
+            "failures": failures,
+        })
+        print(json.dumps({
+            "event": "cnn_formal_ga_blocked_by_greedy_anchor_gate",
+            "model": args.model,
+            "failed_budget_count": len(failures),
+            "output_root": str(root),
+        }, sort_keys=True), flush=True)
+        return 2
+    write_json(root / "reports/pre_ga_greedy_anchor_gate.json", {
+        "formal_ga_allowed": not args.greedy_only,
+        "all_six_greedy_exact_anchors_in_band": True,
+        "all_six_greedy_exact_anchors_deployable": True,
+        "greedy_only_requested": bool(args.greedy_only),
+        "frontier_and_recovery_used": True,
+        "budget_projection_used": False,
+        "repair_used": False,
+    })
+    if args.greedy_only:
+        write_json(root / "reports/final_acceptance.json", {
+            "model": args.model,
+            "mode": "six_budget_greedy_anchor_gate_only",
+            "new_ga_framework_used": True,
+            "formal_ga_executed": False,
+            "all_six_greedy_exact_anchors_in_band": True,
+            "all_six_greedy_exact_anchors_deployable": True,
+            "greedy_frontier_recovery_enabled": True,
+            "budget_projection_used": False,
+            "repair_enabled": False,
+            "budgets_requested": list(targets),
+            "full1789_executed": False,
+        })
+        gpu_end = query_gpus()
+        write_json(root / "provenance/end.json", {
+            "gpu": next(
+                row for row in gpu_end if int(row["index"]) == int(args.physical_gpu)
+            ),
+            "gpu_uuid": gpu_uuid(args.physical_gpu),
+            "all_gpus": gpu_end,
+        })
+        print(json.dumps({
+            "event": "cnn_six_budget_greedy_gate_complete",
+            "model": args.model,
+            "formal_ga_started": False,
+            "output_root": str(root),
+        }, sort_keys=True), flush=True)
+        return 0
+
+    # Only now, after all budgets passed the exact-anchor gate, may formal GA
+    # begin.  The Greedy anchor is loaded from the Stage-2 cache by run_budget.
+    for target in targets:
+        label = f"{int(round(target * 100)):03d}"
+        anchor = anchors[target]
         try:
             results[label] = run_budget(
                 prepared,
@@ -213,6 +316,8 @@ def run(args: argparse.Namespace) -> int:
         "population_size": 64,
         "offspring_size": 64,
         "stage2_quota": 5,
+        "greedy_anchor_gate_completed_before_ga": True,
+        "greedy_frontier_recovery_enabled": True,
         "stage1_proxy": "J_struct_gate + J_WQ + J_AQ",
         "repair_enabled": False,
         "budgets_requested": list(targets),
@@ -250,6 +355,14 @@ def main() -> int:
         "--targets", default=",".join(str(value) for value in DEFAULT_TARGETS)
     )
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--greedy-only",
+        action="store_true",
+        help=(
+            "build and deploy-validate all six exact Greedy anchors, then stop "
+            "before formal GA"
+        ),
+    )
     parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument(
         "--tensorrt-root",
