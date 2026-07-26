@@ -103,3 +103,71 @@ def test_size_proxy_field_is_mapped_to_strict_stage1_contract() -> None:
     })
     assert row["mixed_weight_retention"] == 0.375
     assert row["R_parameter_retention"] == 0.75
+
+
+def test_grouped_gate_rerank_rebuilds_physical_keep_map() -> None:
+    from search.proxy.conservative_gate_activation_taylor import (
+        GateDomainScores,
+        rerank_domains_by_gate_scores,
+    )
+    from search.pruning_space.local_domains import LocalPruningDomain
+
+    domain = LocalPruningDomain(
+        domain_id="grouped::out",
+        root_module_path="grouped",
+        root_axis="out",
+        scope_id="grouped-scope",
+        kind="regular_grouped",
+        original_width=4,
+        total_original_width=8,
+        ordered_unit_ids=("g0u0", "g0u1", "g0u2", "g0u3", "g1u0", "g1u1", "g1u2", "g1u3"),
+        ordered_unit_ids_by_group={
+            0: ("g0u0", "g0u1", "g0u2", "g0u3"),
+            1: ("g1u0", "g1u1", "g1u2", "g1u3"),
+        },
+        group_local_indices={
+            0: {f"g0u{i}": i for i in range(4)},
+            1: {f"g1u{i}": i for i in range(4)},
+        },
+        unit_root_indices={
+            **{f"g0u{i}": (i,) for i in range(4)},
+            **{f"g1u{i}": (4 + i,) for i in range(4)},
+        },
+        legal_widths=(2, 4),
+        width_to_pruned_unit_ids={2: ("g0u0", "g0u1", "g1u0", "g1u1"), 4: ()},
+        group_keep_maps={2: {0: [2, 3], 1: [2, 3]}, 4: {0: [0, 1, 2, 3], 1: [0, 1, 2, 3]}},
+        group_prune_maps={2: {0: [0, 1], 1: [0, 1]}, 4: {0: [], 1: []}},
+        groups=2,
+    )
+    scores = GateDomainScores(
+        domain_id=domain.domain_id,
+        # The lowest gate coordinates differ between groups.  A flat sort
+        # would remove four coordinates from group 1 and none from group 0.
+        unit_scores={
+            "g0u0": 10.0, "g0u1": 11.0, "g0u2": 1.0, "g0u3": 2.0,
+            "g1u0": 3.0, "g1u1": 4.0, "g1u2": 20.0, "g1u3": 21.0,
+        },
+        semantic_root_tensor="grouped",
+        gate_tensor="grouped",
+        physical_dependencies=("grouped.weight",),
+        family="grouped_conv",
+    )
+
+    reranked = rerank_domains_by_gate_scores((domain,), {domain.domain_id: scores})[0]
+    assert reranked.width_to_pruned_unit_ids[2] == ("g0u2", "g0u3", "g1u0", "g1u1")
+    assert reranked.group_prune_maps[2] == {0: [2, 3], 1: [0, 1]}
+    assert reranked.group_keep_maps[2] == {0: [0, 1], 1: [2, 3]}
+    expanded_keep = [
+        group * domain.original_width + local
+        for group in range(domain.groups)
+        for local in reranked.group_keep_maps[2][group]
+    ]
+    selected = set(reranked.width_to_pruned_unit_ids[2])
+    frozen_keep = sorted(
+        index
+        for unit_id, indices in reranked.unit_root_indices.items()
+        if unit_id not in selected
+        for index in indices
+    )
+    assert expanded_keep == [0, 1, 6, 7]
+    assert frozen_keep == expanded_keep
