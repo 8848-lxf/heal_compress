@@ -507,3 +507,89 @@ def test_anchor_constrained_space_restores_serialized_nested_mask_and_hash() -> 
     assert constrained.ranking_hash == "frozen-rank"
     assert constrained.pruned_unit_ids_for_width(2) == ("u0", "u1")
     assert constrained.decode_width(2)["pruned_unit_ids"] == ["u0", "u1"]
+
+
+def test_frozen_domain_manifest_roundtrip_preserves_every_width_mask(tmp_path) -> None:
+    from search.ga.frozen_domain_manifest import (
+        build_manifest,
+        domain_table_hash,
+        load_manifest,
+        write_manifest,
+    )
+    from search.pruning_space.local_domains import LocalPruningDomain
+
+    domain = LocalPruningDomain(
+        domain_id="cnn",
+        root_module_path="cnn",
+        root_axis="out",
+        scope_id="cnn",
+        kind="dense",
+        original_width=4,
+        total_original_width=4,
+        ordered_unit_ids=("u0", "u1", "u2", "u3"),
+        legal_widths=(2, 3, 4),
+        width_to_pruned_unit_ids={2: ("u0", "u1"), 3: ("u0",), 4: ()},
+        unit_root_indices={f"u{i}": (i,) for i in range(4)},
+        ranking_hash="frozen",
+        domain_type="cnn_channel",
+        dependency_members=({"module_path": "next", "axis": "input"},),
+    )
+    manifest = build_manifest(
+        (domain,), anchor_phenotypes=(), source_root="/source",
+        calibration_hash="calibration", trace_hash="trace",
+    )
+    path = tmp_path / "domains.json"
+    write_manifest(path, manifest)
+    payload, restored = load_manifest(path)
+    assert payload["domain_table_hash"] == domain_table_hash((domain,))
+    assert restored[0].to_dict() == domain.to_dict()
+    assert restored[0].width_to_pruned_unit_ids == domain.width_to_pruned_unit_ids
+
+
+def test_frozen_domain_manifest_tamper_fails_closed(tmp_path) -> None:
+    import json
+
+    import pytest
+
+    from search.ga.frozen_domain_manifest import build_manifest, load_manifest, write_manifest
+    from search.pruning_space.local_domains import LocalPruningDomain
+
+    domain = LocalPruningDomain(
+        domain_id="cnn", root_module_path="cnn", root_axis="out",
+        scope_id="cnn", kind="dense", original_width=2,
+        total_original_width=2, ordered_unit_ids=("u0", "u1"),
+        legal_widths=(1, 2),
+        width_to_pruned_unit_ids={1: ("u0",), 2: ()},
+        unit_root_indices={"u0": (0,), "u1": (1,)},
+        domain_type="cnn_channel",
+    )
+    path = tmp_path / "domains.json"
+    write_manifest(path, build_manifest(
+        (domain,), anchor_phenotypes=(), source_root="/source",
+        calibration_hash="calibration",
+    ))
+    payload = json.loads(path.read_text())
+    payload["domains"][0]["width_to_pruned_unit_ids"]["1"] = ["u1"]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="manifest_hash_mismatch"):
+        load_manifest(path)
+
+
+def test_frozen_domain_manifest_rejects_tracer_schema_drift() -> None:
+    import pytest
+
+    from search.ga.frozen_domain_manifest import validate_against_replay
+    from search.pruning_space.local_domains import LocalPruningDomain
+
+    common = dict(
+        domain_id="cnn", root_module_path="cnn", root_axis="out",
+        scope_id="cnn", kind="dense", original_width=2,
+        total_original_width=2, ordered_unit_ids=("u0", "u1"),
+        legal_widths=(1, 2), width_to_pruned_unit_ids={1: ("u0",), 2: ()},
+        unit_root_indices={"u0": (0,), "u1": (1,)},
+        domain_type="cnn_channel",
+    )
+    frozen = LocalPruningDomain(**common)
+    replay = LocalPruningDomain(**{**common, "root_module_path": "different"})
+    with pytest.raises(RuntimeError, match="schema_drift:cnn:root_module_path"):
+        validate_against_replay((frozen,), (replay,))

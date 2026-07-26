@@ -29,7 +29,10 @@ from scripts.smoke_transformer_unified_search import _multi_agent_validation_bat
 from search.candidate import CandidateGenotype, CandidatePhenotype
 from search.ga.stage12_v3 import Stage2Result
 from search.model_family.evaluation import evaluate_v2xvit_engine_modelopt
-from search.pruning_space.local_domains import LocalPruningDomain
+from search.pruning_space.local_domains import (
+    LocalPruningDomain,
+    local_pruning_domain_from_dict,
+)
 from search.pruning_space.unified_physical_pruner import materialize_unified_widths
 
 
@@ -55,44 +58,7 @@ def _nested_int_list_map(
 def domain_from_payload(row: Mapping[str, Any]) -> LocalPruningDomain:
     """Restore the exact parent ranking/closure without recollecting Taylor."""
 
-    return LocalPruningDomain(
-        domain_id=str(row["domain_id"]),
-        root_module_path=str(row["root_module_path"]),
-        root_axis=str(row["root_axis"]),
-        scope_id=str(row["scope_id"]),
-        kind=str(row["kind"]),
-        original_width=int(row["original_width"]),
-        total_original_width=int(row["total_original_width"]),
-        ordered_unit_ids=tuple(str(value) for value in row["ordered_unit_ids"]),
-        legal_widths=tuple(int(value) for value in row["legal_widths"]),
-        width_to_pruned_unit_ids=_int_tuple_map(row["width_to_pruned_unit_ids"]),
-        unit_root_indices={
-            str(key): tuple(int(value) for value in values)
-            for key, values in row.get("unit_root_indices", {}).items()
-        },
-        ordered_unit_ids_by_group=_int_tuple_map(
-            row.get("ordered_unit_ids_by_group", {})
-        ),
-        group_keep_maps=_nested_int_list_map(row.get("group_keep_maps", {})),
-        group_prune_maps=_nested_int_list_map(row.get("group_prune_maps", {})),
-        groups=int(row.get("groups", 1)),
-        ranking_method=str(row.get("ranking_method", "")),
-        ranking_hash=str(row.get("ranking_hash", "")),
-        unit_scores={
-            str(key): float(value) for key, value in row.get("unit_scores", {}).items()
-        },
-        constraints=dict(row.get("constraints", {})),
-        domain_type=str(row.get("domain_type", "")),
-        model=str(row.get("model", "")),
-        module_path=str(row.get("module_path", "")),
-        family=str(row.get("family", "")),
-        block_path=str(row.get("block_path", "")),
-        dependency_members=tuple(dict(value) for value in row.get("dependency_members", ())),
-        ranking_groups=dict(row.get("ranking_groups", {})),
-        latency_mapping=dict(row.get("latency_mapping", {})),
-        precision_units=tuple(str(value) for value in row.get("precision_units", ())),
-        metadata=dict(row.get("metadata", {})),
-    )
+    return local_pruning_domain_from_dict(row)
 
 
 def _gpu_snapshot(physical_gpu: int) -> dict[str, Any]:

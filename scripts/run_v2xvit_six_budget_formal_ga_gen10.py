@@ -46,6 +46,13 @@ from search.ga.stage12_v3 import (
     phenotype_identity,
     validate_genotype_schema,
 )
+from search.ga.anchor_constrained_space import constrain_domains_to_frozen_anchors
+from search.ga.frozen_domain_manifest import (
+    build_manifest,
+    load_manifest,
+    validate_against_replay,
+    write_manifest,
+)
 from search.model_family.calibration_manifest import load_v2xvit_train_manifest
 from search.proxy.conservative_gate_activation_taylor import (
     FunctionalGateTaylorProxy,
@@ -117,7 +124,9 @@ def _fixed_request(fixed_k: int) -> dict[str, Any]:
 
 
 def run(args: argparse.Namespace) -> int:
-    root = args.output_root.resolve()
+    source_root = args.output_root.resolve()
+    root = (args.run_root or args.output_root).resolve()
+    root.mkdir(parents=True, exist_ok=True)
     targets = tuple(args.targets)
     shard_suffix = _shard_suffix(args.shard_id)
     if int(args.seed) != SEED:
@@ -129,9 +138,9 @@ def run(args: argparse.Namespace) -> int:
             f"v2xvit_six_budget_ga_requires_one_visible_gpu:{torch.cuda.device_count()}"
         )
     required = (
-        root / "reports/six_budget_greedy_winners.json",
-        root / "reports/taylor_sample_convergence.json",
-        root / "reports/input_provenance.json",
+        source_root / "reports/six_budget_greedy_winners.json",
+        source_root / "reports/taylor_sample_convergence.json",
+        source_root / "reports/input_provenance.json",
         args.fixed50_manifest,
         args.plugin,
     )
@@ -139,7 +148,7 @@ def run(args: argparse.Namespace) -> int:
     if missing:
         raise RuntimeError(f"v2xvit_six_budget_ga_required_artifacts_missing:{missing}")
     convergence = json.loads(
-        (root / "reports/taylor_sample_convergence.json").read_text(encoding="utf-8")
+        (source_root / "reports/taylor_sample_convergence.json").read_text(encoding="utf-8")
     )
     if not convergence.get("passed"):
         raise RuntimeError("v2xvit_six_budget_ga_taylor_convergence_not_passed")
@@ -159,7 +168,7 @@ def run(args: argparse.Namespace) -> int:
     train200 = load_v2xvit_train_manifest(train_manifest_path)
     fixed_k = int(train200["fixed_k_contract"]["value"])
     provenance = json.loads(
-        (root / "reports/input_provenance.json").read_text(encoding="utf-8")
+        (source_root / "reports/input_provenance.json").read_text(encoding="utf-8")
     )
     calibration_hash = str(provenance["taylor_manifest_hash"])
     model, adapter, hypes, _ = _load("v2xvit", device)
@@ -195,7 +204,84 @@ def run(args: argparse.Namespace) -> int:
         loss_fn=adapter.compute_task_loss,
         calibration_batches=train32,
     )
-    domains = rerank_domains_by_gate_scores(formal["space"].pruning_domains, gate32)
+    replay_domains = rerank_domains_by_gate_scores(
+        formal["space"].pruning_domains, gate32
+    )
+
+    # The first process that prepares this run freezes the complete ranking and
+    # every legal width mask.  Subsequent shard processes must load this exact
+    # table; rebuilding gate rankings in each process is the phenotype-drift
+    # bug this runner is designed to prevent.
+    anchor_records = []
+    for anchor_target in TARGETS:
+        anchor_label = _label(anchor_target)
+        anchor_path = source_root / f"greedy/budget_{anchor_label}/exact_winner.json"
+        anchor_payload = json.loads(anchor_path.read_text(encoding="utf-8"))
+        anchor_records.append({
+            "candidate_hash": str(anchor_payload.get("candidate_hash", "")),
+            "physical_phenotype_hash": str(
+                anchor_payload.get("physical_phenotype_hash", "")
+            ),
+            "genotype": anchor_payload["genotype"],
+            "phenotype": anchor_payload["phenotype"],
+        })
+    if args.prepare_frozen_domain_manifest:
+        constrained = constrain_domains_to_frozen_anchors(
+            replay_domains, [record["phenotype"] for record in anchor_records]
+        )
+        manifest = build_manifest(
+            constrained,
+            anchor_phenotypes=anchor_records,
+            source_root=str(source_root),
+            calibration_hash=calibration_hash,
+            trace_hash=str(formal["space"].trace_snapshot_hash),
+        )
+        manifest_path = args.frozen_domain_manifest.resolve()
+        write_manifest(manifest_path, manifest)
+        # Round-trip and revalidate before any search process is allowed to
+        # proceed.  This also catches incomplete grouped-domain serialization.
+        _, restored = load_manifest(manifest_path)
+        validate_against_replay(restored, replay_domains)
+        restored_space = replace(
+            formal["space"],
+            pruning_domains=restored,
+            pruning_unit_ids=[
+                unit for domain in restored for unit in domain.ordered_unit_ids
+            ],
+        )
+        for record in anchor_records:
+            actual = canonicalize_candidate(
+                CandidateGenotype.from_dict(record["genotype"]), restored_space
+            ).to_dict()
+            if actual != record["phenotype"]:
+                raise RuntimeError(
+                    "frozen_domain_manifest_does_not_restore_all_exact_anchors:"
+                    f"{record['candidate_hash']}"
+                )
+        atomic_write(
+            root / "reports/frozen_domain_manifest_preparation.json",
+            {
+                "status": "ok",
+                "manifest": str(manifest_path),
+                "manifest_hash": manifest["manifest_hash"],
+                "domain_count": manifest["domain_count"],
+                "anchor_count": len(anchor_records),
+                "source_root": str(source_root),
+                "search_not_started": True,
+            },
+        )
+        return 0
+    if args.frozen_domain_manifest is None:
+        raise RuntimeError("v2xvit_six_budget_ga_frozen_domain_manifest_required")
+    manifest_meta, frozen_domains = load_manifest(
+        args.frozen_domain_manifest.resolve()
+    )
+    if str(manifest_meta.get("source_root")) != str(source_root):
+        raise RuntimeError("frozen_domain_manifest_source_root_mismatch")
+    if str(manifest_meta.get("calibration_hash")) != calibration_hash:
+        raise RuntimeError("frozen_domain_manifest_calibration_hash_mismatch")
+    validate_against_replay(frozen_domains, replay_domains)
+    domains = frozen_domains
     space = replace(
         formal["space"],
         pruning_domains=domains,
@@ -263,6 +349,11 @@ def run(args: argparse.Namespace) -> int:
             "survivor_size": POPULATION,
             "stage2_new_candidate_quota": STAGE2_QUOTA,
             "framework": "StrictStage12V3Runner",
+            "artifact_source_root": str(source_root),
+            "isolated_run_root": str(root),
+            "frozen_domain_manifest": str(args.frozen_domain_manifest.resolve()),
+            "frozen_domain_manifest_hash": manifest_meta["manifest_hash"],
+            "frozen_domain_table_hash": manifest_meta["domain_table_hash"],
             "full1789": False,
         },
     )
@@ -273,11 +364,11 @@ def run(args: argparse.Namespace) -> int:
     for target in targets:
         label = _label(target)
         try:
-            anchor = _load_winner(root, target)
+            anchor = _load_winner(source_root, target)
             validate_genotype_schema(anchor, space)
             anchor_phenotype = canonicalize_candidate(anchor, space)
             source = json.loads(
-                (root / f"greedy/budget_{label}/exact_winner.json").read_text(
+                (source_root / f"greedy/budget_{label}/exact_winner.json").read_text(
                     encoding="utf-8"
                 )
             )
@@ -433,6 +524,12 @@ def run(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument(
+        "--run-root",
+        type=Path,
+        default=None,
+        help="Isolated destination for repaired GA artifacts; output-root is read-only source.",
+    )
     parser.add_argument("--physical-gpu", type=int, required=True)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--generations", type=int, default=10)
@@ -446,6 +543,17 @@ def main() -> int:
         "--shard-id",
         default="",
         help="Unique suffix for shard-level cache/config/result reports.",
+    )
+    parser.add_argument(
+        "--frozen-domain-manifest",
+        type=Path,
+        required=True,
+        help="Canonical full-domain table shared by every repaired controller/worker.",
+    )
+    parser.add_argument(
+        "--prepare-frozen-domain-manifest",
+        action="store_true",
+        help="Prepare and validate the manifest, then exit before search.",
     )
     parser.add_argument("--fixed50-manifest", type=Path, required=True)
     parser.add_argument("--plugin", type=Path, required=True)

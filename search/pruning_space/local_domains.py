@@ -176,6 +176,13 @@ class LocalPruningDomain:
             "ordered_unit_ids_by_group": {
                 str(group): list(values) for group, values in sorted(self.ordered_unit_ids_by_group.items())
             },
+            "group_local_indices": {
+                str(group): {
+                    str(unit_id): int(index)
+                    for unit_id, index in sorted(mapping.items())
+                }
+                for group, mapping in sorted(self.group_local_indices.items())
+            },
             "unit_root_indices": {
                 unit_id: list(values) for unit_id, values in sorted(self.unit_root_indices.items())
             },
@@ -201,6 +208,91 @@ class LocalPruningDomain:
             "precision_units": list(self.precision_units),
             "metadata": dict(self.metadata),
         }
+
+
+def local_pruning_domain_from_dict(row: Mapping[str, Any]) -> LocalPruningDomain:
+    """Restore one complete domain ranking/closure from its canonical payload.
+
+    Search controllers and isolated Stage-2 workers must decode the same
+    ``width_to_pruned_unit_ids`` table.  Rebuilding that table from newly
+    collected floating-point ranking scores is deliberately forbidden here:
+    the serialized table is the physical phenotype contract.
+    """
+
+    def int_tuple_map(value: Mapping[str, Any]) -> dict[int, tuple[str, ...]]:
+        return {
+            int(key): tuple(str(item) for item in items)
+            for key, items in value.items()
+        }
+
+    def nested_int_list_map(
+        value: Mapping[str, Mapping[str, Any]],
+    ) -> dict[int, dict[int, list[int]]]:
+        return {
+            int(width): {
+                int(group): [int(item) for item in items]
+                for group, items in mapping.items()
+            }
+            for width, mapping in value.items()
+        }
+
+    domain = LocalPruningDomain(
+        domain_id=str(row["domain_id"]),
+        root_module_path=str(row["root_module_path"]),
+        root_axis=str(row["root_axis"]),
+        scope_id=str(row["scope_id"]),
+        kind=str(row["kind"]),
+        original_width=int(row["original_width"]),
+        total_original_width=int(row["total_original_width"]),
+        ordered_unit_ids=tuple(str(value) for value in row["ordered_unit_ids"]),
+        legal_widths=tuple(int(value) for value in row["legal_widths"]),
+        width_to_pruned_unit_ids=int_tuple_map(row["width_to_pruned_unit_ids"]),
+        unit_root_indices={
+            str(key): tuple(int(value) for value in values)
+            for key, values in row.get("unit_root_indices", {}).items()
+        },
+        ordered_unit_ids_by_group=int_tuple_map(
+            row.get("ordered_unit_ids_by_group", {})
+        ),
+        group_local_indices={
+            int(group): {
+                str(unit_id): int(index) for unit_id, index in mapping.items()
+            }
+            for group, mapping in row.get("group_local_indices", {}).items()
+        },
+        group_keep_maps=nested_int_list_map(row.get("group_keep_maps", {})),
+        group_prune_maps=nested_int_list_map(row.get("group_prune_maps", {})),
+        groups=int(row.get("groups", 1)),
+        ranking_method=str(row.get("ranking_method", "")),
+        ranking_hash=str(row.get("ranking_hash", "")),
+        unit_scores={
+            str(key): float(value) for key, value in row.get("unit_scores", {}).items()
+        },
+        constraints=dict(row.get("constraints", {})),
+        domain_type=str(row.get("domain_type", "")),
+        model=str(row.get("model", "")),
+        module_path=str(row.get("module_path", "")),
+        family=str(row.get("family", "")),
+        block_path=str(row.get("block_path", "")),
+        dependency_members=tuple(
+            dict(value) for value in row.get("dependency_members", ())
+        ),
+        ranking_groups=dict(row.get("ranking_groups", {})),
+        latency_mapping=dict(row.get("latency_mapping", {})),
+        precision_units=tuple(
+            str(value) for value in row.get("precision_units", ())
+        ),
+        metadata=dict(row.get("metadata", {})),
+    )
+    # A payload that silently drops a legal width would alter a phenotype.
+    missing = sorted(set(domain.legal_widths) - set(domain.width_to_pruned_unit_ids))
+    if missing:
+        raise RuntimeError(
+            f"serialized_domain_width_masks_missing:{domain.domain_id}:{missing}"
+        )
+    for width in domain.legal_widths:
+        domain.decode_width(int(width))
+    return domain
 
 
 def legal_dense_widths(
