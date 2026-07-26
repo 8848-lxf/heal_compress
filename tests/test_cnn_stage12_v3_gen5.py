@@ -98,6 +98,7 @@ def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
     assert "full1789_executed" in source
     assert "all_six_greedy_exact_anchors_in_band" in source
     assert "greedy_only" in source
+    assert "formal_ga_start_authorized_by_gate" in source
     import scripts.run_cnn_formal_ga_gen5 as runner
     assert callable(runner.stage2_payload)
     adapter_source = (__import__("pathlib").Path(__file__).parents[1]
