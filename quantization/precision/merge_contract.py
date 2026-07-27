@@ -148,22 +148,34 @@ def apply_adaptive_merge_output_contract(
         for relation in runtime_relations
     ]
 
-    def nearest_upstream(tensor_name: str, seen: set[str] | None = None) -> set[str]:
-        visited = set(seen or ())
-        if tensor_name in visited:
-            return set()
-        visited.add(tensor_name)
+    nearest_upstream_cache: dict[str, frozenset[str]] = {}
+    nearest_upstream_active: set[str] = set()
+
+    def nearest_upstream(tensor_name: str) -> set[str]:
+        tensor_name = str(tensor_name)
+        cached = nearest_upstream_cache.get(tensor_name)
+        if cached is not None:
+            return set(cached)
+        if tensor_name in nearest_upstream_active:
+            raise RuntimeError(
+                f"adaptive_merge_onnx_graph_cycle:{tensor_name}"
+            )
+        nearest_upstream_active.add(tensor_name)
         producer = producers.get(str(tensor_name))
         if producer is None:
-            return set()
-        canonical = str(producer.name)
-        if canonical in entries:
-            return {canonical}
-        result: set[str] = set()
-        for input_name in producer.input:
-            if str(input_name) not in initializers:
-                result.update(nearest_upstream(str(input_name), visited))
-        return result
+            result: set[str] = set()
+        else:
+            canonical = str(producer.name)
+            if canonical in entries:
+                result = {canonical}
+            else:
+                result = set()
+                for input_name in producer.input:
+                    if str(input_name) not in initializers:
+                        result.update(nearest_upstream(str(input_name)))
+        nearest_upstream_active.remove(tensor_name)
+        nearest_upstream_cache[tensor_name] = frozenset(result)
+        return set(result)
 
     supported_merges = {"Add", "Concat", "Mul", "Where", "MatMul"}
     merge_candidates: list[dict[str, Any]] = []
@@ -358,22 +370,34 @@ def apply_fp16_merge_output_contract(
     initializers = {str(row.name) for row in model.graph.initializer}
     entries = {str(row.canonical_node_name): row for row in mapping.entries}
 
-    def nearest_upstream(tensor_name: str, seen: set[str] | None = None) -> set[str]:
-        visited = set(seen or ())
-        if tensor_name in visited:
-            return set()
-        visited.add(tensor_name)
+    nearest_upstream_cache: dict[str, frozenset[str]] = {}
+    nearest_upstream_active: set[str] = set()
+
+    def nearest_upstream(tensor_name: str) -> set[str]:
+        tensor_name = str(tensor_name)
+        cached = nearest_upstream_cache.get(tensor_name)
+        if cached is not None:
+            return set(cached)
+        if tensor_name in nearest_upstream_active:
+            raise RuntimeError(
+                f"fp16_merge_onnx_graph_cycle:{tensor_name}"
+            )
+        nearest_upstream_active.add(tensor_name)
         producer = producers.get(str(tensor_name))
         if producer is None:
-            return set()
-        canonical = str(producer.name)
-        if canonical in entries:
-            return {canonical}
-        result: set[str] = set()
-        for input_name in producer.input:
-            if str(input_name) not in initializers:
-                result.update(nearest_upstream(str(input_name), visited))
-        return result
+            result: set[str] = set()
+        else:
+            canonical = str(producer.name)
+            if canonical in entries:
+                result = {canonical}
+            else:
+                result = set()
+                for input_name in producer.input:
+                    if str(input_name) not in initializers:
+                        result.update(nearest_upstream(str(input_name)))
+        nearest_upstream_active.remove(tensor_name)
+        nearest_upstream_cache[tensor_name] = frozenset(result)
+        return set(result)
 
     targets: set[str] = set()
     merges: list[dict[str, Any]] = []

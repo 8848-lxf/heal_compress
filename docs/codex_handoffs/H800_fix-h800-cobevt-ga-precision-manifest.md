@@ -68,3 +68,33 @@ Base: `ee1306c3986e6cd328eb0cc8feacb3bac88116ac`
   determine whether activation Taylor actually shifts selection toward
   structural pruning.
 - Regression after this addition: 31 passed; compileall and diff check passed.
+
+--- 2026-07-28 02:49:52 CST ---
+
+## First formal run audit and merge traversal fix
+
+- Superseded run root:
+  `/data/lxf/heal_data/outputs/h800_cobevt_latest_ga_precision_closure_20260728_004814`.
+  Its 32-sample cache and deterministic Greedy reports completed, but the run
+  was stopped before the first engine build because the adaptive merge ONNX
+  traversal was computationally impractical. No external process was signaled.
+- Main Greedy trace: 1,088 selected actions. The `J_AQ=0` counterfactual trace:
+  973 selected actions. The selected path captured 0.30, 0.20, 0.15, 0.10 and
+  0.05; 0.25 was not reached by this single path.
+- Activation Taylor shifted all five comparable anchors toward more structural
+  pruning. At 0.10, parameter retention changed from 0.380924 (`J_AQ=0`) to
+  0.296593 (formal `J_AQ` enabled), while structure actions increased from 664
+  to 886. At 0.05, retention changed from 0.324806 to 0.222411 and structure
+  actions increased from 807 to 978.
+- The first 0.30 physical checkpoint and FP32 ONNX exported successfully, so
+  the earlier weighted/functional precision-origin mismatch was crossed.
+- Runtime diagnosis on the 3,974-node CoBEVT ONNX found 384 merge/matmul
+  candidates. The nearest-weighted-producer traversal recomputed shared
+  upstream subgraphs without memoization. A read-only memoized replay took
+  0.0164 seconds (5,742 recursive calls, 3,920 cached tensors); the production
+  pass remained active for several minutes.
+- Added deterministic memoization and explicit graph-cycle failure to both the
+  adaptive and FP16 merge traversals. This changes traversal complexity only;
+  it does not change BOPS, precision contracts, hashes, or search scoring.
+- Regression: 13 targeted merge/CoBEVT precision tests passed; `git diff
+  --check` passed.
