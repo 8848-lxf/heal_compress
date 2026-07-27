@@ -151,6 +151,10 @@ def _write_cobevt_functional_onnx(path) -> None:
             name="/layers.0/window_attention/norm/LayerNormalization", axis=-1,
         ),
         helper.make_node(
+            "LayerNormalization", ["x", "ln_scale", "ln_bias"], ["head_ln"],
+            name="/mlp_head/mlp_head.2/LayerNormalization", axis=-1,
+        ),
+        helper.make_node(
             "Add", ["half_a", "half_b"], ["attention_residual"],
             name="/layers.0/window_attention/Add",
         ),
@@ -198,6 +202,7 @@ def test_cobevt_functional_onnx_mapping_closes_attention_and_residuals(tmp_path)
         _unit(f"transformer_precision::{attention_path}::av", "av_matmul", "A32", attention_path),
         _unit("attention-residual", "residual_add", "A16", attention_path, boundary_kind="attention_residual_add"),
         _unit("attention-layernorm", "layernorm", "A32", "fusion_net.layers.0.window_attention.norm"),
+        _unit("head-layernorm", "layernorm", "A32", "fusion_net.mlp_head.2"),
         _unit(f"transformer_precision::{ffn_path}::ffn2", "ffn2", "W32A32", ffn_path),
         _unit("ffn-residual", "residual_add", "A16", ffn_path, boundary_kind="ffn_residual_add"),
     )
@@ -232,3 +237,4 @@ def test_cobevt_functional_onnx_mapping_closes_attention_and_residuals(tmp_path)
     by_unit = {row["unit_id"]: row for row in report["rows"]}
     assert by_unit["attention-residual"]["onnx_node"] == "/layers.0/window_attention/Add"
     assert by_unit["ffn-residual"]["onnx_node"] == "/layers.0/window_ffd/Add"
+    assert by_unit["head-layernorm"]["onnx_node"] == "/mlp_head/mlp_head.2/LayerNormalization"

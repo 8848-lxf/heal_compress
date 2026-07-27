@@ -129,6 +129,11 @@ def _module_onnx_prefix(path: str) -> str:
     text = str(path)
     if marker in text:
         tokens = text.split(marker, 1)[1].split(".")
+    elif text.startswith("fusion_net.mlp_head."):
+        # The standalone CoBEVT head is exported below an additional
+        # ``/mlp_head`` scope while preserving ``mlp_head.<index>`` as the
+        # module token.
+        return f"/mlp_head/{text.split('fusion_net.', 1)[1]}"
     elif text.startswith("fusion_net.layers."):
         # CoBEVT exports ``fusion_net`` as the graph root.  Its module path
         # ``fusion_net.layers.0.window_attention.fn`` therefore becomes the
