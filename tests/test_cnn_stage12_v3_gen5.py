@@ -109,6 +109,8 @@ def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
 
 def test_cnn_two_tier_real_evaluation_protocol_is_frozen() -> None:
     from search.ga.cnn_stage12_v3 import (
+        EVALUATION_MANIFEST_FRAMES,
+        EVALUATION_MANIFEST_WARMUP_FRAMES,
         GENERATION_WINNER_FRAMES,
         GENERATION_WINNER_PROTOCOL,
         GENERATION_WINNER_WARMUP_FRAMES,
@@ -123,6 +125,8 @@ def test_cnn_two_tier_real_evaluation_protocol_is_frozen() -> None:
     assert GENERATION_WINNER_FRAMES == 500
     assert GENERATION_WINNER_WARMUP_FRAMES == 200
     assert GENERATION_WINNER_PROTOCOL == "generation_winner_fixed500_warmup200"
+    assert EVALUATION_MANIFEST_FRAMES == 500
+    assert EVALUATION_MANIFEST_WARMUP_FRAMES == 200
 
 
 def test_physical_gpu_is_mapped_to_process_local_cuda_ordinal(monkeypatch) -> None:

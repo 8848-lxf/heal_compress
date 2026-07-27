@@ -69,6 +69,8 @@ STAGE2_SCREENING_PROTOCOL = "top5_fixed300_warmup100_screening"
 GENERATION_WINNER_FRAMES = 500
 GENERATION_WINNER_WARMUP_FRAMES = 200
 GENERATION_WINNER_PROTOCOL = "generation_winner_fixed500_warmup200"
+EVALUATION_MANIFEST_FRAMES = GENERATION_WINNER_FRAMES
+EVALUATION_MANIFEST_WARMUP_FRAMES = GENERATION_WINNER_WARMUP_FRAMES
 
 
 @dataclass(frozen=True)
@@ -285,8 +287,8 @@ def build_context(
             quant_calibration_npz_manifest=spec.calibration_manifest,
             quant_activation_calibration_backend="tensorrt_entropy_calibration2",
             quant_calibration_force_rebuild=True,
-            num_frames=50,
-            warmup_frames=20,
+            num_frames=EVALUATION_MANIFEST_FRAMES,
+            warmup_frames=EVALUATION_MANIFEST_WARMUP_FRAMES,
             reset_after_warmup=True,
             default_precision="FP32",
             pruning_gene_type="legal_domain_width",
@@ -308,8 +310,8 @@ def build_context(
         quant_calibration_npz_manifest=spec.calibration_manifest,
         quant_activation_calibration_backend="tensorrt_entropy_calibration2",
         quant_calibration_force_rebuild=True,
-        num_frames=50,
-        warmup_frames=20,
+        num_frames=EVALUATION_MANIFEST_FRAMES,
+        warmup_frames=EVALUATION_MANIFEST_WARMUP_FRAMES,
         reset_after_warmup=True,
         default_precision="FP32",
         fixed_k=29696,
@@ -1692,6 +1694,8 @@ def run_budget(
 
 __all__ = [
     "CNNFormalModelSpec",
+    "EVALUATION_MANIFEST_FRAMES",
+    "EVALUATION_MANIFEST_WARMUP_FRAMES",
     "MODEL_SPECS",
     "PreparedCNNFormalSearch",
     "baseline_genotype",
