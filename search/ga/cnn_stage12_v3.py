@@ -1593,7 +1593,7 @@ def run_budget(
         generations=generations,
         stage2_new_candidate_quota=5,
         random_seed=seed,
-        generation_contract="formal_gen5",
+        generation_contract=f"formal_gen{generations}",
     )
     runner = StrictStage12V3Runner(
         prepared.space,

@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +42,133 @@ from search.integration.runtime_environment import query_gpus  # noqa: E402
 
 
 DEFAULT_TARGETS = (0.30, 0.25, 0.20, 0.15, 0.10, 0.05)
+SUPPORTED_GENERATIONS = (5, 10)
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def freeze_gen5_continuation_state(root: Path) -> dict[str, object]:
+    """Preserve the completed five-generation audit before deterministic replay.
+
+    The original runner did not serialize all 64 survivors or ``random.Random``
+    state.  A strict continuation therefore reconstructs generations 1--5 from
+    the same seed and immutable Stage-2 cache, verifies their summaries byte for
+    byte, then proceeds with generations 6--10.  This small snapshot keeps the
+    original reports and generation summaries without duplicating engine/ONNX
+    artifacts.
+    """
+
+    destination = root / "reports" / "gen5_frozen_snapshot"
+    manifest_path = destination / "snapshot_manifest.json"
+    if manifest_path.is_file():
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for row in payload.get("files", []):
+            snapshot = destination / str(row["snapshot_relative_path"])
+            if not snapshot.is_file() or sha256_file(snapshot) != str(row["sha256"]):
+                raise RuntimeError(
+                    f"cnn_gen5_snapshot_integrity_failed:{snapshot}"
+                )
+        return payload
+
+    report = root / "reports" / "formal_ga_results.json"
+    if not report.is_file():
+        raise RuntimeError("cnn_gen10_continuation_missing_gen5_results")
+    results = json.loads(report.read_text(encoding="utf-8"))
+    if int(results.get("formal_generations", -1)) != 5:
+        raise RuntimeError("cnn_gen10_continuation_source_not_gen5")
+    completed = dict(results.get("results") or {})
+    expected_labels = {f"{int(round(value * 100)):03d}" for value in DEFAULT_TARGETS}
+    if set(completed) != expected_labels or any(
+        int(row.get("completed_evolution_generations", -1)) != 5
+        for row in completed.values()
+    ):
+        raise RuntimeError("cnn_gen10_continuation_source_incomplete")
+
+    sources = [
+        root / "provenance" / "start.json",
+        root / "reports" / "formal_ga_results.json",
+        root / "reports" / "formal_ga_budget_summary.csv",
+        root / "reports" / "final_acceptance.json",
+    ]
+    for label in sorted(expected_labels):
+        sources.append(root / f"ga/budget_{label}/seed_0/budget_summary.json")
+        for generation in range(0, 6):
+            sources.append(
+                root
+                / f"ga/budget_{label}/seed_0/generation_{generation:02d}"
+                / "generation_summary.json"
+            )
+    missing = [str(path) for path in sources if not path.is_file()]
+    if missing:
+        raise RuntimeError(f"cnn_gen10_continuation_snapshot_missing:{missing}")
+
+    rows: list[dict[str, object]] = []
+    for source in sources:
+        relative = source.relative_to(root)
+        snapshot = destination / relative
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, snapshot)
+        rows.append(
+            {
+                "source_relative_path": str(relative),
+                "snapshot_relative_path": str(relative),
+                "size_bytes": int(snapshot.stat().st_size),
+                "sha256": sha256_file(snapshot),
+            }
+        )
+    payload: dict[str, object] = {
+        "schema_version": "pyramid-gen5-deterministic-replay-snapshot-v1",
+        "source_formal_generations": 5,
+        "continuation_target_generation": 10,
+        "replay_generations": [1, 2, 3, 4, 5],
+        "new_generations": [6, 7, 8, 9, 10],
+        "stage2_artifacts_copied": False,
+        "stage2_cache_reused_by_complete_phenotype_hash": True,
+        "files": rows,
+    }
+    write_json(manifest_path, payload)
+    return payload
+
+
+def verify_gen5_replay_prefix(root: Path, labels: tuple[str, ...]) -> dict[str, object]:
+    snapshot = root / "reports" / "gen5_frozen_snapshot"
+    comparisons: list[dict[str, object]] = []
+    for label in labels:
+        for generation in range(0, 6):
+            relative = Path(
+                f"ga/budget_{label}/seed_0/generation_{generation:02d}/"
+                "generation_summary.json"
+            )
+            expected = snapshot / relative
+            actual = root / relative
+            expected_hash = sha256_file(expected)
+            actual_hash = sha256_file(actual)
+            comparisons.append(
+                {
+                    "budget_label": label,
+                    "generation": generation,
+                    "expected_sha256": expected_hash,
+                    "actual_sha256": actual_hash,
+                    "exact": expected_hash == actual_hash,
+                }
+            )
+    exact = all(bool(row["exact"]) for row in comparisons)
+    result: dict[str, object] = {
+        "schema_version": "pyramid-gen5-deterministic-replay-verification-v1",
+        "all_generation_00_to_05_summaries_exact": exact,
+        "comparison_count": len(comparisons),
+        "comparisons": comparisons,
+    }
+    write_json(root / "reports" / "gen5_replay_verification.json", result)
+    if not exact:
+        raise RuntimeError("cnn_gen10_continuation_replay_prefix_mismatch")
+    return result
 
 
 def git_value(*args: str) -> str:
@@ -68,8 +197,15 @@ def gpu_uuid(physical_gpu: int) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
-    if int(args.generations) != 5:
-        raise RuntimeError(f"cnn_formal_ga_requires_exactly_5_generations:{args.generations}")
+    generations = int(args.generations)
+    if generations not in SUPPORTED_GENERATIONS:
+        raise RuntimeError(
+            f"cnn_formal_ga_requires_5_or_10_generations:{args.generations}"
+        )
+    if generations == 10 and (args.model != "pyramid" or not args.resume):
+        raise RuntimeError(
+            "cnn_formal_ga_gen10_requires_pyramid_resume_from_completed_gen5"
+        )
     if int(args.seed) != 0:
         raise RuntimeError(f"cnn_formal_ga_single_seed_zero_required:{args.seed}")
     if os.environ.get("CUDA_VISIBLE_DEVICES") not in (None, "", str(args.physical_gpu)):
@@ -96,6 +232,9 @@ def run(args: argparse.Namespace) -> int:
         "logs", "process_snapshots", "evaluation_fixed500", "latency",
     ):
         (root / name).mkdir(parents=True, exist_ok=True)
+    continuation_snapshot = None
+    if generations == 10:
+        continuation_snapshot = freeze_gen5_continuation_state(root)
     spec = MODEL_SPECS[args.model]
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -110,7 +249,8 @@ def run(args: argparse.Namespace) -> int:
     if selected is None:
         raise RuntimeError(f"cnn_formal_ga_physical_gpu_missing:{args.physical_gpu}")
     selected_uuid = gpu_uuid(args.physical_gpu)
-    write_json(root / "provenance/start.json", {
+    provenance_name = "continuation_start.json" if generations == 10 else "start.json"
+    write_json(root / "provenance" / provenance_name, {
         "model": args.model,
         "branch": git_value("rev-parse", "--abbrev-ref", "HEAD"),
         "head": git_value("rev-parse", "HEAD"),
@@ -120,8 +260,10 @@ def run(args: argparse.Namespace) -> int:
         "gpu": selected,
         "all_gpus": gpu_rows,
         "framework": "StrictStage12V3Runner",
-        "generation_contract": "formal_gen5",
-        "generations": 5,
+        "generation_contract": f"formal_gen{generations}",
+        "generations": generations,
+        "deterministic_replay_continuation": generations == 10,
+        "continuation_snapshot": continuation_snapshot,
         "population_size": 64,
         "offspring_size": 64,
         "stage2_quota": 5,
@@ -144,7 +286,7 @@ def run(args: argparse.Namespace) -> int:
         "gpu": args.physical_gpu,
         "gpu_uuid": selected_uuid,
         "framework": "StrictStage12V3Runner",
-        "generations": 5,
+        "generations": generations,
         "targets": targets,
         "output_root": str(root),
     }, sort_keys=True), flush=True)
@@ -326,6 +468,10 @@ def run(args: argparse.Namespace) -> int:
             write_json(root / f"ga/budget_{label}/failure.json", failure)
             print(json.dumps({"event": "cnn_formal_ga_budget_failed", **failure},
                              sort_keys=True), flush=True)
+    replay_verification = None
+    if generations == 10 and not failures:
+        labels = tuple(f"{int(round(target * 100)):03d}" for target in targets)
+        replay_verification = verify_gen5_replay_prefix(root, labels)
     summary_rows = []
     for label, row in results.items():
         greedy = row["greedy_anchor"]
@@ -349,8 +495,10 @@ def run(args: argparse.Namespace) -> int:
         "framework": "StrictStage12V3Runner",
         "old_two_stage_search_used": False,
         "generation_zero_counted": False,
-        "formal_generations": 5,
-        "formal_generation_ids": [1, 2, 3, 4, 5],
+        "formal_generations": generations,
+        "formal_generation_ids": list(range(1, generations + 1)),
+        "deterministic_replay_continuation": generations == 10,
+        "gen5_replay_verification": replay_verification,
         "seed_count": 1,
         "executed_seeds": [0],
         "population_size": 64,
@@ -377,8 +525,17 @@ def run(args: argparse.Namespace) -> int:
         "new_ga_framework_used": True,
         "runner": "StrictStage12V3Runner",
         "old_ga_framework_used": False,
-        "generations_requested": 5,
-        "generation_ids": [1, 2, 3, 4, 5],
+        "generations_requested": generations,
+        "generation_ids": list(range(1, generations + 1)),
+        "deterministic_replay_continuation": generations == 10,
+        "gen5_replay_prefix_exact": (
+            replay_verification is not None
+            and bool(
+                replay_verification[
+                    "all_generation_00_to_05_summaries_exact"
+                ]
+            )
+        ) if generations == 10 else None,
         "generation_zero_counted": False,
         "seed_count": 1,
         "population_size": 64,

@@ -89,10 +89,13 @@ def test_cnn_greedy_neighbors_are_decreasing_and_adjacent() -> None:
     assert by_type["precision"].precision_genes["conv"] == "FP16"
 
 
-def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
+def test_cnn_formal_entrypoint_supports_five_and_pyramid_replay_to_ten() -> None:
     source = (__import__("pathlib").Path(__file__).parents[1]
               / "scripts/run_cnn_formal_ga_gen5.py").read_text()
-    assert "requires_exactly_5_generations" in source
+    assert "requires_5_or_10_generations" in source
+    assert "gen10_requires_pyramid_resume_from_completed_gen5" in source
+    assert "freeze_gen5_continuation_state" in source
+    assert "verify_gen5_replay_prefix" in source
     assert "single_seed_zero_required" in source
     assert '"StrictStage12V3Runner"' in source
     assert "full1789_executed" in source
@@ -105,6 +108,49 @@ def test_cnn_formal_entrypoint_freezes_five_generations_and_one_seed() -> None:
                       / "search/ga/cnn_stage12_v3.py").read_text()
     assert "cnn-formal-presearch-proxy-cache-v1" in adapter_source
     assert "physical_ranking_frozen_across_resume" in adapter_source
+
+
+def test_pyramid_gen5_snapshot_and_replay_verification_are_fail_closed(
+    tmp_path: Path,
+) -> None:
+    from scripts.run_cnn_formal_ga_gen5 import (
+        freeze_gen5_continuation_state,
+        verify_gen5_replay_prefix,
+    )
+
+    labels = ("030", "025", "020", "015", "010", "005")
+    (tmp_path / "reports").mkdir()
+    (tmp_path / "provenance").mkdir()
+    (tmp_path / "provenance/start.json").write_text("{}")
+    completed = {
+        label: {"completed_evolution_generations": 5} for label in labels
+    }
+    (tmp_path / "reports/formal_ga_results.json").write_text(
+        json.dumps({"formal_generations": 5, "results": completed})
+    )
+    (tmp_path / "reports/formal_ga_budget_summary.csv").write_text("budget\n")
+    (tmp_path / "reports/final_acceptance.json").write_text("{}")
+    for label in labels:
+        seed = tmp_path / f"ga/budget_{label}/seed_0"
+        seed.mkdir(parents=True)
+        (seed / "budget_summary.json").write_text("{}")
+        for generation in range(6):
+            destination = seed / f"generation_{generation:02d}"
+            destination.mkdir()
+            (destination / "generation_summary.json").write_text(
+                json.dumps({"generation": generation, "budget": label})
+            )
+
+    snapshot = freeze_gen5_continuation_state(tmp_path)
+    assert snapshot["source_formal_generations"] == 5
+    assert snapshot["new_generations"] == [6, 7, 8, 9, 10]
+    audit = verify_gen5_replay_prefix(tmp_path, labels)
+    assert audit["all_generation_00_to_05_summaries_exact"] is True
+
+    changed = tmp_path / "ga/budget_030/seed_0/generation_05/generation_summary.json"
+    changed.write_text('{"generation": 5, "drift": true}')
+    with pytest.raises(RuntimeError, match="replay_prefix_mismatch"):
+        verify_gen5_replay_prefix(tmp_path, labels)
 
 
 def test_cnn_two_tier_real_evaluation_protocol_is_frozen() -> None:
