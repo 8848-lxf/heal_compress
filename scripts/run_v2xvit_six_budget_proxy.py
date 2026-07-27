@@ -53,9 +53,22 @@ from search.proxy.joint_weight_activation_taylor import (
 from search.proxy.joint_weight_taylor import JointWeightTaylorProxy
 
 
+ALLOWED_BUDGETS = (0.30, 0.25, 0.20, 0.15, 0.10, 0.05)
 BUDGETS = (0.10,)
 TOLERANCE = 0.005
 SEED = 0
+
+
+def _parse_targets(value: str) -> tuple[float, ...]:
+    targets = tuple(float(item.strip()) for item in value.split(",") if item.strip())
+    if not targets:
+        raise argparse.ArgumentTypeError("at least one target budget is required")
+    if len(set(targets)) != len(targets):
+        raise argparse.ArgumentTypeError("target budgets must be unique")
+    unsupported = tuple(target for target in targets if target not in ALLOWED_BUDGETS)
+    if unsupported:
+        raise argparse.ArgumentTypeError(f"unsupported target budgets: {unsupported}")
+    return targets
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -204,11 +217,13 @@ def _action_scores(
     structure_proxy: FunctionalGateTaylorProxy,
     weight_proxy: JointWeightTaylorProxy,
     activation_cache: ActivationTaylorCache,
+    activation_taylor_fitness_weight: float,
+    bops_targets: Sequence[float],
 ) -> dict[str, dict[str, float]]:
     engine = GreedyBudgetSearch(
         space,
         config=GreedySearchConfig(
-            bops_targets=BUDGETS,
+            bops_targets=tuple(float(target) for target in bops_targets),
             bops_tolerance_abs=TOLERANCE,
             run_to_exhaustion=True,
             enable_budget_recovery=False,
@@ -237,7 +252,14 @@ def _action_scores(
             "J_struct": j_struct,
             "J_WQ": j_wq,
             "J_AQ": j_aq,
-            "J_total": j_struct + j_wq + j_aq,
+            "J_AQ_fitness_contribution": (
+                float(activation_taylor_fitness_weight) * j_aq
+            ),
+            "J_total": (
+                j_struct
+                + j_wq
+                + float(activation_taylor_fitness_weight) * j_aq
+            ),
         }
     return rows
 
@@ -273,6 +295,15 @@ def _winner_compare(left: Mapping[str, Any], right: Mapping[str, Any]) -> int:
 
 def run(args: argparse.Namespace) -> int:
     root = args.output_root.resolve()
+    budgets = tuple(float(target) for target in args.targets)
+    activation_taylor_fitness_weight = float(
+        args.activation_taylor_fitness_weight
+    )
+    if (
+        not math.isfinite(activation_taylor_fitness_weight)
+        or activation_taylor_fitness_weight < 0.0
+    ):
+        raise RuntimeError("activation_taylor_fitness_weight_invalid")
     if torch.cuda.device_count() != 1:
         raise RuntimeError(f"six_budget_proxy_requires_one_visible_gpu:{torch.cuda.device_count()}")
     device = torch.device("cuda:0")
@@ -407,6 +438,8 @@ def run(args: argparse.Namespace) -> int:
                 strict=True,
             ),
             activation_cache=_prefix_activation(activation32, count),
+            activation_taylor_fitness_weight=activation_taylor_fitness_weight,
+            bops_targets=budgets,
         )
     convergence = {}
     for left, right in ((8, 16), (16, 32)):
@@ -459,7 +492,10 @@ def run(args: argparse.Namespace) -> int:
         "group_to_units": {key: list(value) for key, value in group_to_units.items()},
         "sample_count": activation32.sample_count,
         "missing_observer_count": 0,
-        "activation_taylor_used_for_fitness": True,
+        "activation_taylor_fitness_weight": activation_taylor_fitness_weight,
+        "activation_taylor_used_for_fitness": bool(
+            activation_taylor_fitness_weight != 0.0
+        ),
     })
     if not activation32.mapping or any(
         not row.get("precision_group_id") for row in activation32.mapping
@@ -514,7 +550,10 @@ def run(args: argparse.Namespace) -> int:
         "old_cache_reused": False,
     })
     _write_json(root / "reports/taylor_formula_audit.json", {
-        "J_total": "J_struct_gate + J_WQ + J_AQ",
+        "J_total": (
+            "J_struct_gate + J_WQ + "
+            f"{activation_taylor_fitness_weight:g} * J_AQ"
+        ),
         "J_struct_gate": "mean_samples sum_elements(abs(g_u*(-u))+0.5*abs(E_sample_local[g_u^2]*u^2))",
         "J_WQ": "mean_samples sum_retained(abs(g_W*delta_W)+0.5*abs(E[g_W^2]*delta_W^2))",
         "J_AQ": "mean_samples sum_qdq_inputs(abs(g_A*delta_A)+0.5*abs(g_A^2*delta_A^2))",
@@ -522,6 +561,10 @@ def run(args: argparse.Namespace) -> int:
         "joint_taylor_used_for_fitness": False,
         "cross_residual_used_for_fitness": False,
         "legacy_weight_taylor_used_for_fitness": False,
+        "activation_taylor_fitness_weight": activation_taylor_fitness_weight,
+        "activation_taylor_used_for_fitness": bool(
+            activation_taylor_fitness_weight != 0.0
+        ),
     })
 
     # A non-converged formal Taylor cache must never silently seed Greedy or GA.
@@ -544,19 +587,23 @@ def run(args: argparse.Namespace) -> int:
         weight_proxy=weight32,
         structure_proxy=FunctionalGateTaylorProxy(gate32),
         activation_cache=activation32,
-        activation_taylor_weight=1.0,
+        activation_taylor_weight=activation_taylor_fitness_weight,
         bops_evaluator=formal["bops"].evaluate_breakdown,
         size_evaluator=formal["size"].evaluate_breakdown,
-        target=0.10,
+        target=min(budgets),
         tolerance_abs=TOLERANCE,
         maximum_steps=None,
-        capture_targets=BUDGETS,
+        capture_targets=budgets,
     )
     _write_csv(root / "greedy_trace.csv", result["trace"])
-    _write_csv(root / "reports/greedy_r010_trajectory.csv", result["trace"])
+    primary_label = f"{int(round(min(budgets) * 100)):03d}"
+    _write_csv(
+        root / f"reports/greedy_r{primary_label}_trajectory.csv",
+        result["trace"],
+    )
     winners = {}
     summary = []
-    for budget in BUDGETS:
+    for budget in budgets:
         candidates = []
         for trace_row in result["trace"]:
             retention = float(trace_row["current_retention"])
@@ -597,6 +644,15 @@ def run(args: argparse.Namespace) -> int:
             "cumulative_J_struct": float(winner["cumulative_pruning_taylor"]),
             "cumulative_J_WQ": float(winner["cumulative_weight_quantization_taylor"]),
             "cumulative_J_AQ": float(winner["cumulative_activation_taylor"]),
+            "cumulative_J_AQ_fitness_contribution": float(
+                winner["cumulative_activation_taylor_fitness_contribution"]
+            ),
+            "activation_taylor_fitness_weight": (
+                activation_taylor_fitness_weight
+            ),
+            "activation_taylor_used_for_fitness": bool(
+                activation_taylor_fitness_weight != 0.0
+            ),
             "budget_band_candidate_count": len(ordered),
             "greedy_exact_winner": True,
             "stage2_top5_used": False,
@@ -618,15 +674,31 @@ def run(args: argparse.Namespace) -> int:
         })
     _write_json(root / "reports/six_budget_greedy_winners.json", winners)
     _write_csv(root / "reports/six_budget_greedy_summary.csv", summary)
-    winner010 = winners.get("0.10")
-    if not winner010 or not winner010.get("budget_reached"):
-        raise RuntimeError("v2xvit_greedy_r010_budget_unreachable")
-    _write_json(root / "reports/greedy_r010_winner.json", winner010)
-    _write_csv(root / "reports/greedy_r010_budget_capture.csv", [
+    primary_budget = min(budgets)
+    primary_winner = winners.get(f"{primary_budget:.2f}")
+    if not primary_winner or not primary_winner.get("budget_reached"):
+        raise RuntimeError(
+            f"v2xvit_greedy_r{primary_label}_budget_unreachable"
+        )
+    _write_json(
+        root / f"reports/greedy_r{primary_label}_winner.json",
+        primary_winner,
+    )
+    _write_csv(root / f"reports/greedy_r{primary_label}_budget_capture.csv", [
         row for row in result["trace"]
         if bool(row.get("selected"))
-        and abs(float(row["current_retention"]) - 0.10) <= TOLERANCE
+        and abs(float(row["current_retention"]) - primary_budget) <= TOLERANCE
     ])
+    _write_json(root / "reports/activation_taylor_ablation.json", {
+        "controlled_ablation": activation_taylor_fitness_weight == 0.0,
+        "activation_taylor_fitness_weight": activation_taylor_fitness_weight,
+        "activation_taylor_used_for_fitness": bool(
+            activation_taylor_fitness_weight != 0.0
+        ),
+        "raw_activation_taylor_retained_as_diagnostic": True,
+        "activation_quantization_used_in_deployment": True,
+        "budgets": list(budgets),
+    })
     _write_json(root / "proxy/search_loop_runtime_audit.json", {
         key: result[key]
         for key in (
@@ -646,6 +718,11 @@ def run(args: argparse.Namespace) -> int:
         "train200_manifest_hash": train200["manifest_hash"],
         "taylor_manifest_hash": calibration_hash,
         "taylor_sample_count": 32,
+        "search_budgets": list(budgets),
+        "activation_taylor_fitness_weight": activation_taylor_fitness_weight,
+        "activation_taylor_used_for_fitness": bool(
+            activation_taylor_fitness_weight != 0.0
+        ),
         "validation_shape_trace_index": validation_index,
         "validation_shape_trace_agent_count": agent_count,
         "validation_shape_trace_batch_hash": _batch_content_hash(representative),
@@ -665,6 +742,18 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, default=6)
+    parser.add_argument(
+        "--targets",
+        type=_parse_targets,
+        default=BUDGETS,
+        help="Comma-separated subset of supported BOPS budgets.",
+    )
+    parser.add_argument(
+        "--activation-taylor-fitness-weight",
+        type=float,
+        default=1.0,
+        help="Stage-1/Greedy coefficient for raw J_AQ; use 0 only for ablation.",
+    )
     return run(parser.parse_args())
 
 

@@ -48,6 +48,9 @@ def run_weight_only_abs_greedy(
     capture_targets: Sequence[float] | None = None,
 ) -> dict[str, Any]:
     """Run one deterministic path without model execution or artifact export."""
+    activation_taylor_weight = float(activation_taylor_weight)
+    if not math.isfinite(activation_taylor_weight) or activation_taylor_weight < 0.0:
+        raise ValueError("greedy_activation_taylor_weight_invalid")
     neighbor_engine = GreedyBudgetSearch(
         space,
         config=GreedySearchConfig(
@@ -109,7 +112,8 @@ def run_weight_only_abs_greedy(
             if action["kind"] == "precision" and activation_cache is not None:
                 activation = activation_cache.action_breakdown(current_phenotype, successor_phenotype)
             delta_aq = float(activation.get("delta_J_AQ", 0.0))
-            delta_action = delta_prune + delta_wq + float(activation_taylor_weight) * delta_aq
+            delta_aq_fitness = activation_taylor_weight * delta_aq
+            delta_action = delta_prune + delta_wq + delta_aq_fitness
             if delta_action < 0.0 or not math.isfinite(delta_action):
                 raise RuntimeError("weight_only_greedy_action_risk_invalid")
             utility = delta_action / max(delta_bops, float(epsilon))
@@ -117,7 +121,12 @@ def run_weight_only_abs_greedy(
                 raise RuntimeError("weight_only_greedy_utility_nonfinite")
             retention = bops_after / float(baseline_bops["bops_total"])
             phenotype_hash = candidate_hash(successor_phenotype, space)
-            cumulative = cumulative_prune + cumulative_wq + cumulative_aq + delta_action
+            cumulative = (
+                cumulative_prune
+                + cumulative_wq
+                + activation_taylor_weight * cumulative_aq
+                + delta_action
+            )
             row = {
                 "step": step,
                 "action_type": action["kind"],
@@ -132,8 +141,12 @@ def run_weight_only_abs_greedy(
                 "delta_J_prune": delta_prune,
                 "delta_J_WQ": delta_wq,
                 "delta_J_AQ": delta_aq,
+                "delta_J_AQ_fitness_contribution": delta_aq_fitness,
                 "activation_taylor_diagnostic": delta_aq,
-                "activation_taylor_used_for_fitness": bool(float(activation_taylor_weight) != 0.0),
+                "activation_taylor_fitness_weight": activation_taylor_weight,
+                "activation_taylor_used_for_fitness": bool(
+                    activation_taylor_weight != 0.0
+                ),
                 "joint_taylor_diagnostic": 0.0,
                 "joint_taylor_used_for_fitness": False,
                 "cross_residual_diagnostic": 0.0,
@@ -151,6 +164,9 @@ def run_weight_only_abs_greedy(
                 "cumulative_pruning_taylor": cumulative_prune + delta_prune,
                 "cumulative_weight_quantization_taylor": cumulative_wq + delta_wq,
                 "cumulative_activation_taylor": cumulative_aq + delta_aq,
+                "cumulative_activation_taylor_fitness_contribution": (
+                    activation_taylor_weight * (cumulative_aq + delta_aq)
+                ),
                 "structure_hash": _stable_hash(successor.pruning_width_genes),
                 "precision_hash": _stable_hash(successor.precision_genes),
                 "candidate_hash": phenotype_hash,
@@ -294,7 +310,10 @@ def run_weight_only_abs_greedy(
         "search_loop_physical_exports": 0,
         "search_loop_onnx_exports": 0,
         "search_loop_trt_builds": 0,
-        "activation_taylor_used_for_fitness": bool(float(activation_taylor_weight) != 0.0),
+        "activation_taylor_fitness_weight": activation_taylor_weight,
+        "activation_taylor_used_for_fitness": bool(
+            activation_taylor_weight != 0.0
+        ),
         "joint_taylor_used_for_fitness": False,
         "cross_residual_used_for_fitness": False,
         "elementwise_abs_before_reduction": True,

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 from dataclasses import replace
 from pathlib import Path
@@ -137,6 +138,14 @@ def run(args: argparse.Namespace) -> int:
     root = (args.run_root or args.output_root).resolve()
     root.mkdir(parents=True, exist_ok=True)
     targets = tuple(args.targets)
+    activation_taylor_fitness_weight = float(
+        args.activation_taylor_fitness_weight
+    )
+    if (
+        not math.isfinite(activation_taylor_fitness_weight)
+        or activation_taylor_fitness_weight < 0.0
+    ):
+        raise RuntimeError("activation_taylor_fitness_weight_invalid")
     shard_suffix = _shard_suffix(args.shard_id)
     if int(args.seed) != SEED:
         raise RuntimeError("v2xvit_six_budget_ga_requires_seed_zero")
@@ -183,6 +192,14 @@ def run(args: argparse.Namespace) -> int:
     provenance = json.loads(
         (source_root / "reports/input_provenance.json").read_text(encoding="utf-8")
     )
+    source_activation_weight = float(
+        provenance.get("activation_taylor_fitness_weight", 1.0)
+    )
+    if source_activation_weight != activation_taylor_fitness_weight:
+        raise RuntimeError(
+            "greedy_ga_activation_taylor_weight_mismatch:"
+            f"{source_activation_weight}!={activation_taylor_fitness_weight}"
+        )
     calibration_hash = str(provenance["taylor_manifest_hash"])
     model, adapter, hypes, _ = _load("v2xvit", device)
     representative, _, _ = _multi_agent_validation_batch(adapter, hypes, device)
@@ -226,7 +243,7 @@ def run(args: argparse.Namespace) -> int:
     # table; rebuilding gate rankings in each process is the phenotype-drift
     # bug this runner is designed to prevent.
     anchor_records = []
-    for anchor_target in TARGETS:
+    for anchor_target in targets:
         anchor_label = _label(anchor_target)
         anchor_path = source_root / f"greedy/budget_{anchor_label}/exact_winner.json"
         anchor_payload = json.loads(anchor_path.read_text(encoding="utf-8"))
@@ -344,6 +361,12 @@ def run(args: argparse.Namespace) -> int:
             "search_loop_backward_calls": 0,
             "search_loop_exports": 0,
             "search_loop_trt_builds": 0,
+            "activation_taylor_fitness_weight": (
+                activation_taylor_fitness_weight
+            ),
+            "activation_taylor_used_for_fitness": bool(
+                activation_taylor_fitness_weight != 0.0
+            ),
         },
     )
     atomic_write(
@@ -375,6 +398,17 @@ def run(args: argparse.Namespace) -> int:
             ),
             "stage2_physical_gpus": list(args.stage2_gpus),
             "framework": "StrictStage12V3Runner",
+            "stage1_proxy": (
+                "J_struct_gate + J_WQ + "
+                f"{activation_taylor_fitness_weight:g} * J_AQ"
+            ),
+            "activation_taylor_fitness_weight": (
+                activation_taylor_fitness_weight
+            ),
+            "activation_taylor_used_for_fitness": bool(
+                activation_taylor_fitness_weight != 0.0
+            ),
+            "activation_quantization_used_in_deployment": True,
             "artifact_source_root": str(source_root),
             "isolated_run_root": str(root),
             "frozen_domain_manifest": str(args.frozen_domain_manifest.resolve()),
@@ -413,6 +447,9 @@ def run(args: argparse.Namespace) -> int:
                 target=target,
                 tolerance_abs=TOLERANCE,
                 enforce_bops_hard_gate=True,
+                activation_taylor_fitness_weight=(
+                    activation_taylor_fitness_weight
+                ),
             )
             initial = build_initial_population(
                 anchor,
@@ -580,6 +617,13 @@ def run(args: argparse.Namespace) -> int:
                     stage2_payload(item) for item in generation_winner_validations
                 ],
                 "repair_counts": outcome["formal_ga_repair_counts"],
+                "activation_taylor_fitness_weight": (
+                    activation_taylor_fitness_weight
+                ),
+                "activation_taylor_used_for_fitness": bool(
+                    activation_taylor_fitness_weight != 0.0
+                ),
+                "activation_quantization_used_in_deployment": True,
             }
             atomic_write(budget_root / "budget_summary.json", row)
             results[label] = row
@@ -622,6 +666,13 @@ def run(args: argparse.Namespace) -> int:
             "results": results,
             "failures": failures,
             "full1789_executed": False,
+            "activation_taylor_fitness_weight": (
+                activation_taylor_fitness_weight
+            ),
+            "activation_taylor_used_for_fitness": bool(
+                activation_taylor_fitness_weight != 0.0
+            ),
+            "activation_quantization_used_in_deployment": True,
         },
     )
     return 0 if not failures else 2
@@ -680,6 +731,12 @@ def main() -> int:
         "--tensorrt-root",
         type=Path,
         default=Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118"),
+    )
+    parser.add_argument(
+        "--activation-taylor-fitness-weight",
+        type=float,
+        default=1.0,
+        help="Stage-1 coefficient for raw J_AQ; use 0 only for controlled ablation.",
     )
     return run(parser.parse_args())
 
