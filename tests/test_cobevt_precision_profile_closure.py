@@ -75,10 +75,12 @@ def test_greedy_records_activation_taylor_pruning_counterfactual_without_using_i
     from search.ga.cnn_stage12_v3 import greedy_anchors
 
     source = inspect.getsource(greedy_anchors)
-    assert "trace, captured = run_path(1.0)" in source
-    assert "counterfactual_trace, counterfactual_captured = run_path(0.0)" in source
+    assert ") = run_path(1.0)" in source
+    assert ") = run_path(0.0)" in source
     assert "counterfactual_used_for_winner_selection\": False" in source
     assert "activation_taylor_systematically_pushes_toward_pruning" in source
+    assert "primary_evaluated_neighbor_frontier" in source
+    assert "target_directed_beam_recovery" in source
 
 
 def test_weighted_and_functional_profiles_partition_exhaustively() -> None:

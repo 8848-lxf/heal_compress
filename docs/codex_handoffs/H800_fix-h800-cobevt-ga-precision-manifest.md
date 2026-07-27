@@ -98,3 +98,27 @@ Base: `ee1306c3986e6cd328eb0cc8feacb3bac88116ac`
   it does not change BOPS, precision contracts, hashes, or search scoring.
 - Regression: 13 targeted merge/CoBEVT precision tests passed; `git diff
   --check` passed.
+
+--- 2026-07-28 03:02:43 CST ---
+
+## Restore formal Greedy frontier and finite beam recovery
+
+- The completed CoBEVT diagnostic path exposed a second integration
+  regression: target 0.25 was not hit by the selected single path even though
+  the audited generic Greedy engine still contained legal-neighbor frontier
+  capture and finite beam recovery.
+- Root cause: the CoBEVT `J_AQ=0` audit had wrapped the custom formal
+  `cnn_stage12_v3.greedy_anchors` around two selected-only paths, bypassing the
+  previously implemented frontier/recovery behavior.
+- Restored, for both formal `J_AQ` and report-only `J_AQ=0` paths:
+  - capture of already evaluated legal neighbors in a budget band;
+  - bounded adjacent-action beam recovery from above-budget legal states;
+  - physical phenotype deduplication through canonical hashes;
+  - explicit recovery depth/evaluation/iteration accounting;
+  - zero structure, precision and budget repair;
+  - deterministic winner selection and separate capture-source provenance.
+- Added resource-metric memoization; it does not change resource values or
+  action ordering and prevents repeated exact BOPS/size evaluation of identical
+  phenotypes across the primary/frontier/recovery paths.
+- Added executable frontier/beam and same-seed determinism tests. Targeted
+  verification: 20 passed; compileall and `git diff --check` passed.
