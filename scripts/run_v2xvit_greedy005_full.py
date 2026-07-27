@@ -215,6 +215,7 @@ def _formal_space(
     calibration_hash: str,
     fisher_forward_fn: Callable[[Any, Any], Any] | None = None,
     fisher_batches: Sequence[Any] | None = None,
+    base_quantization_groups: Sequence[Any] | None = None,
 ) -> dict[str, Any]:
     fisher, fisher_report = collect_task_loss_fisher_statistics(
         model,
@@ -254,9 +255,20 @@ def _formal_space(
         ffn_rankings=ffn_rankings,
         active_module_paths=active_paths,
     )
-    cnn_groups = tuple(
-        replace(_cnn_quantization_group(model, domain), ordering=index)
-        for index, domain in enumerate(cnn_domains)
+    # V2X-ViT historically derived its CNN precision loci from prunable
+    # domains.  Runtime-traced model families (notably CoBEVT) also contain
+    # weighted, deployable modules that are intentionally not structurally
+    # prunable: PFN, deblocks, shrinker followers and detection heads.  Use the
+    # complete runtime precision inventory as the base when the caller has
+    # one; Transformer groups below replace only genuinely overlapping
+    # projection/FFN modules.
+    cnn_groups = (
+        tuple(base_quantization_groups)
+        if base_quantization_groups is not None
+        else tuple(
+            replace(_cnn_quantization_group(model, domain), ordering=index)
+            for index, domain in enumerate(cnn_domains)
+        )
     )
     transformer_groups = tuple(
         replace(group, ordering=len(cnn_groups) + index)

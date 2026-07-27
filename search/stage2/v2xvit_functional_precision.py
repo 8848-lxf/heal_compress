@@ -116,7 +116,9 @@ def _node_row(node: Any, element_types: Mapping[str, int]) -> dict[str, Any]:
 
 
 def _encoder_layer_index(path: str) -> int:
-    match = re.search(r"(?:^|\.)encoder\.layers\.(\d+)(?:\.|$)", str(path))
+    match = re.search(
+        r"(?:^|\.)(?:encoder\.)?layers\.(\d+)(?:\.|$)", str(path)
+    )
     if match is None:
         raise RuntimeError(f"v2xvit_encoder_layer_index_unresolved:{path}")
     return int(match.group(1))
@@ -124,9 +126,16 @@ def _encoder_layer_index(path: str) -> int:
 
 def _module_onnx_prefix(path: str) -> str:
     marker = ".encoder."
-    if marker not in str(path):
-        raise RuntimeError(f"v2xvit_module_owner_unresolved:{path}")
-    tokens = str(path).split(marker, 1)[1].split(".")
+    text = str(path)
+    if marker in text:
+        tokens = text.split(marker, 1)[1].split(".")
+    elif text.startswith("fusion_net.layers."):
+        # CoBEVT exports ``fusion_net`` as the graph root.  Its module path
+        # ``fusion_net.layers.0.window_attention.fn`` therefore becomes the
+        # stable ONNX prefix ``/layers.0/window_attention/fn``.
+        tokens = text.split("fusion_net.", 1)[1].split(".")
+    else:
+        raise RuntimeError(f"transformer_module_owner_unresolved:{path}")
     chunks: list[str] = []
     index = 0
     while index < len(tokens):
@@ -146,6 +155,21 @@ def _module_onnx_prefix(path: str) -> str:
 
 def _layernorm_onnx_name(path: str) -> str:
     return f"{_module_onnx_prefix(path)}/LayerNormalization"
+
+
+def _residual_onnx_name(unit: Any) -> str:
+    owner = str(unit.metadata.get("functional_owner", ""))
+    if owner.startswith("fusion_net.layers."):
+        # CoBEVT emits the residual Add at the normalized wrapper level, one
+        # level above ``.fn`` for both Attention and FFN blocks.
+        wrapper = owner.rsplit(".fn", 1)[0] if owner.endswith(".fn") else owner
+        return f"{_module_onnx_prefix(wrapper)}/Add"
+    layer = _encoder_layer_index(owner)
+    kind = str(unit.metadata.get("boundary_kind", ""))
+    if kind == "ffn_residual_add":
+        return f"/Add_{layer + 2}"
+    adapter = str(unit.metadata.get("attention_adapter", ""))
+    return f"/layers.{layer}.0/{'Add' if adapter == 'v2xvit_hgt' else 'Add_1'}"
 
 
 def _functional_expected(unit: Any, requested_state: str | None = None) -> tuple[str, str]:
@@ -288,19 +312,7 @@ def build_v2xvit_functional_onnx_mapping(
         if unit.role == "layernorm":
             node_name = _layernorm_onnx_name(str(unit.metadata["functional_owner"]))
         elif unit.role == "residual_add":
-            owner = str(unit.metadata["functional_owner"])
-            layer = _encoder_layer_index(owner)
-            kind = str(unit.metadata.get("boundary_kind", ""))
-            if kind == "ffn_residual_add":
-                # The FFN module itself is exported below ``layers.<layer>.1``,
-                # while ``ff(x) + x`` is emitted by the encoder forward loop.
-                # Two encoder-level Add nodes precede the three FFN residuals,
-                # so ONNX assigns them the stable top-level identities Add_2,
-                # Add_3, and Add_4 respectively.
-                node_name = f"/Add_{layer + 2}"
-            else:
-                adapter = str(unit.metadata.get("attention_adapter", ""))
-                node_name = f"/layers.{layer}.0/{'Add' if adapter == 'v2xvit_hgt' else 'Add_1'}"
+            node_name = _residual_onnx_name(unit)
         elif unit.role == "attention_merge":
             layer = _encoder_layer_index(str(unit.metadata["functional_owner"]))
             node_name = f"/layers.{layer}.0/layers.0.1/fn/split_attn/Add_3"

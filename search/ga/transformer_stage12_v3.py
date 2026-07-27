@@ -140,6 +140,7 @@ def prepare_cobevt_search(
             adapter, current_model, batch
         ),
         fisher_batches=batches,
+        base_quantization_groups=context.search_space.quantization_groups,
     )
     gate_scores, gate_mapping = collect_functional_gate_scores_multi(
         model,
@@ -186,6 +187,17 @@ def prepare_cobevt_search(
         for spec_row in formal["components"].attention_instances
         for path in (spec_row.q_projection_paths + spec_row.k_projection_paths)
     )
+    context.unified_precision_units = tuple(formal["components"].precision_units)
+    context.unified_attention_instances = tuple(
+        formal["components"].attention_instances
+    )
+    context.unified_ffn_instances = tuple(formal["components"].ffn_instances)
+    context.unified_functional_precision_paths = tuple(sorted({
+        str(path)
+        for unit in formal["components"].precision_units
+        if bool(unit.activation_only)
+        for path in unit.module_paths
+    }))
     result = PreparedCNNFormalSearch(
         spec=spec,
         context=context,

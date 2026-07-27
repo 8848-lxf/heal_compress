@@ -480,6 +480,48 @@ def _normalize_auxiliary_precision(value: str) -> str:
     return precision
 
 
+def partition_heal_lidar_precision_profile(
+    origin_modules: Sequence[str],
+    module_precision_profile: Mapping[str, str],
+    *,
+    functional_precision_paths: Sequence[str] = (),
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Separate weighted origins from parameter-free deployment boundaries.
+
+    Both partitions remain exhaustive and fail closed.  Functional paths are
+    accepted only when explicitly supplied by the frozen Transformer
+    precision-unit inventory; an arbitrary unknown key is never ignored.
+    """
+
+    complete = {
+        str(key): str(value).lower()
+        for key, value in module_precision_profile.items()
+    }
+    weighted_paths = {str(value) for value in origin_modules}
+    functional_paths = {str(value) for value in functional_precision_paths}
+    overlap = sorted(weighted_paths & functional_paths)
+    if overlap:
+        raise RuntimeError(
+            f"heal_lidar_weighted_functional_precision_overlap:{overlap}"
+        )
+    weighted = {
+        key: value for key, value in complete.items() if key in weighted_paths
+    }
+    functional = {
+        key: value for key, value in complete.items() if key in functional_paths
+    }
+    missing = sorted(weighted_paths - set(weighted))
+    missing_functional = sorted(functional_paths - set(functional))
+    unknown = sorted(set(complete) - weighted_paths - functional_paths)
+    if missing or missing_functional or unknown:
+        raise RuntimeError(
+            "heal_lidar_precision_profile_origin_mismatch:"
+            f"missing={missing}:missing_functional={missing_functional}:"
+            f"unknown={unknown}"
+        )
+    return weighted, functional
+
+
 def build_heal_lidar_baseline_precision_mapping(
     origin_map: Any,
     module_precision_profile: Mapping[str, str],
@@ -491,6 +533,7 @@ def build_heal_lidar_baseline_precision_mapping(
     precision_policy: str = "legacy_family_static_dependency_closure_v1",
     runtime_precision_relations: Sequence[Any] = (),
     module_to_precision_group: Mapping[str, str] | None = None,
+    functional_precision_paths: Sequence[str] = (),
 ) -> tuple[CanonicalPrecisionMappingResult, dict[str, Any]]:
     """Expand module genes and enforce the family auxiliary precision contract."""
 
@@ -507,12 +550,13 @@ def build_heal_lidar_baseline_precision_mapping(
     }:
         raise RuntimeError(f"unsupported_heal_lidar_precision_policy:{policy_name}")
     auxiliary_precision = _normalize_auxiliary_precision(auxiliary_precision)
-    profile = {str(key): str(value).lower() for key, value in module_precision_profile.items()}
     origin_modules = {str(row.module_path) for row in origin_map.entries}
-    missing = sorted(origin_modules - set(profile))
-    unknown = sorted(set(profile) - origin_modules)
-    if missing or unknown:
-        raise RuntimeError(f"heal_lidar_precision_profile_origin_mismatch:missing={missing}:unknown={unknown}")
+    profile, functional_profile = partition_heal_lidar_precision_profile(
+        sorted(origin_modules),
+        module_precision_profile,
+        functional_precision_paths=functional_precision_paths,
+    )
+    complete_profile_count = len(module_precision_profile)
     capabilities = {row.module_path: row for row in audit.weighted_ops}
     unaudited = sorted(origin_modules - set(capabilities))
     if unaudited and not generic_runtime:
@@ -585,6 +629,15 @@ def build_heal_lidar_baseline_precision_mapping(
             "family_named_node_rules_used": False,
             "adaptive_merge_contract": adaptive_report,
             "mapping_hash": mapping.mapping_hash,
+            "weighted_precision_profile": dict(sorted(profile.items())),
+            "functional_precision_profile": dict(
+                sorted(functional_profile.items())
+            ),
+            "weighted_precision_path_count": len(profile),
+            "functional_precision_path_count": len(functional_profile),
+            "precision_profile_partition_exact": (
+                len(profile) + len(functional_profile) == complete_profile_count
+            ),
         }
         report["island_hash"] = stable_json_hash(report)
         return mapping, report
@@ -632,6 +685,13 @@ def build_heal_lidar_baseline_precision_mapping(
         "semantic_merge_policy": "explicit_named_feature_merges_only_shape_concats_excluded",
         "semantic_merge_nodes": semantic_merges,
         "mapping_hash": mapping.mapping_hash,
+        "weighted_precision_profile": dict(sorted(profile.items())),
+        "functional_precision_profile": dict(sorted(functional_profile.items())),
+        "weighted_precision_path_count": len(profile),
+        "functional_precision_path_count": len(functional_profile),
+        "precision_profile_partition_exact": (
+            len(profile) + len(functional_profile) == complete_profile_count
+        ),
     }
     report["island_hash"] = stable_json_hash(report)
     return mapping, report
@@ -923,6 +983,7 @@ __all__ = [
     "canonicalize_heal_lidar_baseline_onnx",
     "export_heal_lidar_baseline_fixed_k_onnx",
     "insert_heal_lidar_baseline_explicit_qdq",
+    "partition_heal_lidar_precision_profile",
     "validate_heal_lidar_fusion_island_realization",
     "validate_heal_lidar_precision_realization",
 ]

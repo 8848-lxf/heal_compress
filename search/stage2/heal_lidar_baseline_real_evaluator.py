@@ -787,6 +787,11 @@ class HealLidarBaselineCandidateEvaluator:
                         [],
                     )),
                     module_to_precision_group=module_to_precision_group,
+                    functional_precision_paths=tuple(getattr(
+                        self.context,
+                        "unified_functional_precision_paths",
+                        (),
+                    )),
                 ),
             )
             scales, calibration = timed(
@@ -817,6 +822,7 @@ class HealLidarBaselineCandidateEvaluator:
                 "qdq_onnx_path": Path(qdq_result.output_onnx),
             }
             qdq_attention = None
+            functional_onnx = None
             if qkv_paths:
                 from scripts.run_v2xvit_greedy005_stage2 import (
                     _force_attention_fp32_contract,
@@ -849,6 +855,38 @@ class HealLidarBaselineCandidateEvaluator:
                         "heal_transformer_qdq_attention_contract_failed:"
                         f"{qdq_attention}"
                     )
+                from search.stage2.v2xvit_functional_precision import (
+                    build_v2xvit_functional_onnx_mapping,
+                    requested_states_from_phenotype,
+                )
+
+                precision_units = tuple(getattr(
+                    self.context, "unified_precision_units", ()
+                ))
+                requested_states = requested_states_from_phenotype(
+                    phenotype, precision_units
+                )
+                functional_onnx = build_v2xvit_functional_onnx_mapping(
+                    qdq["qdq_onnx_path"],
+                    origin_map=export.export.origin_map,
+                    precision_units=precision_units,
+                    attention_instances=tuple(getattr(
+                        self.context, "unified_attention_instances", ()
+                    )),
+                    ffn_instances=tuple(getattr(
+                        self.context, "unified_ffn_instances", ()
+                    )),
+                    requested_states=requested_states,
+                )
+                self._write_json(
+                    destination / "qdq/functional_precision_onnx_audit.json",
+                    functional_onnx,
+                )
+                if not functional_onnx.get("passed"):
+                    raise RuntimeError(
+                        "heal_transformer_functional_onnx_contract_failed:"
+                        f"{functional_onnx}"
+                    )
             self._write_json(
                 destination / "qdq/canonical_precision_mapping.json", mapping.to_dict()
             )
@@ -866,6 +904,7 @@ class HealLidarBaselineCandidateEvaluator:
                 ),
             )
             trt_attention = None
+            functional_trt = None
             if qkv_paths:
                 from search.stage2.transformer_precision_export import (
                     audit_trt_attention_fp32_contract,
@@ -883,6 +922,23 @@ class HealLidarBaselineCandidateEvaluator:
                     raise RuntimeError(
                         "heal_transformer_trt_attention_contract_failed:"
                         f"{trt_attention}"
+                    )
+                from search.stage2.v2xvit_functional_precision import (
+                    audit_trt_v2xvit_functional_precision,
+                )
+
+                functional_trt = audit_trt_v2xvit_functional_precision(
+                    destination / "deployment/engine_build/engine_layer_info.json",
+                    functional_onnx,
+                )
+                self._write_json(
+                    destination / "deployment/functional_precision_trt_audit.json",
+                    functional_trt,
+                )
+                if not functional_trt.get("passed"):
+                    raise RuntimeError(
+                        "heal_transformer_functional_trt_contract_failed:"
+                        f"{functional_trt}"
                     )
             timings["total_build_pipeline_seconds"] = (
                 time.perf_counter() - total_started
@@ -942,6 +998,15 @@ class HealLidarBaselineCandidateEvaluator:
                         and onnx_attention.get("passed")
                         and qdq_attention.get("passed")
                         and trt_attention.get("passed")
+                    )
+                ),
+                "transformer_functional_precision_acceptance": bool(
+                    not qkv_paths
+                    or (
+                        functional_onnx
+                        and functional_trt
+                        and functional_onnx.get("passed")
+                        and functional_trt.get("passed")
                     )
                 ),
                 "auxiliary_precision": auxiliary_precision,

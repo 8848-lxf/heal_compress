@@ -750,7 +750,12 @@ class CNNRealStage2Evaluator:
                 and raw.get("merge_acceptance", False)
                 and (
                     self.prepared.spec.model_id != "cobevt"
-                    or raw.get("transformer_attention_fp32_acceptance", False)
+                    or (
+                        raw.get("transformer_attention_fp32_acceptance", False)
+                        and raw.get(
+                            "transformer_functional_precision_acceptance", False
+                        )
+                    )
                 )
                 and int(raw.get("requested_int8_count", 0))
                 == int(raw.get("realized_int8_count", 0))
@@ -893,7 +898,12 @@ def validate_generation_winner(
                     and raw.get("merge_acceptance", False)
                     and (
                         prepared.spec.model_id != "cobevt"
-                        or raw.get("transformer_attention_fp32_acceptance", False)
+                        or (
+                            raw.get("transformer_attention_fp32_acceptance", False)
+                            and raw.get(
+                                "transformer_functional_precision_acceptance", False
+                            )
+                        )
                     )
                 )
             )
