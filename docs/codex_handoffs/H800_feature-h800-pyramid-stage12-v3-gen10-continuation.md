@@ -38,3 +38,23 @@ Timestamp: 2026-07-28 04:08 CST
   original six-budget root; the new frozen snapshot records the prior result
   before final reports are updated.
 
+---
+
+Timestamp: 2026-07-28 04:21 CST
+
+## Verification, cleanup and launch queue
+
+- Moved the generation-00--05 replay verification ahead of final result and
+  acceptance serialization. A divergent replay now fails closed before a
+  ten-generation result can be accepted.
+- Targeted GA/proxy regressions: 38 passed. `compileall`, `py_compile`, and
+  `git diff --check` passed.
+- Committed and pushed `bd13fd62`; local/remote divergence is `0 0`.
+- Queued a GPU2-only launcher (`PID 3988956`) behind the active CoBEVT task.
+  It performs read-only process polling and requires five consecutive GPU2
+  compute-process-free samples before launch. It does not probe or occupy any
+  other GPU.
+- Permanently removed 260,117,397,504 bytes (242.25 GiB) of exact, audited
+  failed/redundant artifacts. The output tree fell from 721 GiB to 479 GiB.
+  Retained all reports, manifests, current winners, reusable caches and the
+  224 GiB Pyramid generation-5 root required for deterministic continuation.
