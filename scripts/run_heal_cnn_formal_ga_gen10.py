@@ -19,7 +19,11 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from search.ga.cnn_stage12_v3 import (  # noqa: E402
+    GENERATION_WINNER_FRAMES,
+    GENERATION_WINNER_WARMUP_FRAMES,
     MODEL_SPECS,
+    STAGE2_SCREENING_FRAMES,
+    STAGE2_SCREENING_WARMUP_FRAMES,
     create_real_evaluator,
     greedy_anchors,
     prepare_search,
@@ -109,6 +113,10 @@ def run(args: argparse.Namespace) -> int:
         "population_size": 64,
         "offspring_size": 64,
         "stage2_quota": 5,
+        "stage2_top5_screening_frames": STAGE2_SCREENING_FRAMES,
+        "stage2_top5_screening_warmup_frames": STAGE2_SCREENING_WARMUP_FRAMES,
+        "generation_winner_validation_frames": GENERATION_WINNER_FRAMES,
+        "generation_winner_validation_warmup_frames": GENERATION_WINNER_WARMUP_FRAMES,
         "seed": 0,
         "targets": list(targets),
         "old_framework_started": False,
@@ -133,7 +141,20 @@ def run(args: argparse.Namespace) -> int:
         taylor_samples=args.taylor_samples,
     )
     anchors = greedy_anchors(prepared, targets=targets, output_root=root)
-    real_evaluator = create_real_evaluator(prepared, output_root=root)
+    real_evaluator = create_real_evaluator(
+        prepared,
+        output_root=root,
+        num_frames=STAGE2_SCREENING_FRAMES,
+        warmup_frames=STAGE2_SCREENING_WARMUP_FRAMES,
+        run_dir_name="stage2_screening_runtime",
+    )
+    validation_evaluator = create_real_evaluator(
+        prepared,
+        output_root=root,
+        num_frames=GENERATION_WINNER_FRAMES,
+        warmup_frames=GENERATION_WINNER_WARMUP_FRAMES,
+        run_dir_name="generation_winner_validation_runtime",
+    )
     results: dict[str, dict] = {}
     failures: list[dict] = []
     for target in targets:
@@ -154,6 +175,7 @@ def run(args: argparse.Namespace) -> int:
                 seed=args.seed,
                 generations=args.generations,
                 real_evaluator=real_evaluator,
+                validation_evaluator=validation_evaluator,
             )
         except Exception as exc:  # preserve other completed budgets, fail closed per budget
             failure = {
@@ -175,10 +197,10 @@ def run(args: argparse.Namespace) -> int:
             "completed_generations": row["completed_evolution_generations"],
             "stage2_real_evaluation_count": row["stage2_real_evaluation_count"],
             "greedy_hash": greedy["complete_phenotype_hash"],
-            "greedy_map_fixed50": greedy["mAP"],
+            "greedy_map_fixed500": greedy["mAP"],
             "greedy_p50_ms": greedy["p50_ms"],
             "ga_hash": final["complete_phenotype_hash"],
-            "ga_map_fixed50": final["mAP"],
+            "ga_map_fixed500": final["mAP"],
             "ga_p50_ms": final["p50_ms"],
             "ga_improved_greedy": row["ga_improved_greedy"],
         })

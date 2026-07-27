@@ -19,6 +19,10 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from search.ga.cnn_stage12_v3 import (
+    GENERATION_WINNER_FRAMES,
+    GENERATION_WINNER_WARMUP_FRAMES,
+    STAGE2_SCREENING_FRAMES,
+    STAGE2_SCREENING_WARMUP_FRAMES,
     create_real_evaluator,
     greedy_anchors,
     run_budget,
@@ -99,7 +103,20 @@ def run(args: argparse.Namespace) -> int:
         taylor_samples=32,
     )
     anchors = greedy_anchors(prepared, targets=TARGETS, output_root=root)
-    real = create_real_evaluator(prepared, output_root=root)
+    real = create_real_evaluator(
+        prepared,
+        output_root=root,
+        num_frames=STAGE2_SCREENING_FRAMES,
+        warmup_frames=STAGE2_SCREENING_WARMUP_FRAMES,
+        run_dir_name="stage2_screening_runtime",
+    )
+    validation = create_real_evaluator(
+        prepared,
+        output_root=root,
+        num_frames=GENERATION_WINNER_FRAMES,
+        warmup_frames=GENERATION_WINNER_WARMUP_FRAMES,
+        run_dir_name="generation_winner_validation_runtime",
+    )
     results = {}
     failures = []
     for target in TARGETS:
@@ -120,6 +137,7 @@ def run(args: argparse.Namespace) -> int:
                 seed=0,
                 generations=10,
                 real_evaluator=real,
+                validation_evaluator=validation,
             )
         except Exception as exc:
             failure = {
@@ -136,10 +154,10 @@ def run(args: argparse.Namespace) -> int:
             "completed_generations": row["completed_evolution_generations"],
             "stage2_real_evaluation_count": row["stage2_real_evaluation_count"],
             "greedy_hash": row["greedy_anchor"]["complete_phenotype_hash"],
-            "greedy_map_fixed50": row["greedy_anchor"]["mAP"],
+            "greedy_map_fixed500": row["greedy_anchor"]["mAP"],
             "greedy_p50_ms": row["greedy_anchor"]["p50_ms"],
             "ga_hash": row["final_winner"]["complete_phenotype_hash"],
-            "ga_map_fixed50": row["final_winner"]["mAP"],
+            "ga_map_fixed500": row["final_winner"]["mAP"],
             "ga_p50_ms": row["final_winner"]["p50_ms"],
             "ga_improved_greedy": row["ga_improved_greedy"],
         }

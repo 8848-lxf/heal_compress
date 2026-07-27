@@ -90,8 +90,10 @@ def prepare_cobevt_search(
         quant_calibration_npz_manifest=spec.calibration_manifest,
         quant_activation_calibration_backend="tensorrt_entropy_calibration2",
         quant_calibration_force_rebuild=True,
-        num_frames=50,
-        warmup_frames=20,
+        # The immutable manifest serves 300/100 screening and 500/200
+        # generation-winner validation; build it for the larger tier.
+        num_frames=500,
+        warmup_frames=200,
         reset_after_warmup=True,
         default_precision="FP32",
         fixed_k=29696,
