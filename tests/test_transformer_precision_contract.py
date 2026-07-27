@@ -24,8 +24,12 @@ from search.quantization_space.transformer_precision import (
     expected_softmax_realization,
     validate_external_precision_profile,
 )
+from search.quantization_space.types import QuantizationSearchGroup
 from search.canonicalization import SearchSpaceSpec
-from search.proxy.conservative_gate_activation_taylor import build_activation_units
+from search.proxy.conservative_gate_activation_taylor import (
+    build_activation_units,
+    collect_activation_taylor_cache,
+)
 from search.proxy.joint_weight_activation_taylor import (
     taylor_units_from_transformer_precision,
 )
@@ -119,7 +123,62 @@ def test_activation_mapping_contains_only_real_qdq_action_boundaries() -> None:
         unit.unit_id: unit for unit in units if unit.unit_type != "av_matmul"
     }
     assert weighted
+    assert {
+        str(unit.metadata["precision_group_id"]) for unit in units
+    } <= set(space.precision_gene_ids)
+    assert not {
+        unit.unit_type for unit in units
+    } & {"softmax", "qk_matmul", "layernorm", "residual_add"}
     assert all(unit.boundary == "module_input" for unit in weighted.values())
+
+
+def test_mutable_softmax_taylor_observes_probability_not_masked_logits() -> None:
+    class SoftmaxModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.probability = nn.Softmax(dim=-1)
+
+        def forward(self, value: torch.Tensor) -> torch.Tensor:
+            return self.probability(value)
+
+    model = SoftmaxModel()
+    group = QuantizationSearchGroup(
+        group_id="softmax_probability",
+        module_paths=("probability",),
+        canonical_node_ids=("softmax",),
+        allowed_precisions=("FP32", "FP16"),
+        protected=False,
+        protection_reason="",
+        ordering=0,
+        parameter_count=0,
+        baseline_macs=0.0,
+        metadata={"transformer_role": "softmax"},
+    )
+    space = SearchSpaceSpec(
+        pruning_unit_ids=[],
+        precision_layer_ids=[],
+        quantization_groups=(group,),
+        default_precision="FP32",
+    )
+    units, group_to_units = build_activation_units(model, space, ())
+    assert len(units) == 1
+    assert units[0].boundary == "module_output"
+    assert units[0].metadata["activation_boundary_semantic"] == (
+        "post_softmax_probability"
+    )
+    # Masked logits legitimately contain -inf.  The finite probability is the
+    # searched deployment Q/DQ boundary.
+    batch = torch.tensor([[0.0, -float("inf"), 1.0]], requires_grad=True)
+    cache = collect_activation_taylor_cache(
+        model,
+        units,
+        group_to_units,
+        forward_fn=lambda current, value: current(value),
+        loss_fn=lambda output, _value: output.square().sum(),
+        batch=batch,
+    )
+    assert cache.transitions
+    assert all(value >= 0.0 for value in cache.transitions.values())
 
 
 def test_softmax_a8_means_float_compute_with_quantized_output_not_native_exp() -> None:

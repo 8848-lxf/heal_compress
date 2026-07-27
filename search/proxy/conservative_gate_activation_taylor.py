@@ -383,16 +383,47 @@ def build_activation_units(model: nn.Module, space: SearchSpaceSpec, transformer
         group = str(unit.metadata.get("precision_unit_id", ""))
         if group:
             group_to_units[group] = tuple([*group_to_units.get(group, ()), unit.unit_id])
+    # Fixed/protected precision groups have no search action and therefore no
+    # activation Taylor transition in Stage-1.  Observing them is not merely
+    # redundant: a protected Softmax's *input* may legitimately contain
+    # ``-inf`` masking logits, while its deployment Q/DQ boundary is the
+    # finite probability output.  Keep fixed loci out of the cache entirely.
+    mutable_group_ids = {str(value) for value in space.precision_gene_ids}
     for group in space.quantization_groups:
         group_id = str(group.group_id)
+        if group_id not in mutable_group_ids:
+            continue
         ids = []
+        role = str(group.metadata.get("transformer_role", "cnn"))
         for index, path in enumerate(group.module_paths):
             try:
                 model.get_submodule(str(path))
             except AttributeError:
                 continue
             unit_id = f"activation::{group_id}::{index}"
-            rows.append(TaylorDeploymentUnit(unit_id=unit_id, module_path=str(path), unit_type=str(group.metadata.get("transformer_role", "cnn")), boundary="module_input", precision_owner=str(path), quantizer_id=unit_id, metadata={"precision_group_id": group_id}))
+            # Weighted Conv/Linear loci quantize their real module input.  A
+            # searchable Softmax profile instead quantizes the post-Softmax
+            # probability, never the masked logits.  The current deployment-
+            # closed contract keeps Softmax fixed FP32, but retaining this
+            # distinction prevents future mutable profiles from regressing.
+            boundary = "module_output" if role == "softmax" else "module_input"
+            rows.append(TaylorDeploymentUnit(
+                unit_id=unit_id,
+                module_path=str(path),
+                unit_type=role,
+                boundary=boundary,
+                precision_owner=str(path),
+                quantizer_id=unit_id,
+                metadata={
+                    "precision_group_id": group_id,
+                    "actual_qdq_input_boundary": True,
+                    "activation_boundary_semantic": (
+                        "post_softmax_probability"
+                        if role == "softmax"
+                        else "weighted_operator_input"
+                    ),
+                },
+            ))
             ids.append(unit_id)
         if ids: group_to_units[group_id] = tuple(ids)
     selected, _ = coalesce_deployment_units(rows)
