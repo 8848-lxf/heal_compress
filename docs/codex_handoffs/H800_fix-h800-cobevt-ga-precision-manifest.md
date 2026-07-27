@@ -49,3 +49,22 @@ Base: `ee1306c3986e6cd328eb0cc8feacb3bac88116ac`
 - `git diff --check`: passed.
 - Next gate: build a fresh CoBEVT search context, prove complete precision
   ownership, then build/evaluate one exact Greedy anchor before formal GA.
+
+--- 2026-07-28 00:36:00 CST ---
+
+## Search-space preflight accepted
+
+- Preflight root:
+  `/data/lxf/heal_data/outputs/h800_cobevt_precision_closure_preflight_20260728_004000`.
+- Runtime weighted modules: 53; unified weighted profile owners: 53;
+  missing=0, unexpected=0.
+- Unified domains: 32 total = 20 CNN + 6 independent Attention + 6 FFN.
+- Precision groups: 93 total, including 53 mutable genes and 40 protected
+  functional paths.
+- Added a cached counterfactual Greedy replay with `J_AQ=0`. The formal path
+  continues to use `J_struct + J_WQ + J_AQ`; the counterfactual performs zero
+  forward/backward/export/build calls and is report-only. It compares action
+  composition, parameter retention and precision counts at every budget to
+  determine whether activation Taylor actually shifts selection toward
+  structural pruning.
+- Regression after this addition: 31 passed; compileall and diff check passed.

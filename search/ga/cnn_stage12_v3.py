@@ -511,95 +511,151 @@ def greedy_anchors(
             **size,
         }
 
-    current = prepared.baseline
-    current_metrics = resource_metrics(current)
-    cumulative = 0.0
-    trace: list[dict[str, Any]] = [{
-        "step": 0,
-        "candidate_hash": current_metrics["complete_phenotype_hash"],
-        "R_bops_vs_fp32": current_metrics["R_bops_vs_fp32"],
-        "cumulative_J_total": 0.0,
-        "selected": True,
-    }]
-    captured: dict[float, list[tuple[float, CandidateGenotype, dict[str, Any]]]] = {
-        float(target): [] for target in targets
-    }
-    step = 0
     epsilon = 1.0e-18
-    while float(current_metrics["R_bops_vs_fp32"]) > min(targets) - 0.005:
-        actions = decreasing_neighbors(current, prepared.space)
-        if not actions:
-            break
-        current_phenotype = canonicalize_candidate(current, prepared.space)
-        candidates: list[tuple[tuple[Any, ...], str, str, CandidateGenotype, dict[str, Any], float, float]] = []
-        for action_type, locus, successor in actions:
-            validate_genotype_schema(successor, prepared.space)
-            # Greedy action ordering only needs the action-local Taylor risk
-            # and exact resource delta.  Computing the full candidate Taylor
-            # for every unselected neighbor would repeat all earlier precision
-            # transitions and is neither part of the utility nor the search
-            # contract.
-            successor_metrics = resource_metrics(successor)
-            delta_bops = float(current_metrics["R_bops_vs_fp32"]) - float(
-                successor_metrics["R_bops_vs_fp32"]
-            )
-            if delta_bops <= 0.0:
-                continue
-            successor_phenotype = canonicalize_candidate(successor, prepared.space)
-            if action_type == "structure":
-                delta_j = float(
-                    prepared.structure.pruning_action_breakdown(
-                        current_phenotype, successor_phenotype
-                    )["delta_J_prune"]
-                )
-            else:
-                delta_j = float(
-                    prepared.weight.weight_quantization_action_breakdown(
-                        current_phenotype, successor_phenotype
-                    )["delta_J_WQ"]
-                ) + float(
-                    prepared.activation.action_breakdown(
-                        current_phenotype, successor_phenotype
-                    )["delta_J_AQ"]
-                )
-            if delta_j < 0.0 or not math.isfinite(delta_j):
-                raise RuntimeError(f"strict_greedy_negative_or_nonfinite_risk:{locus}")
-            utility = delta_j / max(delta_bops, epsilon)
-            key = (
-                utility,
-                action_type,
-                locus,
-                str(successor_metrics["complete_phenotype_hash"]),
-            )
-            candidates.append((
-                key, action_type, locus, successor, successor_metrics, delta_j, delta_bops
-            ))
-        if not candidates:
-            break
-        _key, action_type, locus, successor, successor_metrics, delta_j, delta_bops = min(
-            candidates, key=lambda row: row[0]
-        )
-        cumulative += delta_j
-        step += 1
-        current = successor
-        current_metrics = successor_metrics
-        trace.append({
-            "step": step,
-            "action_type": action_type,
-            "locus": locus,
+
+    def run_path(
+        activation_taylor_weight: float,
+    ) -> tuple[
+        list[dict[str, Any]],
+        dict[float, list[tuple[float, CandidateGenotype, dict[str, Any]]]],
+    ]:
+        current = prepared.baseline
+        current_metrics = resource_metrics(current)
+        cumulative = 0.0
+        cumulative_struct = 0.0
+        cumulative_wq = 0.0
+        cumulative_aq = 0.0
+        trace: list[dict[str, Any]] = [{
+            "step": 0,
             "candidate_hash": current_metrics["complete_phenotype_hash"],
             "R_bops_vs_fp32": current_metrics["R_bops_vs_fp32"],
-            "delta_J_action": delta_j,
-            "delta_R_bops": delta_bops,
-            "utility": delta_j / max(delta_bops, epsilon),
-            "cumulative_J_total": cumulative,
+            "activation_taylor_weight": float(activation_taylor_weight),
+            "cumulative_J_struct": 0.0,
+            "cumulative_J_WQ": 0.0,
+            "cumulative_J_AQ": 0.0,
+            "cumulative_J_total": 0.0,
             "selected": True,
-        })
-        retention = float(current_metrics["R_bops_vs_fp32"])
-        for target in captured:
-            if abs(retention - target) <= 0.005:
-                captured[target].append((cumulative, current, dict(current_metrics)))
+        }]
+        captured = {float(target): [] for target in targets}
+        step = 0
+        while float(current_metrics["R_bops_vs_fp32"]) > min(targets) - 0.005:
+            actions = decreasing_neighbors(current, prepared.space)
+            if not actions:
+                break
+            current_phenotype = canonicalize_candidate(current, prepared.space)
+            candidates: list[tuple[Any, ...]] = []
+            for action_type, locus, successor in actions:
+                validate_genotype_schema(successor, prepared.space)
+                successor_metrics = resource_metrics(successor)
+                delta_bops = float(current_metrics["R_bops_vs_fp32"]) - float(
+                    successor_metrics["R_bops_vs_fp32"]
+                )
+                if delta_bops <= 0.0:
+                    continue
+                successor_phenotype = canonicalize_candidate(
+                    successor, prepared.space
+                )
+                delta_struct = 0.0
+                delta_wq = 0.0
+                delta_aq = 0.0
+                if action_type == "structure":
+                    delta_struct = float(
+                        prepared.structure.pruning_action_breakdown(
+                            current_phenotype, successor_phenotype
+                        )["delta_J_prune"]
+                    )
+                else:
+                    delta_wq = float(
+                        prepared.weight.weight_quantization_action_breakdown(
+                            current_phenotype, successor_phenotype
+                        )["delta_J_WQ"]
+                    )
+                    delta_aq = float(
+                        prepared.activation.action_breakdown(
+                            current_phenotype, successor_phenotype
+                        )["delta_J_AQ"]
+                    )
+                delta_j = delta_struct + delta_wq + (
+                    float(activation_taylor_weight) * delta_aq
+                )
+                if delta_j < 0.0 or not math.isfinite(delta_j):
+                    raise RuntimeError(
+                        f"strict_greedy_negative_or_nonfinite_risk:{locus}"
+                    )
+                utility = delta_j / max(delta_bops, epsilon)
+                key = (
+                    utility,
+                    action_type,
+                    locus,
+                    str(successor_metrics["complete_phenotype_hash"]),
+                )
+                candidates.append((
+                    key,
+                    action_type,
+                    locus,
+                    successor,
+                    successor_metrics,
+                    delta_j,
+                    delta_bops,
+                    delta_struct,
+                    delta_wq,
+                    delta_aq,
+                ))
+            if not candidates:
+                break
+            (
+                _key,
+                action_type,
+                locus,
+                successor,
+                successor_metrics,
+                delta_j,
+                delta_bops,
+                delta_struct,
+                delta_wq,
+                delta_aq,
+            ) = min(candidates, key=lambda row: row[0])
+            cumulative += delta_j
+            cumulative_struct += delta_struct
+            cumulative_wq += delta_wq
+            cumulative_aq += delta_aq
+            step += 1
+            current = successor
+            current_metrics = successor_metrics
+            trace.append({
+                "step": step,
+                "action_type": action_type,
+                "locus": locus,
+                "candidate_hash": current_metrics["complete_phenotype_hash"],
+                "R_bops_vs_fp32": current_metrics["R_bops_vs_fp32"],
+                "activation_taylor_weight": float(activation_taylor_weight),
+                "delta_J_struct": delta_struct,
+                "delta_J_WQ": delta_wq,
+                "delta_J_AQ": delta_aq,
+                "delta_J_action": delta_j,
+                "delta_R_bops": delta_bops,
+                "utility": delta_j / max(delta_bops, epsilon),
+                "cumulative_J_struct": cumulative_struct,
+                "cumulative_J_WQ": cumulative_wq,
+                "cumulative_J_AQ": cumulative_aq,
+                "cumulative_J_total": cumulative,
+                "selected": True,
+            })
+            retention = float(current_metrics["R_bops_vs_fp32"])
+            for target in captured:
+                if abs(retention - target) <= 0.005:
+                    captured[target].append(
+                        (cumulative, current, dict(current_metrics))
+                    )
+        return trace, captured
+
+    trace, captured = run_path(1.0)
+    counterfactual_trace, counterfactual_captured = run_path(0.0)
     write_csv(output_root / "reports/greedy_shared_trajectory.csv", trace)
+    write_csv(
+        output_root / "reports/greedy_shared_trajectory_activation_taylor_zero.csv",
+        counterfactual_trace,
+    )
     winners: dict[float, CandidateGenotype] = {}
     capture_rows: list[dict[str, Any]] = []
     for target in sorted(captured, reverse=True):
@@ -632,6 +688,108 @@ def greedy_anchors(
                 "metrics": evaluator(candidate),
             }
             for target, candidate in winners.items()
+        },
+    )
+    counterfactual_winners: dict[float, CandidateGenotype] = {}
+    for target, pool in counterfactual_captured.items():
+        if not pool:
+            continue
+        pool.sort(key=lambda row: (
+            float(row[0]),
+            abs(float(row[2]["R_bops_vs_fp32"]) - target),
+            -float(row[2]["R_parameter_retention"]),
+            -float(row[2]["mixed_weight_retention"]),
+            str(row[2]["complete_phenotype_hash"]),
+        ))
+        counterfactual_winners[target] = pool[0][1]
+
+    def trace_summary(
+        rows: Sequence[Mapping[str, Any]], candidate: CandidateGenotype
+    ) -> dict[str, Any]:
+        identity = phenotype_identity(candidate, prepared.space)
+        wanted = str(identity["complete_phenotype_hash"])
+        prefix: list[Mapping[str, Any]] = []
+        for row in rows:
+            prefix.append(row)
+            if str(row.get("candidate_hash")) == wanted:
+                break
+        terminal = dict(prefix[-1])
+        metrics = resource_metrics(candidate)
+        precision_counts = {
+            value: sum(
+                str(precision) == value
+                for precision in candidate.precision_genes.values()
+            )
+            for value in ("FP32", "FP16", "INT8")
+        }
+        return {
+            "candidate_hash": wanted,
+            "R_bops_vs_fp32": float(metrics["R_bops_vs_fp32"]),
+            "R_parameter_retention": float(metrics["R_parameter_retention"]),
+            "mixed_weight_retention": float(metrics["mixed_weight_retention"]),
+            "structure_action_count": sum(
+                row.get("action_type") == "structure" for row in prefix
+            ),
+            "precision_action_count": sum(
+                row.get("action_type") == "precision" for row in prefix
+            ),
+            "precision_counts": precision_counts,
+            "cumulative_J_struct": float(
+                terminal.get("cumulative_J_struct", 0.0)
+            ),
+            "cumulative_J_WQ": float(terminal.get("cumulative_J_WQ", 0.0)),
+            "cumulative_J_AQ": float(terminal.get("cumulative_J_AQ", 0.0)),
+            "cumulative_J_total": float(
+                terminal.get("cumulative_J_total", 0.0)
+            ),
+        }
+
+    comparisons: dict[str, Any] = {}
+    pruning_shift_votes = 0
+    comparable = 0
+    for target in sorted(set(winners) | set(counterfactual_winners), reverse=True):
+        main = (
+            trace_summary(trace, winners[target]) if target in winners else None
+        )
+        without_aq = (
+            trace_summary(counterfactual_trace, counterfactual_winners[target])
+            if target in counterfactual_winners
+            else None
+        )
+        if main is not None and without_aq is not None:
+            comparable += 1
+            pushes = bool(
+                main["structure_action_count"]
+                > without_aq["structure_action_count"]
+                or main["R_parameter_retention"]
+                < without_aq["R_parameter_retention"] - 1.0e-12
+            )
+            pruning_shift_votes += int(pushes)
+        else:
+            pushes = None
+        comparisons[str(target)] = {
+            "activation_taylor_enabled": main,
+            "activation_taylor_zero_counterfactual": without_aq,
+            "activation_taylor_pushes_toward_more_pruning": pushes,
+        }
+    write_json(
+        output_root / "reports/activation_taylor_pruning_bias_audit.json",
+        {
+            "schema_version": "greedy-activation-taylor-pruning-bias-v1",
+            "main_search_uses_activation_taylor": True,
+            "counterfactual_used_for_winner_selection": False,
+            "counterfactual_forward_calls": 0,
+            "counterfactual_backward_calls": 0,
+            "counterfactual_physical_exports": 0,
+            "counterfactual_engine_builds": 0,
+            "comparable_budget_count": comparable,
+            "budgets_with_more_pruning_under_activation_taylor": (
+                pruning_shift_votes
+            ),
+            "activation_taylor_systematically_pushes_toward_pruning": bool(
+                comparable > 0 and pruning_shift_votes > comparable / 2
+            ),
+            "budget_comparisons": comparisons,
         },
     )
     return winners
