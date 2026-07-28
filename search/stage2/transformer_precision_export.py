@@ -311,8 +311,23 @@ def audit_trt_attention_fp32_contract(
         # Softmax compute is FP32 while output_formats records A16/A8
         # separately.
         if op_type == "Softmax":
+            # A TensorRT kgen/Myelin fusion can expose the attention BOOL mask
+            # alongside the FLOAT logits in one inspector row.  BOOL/shape
+            # controls are not Softmax numeric operands and must not make an
+            # otherwise explicit FP32 Softmax look like FP16.  Conversely,
+            # any HALF/INT8 numeric input still fails closed.
+            control_tokens = ("bool", "int32", "int64")
+            numeric_input_formats = [
+                value
+                for value in input_formats
+                if not any(token in value for token in control_tokens)
+            ]
+            numeric_inputs_fp32 = bool(numeric_input_formats) and all(
+                value in {"float", "fp32"} or "float32" in value
+                for value in numeric_input_formats
+            )
             passed = bool(matches) and (
-                (bool(input_formats) and all(value == "float" for value in input_formats))
+                numeric_inputs_fp32
                 or (not input_formats and realized == ["fp32"])
             )
         else:
@@ -324,6 +339,13 @@ def audit_trt_attention_fp32_contract(
                 "inspector_match_count": len(matches),
                 "realized_precisions": realized,
                 "input_formats": input_formats,
+                "numeric_input_formats": (
+                    numeric_input_formats if op_type == "Softmax" else input_formats
+                ),
+                "ignored_control_input_formats": (
+                    sorted(set(input_formats) - set(numeric_input_formats))
+                    if op_type == "Softmax" else []
+                ),
                 "output_formats": output_formats,
                 "softmax_compute_precision": "fp32" if op_type == "Softmax" and passed else "unresolved",
                 "softmax_output_precision": (

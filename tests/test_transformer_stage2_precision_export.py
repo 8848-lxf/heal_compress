@@ -142,6 +142,38 @@ def test_trt_attention_contract_requires_exact_fp32_inspector_evidence() -> None
     assert not failed["qk_fp32_protected"]
 
 
+def test_trt_softmax_contract_ignores_bool_mask_but_rejects_half_logits() -> None:
+    from search.stage2.transformer_precision_export import (
+        audit_trt_attention_fp32_contract,
+    )
+
+    contract = {
+        "qk_nodes": [],
+        "softmax_nodes": [{"node_name": "softmax", "op_type": "Softmax"}],
+    }
+    fused = {
+        "Name": "fused_mask_softmax",
+        "Precision": "FP16",
+        "LayerType": "kgen",
+        "Metadata": "[ONNX Layer: softmax]",
+        "Inputs": [
+            {"Format/Datatype": "Bool"},
+            {"Format/Datatype": "Float"},
+        ],
+        "Outputs": [{"Format/Datatype": "Float"}],
+    }
+    passed = audit_trt_attention_fp32_contract([fused], contract)
+    assert passed["passed"]
+    assert passed["softmax_compute_fp32"]
+    assert passed["evidence"][0]["numeric_input_formats"] == ["float"]
+    assert passed["evidence"][0]["ignored_control_input_formats"] == ["bool"]
+
+    fused["Inputs"][1]["Format/Datatype"] = "Half"
+    failed = audit_trt_attention_fp32_contract([fused], contract)
+    assert not failed["passed"]
+    assert not failed["softmax_compute_fp32"]
+
+
 def test_fused_int8_gemm_is_weighted_compute_but_pointwise_fusion_is_not() -> None:
     from quantization.config import TensorRTValidationConfig
     from quantization.tensorrt.layer_info import is_weighted_compute_layer

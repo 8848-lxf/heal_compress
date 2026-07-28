@@ -397,6 +397,12 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("tensorrt_entropy_build_serialized_network_returned_none")
     if not cache_path.is_file() or cache_path.stat().st_size <= 0:
         raise RuntimeError("tensorrt_entropy_calibration_cache_not_written")
+    processed_frames = int(calibrator.index)
+    if processed_frames != len(samples):
+        raise RuntimeError(
+            "tensorrt_entropy_calibration_sample_count_mismatch:"
+            f"processed={processed_frames}:expected={len(samples)}"
+        )
     engine_path.parent.mkdir(parents=True, exist_ok=True)
     engine_path.write_bytes(bytes(serialized))
     runtime = trt.Runtime(logger)
@@ -420,6 +426,9 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
         "calibration_cache_reused": False,
         "calibration_input_provenance": calibration_identity,
         "calibration_sample_count": len(samples),
+        "requested_frames": int(num_batches),
+        "processed_frames": processed_frames,
+        "skipped_frames": int(num_batches) - processed_frames,
         "calibration_order": "npz_manifest_file_order",
         "profile": profile_shapes,
         "input_names": input_names,

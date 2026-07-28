@@ -347,6 +347,44 @@ def test_runtime_graph_policy_allows_disconet_weighted_fusion_int8_without_named
     assert island["family_named_node_rules_used"] is False
 
 
+def test_runtime_graph_can_bind_int8_projection_output_to_protected_fp32(
+    tmp_path: Path,
+) -> None:
+    from search.model_family import build_heal_lidar_baseline_precision_mapping
+
+    path = tmp_path / "cobevt_qkv.onnx"
+    _write_island_onnx(path, "heal_lidar_cobevt", include_weighted=True)
+    module = "fusion_net.layers.0.window_attention.fn.to_qkv"
+    audit = _audit("heal_lidar_cobevt", [_capability(module)])
+    origin = _origin([module])
+    mapping, contract = build_heal_lidar_baseline_precision_mapping(
+        origin,
+        {module: "int8"},
+        audit=audit,
+        canonical_onnx_path=path,
+        profile_id="qkv-int8-fp32-output",
+        precision_policy="heal_runtime_graph_v1",
+        weighted_output_precision_overrides={module: "fp32"},
+    )
+    assert mapping.entries[0].realized_request_precision == "int8"
+    assert mapping.entries[0].realized_output_precision == "fp32"
+    assert contract["weighted_output_precision_overrides"] == {module: "fp32"}
+    assert "protected-weighted-output" in mapping.policy_version
+
+    with pytest.raises(
+        RuntimeError, match="weighted_output_precision_override_invalid"
+    ):
+        build_heal_lidar_baseline_precision_mapping(
+            origin,
+            {module: "int8"},
+            audit=audit,
+            canonical_onnx_path=path,
+            profile_id="invalid-output-owner",
+            precision_policy="heal_runtime_graph_v1",
+            weighted_output_precision_overrides={"missing.qkv": "fp32"},
+        )
+
+
 def test_quantization_groups_expose_int8_only_for_audited_modules() -> None:
     from search.model_family import build_heal_lidar_baseline_quantization_groups
 

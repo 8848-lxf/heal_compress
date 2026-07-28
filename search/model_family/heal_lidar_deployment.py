@@ -15,7 +15,10 @@ from quantization.config import QDQConfig
 from quantization.export.origin_mapping import apply_canonical_node_names, build_onnx_origin_map
 from quantization.export.signal_maxk import capture_weighted_module_calls
 from quantization.precision.qdq_inserter import insert_explicit_qdq
-from quantization.precision.merge_contract import apply_adaptive_merge_output_contract
+from quantization.precision.merge_contract import (
+    adaptive_merge_cast_name,
+    apply_adaptive_merge_output_contract,
+)
 from quantization.tensorrt.layer_info import (
     has_canonical_identity,
     load_layer_info,
@@ -534,6 +537,8 @@ def build_heal_lidar_baseline_precision_mapping(
     runtime_precision_relations: Sequence[Any] = (),
     module_to_precision_group: Mapping[str, str] | None = None,
     functional_precision_paths: Sequence[str] = (),
+    functional_auxiliary_precision_overrides: Mapping[str, str] | None = None,
+    weighted_output_precision_overrides: Mapping[str, str] | None = None,
 ) -> tuple[CanonicalPrecisionMappingResult, dict[str, Any]]:
     """Expand module genes and enforce the family auxiliary precision contract."""
 
@@ -621,6 +626,117 @@ def build_heal_lidar_baseline_precision_mapping(
             mapping,
             runtime_relations=runtime_precision_relations,
         )
+        weighted_output_overrides = {
+            str(name): _normalize_auxiliary_precision(precision)
+            for name, precision in dict(
+                weighted_output_precision_overrides or {}
+            ).items()
+        }
+        missing_weighted_output_modules = sorted(
+            set(weighted_output_overrides)
+            - {str(row.module_path) for row in mapping.entries}
+        )
+        if missing_weighted_output_modules:
+            raise RuntimeError(
+                "weighted_output_precision_override_invalid:"
+                f"missing={missing_weighted_output_modules}"
+            )
+        if weighted_output_overrides:
+            mapping = replace(
+                mapping,
+                entries=[
+                    replace(
+                        row,
+                        realized_output_precision=weighted_output_overrides.get(
+                            str(row.module_path), row.realized_output_precision
+                        ),
+                    )
+                    for row in mapping.entries
+                ],
+                policy_version=(
+                    "canonical-precision-mapping-adaptive-runtime-merge-"
+                    "protected-weighted-output-v3"
+                ),
+                mapping_hash="",
+            )
+            adaptive_report = {
+                **dict(adaptive_report),
+                "weighted_output_precision_overrides": weighted_output_overrides,
+                "mapping_hash_after": mapping.mapping_hash,
+            }
+            adaptive_report["contract_hash"] = stable_json_hash(adaptive_report)
+        functional_overrides = {
+            str(name): _normalize_auxiliary_precision(precision)
+            for name, precision in dict(
+                functional_auxiliary_precision_overrides or {}
+            ).items()
+        }
+        if functional_overrides:
+            import onnx
+
+            graph = onnx.load(str(canonical_onnx_path), load_external_data=False)
+            nodes = {str(node.name): str(node.op_type) for node in graph.graph.node}
+            missing_nodes = sorted(set(functional_overrides) - set(nodes))
+            unsupported_nodes = sorted(
+                name
+                for name in functional_overrides
+                if nodes.get(name) not in {"Add", "Concat"}
+            )
+            if missing_nodes or unsupported_nodes:
+                raise RuntimeError(
+                    "functional_auxiliary_precision_override_invalid:"
+                    f"missing={missing_nodes}:unsupported={unsupported_nodes}"
+                )
+            mapping = replace(
+                mapping,
+                policy_version=(
+                    "canonical-precision-mapping-adaptive-runtime-merge-"
+                    + (
+                        "protected-weighted-output-fixed-functional-v4"
+                        if weighted_output_overrides
+                        else "fixed-functional-v3"
+                    )
+                ),
+                auxiliary_layer_precisions={
+                    **dict(mapping.auxiliary_layer_precisions),
+                    **functional_overrides,
+                },
+                auxiliary_layer_output_types={
+                    **dict(mapping.auxiliary_layer_output_types),
+                    **functional_overrides,
+                },
+                mapping_hash="",
+            )
+            updated_merges = []
+            for row in adaptive_report.get("merges", ()):
+                updated = dict(row)
+                node_name = str(updated.get("merge_op_name", ""))
+                if node_name in functional_overrides:
+                    updated["runtime_derived_precision_before_functional_override"] = str(
+                        updated.get("derived_merge_precision", "")
+                    )
+                    updated["derived_merge_precision"] = functional_overrides[
+                        node_name
+                    ]
+                    updated["input_cast_nodes"] = [
+                        adaptive_merge_cast_name(
+                            node_name,
+                            int(index),
+                            functional_overrides[node_name],
+                        )
+                        for index in updated.get("dtype_audit", {}).get(
+                            "data_input_indices", ()
+                        )
+                    ]
+                    updated["fixed_functional_precision_override"] = True
+                updated_merges.append(updated)
+            adaptive_report = {
+                **dict(adaptive_report),
+                "merges": updated_merges,
+                "fixed_functional_precision_overrides": functional_overrides,
+                "mapping_hash_after": mapping.mapping_hash,
+            }
+            adaptive_report["contract_hash"] = stable_json_hash(adaptive_report)
         report = {
             "schema_version": "heal-runtime-adaptive-merge-contract-v1",
             "family_id": family_id,
@@ -632,6 +748,12 @@ def build_heal_lidar_baseline_precision_mapping(
             "weighted_precision_profile": dict(sorted(profile.items())),
             "functional_precision_profile": dict(
                 sorted(functional_profile.items())
+            ),
+            "functional_auxiliary_precision_overrides": dict(
+                sorted(functional_overrides.items())
+            ),
+            "weighted_output_precision_overrides": dict(
+                sorted(weighted_output_overrides.items())
             ),
             "weighted_precision_path_count": len(profile),
             "functional_precision_path_count": len(functional_profile),

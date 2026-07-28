@@ -431,6 +431,9 @@ def test_tensorrt_entropy_cache_requires_exact_boundaries_and_keeps_per_channel_
 
 
 def test_tensorrt_entropy_calibration_profile_uses_manifest_agent_distribution() -> None:
+    import inspect
+
+    from search.integration import tensorrt_entropy_calibration_worker as worker
     from search.integration.tensorrt_entropy_calibration_worker import _profile
 
     profile = _profile([1, 2, 2, 2], 29696)
@@ -439,6 +442,10 @@ def test_tensorrt_entropy_calibration_profile_uses_manifest_agent_distribution()
     assert profile["pairwise_t_matrix"]["opt"] == [1, 2, 2, 4, 4]
     assert profile["pairwise_t_matrix"]["max"] == [1, 2, 2, 4, 4]
     assert profile["voxel_features"]["opt"] == [29696, 32, 4]
+    source = inspect.getsource(worker.run)
+    assert "processed_frames = int(calibrator.index)" in source
+    assert "processed_frames != len(samples)" in source
+    assert '"skipped_frames": int(num_batches) - processed_frames' in source
 
 def test_forced_int8_candidate_selects_groups_by_macs() -> None:
     from search.candidate import CandidateGenotype

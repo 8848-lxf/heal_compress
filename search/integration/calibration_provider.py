@@ -205,6 +205,7 @@ def qdq_scales_from_tensorrt_entropy_cache(
     cache_path: str | Path,
     weight_granularity: str = "per_channel",
     activation_scale_source: str = "fresh_TensorRT_IInt8EntropyCalibrator2_exact_tensor_match",
+    output_boundary_stop_before_merge_module_paths: Sequence[str] = (),
 ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
     """Create production Q/DQ scales from exact TensorRT cache tensor names.
 
@@ -235,6 +236,14 @@ def qdq_scales_from_tensorrt_entropy_cache(
     missing_entries = [name for name in requested if name not in entries]
     if missing_entries:
         raise RuntimeError(f"qdq_calibration_origin_entries_missing:{missing_entries}")
+    stop_before_merge = {
+        str(value) for value in output_boundary_stop_before_merge_module_paths
+    }
+    unknown_stop_paths = sorted(stop_before_merge - set(requested))
+    if unknown_stop_paths:
+        raise RuntimeError(
+            f"qdq_calibration_stop_before_merge_unknown_modules:{unknown_stop_paths}"
+        )
 
     scales: dict[str, dict[str, Any]] = {}
     exact_matches: list[dict[str, str]] = []
@@ -246,7 +255,11 @@ def qdq_scales_from_tensorrt_entropy_cache(
         if not node.input or not node.output:
             raise RuntimeError(f"qdq_calibration_weighted_node_boundary_missing:{name}")
         input_tensor = str(node.input[0])
-        output_boundary = resolve_activation_output_boundary(model, str(node.name))
+        output_boundary = resolve_activation_output_boundary(
+            model,
+            str(node.name),
+            stop_before_merge=name in stop_before_merge,
+        )
         output_tensor = str(output_boundary["boundary_output_tensor"])
         missing_boundaries = [tensor for tensor in (input_tensor, output_tensor) if tensor not in cache]
         if missing_boundaries:
@@ -319,6 +332,7 @@ def qdq_scales_from_tensorrt_entropy_cache(
         "exact_activation_scale_match_count": len(exact_matches),
         "exact_activation_scale_matches": exact_matches,
         "weight_granularity": str(weight_granularity),
+        "output_boundary_stop_before_merge_module_paths": sorted(stop_before_merge),
     }
 
 

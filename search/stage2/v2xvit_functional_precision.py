@@ -177,6 +177,40 @@ def _residual_onnx_name(unit: Any) -> str:
     return f"/layers.{layer}.0/{'Add' if adapter == 'v2xvit_hgt' else 'Add_1'}"
 
 
+def fixed_functional_onnx_precision_overrides(
+    precision_units: Sequence[Any],
+    requested_states: Mapping[str, str],
+) -> dict[str, str]:
+    """Return exact fixed residual precision overrides for canonical ONNX.
+
+    Runtime merge tracing derives a safe join from weighted producer dtypes,
+    but a protected residual unit is a stronger deployment contract.  This
+    function bridges the functional unit identity to the concrete ONNX Add so
+    Q/DQ insertion casts the Add inputs to the already-requested A16/A32
+    precision.  It does not create a gene or change any requested state.
+    """
+
+    state_to_precision = {"A16": "fp16", "A32": "fp32"}
+    overrides: dict[str, str] = {}
+    for unit in precision_units:
+        if str(unit.role) != "residual_add":
+            continue
+        state = str(requested_states.get(unit.unit_id, unit.default_state)).upper()
+        if state not in state_to_precision:
+            raise RuntimeError(
+                f"functional_residual_precision_unsupported:{unit.unit_id}:{state}"
+            )
+        node_name = _residual_onnx_name(unit)
+        precision = state_to_precision[state]
+        previous = overrides.get(node_name)
+        if previous is not None and previous != precision:
+            raise RuntimeError(
+                f"functional_residual_precision_conflict:{node_name}:{previous}:{precision}"
+            )
+        overrides[node_name] = precision
+    return dict(sorted(overrides.items()))
+
+
 def _functional_expected(unit: Any, requested_state: str | None = None) -> tuple[str, str]:
     state = str(requested_state or unit.default_state).upper()
     if unit.role in {"qk_matmul", "softmax", "layernorm"}:
@@ -465,5 +499,6 @@ def audit_trt_v2xvit_functional_precision(
 __all__ = [
     "audit_trt_v2xvit_functional_precision",
     "build_v2xvit_functional_onnx_mapping",
+    "fixed_functional_onnx_precision_overrides",
     "requested_states_from_phenotype",
 ]

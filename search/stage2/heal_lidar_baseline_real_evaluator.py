@@ -543,6 +543,13 @@ class HealLidarBaselineCandidateEvaluator:
             for row in mapping.entries
             if row.realized_request_precision == "int8" and row.weight_initializer
         })
+        int8_output_before_merge_modules = sorted({
+            row.module_path
+            for row in mapping.entries
+            if row.realized_request_precision == "int8"
+            and row.realized_output_precision == "int8"
+            and row.weight_initializer
+        })
         if not int8_modules:
             return {}, {"reason": "candidate_has_no_int8_layers", "frame_count": 0}
         backend = str(self.context.quant_activation_calibration_backend)
@@ -576,6 +583,9 @@ class HealLidarBaselineCandidateEvaluator:
                 module_paths=int8_modules,
                 cache_path=entropy["calibration_cache_path"],
                 weight_granularity="per_channel",
+                output_boundary_stop_before_merge_module_paths=(
+                    int8_output_before_merge_modules
+                ),
             )
             return scales, {**metadata, "entropy_build": entropy}
         if backend == "external_tensorrt_entropy_cache_exact_match":
@@ -589,6 +599,9 @@ class HealLidarBaselineCandidateEvaluator:
                 module_paths=int8_modules,
                 cache_path=self.context.quant_activation_calibration_cache_path,
                 weight_granularity="per_channel",
+                output_boundary_stop_before_merge_module_paths=(
+                    int8_output_before_merge_modules
+                ),
             )
         from search.integration.calibration_provider import (
             BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
@@ -767,6 +780,25 @@ class HealLidarBaselineCandidateEvaluator:
                 )
                 for module_path in group.module_paths
             }
+            precision_units = tuple(getattr(
+                self.context, "unified_precision_units", ()
+            ))
+            requested_states = None
+            functional_auxiliary_overrides: dict[str, str] = {}
+            if qkv_paths:
+                from search.stage2.v2xvit_functional_precision import (
+                    fixed_functional_onnx_precision_overrides,
+                    requested_states_from_phenotype,
+                )
+
+                requested_states = requested_states_from_phenotype(
+                    phenotype, precision_units
+                )
+                functional_auxiliary_overrides = (
+                    fixed_functional_onnx_precision_overrides(
+                        precision_units, requested_states
+                    )
+                )
             mapping, island = timed(
                 "precision_mapping_seconds",
                 lambda: build_heal_lidar_baseline_precision_mapping(
@@ -792,6 +824,17 @@ class HealLidarBaselineCandidateEvaluator:
                         "unified_functional_precision_paths",
                         (),
                     )),
+                    functional_auxiliary_precision_overrides=(
+                        functional_auxiliary_overrides
+                    ),
+                    # Q/K projection compute may remain W8A8/W16A16, but the
+                    # protected QK matmul must consume true FP32 tensors.  A
+                    # quantized projection output lets TensorRT fuse DQ into
+                    # an INT8 QK GEMM, so bind Q/K (or fused QKV) outputs to
+                    # explicit FP32 before graph-level attention rewriting.
+                    weighted_output_precision_overrides={
+                        str(path): "fp32" for path in qkv_paths
+                    },
                 ),
             )
             scales, calibration = timed(
@@ -857,15 +900,12 @@ class HealLidarBaselineCandidateEvaluator:
                     )
                 from search.stage2.v2xvit_functional_precision import (
                     build_v2xvit_functional_onnx_mapping,
-                    requested_states_from_phenotype,
                 )
 
-                precision_units = tuple(getattr(
-                    self.context, "unified_precision_units", ()
-                ))
-                requested_states = requested_states_from_phenotype(
-                    phenotype, precision_units
-                )
+                if requested_states is None:
+                    raise RuntimeError(
+                        "heal_transformer_requested_functional_states_missing"
+                    )
                 functional_onnx = build_v2xvit_functional_onnx_mapping(
                     qdq["qdq_onnx_path"],
                     origin_map=export.export.origin_map,

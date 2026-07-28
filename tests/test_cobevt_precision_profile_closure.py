@@ -69,6 +69,39 @@ def test_cobevt_formal_prepare_passes_complete_runtime_precision_inventory() -> 
         in source
     )
     assert "unified_functional_precision_paths" in source
+    assert "cobevt-formal-presearch-proxy-cache-v2" in source
+    assert "physical_ranking_frozen_across_resume" in source
+    assert 'cached["space"]' in source
+    assert 'cached["fisher"]' in source
+    assert 'cached["activation"]' in source
+
+
+def test_cobevt_proxy_cache_key_excludes_ranking_but_keeps_membership() -> None:
+    from search.ga.transformer_stage12_v3 import _domain_cache_contract_row
+
+    def domain(order):
+        row = {
+            "domain_id": "d0",
+            "legal_widths": [4, 8],
+            "dependency_members": [{"module_path": "m", "axis": "out"}],
+            "ordered_unit_ids": list(order),
+            "ordered_unit_ids_by_group": {"0": list(order)},
+            "width_to_pruned_unit_ids": {"4": [order[0]], "8": []},
+            "group_keep_maps": {"4": {"0": [1]}},
+            "group_prune_maps": {"4": {"0": [0]}},
+            "ranking_method": "gate",
+            "ranking_hash": f"rank-{order[0]}",
+            "unit_scores": {order[0]: 1.0, order[1]: 2.0},
+        }
+        return SimpleNamespace(
+            ordered_unit_ids=tuple(order),
+            ordered_unit_ids_by_group={0: tuple(order)},
+            to_dict=lambda: dict(row),
+        )
+
+    assert _domain_cache_contract_row(domain(("u0", "u1"))) == (
+        _domain_cache_contract_row(domain(("u1", "u0")))
+    )
 
 
 def test_greedy_records_activation_taylor_pruning_counterfactual_without_using_it() -> None:
@@ -240,3 +273,122 @@ def test_cobevt_functional_onnx_mapping_closes_attention_and_residuals(tmp_path)
     assert by_unit["attention-residual"]["onnx_node"] == "/layers.0/window_attention/Add"
     assert by_unit["ffn-residual"]["onnx_node"] == "/layers.0/window_ffd/Add"
     assert by_unit["head-layernorm"]["onnx_node"] == "/mlp_head/mlp_head.2/LayerNormalization"
+
+
+def test_cobevt_fixed_residual_contract_overrides_runtime_fp32_join(tmp_path) -> None:
+    from search.stage2.v2xvit_functional_precision import (
+        fixed_functional_onnx_precision_overrides,
+    )
+
+    path = tmp_path / "cobevt.onnx"
+    _write_cobevt_functional_onnx(path)
+    owner = "fusion_net.layers.0.window_attention.fn"
+    unit = _unit(
+        "attention-residual",
+        "residual_add",
+        "A16",
+        owner,
+        boundary_kind="attention_residual_add",
+    )
+    overrides = fixed_functional_onnx_precision_overrides(
+        (unit,), {unit.unit_id: "A16"}
+    )
+    assert overrides == {"/layers.0/window_attention/Add": "fp16"}
+
+
+def test_activation_boundary_keeps_bias_add_when_stopping_before_merge(tmp_path) -> None:
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.precision.activation_boundary import (
+        resolve_activation_output_boundary,
+    )
+
+    weight = numpy_helper.from_array(np.eye(4, dtype=np.float32), "weight")
+    bias = numpy_helper.from_array(np.zeros(4, dtype=np.float32), "bias")
+    nodes = [
+        helper.make_node("MatMul", ["x", "weight"], ["matmul"], name="linear"),
+        helper.make_node("Add", ["bias", "matmul"], ["biased"], name="bias_add"),
+        helper.make_node("Erf", ["biased"], ["activated"], name="activation"),
+    ]
+    model = helper.make_model(
+        helper.make_graph(
+            nodes,
+            "bias-add-boundary",
+            [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4])],
+            [helper.make_tensor_value_info("activated", TensorProto.FLOAT, [1, 4])],
+            [weight, bias],
+        )
+    )
+    boundary = resolve_activation_output_boundary(
+        model, "linear", stop_before_merge=True
+    )
+    assert boundary["boundary_node_name"] == "bias_add"
+    assert boundary["boundary_output_tensor"] == "biased"
+    assert boundary["resolution"] == "post_bias_add_semantic_boundary"
+    assert boundary["following_ops"][0]["semantic_role"] == "bias_add"
+
+
+def test_entropy_scale_owner_uses_same_pre_merge_bias_boundary_as_qdq(tmp_path) -> None:
+    import struct
+    from types import SimpleNamespace
+
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from search.integration.calibration_provider import (
+        qdq_scales_from_tensorrt_entropy_cache,
+    )
+
+    weight = numpy_helper.from_array(np.eye(4, dtype=np.float32), "weight")
+    bias = numpy_helper.from_array(np.zeros(4, dtype=np.float32), "bias")
+    nodes = [
+        helper.make_node("MatMul", ["x", "weight"], ["matmul"], name="linear"),
+        helper.make_node("Add", ["matmul", "bias"], ["biased"], name="bias_add"),
+        helper.make_node("Add", ["biased", "residual"], ["merged"], name="residual_add"),
+    ]
+    model = helper.make_model(
+        helper.make_graph(
+            nodes,
+            "ffn2-boundary",
+            [
+                helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4]),
+                helper.make_tensor_value_info("residual", TensorProto.FLOAT, [1, 4]),
+            ],
+            [helper.make_tensor_value_info("merged", TensorProto.FLOAT, [1, 4])],
+            [weight, bias],
+        )
+    )
+    onnx_path = tmp_path / "ffn2.onnx"
+    onnx.save(model, onnx_path)
+    cache_path = tmp_path / "calibration.cache"
+    cache_path.write_text(
+        "TRT-100900-EntropyCalibration2\n"
+        + "\n".join(
+            f"{name}: {struct.pack('!f', value).hex()}"
+            for name, value in (("x", 0.125), ("biased", 0.25), ("merged", 0.5))
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    origin = SimpleNamespace(
+        entries=[
+            SimpleNamespace(
+                module_path="ffn2",
+                canonical_node_name="linear",
+                weight_initializer="weight",
+            )
+        ]
+    )
+    scales, audit = qdq_scales_from_tensorrt_entropy_cache(
+        onnx_path=onnx_path,
+        origin_map=origin,
+        module_paths=("ffn2",),
+        cache_path=cache_path,
+        weight_granularity="per_channel",
+        output_boundary_stop_before_merge_module_paths=("ffn2",),
+    )
+    assert scales["ffn2"]["activation_output_tensor"] == "biased"
+    assert scales["ffn2"]["activation_output_boundary_resolution"] == (
+        "post_bias_add_semantic_boundary"
+    )
+    assert audit["output_boundary_stop_before_merge_module_paths"] == ["ffn2"]

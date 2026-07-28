@@ -24,9 +24,13 @@ def resolve_activation_output_boundary(
 
     nodes = {str(node.name): node for node in model.graph.node}
     consumers: dict[str, list[Any]] = {}
+    producers: dict[str, Any] = {}
     for node in model.graph.node:
         for input_name in node.input:
             consumers.setdefault(str(input_name), []).append(node)
+        for output_name in node.output:
+            producers[str(output_name)] = node
+    initializers = {str(row.name) for row in model.graph.initializer}
     weighted = nodes.get(str(weighted_node_name))
     if weighted is None or len(weighted.output) != 1:
         raise RuntimeError(f"activation_boundary_weighted_node_missing_or_multi_output:{weighted_node_name}")
@@ -68,6 +72,42 @@ def resolve_activation_output_boundary(
             }
         )
         current_tensor = next_tensor
+
+    # A Linear/Gemm exported as ``MatMul -> Add(bias)`` still owns the bias
+    # Add as part of the weighted operation.  It is not a residual merge and
+    # must remain the same semantic boundary when ``stop_before_merge`` is
+    # enabled by the adaptive merge policy.  Treat only a unique Add whose
+    # peer input is a graph initializer (or a Constant output) as a bias Add;
+    # dynamic Add peers remain real merge boundaries and are never guessed.
+    direct = consumers.get(current_tensor, [])
+    if (
+        len(direct) == 1
+        and str(direct[0].op_type) == "Add"
+        and len(direct[0].input) == 2
+        and len(direct[0].output) == 1
+        and sum(str(value) == current_tensor for value in direct[0].input) == 1
+    ):
+        bias_add = direct[0]
+        peer = next(str(value) for value in bias_add.input if str(value) != current_tensor)
+        peer_producer = producers.get(peer)
+        peer_is_constant = peer in initializers or (
+            peer_producer is not None and str(peer_producer.op_type) == "Constant"
+        )
+        if peer_is_constant:
+            next_tensor = str(bias_add.output[0])
+            following_ops.append(
+                {
+                    "name": str(bias_add.name),
+                    "op_type": "Add",
+                    "input_tensor": current_tensor,
+                    "output_tensor": next_tensor,
+                    "semantic_role": "bias_add",
+                }
+            )
+            boundary_node = bias_add
+            boundary_tensor = next_tensor
+            current_tensor = next_tensor
+            resolution = "post_bias_add_semantic_boundary"
 
     direct = consumers.get(current_tensor, [])
     if len(direct) == 1 and str(direct[0].op_type) == "Relu" and len(direct[0].output) == 1:

@@ -122,3 +122,69 @@ Base: `ee1306c3986e6cd328eb0cc8feacb3bac88116ac`
   phenotypes across the primary/frontier/recovery paths.
 - Added executable frontier/beam and same-seed determinism tests. Targeted
   verification: 20 passed; compileall and `git diff --check` passed.
+
+--- 2026-07-28 13:09:15 CST ---
+
+## CoBEVT Stage-2 precision closure repaired
+
+- The superseded six-budget run
+  `/data/lxf/heal_data/outputs/h800_cobevt_latest_ga_precision_closure_v4_20260728_030437`
+  produced exact Greedy anchors but correctly failed closed before generation
+  0. The three independent failures were: residual Add fixed-A16 ownership was
+  not transferred to the ONNX node, Softmax inspector treated a boolean mask as
+  a numeric precision input, and FFN bias Add/QDQ boundary ownership differed
+  between calibration and export.
+- Activation boundary resolution now treats a unique Linear/Gemm bias Add as
+  the weighted output boundary, and train200 scale extraction uses the exact
+  same stop-before-merge semantics as Q/DQ insertion. The entropy worker also
+  asserts the consumed sample count and records requested/processed/skipped
+  counts explicitly.
+- Fixed residual functional precision is now mapped onto exact ONNX Add nodes.
+  Q/K (or fused QKV) projection compute remains searchable at FP16/INT8, while
+  its realized output is explicitly promoted to FP32 before the protected QK
+  matmul. This prevents TensorRT from folding DQ into an INT8 QK tactic.
+- TensorRT Softmax auditing now excludes boolean/integer control inputs but
+  still requires every numeric Softmax input and output to be FP32.
+- A new versioned CoBEVT pre-search cache freezes the complete search space,
+  domain-local retained-coordinate rankings, gate scores, WQ/AQ/Fisher state,
+  and parameter slices. Cache lookup binds source manifests and domain
+  membership but deliberately does not require recomputing floating ranking
+  order before loading it. Resume mismatches fail closed with field-level
+  provenance.
+- Added `scripts/validate_cobevt_precision_closure.py` for a build-only,
+  provenance-bound closure check. Historical width/precision genes may be
+  rebound to a newly frozen coordinate ranking only as an explicitly labelled
+  diagnostic; old coordinate archives are never reused by the new formal run.
+
+## Representative real-engine acceptance
+
+- Validation root:
+  `/data/lxf/heal_data/outputs/h800_cobevt_precision_closure_repair_20260727_214351`.
+- Representative 0.10 phenotype kept the historical width state and precision
+  map, materialized the exact expected parameter shapes, then completed fresh
+  train200 calibration (200 requested, 200 processed, 0 skipped), strongly
+  typed ONNX/QDQ export, TensorRT build, and engine inspection.
+- Candidate hash:
+  `d9884dc94bc36b86241e2762bda0306cdd9d66a8a101aaa9c1b908f577d6cc80`.
+  Engine SHA256:
+  `fc247b712afc12c28c7257683455afae49ff7f5982f05c060e591eb318f45c2c`.
+- Requested/realized weighted precision is exact: 7 requested INT8 loci and 7
+  realized INT8 loci. All six QK and all six Softmax numeric paths are realized
+  FP32; functional precision audit passed with zero failed rows and no silent
+  fallback.
+- The original inspector failure was a real violation: before the QKV-output
+  boundary fix, TensorRT selected an INT8-input QK GEMM tactic. The accepted
+  engine preserves INT8 projection compute but presents true FP32 operands to
+  QK.
+
+## Verification and isolation
+
+- Targeted precision/Stage-2/formal-package regression: 126 passed.
+- Full repository regression: 1077 passed, 0 failed.
+- `compileall`, explicit `py_compile`, and `git diff --check`: passed.
+- CoBEVT validation used GPU7 only. The active Pyramid process on GPU2 (Python
+  PID 713036) and its output tree were not touched or signalled.
+- Next action: commit and push this closure, then start a completely new
+  CoBEVT formal run so the v2 ranking/proxy cache and all Stage-2 artifacts are
+  generated under the repaired contract. The v4 run remains read-only failure
+  evidence and will not be resumed.

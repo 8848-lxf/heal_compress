@@ -29,6 +29,8 @@ from search.integration.heal_lidar_baseline_context import (
     HEAL_RUNTIME_GRAPH_POLICY,
     build_heal_lidar_baseline_context,
 )
+from search.integration.model_provider import sha256_file
+from search.hashing import canonical_json_hash
 from search.model_family.calibration_manifest import load_v2xvit_train_manifest
 from search.proxy.conservative_gate_activation_taylor import (
     FunctionalGateTaylorProxy,
@@ -61,6 +63,35 @@ COBEVT_SPEC = CNNFormalModelSpec(
         "lidar_cobevt/strict_fp32.plan"
     ),
 )
+
+
+def _domain_cache_contract_row(domain: Any) -> dict[str, Any]:
+    """Hash structural closure while deliberately excluding floating ranking.
+
+    The ranking is the value being frozen by this cache.  Including its order,
+    scores, or derived keep/prune maps in the lookup key would require a resume
+    process to reproduce the very floating-point result that it must load.
+    Unit membership and all physical dependency semantics remain bound.
+    """
+
+    row = domain.to_dict()
+    excluded = {
+        "ordered_unit_ids",
+        "ordered_unit_ids_by_group",
+        "width_to_pruned_unit_ids",
+        "group_keep_maps",
+        "group_prune_maps",
+        "ranking_method",
+        "ranking_hash",
+        "unit_scores",
+    }
+    structural = {key: value for key, value in row.items() if key not in excluded}
+    structural["unit_id_membership"] = sorted(str(value) for value in domain.ordered_unit_ids)
+    structural["unit_id_membership_by_group"] = {
+        str(group): sorted(str(value) for value in values)
+        for group, values in sorted(domain.ordered_unit_ids_by_group.items())
+    }
+    return structural
 
 
 def prepare_cobevt_search(
@@ -142,40 +173,140 @@ def prepare_cobevt_search(
         fisher_batches=batches,
         base_quantization_groups=context.search_space.quantization_groups,
     )
-    gate_scores, gate_mapping = collect_functional_gate_scores_multi(
-        model,
-        formal["space"].pruning_domains,
-        forward_fn=lambda current_model, batch: _type_coverage_forward(
-            adapter, current_model, batch
+    base_space = formal["space"]
+    proxy_cache_contract = {
+        "schema": "cobevt-formal-presearch-proxy-cache-v2",
+        "model_id": "cobevt",
+        "checkpoint_sha256": sha256_file(spec.checkpoint),
+        "config_sha256": sha256_file(spec.config),
+        "calibration_manifest_sha256": sha256_file(spec.calibration_manifest),
+        "bound_train_prefix_hash": str(bound["manifest_hash"]),
+        "taylor_samples": int(taylor_samples),
+        "base_domain_contract_hash": canonical_json_hash(
+            [_domain_cache_contract_row(domain) for domain in base_space.pruning_domains]
         ),
-        loss_fn=adapter.compute_task_loss,
-        calibration_batches=batches,
-    )
-    domains = rerank_domains_by_gate_scores(
-        formal["space"].pruning_domains, gate_scores
-    )
-    space = replace(
-        formal["space"],
-        pruning_domains=domains,
-        pruning_unit_ids=[unit for domain in domains for unit in domain.ordered_unit_ids],
-    )
-    transformer_units = taylor_units_from_transformer_precision(
-        model,
-        formal["components"].precision_units,
-        active_module_paths=formal["active_paths"],
-    )
-    activation_units, group_to_units = build_activation_units(
-        model, space, transformer_units
-    )
-    activation = collect_activation_taylor_cache_multi(
-        model,
-        activation_units,
-        group_to_units,
-        forward_fn=lambda current_model, batch: _type_coverage_forward(
-            adapter, current_model, batch
+        "precision_group_contract_hash": canonical_json_hash(
+            [group.to_dict() for group in base_space.quantization_groups]
         ),
-        loss_fn=adapter.compute_task_loss,
-        calibration_batches=batches,
+        "trace_snapshot_hash": base_space.trace_snapshot_hash,
+        "calibration_manifest_hash": base_space.calibration_manifest_hash,
+        "onnx_export_config_hash": base_space.onnx_export_config_hash,
+        "tensorrt_version": base_space.tensorrt_version,
+        "gpu_compute_capability": base_space.gpu_compute_capability,
+        "builder_flags": dict(base_space.builder_flags),
+        "plugin_hashes": dict(base_space.plugin_hashes),
+    }
+    proxy_cache_contract_hash = canonical_json_hash(proxy_cache_contract)
+    proxy_cache_path = output_root / "proxy/cobevt_formal_presearch_proxy_cache_v2.pt"
+    proxy_cache_loaded = False
+    if proxy_cache_path.is_file():
+        cached = torch.load(proxy_cache_path, map_location="cpu")
+        if str(cached.get("contract_hash")) != proxy_cache_contract_hash:
+            cached_contract = dict(cached.get("contract") or {})
+            write_json(
+                output_root / "proxy/cobevt_formal_presearch_proxy_cache_mismatch.json",
+                {
+                    "expected_contract_hash": proxy_cache_contract_hash,
+                    "cached_contract_hash": cached.get("contract_hash"),
+                    "field_mismatches": {
+                        key: {
+                            "cached": cached_contract.get(key),
+                            "current": proxy_cache_contract.get(key),
+                        }
+                        for key in sorted(
+                            set(cached_contract) | set(proxy_cache_contract)
+                        )
+                        if cached_contract.get(key) != proxy_cache_contract.get(key)
+                    },
+                },
+            )
+            raise RuntimeError(
+                "cobevt_formal_proxy_cache_contract_mismatch:"
+                f"{cached.get('contract_hash')}!={proxy_cache_contract_hash}"
+            )
+        if int(cached.get("sample_count", -1)) != int(taylor_samples):
+            raise RuntimeError("cobevt_formal_proxy_cache_sample_count_mismatch")
+        space = cached["space"]
+        gate_scores = cached["gate_scores"]
+        gate_mapping = list(cached["gate_mapping"])
+        activation = cached["activation"]
+        fisher = cached["fisher"]
+        parameter_slices = cached["parameter_slices"]
+        proxy_cache_loaded = True
+    else:
+        gate_scores, gate_mapping = collect_functional_gate_scores_multi(
+            model,
+            base_space.pruning_domains,
+            forward_fn=lambda current_model, batch: _type_coverage_forward(
+                adapter, current_model, batch
+            ),
+            loss_fn=adapter.compute_task_loss,
+            calibration_batches=batches,
+        )
+        domains = rerank_domains_by_gate_scores(
+            base_space.pruning_domains, gate_scores
+        )
+        space = replace(
+            base_space,
+            pruning_domains=domains,
+            pruning_unit_ids=[
+                unit for domain in domains for unit in domain.ordered_unit_ids
+            ],
+        )
+        transformer_units = taylor_units_from_transformer_precision(
+            model,
+            formal["components"].precision_units,
+            active_module_paths=formal["active_paths"],
+        )
+        activation_units, group_to_units = build_activation_units(
+            model, space, transformer_units
+        )
+        activation = collect_activation_taylor_cache_multi(
+            model,
+            activation_units,
+            group_to_units,
+            forward_fn=lambda current_model, batch: _type_coverage_forward(
+                adapter, current_model, batch
+            ),
+            loss_fn=adapter.compute_task_loss,
+            calibration_batches=batches,
+        )
+        fisher = formal["fisher"]
+        parameter_slices = formal["slices"]
+        proxy_cache_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_cache = proxy_cache_path.with_suffix(".pt.tmp")
+        torch.save(
+            {
+                "contract_hash": proxy_cache_contract_hash,
+                "contract": proxy_cache_contract,
+                "sample_count": int(taylor_samples),
+                "space": space,
+                "gate_scores": gate_scores,
+                "gate_mapping": list(gate_mapping),
+                "activation": activation,
+                "fisher": fisher,
+                "parameter_slices": parameter_slices,
+            },
+            temporary_cache,
+        )
+        temporary_cache.replace(proxy_cache_path)
+    domains = tuple(space.pruning_domains)
+    write_json(
+        output_root / "proxy/cobevt_formal_presearch_proxy_cache_manifest.json",
+        {
+            "schema": "cobevt-formal-presearch-proxy-cache-v2",
+            "cache_path": str(proxy_cache_path),
+            "contract_hash": proxy_cache_contract_hash,
+            "loaded": proxy_cache_loaded,
+            "sample_count": int(taylor_samples),
+            "physical_ranking_frozen_across_resume": True,
+            "weight_taylor_frozen_across_resume": True,
+            "activation_taylor_frozen_across_resume": True,
+            "domain_ranking_hashes": {
+                str(domain.domain_id): str(domain.ranking_hash)
+                for domain in domains
+            },
+        },
     )
     # Stage-2 consumes exactly the same unified domains and atomic CNN closure.
     context.search_space = space
@@ -208,8 +339,8 @@ def prepare_cobevt_search(
         structure=FunctionalGateTaylorProxy(gate_scores),
         weight=JointWeightTaylorProxy(
             model,
-            statistics=formal["fisher"],
-            unit_to_parameter_slices=formal["slices"],
+            statistics=fisher,
+            unit_to_parameter_slices=parameter_slices,
             strict=True,
         ),
         activation=activation,
