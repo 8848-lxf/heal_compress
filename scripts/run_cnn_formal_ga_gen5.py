@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Pyramid/DiscoNet/F-Cooper with the strict Stage-1/Stage-2/V1--V3 GA."""
+"""Run HEAL CNN-family models with strict Stage-1/Stage-2/V1--V3 GA."""
 
 from __future__ import annotations
 
@@ -202,10 +202,9 @@ def run(args: argparse.Namespace) -> int:
         raise RuntimeError(
             f"cnn_formal_ga_requires_5_or_10_generations:{args.generations}"
         )
-    if generations == 10 and (args.model != "pyramid" or not args.resume):
-        raise RuntimeError(
-            "cnn_formal_ga_gen10_requires_pyramid_resume_from_completed_gen5"
-        )
+    continuation_mode = bool(generations == 10 and args.resume)
+    if continuation_mode and args.model != "pyramid":
+        raise RuntimeError("cnn_gen5_replay_continuation_is_pyramid_only")
     if int(args.seed) != 0:
         raise RuntimeError(f"cnn_formal_ga_single_seed_zero_required:{args.seed}")
     if os.environ.get("CUDA_VISIBLE_DEVICES") not in (None, "", str(args.physical_gpu)):
@@ -233,7 +232,7 @@ def run(args: argparse.Namespace) -> int:
     ):
         (root / name).mkdir(parents=True, exist_ok=True)
     continuation_snapshot = None
-    if generations == 10:
+    if continuation_mode:
         continuation_snapshot = freeze_gen5_continuation_state(root)
     spec = MODEL_SPECS[args.model]
     random.seed(args.seed)
@@ -249,7 +248,7 @@ def run(args: argparse.Namespace) -> int:
     if selected is None:
         raise RuntimeError(f"cnn_formal_ga_physical_gpu_missing:{args.physical_gpu}")
     selected_uuid = gpu_uuid(args.physical_gpu)
-    provenance_name = "continuation_start.json" if generations == 10 else "start.json"
+    provenance_name = "continuation_start.json" if continuation_mode else "start.json"
     write_json(root / "provenance" / provenance_name, {
         "model": args.model,
         "branch": git_value("rev-parse", "--abbrev-ref", "HEAD"),
@@ -262,7 +261,7 @@ def run(args: argparse.Namespace) -> int:
         "framework": "StrictStage12V3Runner",
         "generation_contract": f"formal_gen{generations}",
         "generations": generations,
-        "deterministic_replay_continuation": generations == 10,
+        "deterministic_replay_continuation": continuation_mode,
         "continuation_snapshot": continuation_snapshot,
         "population_size": 64,
         "offspring_size": 64,
@@ -469,7 +468,7 @@ def run(args: argparse.Namespace) -> int:
             print(json.dumps({"event": "cnn_formal_ga_budget_failed", **failure},
                              sort_keys=True), flush=True)
     replay_verification = None
-    if generations == 10 and not failures:
+    if continuation_mode and not failures:
         labels = tuple(f"{int(round(target * 100)):03d}" for target in targets)
         replay_verification = verify_gen5_replay_prefix(root, labels)
     summary_rows = []
@@ -497,7 +496,7 @@ def run(args: argparse.Namespace) -> int:
         "generation_zero_counted": False,
         "formal_generations": generations,
         "formal_generation_ids": list(range(1, generations + 1)),
-        "deterministic_replay_continuation": generations == 10,
+        "deterministic_replay_continuation": continuation_mode,
         "gen5_replay_verification": replay_verification,
         "seed_count": 1,
         "executed_seeds": [0],
@@ -527,7 +526,7 @@ def run(args: argparse.Namespace) -> int:
         "old_ga_framework_used": False,
         "generations_requested": generations,
         "generation_ids": list(range(1, generations + 1)),
-        "deterministic_replay_continuation": generations == 10,
+        "deterministic_replay_continuation": continuation_mode,
         "gen5_replay_prefix_exact": (
             replay_verification is not None
             and bool(
@@ -535,7 +534,7 @@ def run(args: argparse.Namespace) -> int:
                     "all_generation_00_to_05_summaries_exact"
                 ]
             )
-        ) if generations == 10 else None,
+        ) if continuation_mode else None,
         "generation_zero_counted": False,
         "seed_count": 1,
         "population_size": 64,
