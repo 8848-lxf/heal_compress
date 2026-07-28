@@ -198,6 +198,11 @@ def gpu_uuid(physical_gpu: int) -> str:
 
 def run(args: argparse.Namespace) -> int:
     generations = int(args.generations)
+    activation_weight = float(args.activation_taylor_fitness_weight)
+    if activation_weight not in (0.0, 1.0):
+        raise RuntimeError(
+            "cnn_formal_ga_activation_taylor_weight_must_be_zero_or_one"
+        )
     if generations not in SUPPORTED_GENERATIONS:
         raise RuntimeError(
             f"cnn_formal_ga_requires_5_or_10_generations:{args.generations}"
@@ -205,6 +210,7 @@ def run(args: argparse.Namespace) -> int:
     continuation_mode = bool(generations == 10 and args.resume)
     if continuation_mode and args.model != "pyramid":
         raise RuntimeError("cnn_gen5_replay_continuation_is_pyramid_only")
+    campaign_jaq0 = bool(activation_weight == 0.0)
     if int(args.seed) != 0:
         raise RuntimeError(f"cnn_formal_ga_single_seed_zero_required:{args.seed}")
     if os.environ.get("CUDA_VISIBLE_DEVICES") not in (None, "", str(args.physical_gpu)):
@@ -262,6 +268,9 @@ def run(args: argparse.Namespace) -> int:
         "generation_contract": f"formal_gen{generations}",
         "generations": generations,
         "deterministic_replay_continuation": continuation_mode,
+        "controlled_jaq0_ablation": campaign_jaq0,
+        "activation_taylor_fitness_weight": activation_weight,
+        "activation_taylor_used_for_fitness": bool(activation_weight),
         "continuation_snapshot": continuation_snapshot,
         "population_size": 64,
         "offspring_size": 64,
@@ -296,6 +305,7 @@ def run(args: argparse.Namespace) -> int:
         plugin=args.plugin.resolve(),
         tensorrt_root=args.tensorrt_root.resolve(),
         taylor_samples=args.taylor_samples,
+        activation_taylor_fitness_weight=activation_weight,
     )
     if args.resume and (root / "reports/greedy_exact_winners.json").is_file():
         anchors = load_greedy_anchors(
@@ -497,6 +507,9 @@ def run(args: argparse.Namespace) -> int:
         "formal_generations": generations,
         "formal_generation_ids": list(range(1, generations + 1)),
         "deterministic_replay_continuation": continuation_mode,
+        "controlled_jaq0_ablation": campaign_jaq0,
+        "activation_taylor_fitness_weight": activation_weight,
+        "activation_taylor_used_for_fitness": bool(activation_weight),
         "gen5_replay_verification": replay_verification,
         "seed_count": 1,
         "executed_seeds": [0],
@@ -527,6 +540,9 @@ def run(args: argparse.Namespace) -> int:
         "generations_requested": generations,
         "generation_ids": list(range(1, generations + 1)),
         "deterministic_replay_continuation": continuation_mode,
+        "controlled_jaq0_ablation": campaign_jaq0,
+        "activation_taylor_fitness_weight": activation_weight,
+        "activation_taylor_used_for_fitness": bool(activation_weight),
         "gen5_replay_prefix_exact": (
             replay_verification is not None
             and bool(
@@ -550,7 +566,11 @@ def run(args: argparse.Namespace) -> int:
         ),
         "greedy_anchor_gate_completed_before_ga": True,
         "greedy_frontier_recovery_enabled": True,
-        "stage1_proxy": "J_struct_gate + J_WQ + J_AQ",
+        "stage1_proxy": (
+            "J_struct_gate + J_WQ + J_AQ"
+            if activation_weight == 1.0
+            else "J_struct_gate + J_WQ + 0 * J_AQ"
+        ),
         "repair_enabled": False,
         "budgets_requested": list(targets),
         "budgets_completed": [float(row["target_bops"]) for row in results.values()],
@@ -583,6 +603,16 @@ def main() -> int:
     parser.add_argument("--generations", type=int, default=5)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--taylor-samples", type=int, default=8)
+    parser.add_argument(
+        "--activation-taylor-fitness-weight",
+        type=float,
+        choices=(0.0, 1.0),
+        default=0.0,
+        help=(
+            "Controlled fitness ablation; activation quantization remains "
+            "enabled in physical deployment."
+        ),
+    )
     parser.add_argument(
         "--targets", default=",".join(str(value) for value in DEFAULT_TARGETS)
     )

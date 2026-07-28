@@ -223,6 +223,7 @@ class PreparedCNNFormalSearch:
     activation: Any
     gate_mapping: list[dict[str, Any]]
     calibration_sample_count: int
+    activation_taylor_fitness_weight: float = 1.0
 
     def evaluator(
         self,
@@ -241,6 +242,9 @@ class PreparedCNNFormalSearch:
             target=float(target),
             tolerance_abs=0.005,
             enforce_bops_hard_gate=enforce_bops_hard_gate,
+            activation_taylor_fitness_weight=(
+                self.activation_taylor_fitness_weight
+            ),
         )
 
 
@@ -339,7 +343,12 @@ def prepare_search(
     plugin: Path,
     tensorrt_root: Path,
     taylor_samples: int = 8,
+    activation_taylor_fitness_weight: float = 1.0,
 ) -> PreparedCNNFormalSearch:
+    if float(activation_taylor_fitness_weight) not in (0.0, 1.0):
+        raise ValueError(
+            "cnn_activation_taylor_fitness_weight_must_be_zero_or_one"
+        )
     context = build_context(
         spec,
         output_root=output_root,
@@ -520,11 +529,25 @@ def prepare_search(
         activation=activation,
         gate_mapping=gate_mapping,
         calibration_sample_count=int(taylor_samples),
+        activation_taylor_fitness_weight=float(
+            activation_taylor_fitness_weight
+        ),
     )
     write_json(
         output_root / "reports/new_ga_proxy_contract.json",
         {
-            "stage1_proxy": "J_struct_gate + J_WQ + J_AQ",
+            "stage1_proxy": (
+                "J_struct_gate + J_WQ + J_AQ"
+                if float(activation_taylor_fitness_weight) == 1.0
+                else "J_struct_gate + J_WQ + 0 * J_AQ"
+            ),
+            "activation_taylor_fitness_weight": float(
+                activation_taylor_fitness_weight
+            ),
+            "activation_taylor_used_for_fitness": bool(
+                activation_taylor_fitness_weight
+            ),
+            "activation_taylor_retained_as_diagnostic": True,
             "legacy_coupled_weight_taylor_used_for_fitness": False,
             "joint_cross_used_for_fitness": False,
             "sample_first": True,
@@ -669,6 +692,8 @@ def greedy_anchors(
                     parent_phenotype, successor_phenotype
                 )["delta_J_WQ"]
             ) + float(
+                getattr(prepared, "activation_taylor_fitness_weight", 1.0)
+            ) * float(
                 prepared.activation.action_breakdown(
                     parent_phenotype, successor_phenotype
                 )["delta_J_AQ"]

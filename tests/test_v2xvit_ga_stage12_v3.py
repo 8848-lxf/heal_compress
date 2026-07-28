@@ -176,6 +176,51 @@ def test_stage1_bops_hard_gate_runs_before_taylor_and_size() -> None:
     assert second["stage1_cache_hit"] is True
 
 
+def test_stage1_activation_taylor_zero_is_controlled_fitness_ablation() -> None:
+    from search.ga.stage12_v3 import UnifiedTaylorStage1Evaluator
+
+    class Structure:
+        def pruning_action_breakdown(self, _current, _successor):
+            return {"delta_J_prune": 0.0}
+
+    class Weight:
+        def weight_quantization_action_breakdown(self, _current, _successor):
+            return {"delta_J_WQ": 2.0}
+
+    class Activation:
+        def action_breakdown(self, _current, _successor):
+            return {"delta_J_AQ": 3.0}
+
+    space = _space()
+    baseline = _candidate(space, precision="FP32")
+    candidate = _candidate(space, precision="FP16")
+    common = dict(
+        space=space,
+        baseline=baseline,
+        structure_proxy=Structure(),
+        weight_proxy=Weight(),
+        activation_cache=Activation(),
+        bops_evaluator=lambda _phenotype: {"R_bops_vs_fp32": 0.30},
+        size_evaluator=lambda _phenotype: {
+            "R_parameter_retention": 1.0,
+            "R_size_vs_fp32": 0.5,
+        },
+        target=0.30,
+    )
+    enabled = UnifiedTaylorStage1Evaluator(
+        **common, activation_taylor_fitness_weight=1.0
+    )(candidate)
+    disabled = UnifiedTaylorStage1Evaluator(
+        **common, activation_taylor_fitness_weight=0.0
+    )(candidate)
+    assert enabled["J_total"] == 5.0
+    assert enabled["J_AQ_fitness_contribution"] == 3.0
+    assert disabled["J_AQ"] == 3.0
+    assert disabled["J_AQ_fitness_contribution"] == 0.0
+    assert disabled["J_total"] == 2.0
+    assert disabled["activation_taylor_used_for_fitness"] is False
+
+
 def test_stage2_gate_formula_dominance_and_no_eligible_behavior() -> None:
     from search.ga.stage12_v3 import Stage2Result, score_stage2, select_generation_winner
 

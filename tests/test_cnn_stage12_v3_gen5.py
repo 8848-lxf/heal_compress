@@ -95,6 +95,7 @@ def test_cnn_formal_entrypoint_supports_fresh_ten_and_pyramid_replay() -> None:
     assert "requires_5_or_10_generations" in source
     assert "continuation_mode = bool(generations == 10 and args.resume)" in source
     assert "cnn_gen5_replay_continuation_is_pyramid_only" in source
+    assert "activation-taylor-fitness-weight" in source
     assert "freeze_gen5_continuation_state" in source
     assert "verify_gen5_replay_prefix" in source
     assert "single_seed_zero_required" in source
