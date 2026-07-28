@@ -93,7 +93,9 @@ def test_cnn_formal_entrypoint_supports_five_and_pyramid_replay_to_ten() -> None
     source = (__import__("pathlib").Path(__file__).parents[1]
               / "scripts/run_cnn_formal_ga_gen5.py").read_text()
     assert "requires_5_or_10_generations" in source
-    assert "gen10_requires_pyramid_resume_from_completed_gen5" in source
+    assert "gen10_requires_pyramid_resume_or_direct_jaq0_ablation" in source
+    assert "pyramid_direct_jaq0_ablation_requires_single_budget_005" in source
+    assert "activation-taylor-fitness-weight" in source
     assert "freeze_gen5_continuation_state" in source
     assert "verify_gen5_replay_prefix" in source
     assert "single_seed_zero_required" in source
