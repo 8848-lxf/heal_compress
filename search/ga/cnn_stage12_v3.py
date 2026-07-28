@@ -84,6 +84,14 @@ class CNNFormalModelSpec:
 
 
 MODEL_SPECS: dict[str, CNNFormalModelSpec] = {
+    "attfusion": CNNFormalModelSpec(
+        model_id="attfusion",
+        family_id="heal_lidar_attfusion",
+        checkpoint=Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_attfuse/net_epoch_bestval_at33.pth"),
+        config=Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_attfuse/config.yaml"),
+        calibration_manifest=Path("/home/lixingfeng/UniAD_examine/heal_compress/outputs/heal_lidar_baseline_train200_fixedk29696_20260719_1215_v2/calibration_manifest.json"),
+        strict_fp32_engine=Path("/home/lixingfeng/UniAD_examine/heal_compress/outputs/h800_dair_lidar_trt_fp32_all_models_smoke_20260718_2138/lidar_attfuse/strict_fp32.plan"),
+    ),
     "pyramid": CNNFormalModelSpec(
         model_id="pyramid",
         family_id="lidar_pyramid",

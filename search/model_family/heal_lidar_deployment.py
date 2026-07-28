@@ -48,7 +48,12 @@ HEAL_LIDAR_BASELINE_INPUT_NAMES = (
     "agent_mask",
 )
 HEAL_LIDAR_BASELINE_OUTPUT_NAMES = ("cls_preds", "reg_preds", "dir_preds")
-SUPPORTED_DEPLOYMENT_FAMILIES = ("heal_lidar_fcooper", "heal_lidar_disco")
+SUPPORTED_DEPLOYMENT_FAMILIES = (
+    "heal_lidar_fcooper",
+    "heal_lidar_disco",
+    "heal_lidar_attfusion",
+    "heal_lidar_cobevt",
+)
 WRAPPER_PARITY_MAX_ABS_TOL = 5.0e-3
 WRAPPER_PARITY_MEAN_ABS_TOL = 5.0e-5
 
@@ -279,7 +284,12 @@ def export_heal_lidar_baseline_fixed_k_onnx(
     """Export the six-input wrapper, prove parity, and canonicalize all weights."""
 
     family_id = _family_id(audit)
-    expected_fusion = "MaxFusion" if family_id == "heal_lidar_fcooper" else "DiscoFusion"
+    expected_fusion = {
+        "heal_lidar_fcooper": "MaxFusion",
+        "heal_lidar_disco": "DiscoFusion",
+        "heal_lidar_attfusion": "AttFusion",
+        "heal_lidar_cobevt": "CoBEVT",
+    }[family_id]
     if type(model.fusion_net).__name__ != expected_fusion:
         raise RuntimeError(f"heal_lidar_baseline_export_fusion_mismatch:{type(model.fusion_net).__name__}")
     wrapper = build_heal_lidar_baseline_export_module(model, policy=policy).eval()

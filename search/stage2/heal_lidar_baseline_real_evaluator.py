@@ -51,11 +51,16 @@ class HealLidarBaselineEvaluationConfig:
     search_space_policy: str = "legacy_family_static_dependency_closure_v1"
 
     def __post_init__(self) -> None:
-        if self.family_id not in {"heal_lidar_fcooper", "heal_lidar_disco"}:
+        if self.family_id not in {
+            "heal_lidar_fcooper", "heal_lidar_disco", "heal_lidar_attfusion",
+            "heal_lidar_cobevt",
+        }:
             raise ValueError(f"unsupported_baseline_evaluator_family:{self.family_id}")
         expected_model = {
             "heal_lidar_fcooper": "lidar_fcooper",
             "heal_lidar_disco": "lidar_disco",
+            "heal_lidar_attfusion": "lidar_attfuse",
+            "heal_lidar_cobevt": "lidar_cobevt",
         }[self.family_id]
         if self.model_name != expected_model:
             raise ValueError(

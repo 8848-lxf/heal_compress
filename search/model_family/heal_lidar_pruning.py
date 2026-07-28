@@ -28,6 +28,8 @@ from .contracts import ModelFamilyAudit
 SUPPORTED_HEAL_LIDAR_BASELINE_FAMILIES = (
     "heal_lidar_fcooper",
     "heal_lidar_disco",
+    "heal_lidar_attfusion",
+    "heal_lidar_cobevt",
 )
 
 
@@ -267,7 +269,12 @@ def validate_heal_lidar_baseline_pruning_topology(
             raise RuntimeError(f"heal_lidar_pruning_head_input_mismatch:{head_path}")
         fixed_contracts[head_path] = int(head.out_channels)
 
-    expected_fusion_class = "MaxFusion" if family_id == "heal_lidar_fcooper" else "DiscoFusion"
+    expected_fusion_class = {
+        "heal_lidar_fcooper": "MaxFusion",
+        "heal_lidar_disco": "DiscoFusion",
+        "heal_lidar_attfusion": "AttFusion",
+        "heal_lidar_cobevt": "CoBEVT",
+    }[family_id]
     fusion = _require_module(model, "fusion_net", nn.Module)
     if type(fusion).__name__ != expected_fusion_class:
         raise RuntimeError(f"heal_lidar_pruning_fusion_type:{type(fusion).__name__}")
@@ -379,6 +386,10 @@ def validate_heal_lidar_baseline_pruning_topology(
         domain_kind=(
             "disconet_shared_fusion_feature_width"
             if family_id == "heal_lidar_disco"
+            else "attfusion_shared_fusion_feature_width"
+            if family_id == "heal_lidar_attfusion"
+            else "cobevt_transformer_input_feature_width"
+            if family_id == "heal_lidar_cobevt"
             else "fcooper_shared_fusion_feature_width"
         ),
     ))

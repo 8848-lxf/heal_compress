@@ -8,7 +8,12 @@ from .contracts import (
     PruningDomainCapability,
     WeightedOpCapability,
 )
-from .heal_lidar_baselines import HealLidarDiscoNetProvider, HealLidarFCooperProvider
+from .heal_lidar_baselines import (
+    HealLidarAttFusionProvider,
+    HealLidarCoBEVTProvider,
+    HealLidarDiscoNetProvider,
+    HealLidarFCooperProvider,
+)
 from .heal_lidar_deployment import (
     HEAL_LIDAR_BASELINE_INPUT_NAMES,
     HEAL_LIDAR_BASELINE_OUTPUT_NAMES,
@@ -44,6 +49,8 @@ from .registry import (
 register_model_family(HealLidarV2XViTProvider())
 register_model_family(HealLidarFCooperProvider())
 register_model_family(HealLidarDiscoNetProvider())
+register_model_family(HealLidarAttFusionProvider())
+register_model_family(HealLidarCoBEVTProvider())
 
 
 __all__ = [
@@ -51,6 +58,8 @@ __all__ = [
     "HEAL_LIDAR_BASELINE_INPUT_NAMES",
     "HEAL_LIDAR_BASELINE_OUTPUT_NAMES",
     "HealLidarBaselineOnnxExport",
+    "HealLidarAttFusionProvider",
+    "HealLidarCoBEVTProvider",
     "HealLidarBaselinePruningTopology",
     "HealLidarDiscoNetProvider",
     "HealLidarFCooperProvider",
