@@ -142,10 +142,23 @@ def _candidate_source(
     }
 
 
-def _inventory(search_root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def _parse_budget_labels(value: str) -> tuple[str, ...]:
+    labels = tuple(part.strip() for part in str(value).split(",") if part.strip())
+    if not labels or len(labels) != len(set(labels)):
+        raise ValueError(f"pyramid_repeat_budget_labels_invalid:{value}")
+    invalid = sorted(set(labels) - set(BUDGET_LABELS))
+    if invalid:
+        raise ValueError(f"pyramid_repeat_budget_labels_unknown:{invalid}")
+    return labels
+
+
+def _inventory(
+    search_root: Path, budget_labels: tuple[str, ...]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     formal = read_json(search_root / "reports/formal_ga_results.json")
-    if set(formal.get("results", {})) != set(BUDGET_LABELS):
-        raise RuntimeError("pyramid_repeat_requires_all_six_completed_budgets")
+    missing = sorted(set(budget_labels) - set(formal.get("results", {})))
+    if missing:
+        raise RuntimeError(f"pyramid_repeat_missing_completed_budgets:{missing}")
     baseline_engine = (
         search_root
         / "generation_winner_validation_runtime/baselines/original_strict_fp32/engine.plan"
@@ -176,7 +189,7 @@ def _inventory(search_root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]
     candidates: list[dict[str, Any]] = []
     sequence = 1
     for method, key in (("greedy", "greedy_anchor"), ("ga", "final_winner")):
-        for label in BUDGET_LABELS:
+        for label in budget_labels:
             payload = formal["results"][label][key]
             candidates.append(
                 _candidate_source(
@@ -288,7 +301,8 @@ def run(args: argparse.Namespace) -> int:
     snapshot = gpu_snapshot(args.physical_gpu)
     if int(snapshot["memory_used_mib"]) > 256 or int(snapshot["utilization_percent"]) > 5:
         raise RuntimeError(f"pyramid_repeat_gpu_not_idle:{snapshot}")
-    baseline, candidates = _inventory(args.search_root.resolve())
+    budget_labels = _parse_budget_labels(args.budget_labels)
+    baseline, candidates = _inventory(args.search_root.resolve(), budget_labels)
     write_json(root / "engine_inventory.json", {"baseline": baseline, "candidates": candidates})
     write_json(root / "provenance.json", {
         "schema_version": "pyramid-greedy-ga-full1789-repeat5-v1",
@@ -301,6 +315,7 @@ def run(args: argparse.Namespace) -> int:
         "physical_gpu": args.physical_gpu,
         "gpu_start": snapshot,
         "repeat_count": 5,
+        "budget_labels": list(budget_labels),
         "evaluation_frames": 1789,
         "warmup_frames": 200,
         "latency_rounds": 3,
@@ -319,7 +334,8 @@ def run(args: argparse.Namespace) -> int:
             compact = {**item, **compact_result(result), "repeat_index": repeat}
             rows.append(compact)
             write_json(root / "reports/progress.json", {
-                "completed_items": len(rows), "expected_items": 70,
+                "completed_items": len(rows),
+                "expected_items": 5 * (2 + 2 * len(budget_labels)),
                 "last_repeat": repeat, "last_item": name,
             })
             write_csv(root / "reports/repeat_results.csv", rows)
@@ -348,6 +364,10 @@ def main() -> int:
     parser.add_argument("--search-root", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, required=True)
+    parser.add_argument(
+        "--budget-labels", default=",".join(BUDGET_LABELS),
+        help="Comma-separated completed budget labels, for example 005 or 030,025.",
+    )
     parser.add_argument("--eval-manifest", type=Path, required=True)
     parser.add_argument(
         "--model-config", type=Path,

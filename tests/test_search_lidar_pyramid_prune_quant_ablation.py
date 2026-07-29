@@ -106,6 +106,30 @@ def test_latest_pq_runner_compacts_only_derived_contract_history(tmp_path):
     ] == [{"id": "clean"}]
 
 
+def test_repeat5_runners_accept_only_explicit_completed_budget_subsets():
+    from scripts.run_pyramid_greedy_ga_full1789_repeat5 import (
+        _parse_budget_labels as parse_joint_labels,
+    )
+    from scripts.run_pyramid_latest_pq_decomposition_repeat5 import (
+        _parse_budget_labels as parse_control_labels,
+    )
+
+    assert parse_joint_labels("005") == ("005",)
+    assert parse_joint_labels("030,025") == ("030", "025")
+    assert parse_control_labels("005") == ("005",)
+    assert parse_control_labels("030,025") == ("030", "025")
+
+    import pytest
+
+    for parser in (parse_joint_labels, parse_control_labels):
+        with pytest.raises(ValueError):
+            parser("")
+        with pytest.raises(ValueError):
+            parser("005,005")
+        with pytest.raises(ValueError):
+            parser("075")
+
+
 def test_greedy_budget_replay_uses_lowest_taylor_feasible_state(tmp_path):
     from search.ablation.lidar_pyramid_prune_quant import replay_greedy_budget_candidate
     from search.candidate import CandidateGenotype, CandidatePhenotype, PrecisionDecision

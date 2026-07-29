@@ -93,15 +93,28 @@ def _artifact_from_result(payload: Mapping[str, Any]) -> Path:
     return result
 
 
-def _source_rows(search_root: Path) -> list[dict[str, Any]]:
+def _parse_budget_labels(value: str) -> tuple[str, ...]:
+    labels = tuple(part.strip() for part in str(value).split(",") if part.strip())
+    if not labels or len(labels) != len(set(labels)):
+        raise ValueError(f"pyramid_pq_budget_labels_invalid:{value}")
+    invalid = sorted(set(labels) - set(BUDGET_LABELS))
+    if invalid:
+        raise ValueError(f"pyramid_pq_budget_labels_unknown:{invalid}")
+    return labels
+
+
+def _source_rows(
+    search_root: Path, budget_labels: tuple[str, ...]
+) -> list[dict[str, Any]]:
     formal_path = search_root / "reports/formal_ga_results.json"
     formal = read_json(formal_path)
     results = dict(formal.get("results") or {})
-    if set(results) != set(BUDGET_LABELS):
-        raise RuntimeError("pyramid_pq_requires_six_completed_budgets")
+    missing = sorted(set(budget_labels) - set(results))
+    if missing:
+        raise RuntimeError(f"pyramid_pq_missing_completed_budgets:{missing}")
     rows: list[dict[str, Any]] = []
     for method, key in (("greedy", "greedy_anchor"), ("ga", "final_winner")):
-        for label in BUDGET_LABELS:
+        for label in budget_labels:
             payload = dict(results[label][key])
             source_hash = str(payload["complete_phenotype_hash"])
             artifact = _artifact_from_result(payload)
@@ -305,7 +318,9 @@ def _build(args: argparse.Namespace) -> int:
     start = gpu_snapshot(args.physical_gpu)
     if int(start["memory_used_mib"]) > 256 or int(start["utilization_percent"]) > 5:
         raise RuntimeError(f"pyramid_pq_build_gpu_not_idle:{start}")
-    sources = _source_rows(args.search_root.resolve())
+    budget_labels = _parse_budget_labels(args.budget_labels)
+    expected_logical_rows = 4 * len(budget_labels)
+    sources = _source_rows(args.search_root.resolve(), budget_labels)
     logical_gpu = 0 if os.environ.get("CUDA_VISIBLE_DEVICES") else args.physical_gpu
     context = build_lidar_pyramid_context(
         checkpoint_path=args.checkpoint,
@@ -462,7 +477,7 @@ def _build(args: argparse.Namespace) -> int:
                     "schema_version": "pyramid-latest-pq-control-engine-v1",
                     "source_search_root": str(args.search_root.resolve()),
                     "logical_row_count": len(logical_rows),
-                    "expected_logical_row_count": 24,
+                    "expected_logical_row_count": expected_logical_rows,
                     "unique_engine_count": len(built_by_signature),
                     "gpu_start": start,
                     "rows": logical_rows,
@@ -484,8 +499,11 @@ def _build(args: argparse.Namespace) -> int:
             )
         del source_phenotype
         gc.collect()
-    if len(logical_rows) != 24:
-        raise RuntimeError(f"pyramid_pq_inventory_count:{len(logical_rows)}")
+    if len(logical_rows) != expected_logical_rows:
+        raise RuntimeError(
+            f"pyramid_pq_inventory_count:{len(logical_rows)}:"
+            f"{expected_logical_rows}"
+        )
     write_json(root / "reports/build_complete.json", {
         "passed": True,
         "logical_row_count": len(logical_rows),
@@ -635,8 +653,12 @@ def _evaluate(args: argparse.Namespace) -> int:
         raise RuntimeError(f"pyramid_pq_eval_gpu_not_idle:{start}")
     inventory = read_json(root / "reports/engine_inventory.json")
     candidates = [dict(row) for row in inventory["rows"]]
-    if len(candidates) != 24:
-        raise RuntimeError("pyramid_pq_eval_inventory_not_24")
+    expected_logical_rows = 4 * len(_parse_budget_labels(args.budget_labels))
+    if len(candidates) != expected_logical_rows:
+        raise RuntimeError(
+            f"pyramid_pq_eval_inventory_count:{len(candidates)}:"
+            f"{expected_logical_rows}"
+        )
     baseline = _baseline_source(args)
     rows: list[dict[str, Any]] = []
     for repeat in range(5):
@@ -658,7 +680,7 @@ def _evaluate(args: argparse.Namespace) -> int:
             write_csv(root / "reports/repeat_results.csv", rows)
             write_json(root / "reports/progress.json", {
                 "completed_items": len(rows),
-                "expected_items": 130,
+                "expected_items": 5 * (2 + expected_logical_rows),
                 "last_repeat": repeat,
                 "last_item": name,
             })
@@ -672,7 +694,7 @@ def _evaluate(args: argparse.Namespace) -> int:
     )
     write_json(root / "reports/final_report.json", {
         "passed": passed,
-        "logical_control_count": 24,
+        "logical_control_count": expected_logical_rows,
         "unique_engine_count": build_complete["unique_engine_count"],
         "repeat_count": 5,
         "evaluation_frames": 1789,
@@ -704,6 +726,7 @@ def _child_command(args: argparse.Namespace, phase: str) -> list[str]:
         "--tensorrt-root", str(args.tensorrt_root),
         "--plugin", str(args.plugin),
         "--calibration-manifest", str(args.calibration_manifest),
+        "--budget-labels", str(args.budget_labels),
     ]
     return values
 
@@ -714,6 +737,10 @@ def main() -> int:
     parser.add_argument("--search-root", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, required=True)
+    parser.add_argument(
+        "--budget-labels", default=",".join(BUDGET_LABELS),
+        help="Comma-separated completed budget labels, for example 005 or 030,025.",
+    )
     parser.add_argument("--eval-manifest", type=Path, required=True)
     parser.add_argument("--prior-pq-report", type=Path, required=True)
     parser.add_argument(
@@ -751,6 +778,7 @@ def main() -> int:
         "gpu_uuid": gpu_snapshot(args.physical_gpu)["uuid"],
         "variants_built_and_evaluated": list(VARIANTS),
         "repeat_count": 5,
+        "budget_labels": list(_parse_budget_labels(args.budget_labels)),
         "evaluation_frames": 1789,
         "warmup_frames": 200,
         "source_phenotype_decode_policy": "load_accepted_source_phenotype_no_gene_redecode",
