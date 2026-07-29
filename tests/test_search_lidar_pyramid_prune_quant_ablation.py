@@ -54,6 +54,33 @@ def test_quant_only_is_all_keep_and_preserves_precision_contract():
     assert result.metadata["quantization_group_contracts"] == source.metadata["quantization_group_contracts"]
 
 
+def test_repeat5_runners_accept_only_explicit_completed_budget_subsets():
+    from scripts.run_cnn_formal_joint_full1789_repeat5 import (
+        _parse_budget_labels as parse_cnn_labels,
+    )
+    from scripts.run_pyramid_greedy_ga_full1789_repeat5 import (
+        _parse_budget_labels as parse_joint_labels,
+    )
+    from scripts.run_pyramid_latest_pq_decomposition_repeat5 import (
+        _parse_budget_labels as parse_control_labels,
+    )
+
+    assert parse_joint_labels("005") == ("005",)
+    assert parse_joint_labels("030,025") == ("030", "025")
+    assert parse_control_labels("005") == ("005",)
+    assert parse_control_labels("030,025") == ("030", "025")
+
+    import pytest
+
+    assert parse_cnn_labels("005") == ("005",)
+
+    for parser in (parse_joint_labels, parse_control_labels, parse_cnn_labels):
+        with pytest.raises(ValueError):
+            parser("")
+        with pytest.raises(ValueError):
+            parser("005,005")
+        with pytest.raises(ValueError):
+            parser("075")
 def test_greedy_budget_replay_uses_lowest_taylor_feasible_state(tmp_path):
     from search.ablation.lidar_pyramid_prune_quant import replay_greedy_budget_candidate
     from search.candidate import CandidateGenotype, CandidatePhenotype, PrecisionDecision
