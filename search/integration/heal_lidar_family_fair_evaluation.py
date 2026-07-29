@@ -277,6 +277,7 @@ def build_family_evaluation_inventories(
 
     if family_id not in {
         "heal_lidar_attfusion",
+        "heal_lidar_cobevt",
         "heal_lidar_fcooper",
         "heal_lidar_disco",
     }:

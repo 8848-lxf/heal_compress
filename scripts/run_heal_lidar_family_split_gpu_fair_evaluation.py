@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Five-repeat fair evaluation for F-Cooper or DiscoNet P/Q ablations."""
+"""Configurable-repeat fair evaluation for HEAL LiDAR P/Q ablations."""
 
 from __future__ import annotations
 
@@ -47,13 +47,14 @@ DEFAULT_PLUGIN = (
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Fair five-repeat evaluation of existing HEAL family ablation engines."
+        description="Fair repeated evaluation of existing HEAL family ablation engines."
     )
     parser.add_argument(
         "--family-id",
         required=True,
         choices=(
             "heal_lidar_attfusion",
+            "heal_lidar_cobevt",
             "heal_lidar_fcooper",
             "heal_lidar_disco",
         ),
@@ -88,7 +89,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=[],
         help="Additional idle GPU for whole-repeat Greedy sharding.",
     )
-    parser.add_argument("--repeat-count", type=int, default=5)
+    parser.add_argument("--repeat-count", type=int, default=3)
     parser.add_argument(
         "--budgets",
         default="0.30,0.25,0.20,0.15,0.10,0.05",
@@ -201,6 +202,7 @@ def _new_run_dir(args: argparse.Namespace) -> Path:
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     short = {
         "heal_lidar_attfusion": "attfusion",
+        "heal_lidar_cobevt": "cobevt",
         "heal_lidar_fcooper": "fcooper",
         "heal_lidar_disco": "disconet",
     }[args.family_id]

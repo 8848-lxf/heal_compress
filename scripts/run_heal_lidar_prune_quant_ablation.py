@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
 from typing import Any
 
@@ -202,6 +203,42 @@ def _build_context(
     pruning = dict(config.get("pruning") or {})
     full = dict(config.get("full_validation") or {})
     plugin_path = _resolve_plugin_override(args.plugin, runtime["plugin_path"])
+    if str(model["family_id"]) == "heal_lidar_cobevt":
+        from search.ga.transformer_stage12_v3 import prepare_cobevt_search
+
+        manifest = _read_json(args.run_dir / "ablation_manifest.json")
+        formal_root_value = manifest.get("formal_root")
+        if not formal_root_value:
+            raise RuntimeError("cobevt_ablation_requires_formal_root")
+        formal_root = Path(str(formal_root_value)).resolve()
+        source_cache = (
+            formal_root / "proxy/cobevt_formal_presearch_proxy_cache_v2.pt"
+        )
+        if not source_cache.is_file():
+            raise RuntimeError(f"cobevt_ablation_proxy_cache_missing:{source_cache}")
+        context_root = args.run_dir / "build_contexts" / row_id
+        destination_cache = (
+            context_root / "proxy/cobevt_formal_presearch_proxy_cache_v2.pt"
+        )
+        destination_cache.parent.mkdir(parents=True, exist_ok=True)
+        if destination_cache.is_file():
+            if _sha256(destination_cache) != _sha256(source_cache):
+                raise RuntimeError("cobevt_ablation_proxy_cache_identity_mismatch")
+        else:
+            shutil.copy2(source_cache, destination_cache)
+        prepared = prepare_cobevt_search(
+            output_root=context_root,
+            physical_gpu=int(args.gpu_id),
+            plugin=plugin_path,
+            tensorrt_root=Path(runtime["tensorrt_root"]).resolve(),
+            taylor_samples=int(proxy.get("fisher_calibration_batches", 32)),
+            activation_taylor_fitness_weight=0.0,
+        )
+        context = prepared.context
+        context.ablation_bops_proxy = prepared.bops
+        context.ablation_size_proxy = prepared.size
+        context.ablation_proxy_cache_sha256 = _sha256(destination_cache)
+        return context
     return build_heal_lidar_baseline_context(
         family_id=str(model["family_id"]),
         checkpoint_path=model["checkpoint"],
@@ -277,26 +314,29 @@ def _refresh_exact_resources(
 ) -> dict[str, Any]:
     """Recompute resource metrics from each immutable serialized phenotype."""
 
-    runtime = profile_runtime_layer_shapes(
-        context.model,
-        context.trace_example_inputs,
-        forward_fn=context.model_bundle.adapter.forward_for_task,
-    )
-    slices = build_unit_parameter_slices(
-        context.model, context.atomic_prune_units
-    )
-    bops = BOPSProxy(
-        context.model,
-        unit_to_parameter_slices=slices,
-        runtime_shapes=runtime.shapes,
-        default_precision="FP32",
-    )
-    size = SizeProxy(
-        context.model,
-        unit_to_parameter_slices=slices,
-        default_precision="FP32",
-        include_constant_parameters_in_size=True,
-    )
+    bops = getattr(context, "ablation_bops_proxy", None)
+    size = getattr(context, "ablation_size_proxy", None)
+    if bops is None or size is None:
+        runtime = profile_runtime_layer_shapes(
+            context.model,
+            context.trace_example_inputs,
+            forward_fn=context.model_bundle.adapter.forward_for_task,
+        )
+        slices = build_unit_parameter_slices(
+            context.model, context.atomic_prune_units
+        )
+        bops = BOPSProxy(
+            context.model,
+            unit_to_parameter_slices=slices,
+            runtime_shapes=runtime.shapes,
+            default_precision="FP32",
+        )
+        size = SizeProxy(
+            context.model,
+            unit_to_parameter_slices=slices,
+            default_precision="FP32",
+            include_constant_parameters_in_size=True,
+        )
     for row in manifest["rows"]:
         phenotype = CandidatePhenotype.from_dict(_read_json(row["phenotype_path"]))
         bops_metrics = bops.evaluate_breakdown(phenotype)

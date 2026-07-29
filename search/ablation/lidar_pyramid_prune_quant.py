@@ -308,6 +308,12 @@ def build_ablation_phenotype(
             precision_policy_version=source.precision_policy_version,
             metadata=metadata,
         )
+    domain_contracts = dict(metadata.get("domains") or {})
+    original_width_profile = {
+        str(domain_id): int(contract["original_width"])
+        for domain_id, contract in domain_contracts.items()
+        if isinstance(contract, dict) and contract.get("original_width") is not None
+    }
     for key in (
         "domain_width_profile",
         "domain_width_expansion_hash",
@@ -322,6 +328,11 @@ def build_ablation_phenotype(
         "resolved_prune_indices_by_scope",
     ):
         metadata.pop(key, None)
+    # Unified Transformer candidates must still carry a complete legal all-keep
+    # width profile.  Removing the profile is only valid for legacy CNN spaces
+    # where physical identity is represented solely by ``pruned_unit_ids``.
+    if original_width_profile:
+        metadata["domain_width_profile"] = original_width_profile
     metadata["physical_structure_policy"] = "original_all_keep"
     return CandidatePhenotype(
         pruned_unit_ids=[],

@@ -35,6 +35,7 @@ from .lidar_pyramid_prune_quant import (
 
 SUPPORTED_FAMILIES = (
     "heal_lidar_attfusion",
+    "heal_lidar_cobevt",
     "heal_lidar_fcooper",
     "heal_lidar_disco",
 )
@@ -375,6 +376,21 @@ def validate_family_ablation_derivation(
         for key in ("group_keep_map_by_scope", "group_prune_map_by_scope"):
             if key in derived.metadata:
                 raise RuntimeError(f"quant_only_contains_physical_map:{key}")
+        source_domains = dict(source.metadata.get("domains") or {})
+        expected_widths = {
+            str(domain_id): int(contract["original_width"])
+            for domain_id, contract in source_domains.items()
+            if isinstance(contract, dict)
+            and contract.get("original_width") is not None
+        }
+        realized_widths = dict(derived.metadata.get("domain_width_profile") or {})
+        if expected_widths and realized_widths != expected_widths:
+            raise RuntimeError(
+                "quant_only_unified_all_keep_width_profile_mismatch:"
+                f"{realized_widths}:{expected_widths}"
+            )
+        if not expected_widths and realized_widths:
+            raise RuntimeError("quant_only_legacy_contains_width_profile")
         return
     raise ValueError(f"unsupported_ablation_variant:{variant}")
 

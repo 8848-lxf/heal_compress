@@ -26,6 +26,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from search.ga.cnn_stage12_v3 import MODEL_SPECS  # noqa: E402
+from search.ga.transformer_stage12_v3 import COBEVT_SPEC  # noqa: E402
 from search.integration.heal_lidar_family_fair_evaluation import (  # noqa: E402
     compact_result,
     evaluate_existing_family_engine,
@@ -39,6 +40,7 @@ from search.integration.heal_lidar_family_fair_evaluation import (  # noqa: E402
 
 
 BUDGET_LABELS = ("030", "025", "020", "015", "010", "005")
+FORMAL_MODEL_SPECS = {**MODEL_SPECS, "cobevt": COBEVT_SPEC}
 METRICS = (
     "AP@0.3", "AP@0.5", "AP@0.7", "mAP", "forward_mean_ms",
     "forward_p50_ms", "forward_p90_ms", "forward_p99_ms",
@@ -159,7 +161,7 @@ def _candidate(
     after = stage2.get("physical_parameter_count_after")
     reduction = stage2.get("physical_parameter_pruning_ratio")
     return {
-        "family_id": MODEL_SPECS[model].family_id,
+        "family_id": FORMAL_MODEL_SPECS[model].family_id,
         "assigned_method": method,
         "sequence_index": int(sequence_index),
         "item_id": f"{method}_budget_{label}_{candidate_hash[:12]}",
@@ -191,7 +193,7 @@ def _inventory(args: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str,
     missing = sorted(set(labels) - set(formal.get("results", {})))
     if missing:
         raise RuntimeError(f"cnn_repeat_missing_completed_budgets:{missing}")
-    spec = MODEL_SPECS[args.model]
+    spec = FORMAL_MODEL_SPECS[args.model]
     if spec.strict_fp32_engine is None or not spec.strict_fp32_engine.is_file():
         raise RuntimeError(f"cnn_repeat_strict_baseline_missing:{spec.strict_fp32_engine}")
     baseline = {
@@ -246,7 +248,7 @@ def _evaluate(source: Mapping[str, Any], *, repeat: int, output: Path, args: arg
         return load_resumable_family_evaluation(**kwargs)
     return evaluate_existing_family_engine(
         **kwargs,
-        model_config=MODEL_SPECS[args.model].config,
+        model_config=FORMAL_MODEL_SPECS[args.model].config,
         heal_root=args.heal_root,
         tensorrt_root=args.tensorrt_root,
         plugin_path=args.plugin,
@@ -304,7 +306,11 @@ def _aggregate(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=("attfusion", "disco", "fcooper"), required=True)
+    parser.add_argument(
+        "--model",
+        choices=("attfusion", "cobevt", "disco", "fcooper"),
+        required=True,
+    )
     parser.add_argument("--search-root", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, required=True)

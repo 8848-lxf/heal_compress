@@ -1,0 +1,45 @@
+model:
+  family_id: heal_lidar_cobevt
+  checkpoint: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_cobevt/net_epoch_bestval_at19.pth
+  config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_cobevt/config.yaml
+  fixed_k: 29696
+  max_agents: 2
+  search_space_policy: heal_runtime_graph_v1
+
+runtime:
+  model_env: univ2x-opt
+  tensorrt_env: modelopt
+  heal_root: /home/lixingfeng/UniAD_examine/HEAL
+  tensorrt_root: /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
+
+baselines:
+  build_before_search: false
+  strict_fp32_engine: /home/lixingfeng/UniAD_examine/heal_compress/outputs/h800_dair_lidar_trt_fp32_all_models_smoke_20260718_2138/lidar_cobevt/strict_fp32.plan
+
+pruning:
+  gene_type: legal_domain_width
+  fixed_ranking: functional_gate_taylor_frozen_by_formal_proxy_cache
+  minimum_retained_ratio: 0.10
+  dense_channel_alignment: 4
+
+precision:
+  gene_type: coupled_precision_group_with_merge_contract
+  candidates: [FP32, FP16, INT8]
+  default: FP32
+  weight_granularity: production_layout_aware_per_channel
+  activation_calibration: tensorrt_entropy_calibration2
+  merge_policy: adaptive_equal_or_upcast_INT8_FP16_FP32
+
+proxy:
+  fisher_calibration_batches: 32
+  quant_calibration_batches: 200
+  quant_calibration_npz_manifest: /home/lixingfeng/UniAD_examine/heal_compress/outputs/heal_lidar_baseline_train200_fixedk29696_20260719_1215_v2/calibration_manifest.json
+  quant_activation_calibration_backend: tensorrt_entropy_calibration2
+  quant_calibration_force_rebuild: true
+
+full_validation:
+  num_frames: 1789
+  warmup_frames: 200
+  reset_after_warmup: true
+  latency_rounds: 3

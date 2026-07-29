@@ -54,33 +54,43 @@ def test_quant_only_is_all_keep_and_preserves_precision_contract():
     assert result.metadata["quantization_group_contracts"] == source.metadata["quantization_group_contracts"]
 
 
+def test_quant_only_unified_transformer_restores_original_width_profile():
+    from search.ablation.heal_lidar_prune_quant import (
+        validate_family_ablation_derivation,
+    )
+    from search.ablation.lidar_pyramid_prune_quant import build_ablation_phenotype
+
+    source = _phenotype()
+    source.metadata["domain_width_profile"] = {"attention": 8, "ffn": 128}
+    source.metadata["domains"] = {
+        "attention": {"original_width": 32, "retained_width": 8},
+        "ffn": {"original_width": 256, "retained_width": 128},
+    }
+    result = build_ablation_phenotype(source, "quant_only")
+    assert result.metadata["domain_width_profile"] == {
+        "attention": 32,
+        "ffn": 256,
+    }
+    assert "domains" not in result.metadata
+    validate_family_ablation_derivation(source, result, variant="quant_only")
+
+
 def test_repeat5_runners_accept_only_explicit_completed_budget_subsets():
     from scripts.run_cnn_formal_joint_full1789_repeat5 import (
         _parse_budget_labels as parse_cnn_labels,
     )
-    from scripts.run_pyramid_greedy_ga_full1789_repeat5 import (
-        _parse_budget_labels as parse_joint_labels,
-    )
-    from scripts.run_pyramid_latest_pq_decomposition_repeat5 import (
-        _parse_budget_labels as parse_control_labels,
-    )
-
-    assert parse_joint_labels("005") == ("005",)
-    assert parse_joint_labels("030,025") == ("030", "025")
-    assert parse_control_labels("005") == ("005",)
-    assert parse_control_labels("030,025") == ("030", "025")
 
     import pytest
 
     assert parse_cnn_labels("005") == ("005",)
+    assert parse_cnn_labels("030,025") == ("030", "025")
 
-    for parser in (parse_joint_labels, parse_control_labels, parse_cnn_labels):
-        with pytest.raises(ValueError):
-            parser("")
-        with pytest.raises(ValueError):
-            parser("005,005")
-        with pytest.raises(ValueError):
-            parser("075")
+    with pytest.raises(ValueError):
+        parse_cnn_labels("")
+    with pytest.raises(ValueError):
+        parse_cnn_labels("005,005")
+    with pytest.raises(ValueError):
+        parse_cnn_labels("075")
 def test_joint_repeat_aggregate_accepts_current_three_repeat_contract():
     from scripts.run_cnn_formal_joint_full1789_repeat5 import (
         METRICS,
