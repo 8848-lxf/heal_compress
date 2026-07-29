@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Five-repeat full-validation audit of Pyramid Greedy and GA winners.
+"""Repeat full-validation audit of Pyramid Greedy and GA winners.
 
 The runner is evaluation-only: it locks the existing B0/Greedy/GA engine
 SHA256 values, evaluates every candidate on the same 1789-frame manifest, and
 uses a matched B0 pre/post replay in every repeat for forward-latency speedup.
+The current campaign default is three repetitions.
 """
 
 from __future__ import annotations
@@ -295,6 +296,8 @@ def _aggregate(rows: list[dict[str, Any]], repeat_count: int) -> list[dict[str, 
 
 
 def run(args: argparse.Namespace) -> int:
+    if int(args.repeat_count) < 2:
+        raise ValueError("pyramid_repeat_count_must_be_at_least_two")
     root = args.output_root.resolve()
     root.mkdir(parents=True, exist_ok=True)
     (root / "reports").mkdir(exist_ok=True)
@@ -305,7 +308,7 @@ def run(args: argparse.Namespace) -> int:
     baseline, candidates = _inventory(args.search_root.resolve(), budget_labels)
     write_json(root / "engine_inventory.json", {"baseline": baseline, "candidates": candidates})
     write_json(root / "provenance.json", {
-        "schema_version": "pyramid-greedy-ga-full1789-repeat5-v1",
+        "schema_version": "pyramid-greedy-ga-full1789-repeat-configurable-v2",
         "source_search_root": str(args.search_root.resolve()),
         "source_formal_results_sha256": sha256_file(
             args.search_root / "reports/formal_ga_results.json"
@@ -314,7 +317,7 @@ def run(args: argparse.Namespace) -> int:
         "eval_manifest_sha256": sha256_file(args.eval_manifest),
         "physical_gpu": args.physical_gpu,
         "gpu_start": snapshot,
-        "repeat_count": 5,
+        "repeat_count": int(args.repeat_count),
         "budget_labels": list(budget_labels),
         "evaluation_frames": 1789,
         "warmup_frames": 200,
@@ -323,7 +326,7 @@ def run(args: argparse.Namespace) -> int:
         "source_engines_modified": False,
     })
     rows: list[dict[str, Any]] = []
-    for repeat in range(5):
+    for repeat in range(int(args.repeat_count)):
         ordered = [("b0_pre", baseline), *[(row["item_id"], row) for row in candidates], ("b0_post", baseline)]
         for order, (name, source) in enumerate(ordered):
             item = dict(source)
@@ -335,12 +338,16 @@ def run(args: argparse.Namespace) -> int:
             rows.append(compact)
             write_json(root / "reports/progress.json", {
                 "completed_items": len(rows),
-                "expected_items": 5 * (2 + 2 * len(budget_labels)),
+                "expected_items": int(args.repeat_count) * (
+                    2 + 2 * len(budget_labels)
+                ),
                 "last_repeat": repeat, "last_item": name,
             })
             write_csv(root / "reports/repeat_results.csv", rows)
-    aggregate = _aggregate(rows, 5)
-    write_csv(root / "reports/five_repeat_mean_std.csv", aggregate)
+    aggregate = _aggregate(rows, int(args.repeat_count))
+    write_csv(
+        root / f"reports/repeat{int(args.repeat_count)}_mean_std.csv", aggregate
+    )
     write_json(root / "reports/final_report.json", {
         "passed": all(
             int(row["num_evaluated_frames"]) == 1789
@@ -348,7 +355,7 @@ def run(args: argparse.Namespace) -> int:
             and math.isfinite(float(row["mAP"]))
             for row in rows
         ),
-        "repeat_count": 5,
+        "repeat_count": int(args.repeat_count),
         "evaluation_frames": 1789,
         "warmup_frames": 200,
         "engine_build_invoked": False,
@@ -364,6 +371,7 @@ def main() -> int:
     parser.add_argument("--search-root", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, required=True)
+    parser.add_argument("--repeat-count", type=int, default=3)
     parser.add_argument(
         "--budget-labels", default=",".join(BUDGET_LABELS),
         help="Comma-separated completed budget labels, for example 005 or 030,025.",

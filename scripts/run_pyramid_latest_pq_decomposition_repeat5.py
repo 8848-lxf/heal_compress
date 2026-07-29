@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and evaluate latest Pyramid P-only/Q-only controls five times.
+"""Build and repeatedly evaluate latest Pyramid P-only/Q-only controls.
 
 The latest six-budget Greedy/GA P+Q engines are immutable inputs.  This runner
 loads each accepted source phenotype (rather than re-decoding width genes),
@@ -7,6 +7,7 @@ derives P-only and Q-only controls, deploys every unique control, and evaluates
 the logical 24-control matrix on one H800 with matched strict-FP32 pre/post
 replays.  Build and evaluation phases run in separate processes so the model
 used for deployment cannot retain CUDA allocations during engine evaluation.
+The current campaign default is three repetitions.
 """
 
 from __future__ import annotations
@@ -585,9 +586,11 @@ def _evaluate_one(
     )
 
 
-def _aggregate(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _aggregate(
+    rows: list[dict[str, Any]], repeat_count: int
+) -> list[dict[str, Any]]:
     baselines: dict[int, float] = {}
-    for repeat in range(5):
+    for repeat in range(repeat_count):
         values = [
             float(row["forward_p50_ms"])
             for row in rows
@@ -602,7 +605,7 @@ def _aggregate(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         grouped.setdefault(key, []).append(row)
     output: list[dict[str, Any]] = []
     for (method, budget, variant), values in grouped.items():
-        expected = 10 if method == "baseline" else 5
+        expected = 2 * repeat_count if method == "baseline" else repeat_count
         if len(values) != expected:
             raise RuntimeError(
                 f"pyramid_pq_repeat_count:{method}:{budget}:{variant}:{len(values)}"
@@ -661,7 +664,7 @@ def _evaluate(args: argparse.Namespace) -> int:
         )
     baseline = _baseline_source(args)
     rows: list[dict[str, Any]] = []
-    for repeat in range(5):
+    for repeat in range(int(args.repeat_count)):
         ordered: list[tuple[str, dict[str, Any]]] = [
             ("b0_pre", baseline),
             *[(str(row["item_id"]), row) for row in candidates],
@@ -680,12 +683,16 @@ def _evaluate(args: argparse.Namespace) -> int:
             write_csv(root / "reports/repeat_results.csv", rows)
             write_json(root / "reports/progress.json", {
                 "completed_items": len(rows),
-                "expected_items": 5 * (2 + expected_logical_rows),
+                "expected_items": int(args.repeat_count) * (
+                    2 + expected_logical_rows
+                ),
                 "last_repeat": repeat,
                 "last_item": name,
             })
-    aggregate = _aggregate(rows)
-    write_csv(root / "reports/five_repeat_mean_std.csv", aggregate)
+    aggregate = _aggregate(rows, int(args.repeat_count))
+    write_csv(
+        root / f"reports/repeat{int(args.repeat_count)}_mean_std.csv", aggregate
+    )
     passed = all(
         int(row["num_evaluated_frames"]) == 1789
         and int(row["num_skipped_frames"]) == 0
@@ -696,17 +703,17 @@ def _evaluate(args: argparse.Namespace) -> int:
         "passed": passed,
         "logical_control_count": expected_logical_rows,
         "unique_engine_count": build_complete["unique_engine_count"],
-        "repeat_count": 5,
+        "repeat_count": int(args.repeat_count),
         "evaluation_frames": 1789,
         "result_count": len(rows),
         "all_evaluated_1789": all(int(row["num_evaluated_frames"]) == 1789 for row in rows),
         "all_skipped_zero": all(int(row["num_skipped_frames"]) == 0 for row in rows),
         "aggregate": aggregate,
-        "prior_pq_repeat5_report": str(args.prior_pq_report.resolve()),
+        "prior_joint_repeat_report": str(args.prior_pq_report.resolve()),
         "gpu_end": gpu_snapshot(args.physical_gpu),
     })
     if not passed:
-        raise RuntimeError("pyramid_pq_five_repeat_acceptance_failed")
+        raise RuntimeError("pyramid_pq_repeat_acceptance_failed")
     return 0
 
 
@@ -718,6 +725,7 @@ def _child_command(args: argparse.Namespace, phase: str) -> list[str]:
         "--search-root", str(args.search_root),
         "--output-root", str(args.output_root),
         "--physical-gpu", str(args.physical_gpu),
+        "--repeat-count", str(args.repeat_count),
         "--eval-manifest", str(args.eval_manifest),
         "--prior-pq-report", str(args.prior_pq_report),
         "--checkpoint", str(args.checkpoint),
@@ -737,6 +745,7 @@ def main() -> int:
     parser.add_argument("--search-root", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, required=True)
+    parser.add_argument("--repeat-count", type=int, default=3)
     parser.add_argument(
         "--budget-labels", default=",".join(BUDGET_LABELS),
         help="Comma-separated completed budget labels, for example 005 or 030,025.",
@@ -759,6 +768,8 @@ def main() -> int:
         default=Path("/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json"),
     )
     args = parser.parse_args()
+    if int(args.repeat_count) < 2:
+        raise ValueError("pyramid_pq_repeat_count_must_be_at_least_two")
     if os.environ.get("CUDA_VISIBLE_DEVICES") not in (None, "", str(args.physical_gpu)):
         raise RuntimeError("pyramid_pq_cuda_visible_devices_mismatch")
     if args.phase == "build":
@@ -767,17 +778,17 @@ def main() -> int:
         return _evaluate(args)
     args.output_root.mkdir(parents=True, exist_ok=False)
     write_json(args.output_root / "reports/provenance.json", {
-        "schema_version": "pyramid-latest-pq-decomposition-repeat5-v1",
+        "schema_version": "pyramid-pq-decomposition-repeat-configurable-v2",
         "source_search_root": str(args.search_root.resolve()),
         "source_formal_results_sha256": sha256_file(
             args.search_root / "reports/formal_ga_results.json"
         ),
-        "prior_pq_repeat5_report": str(args.prior_pq_report.resolve()),
-        "prior_pq_repeat5_report_sha256": sha256_file(args.prior_pq_report),
+        "prior_joint_repeat_report": str(args.prior_pq_report.resolve()),
+        "prior_joint_repeat_report_sha256": sha256_file(args.prior_pq_report),
         "physical_gpu": args.physical_gpu,
         "gpu_uuid": gpu_snapshot(args.physical_gpu)["uuid"],
         "variants_built_and_evaluated": list(VARIANTS),
-        "repeat_count": 5,
+        "repeat_count": int(args.repeat_count),
         "budget_labels": list(_parse_budget_labels(args.budget_labels)),
         "evaluation_frames": 1789,
         "warmup_frames": 200,

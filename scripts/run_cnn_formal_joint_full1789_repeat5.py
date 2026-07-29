@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Evaluate completed formal-CNN Greedy/GA joint engines on one GPU.
+"""Repeat full-validation of formal-CNN Greedy/GA engines on one GPU.
 
 This is an evaluation-only bridge for the current ``formal_ga_results.json``
 layout.  A budget subset can be evaluated immediately, so a completed 0.05
-campaign does not have to wait for the other five budgets.  Every repeat is
+campaign does not have to wait for the other five budgets. Every repeat is
 serial on one physical GPU and brackets candidates with matched strict-FP32
 pre/post replays.  Source engines are hash locked and never rebuilt here.
+
+The current campaign default is three repetitions; the explicit repeat count
+is recorded in every report.
 """
 
 from __future__ import annotations
@@ -251,9 +254,11 @@ def _evaluate(source: Mapping[str, Any], *, repeat: int, output: Path, args: arg
     )
 
 
-def _aggregate(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _aggregate(
+    rows: list[dict[str, Any]], repeat_count: int
+) -> list[dict[str, Any]]:
     baselines: dict[int, float] = {}
-    for repeat in range(5):
+    for repeat in range(repeat_count):
         values = [
             float(row["forward_p50_ms"])
             for row in rows
@@ -267,7 +272,7 @@ def _aggregate(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         groups.setdefault((str(row["assigned_method"]), row.get("budget")), []).append(row)
     result: list[dict[str, Any]] = []
     for (method, budget), values in groups.items():
-        expected = 10 if method == "baseline" else 5
+        expected = 2 * repeat_count if method == "baseline" else repeat_count
         if len(values) != expected:
             raise RuntimeError(f"cnn_repeat_count:{method}:{budget}:{len(values)}")
         first = values[0]
@@ -304,11 +309,14 @@ def main() -> int:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, required=True)
     parser.add_argument("--budget-labels", default=",".join(BUDGET_LABELS))
+    parser.add_argument("--repeat-count", type=int, default=3)
     parser.add_argument("--eval-manifest", type=Path, required=True)
     parser.add_argument("--heal-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/HEAL"))
     parser.add_argument("--tensorrt-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118"))
     parser.add_argument("--plugin", type=Path, required=True)
     args = parser.parse_args()
+    if int(args.repeat_count) < 2:
+        raise ValueError("cnn_repeat_count_must_be_at_least_two")
     root = args.output_root.resolve()
     root.mkdir(parents=True, exist_ok=False)
     (root / "reports").mkdir()
@@ -319,7 +327,7 @@ def main() -> int:
     labels = _parse_budget_labels(args.budget_labels)
     write_json(root / "engine_inventory.json", {"baseline": baseline, "candidates": candidates})
     write_json(root / "provenance.json", {
-        "schema_version": "cnn-formal-joint-full1789-repeat5-v1",
+        "schema_version": "cnn-formal-joint-full1789-repeat-configurable-v2",
         "model": args.model,
         "source_search_root": str(args.search_root.resolve()),
         "source_formal_results_sha256": sha256_file(args.search_root / "reports/formal_ga_results.json"),
@@ -327,13 +335,13 @@ def main() -> int:
         "gpu_start": snapshot,
         "budget_labels": list(labels),
         "same_gpu_serial": True,
-        "repeat_count": 5,
+        "repeat_count": int(args.repeat_count),
         "evaluation_frames": 1789,
         "warmup_frames": 200,
         "engine_build_invoked": False,
     })
     rows: list[dict[str, Any]] = []
-    for repeat in range(5):
+    for repeat in range(int(args.repeat_count)):
         ordered = [("b0_pre", baseline), *[(row["item_id"], row) for row in candidates], ("b0_post", baseline)]
         for order, (name, source) in enumerate(ordered):
             item = dict(source)
@@ -346,12 +354,14 @@ def main() -> int:
             write_csv(root / "reports/repeat_results.csv", rows)
             write_json(root / "reports/progress.json", {
                 "completed_items": len(rows),
-                "expected_items": 5 * (2 + 2 * len(labels)),
+                "expected_items": int(args.repeat_count) * (2 + 2 * len(labels)),
                 "last_repeat": repeat,
                 "last_item": name,
             })
-    aggregate = _aggregate(rows)
-    write_csv(root / "reports/five_repeat_mean_std.csv", aggregate)
+    aggregate = _aggregate(rows, int(args.repeat_count))
+    write_csv(
+        root / f"reports/repeat{int(args.repeat_count)}_mean_std.csv", aggregate
+    )
     passed = all(
         int(row["num_evaluated_frames"]) == 1789
         and int(row["num_skipped_frames"]) == 0
@@ -361,7 +371,7 @@ def main() -> int:
     write_json(root / "reports/final_report.json", {
         "passed": passed,
         "same_gpu_serial": True,
-        "repeat_count": 5,
+        "repeat_count": int(args.repeat_count),
         "evaluation_frames": 1789,
         "result_count": len(rows),
         "aggregate": aggregate,

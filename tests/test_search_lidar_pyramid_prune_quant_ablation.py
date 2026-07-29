@@ -135,6 +135,60 @@ def test_repeat5_runners_accept_only_explicit_completed_budget_subsets():
             parser("075")
 
 
+def test_joint_repeat_aggregate_accepts_current_three_repeat_contract():
+    from scripts.run_cnn_formal_joint_full1789_repeat5 import (
+        METRICS,
+        _aggregate,
+    )
+
+    rows = []
+    for repeat in range(3):
+        for replay in ("b0_pre", "b0_post"):
+            rows.append({
+                "assigned_method": "baseline",
+                "variant": replay,
+                "budget": None,
+                "repeat_index": repeat,
+                **{metric: 10.0 + repeat for metric in METRICS},
+            })
+        rows.append({
+            "assigned_method": "greedy",
+            "variant": "joint",
+            "budget": 0.05,
+            "repeat_index": repeat,
+            **{metric: 5.0 + repeat for metric in METRICS},
+        })
+    result = _aggregate(rows, 3)
+    baseline = next(row for row in result if row["assigned_method"] == "baseline")
+    greedy = next(row for row in result if row["assigned_method"] == "greedy")
+    assert baseline["repeat_count"] == 6
+    assert greedy["repeat_count"] == 3
+    assert greedy["speedup_vs_matched_b0_mean"] > 1.0
+
+
+def test_pyramid_pq_child_propagates_three_repeat_contract():
+    from scripts.run_pyramid_latest_pq_decomposition_repeat5 import _child_command
+
+    args = SimpleNamespace(
+        search_root=Path("/tmp/search"),
+        output_root=Path("/tmp/output"),
+        physical_gpu=4,
+        repeat_count=3,
+        eval_manifest=Path("/tmp/manifest.json"),
+        prior_pq_report=Path("/tmp/prior.json"),
+        checkpoint=Path("/tmp/checkpoint.pth"),
+        model_config=Path("/tmp/config.yaml"),
+        heal_root=Path("/tmp/heal"),
+        tensorrt_root=Path("/tmp/trt"),
+        plugin=Path("/tmp/plugin.so"),
+        calibration_manifest=Path("/tmp/calibration.json"),
+        budget_labels="005",
+    )
+    command = _child_command(args, "evaluate")
+    position = command.index("--repeat-count")
+    assert command[position + 1] == "3"
+
+
 def test_greedy_budget_replay_uses_lowest_taylor_feasible_state(tmp_path):
     from search.ablation.lidar_pyramid_prune_quant import replay_greedy_budget_candidate
     from search.candidate import CandidateGenotype, CandidatePhenotype, PrecisionDecision
