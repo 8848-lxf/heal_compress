@@ -286,3 +286,17 @@ def test_build_all_reuses_one_context_and_safely_resumes(tmp_path: Path, monkeyp
     )
     assert progress["same_gpu_serial"] is True
     assert progress["evaluation_invoked"] is False
+
+
+def test_ablation_builder_maps_exact_physical_binding_to_logical_zero(
+    monkeypatch,
+) -> None:
+    from scripts.run_heal_lidar_prune_quant_ablation import _logical_gpu_id
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "6")
+    assert _logical_gpu_id(6) == 0
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="requires_exact_gpu_binding"):
+        _logical_gpu_id(5)
