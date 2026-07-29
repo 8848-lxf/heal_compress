@@ -398,6 +398,64 @@ def test_trt_fusion_island_audit_requires_fp16_and_rejects_int8(family_id: str) 
     assert any("realized_int8" in issue for issue in failed["issues"])
 
 
+def test_trt_fusion_island_accepts_only_proven_elided_expand(tmp_path: Path) -> None:
+    import onnx
+    from onnx import TensorProto, helper
+    from search.model_family import validate_heal_lidar_fusion_island_realization
+
+    graph = helper.make_graph(
+        [
+            helper.make_node(
+                "Expand", ["x", "shape"], ["expanded"], name="/Expand_2"
+            ),
+            helper.make_node(
+                "Cast",
+                ["expanded"],
+                ["expanded_fp16"],
+                name="_Mul_9__strong_type_peer_00_fp16",
+                to=TensorProto.FLOAT16,
+            ),
+            helper.make_node(
+                "Mul", ["expanded_fp16", "v"], ["y"], name="/Mul_9"
+            ),
+        ],
+        "elided-expand",
+        [
+            helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 1]),
+            helper.make_tensor_value_info("shape", TensorProto.INT64, [2]),
+            helper.make_tensor_value_info("v", TensorProto.FLOAT16, [1, 1]),
+        ],
+        [helper.make_tensor_value_info("y", TensorProto.FLOAT16, [1, 1])],
+    )
+    path = tmp_path / "elided_expand.onnx"
+    onnx.save(helper.make_model(graph), path)
+    rows = [{
+        "Name": "myelin-fused",
+        "LayerType": "kgen",
+        "Inputs": [{"Format/Datatype": "Half"}],
+        "Outputs": [{"Format/Datatype": "Half"}],
+        "Metadata": "[ONNX Layer: /Mul_9]",
+    }]
+
+    rejected = validate_heal_lidar_fusion_island_realization(
+        rows,
+        family="heal_lidar_disco",
+        required_nodes=("/Expand_2",),
+    )
+    accepted = validate_heal_lidar_fusion_island_realization(
+        rows,
+        family="heal_lidar_disco",
+        required_nodes=("/Expand_2",),
+        qdq_onnx_path=path,
+    )
+    assert rejected["passed"] is False
+    assert accepted["passed"] is True
+    proof = accepted["findings"][0]["elided_shape_node_proof"]
+    assert proof["passed"] is True
+    assert proof["cast_target_dtype"] == "fp16"
+    assert proof["downstream_canonical_nodes"] == ["/Mul_9"]
+
+
 def test_wrapper_parity_rejects_missing_outputs() -> None:
     from search.model_family.heal_lidar_deployment import _parity
 

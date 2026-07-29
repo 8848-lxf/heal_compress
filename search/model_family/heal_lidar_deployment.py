@@ -830,6 +830,7 @@ def validate_heal_lidar_fusion_island_realization(
     family: str | ModelFamilyAudit,
     required_precision: str = "fp16",
     required_nodes: Sequence[str] | None = None,
+    qdq_onnx_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Prove fused TensorRT warp/fusion kernels realize the mapping contract."""
 
@@ -847,14 +848,24 @@ def validate_heal_lidar_fusion_island_realization(
     for node_name in nodes_to_check:
         matches = [row for row in rows if has_canonical_identity(row, node_name)]
         precisions = sorted({precision_name(row) for row in matches if precision_name(row)})
-        findings.append({
+        finding = {
             "onnx_node_name": node_name,
             "matched_layer_count": len(matches),
             "matched_layer_names": [str(row.get("Name") or row.get("name") or "") for row in matches],
             "realized_precisions": precisions,
-        })
+        }
+        findings.append(finding)
         if not matches:
-            issues.append(f"fusion_node_unresolved:{node_name}")
+            proof = _prove_elided_auxiliary_shape_node(
+                rows,
+                qdq_onnx_path=qdq_onnx_path,
+                node_name=node_name,
+                required_precision=required_precision,
+            )
+            if proof is not None:
+                finding["elided_shape_node_proof"] = proof
+            if not proof or not bool(proof.get("passed", False)):
+                issues.append(f"fusion_node_unresolved:{node_name}")
         elif "int8" in precisions:
             issues.append(f"fusion_node_realized_int8:{node_name}")
         elif required_precision and required_precision not in precisions:
@@ -870,11 +881,101 @@ def validate_heal_lidar_fusion_island_realization(
     }
 
 
+def _prove_elided_auxiliary_shape_node(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    qdq_onnx_path: str | Path | None,
+    node_name: str,
+    required_precision: str,
+) -> dict[str, Any] | None:
+    """Prove TensorRT safely elided a typed non-arithmetic Expand.
+
+    TensorRT/Myelin may remove ONNX ``Expand`` as broadcast metadata.  This is
+    acceptable only when the Q/DQ graph explicitly casts every expanded value
+    to the required auxiliary dtype before a mapped consumer, and that consumer
+    is realized at the same dtype.  No other missing operator is exempted.
+    """
+
+    if str(node_name) != "/Expand_2" or qdq_onnx_path is None:
+        return None
+    path = Path(qdq_onnx_path)
+    if not path.is_file():
+        return None
+    import onnx
+    from onnx import TensorProto
+
+    graph = onnx.load(str(path), load_external_data=False).graph
+    nodes = {str(node.name): node for node in graph.node}
+    node = nodes.get(str(node_name))
+    if node is None or str(node.op_type) != "Expand" or len(node.output) != 1:
+        return None
+    consumers = [
+        candidate
+        for candidate in graph.node
+        if str(node.output[0]) in {str(value) for value in candidate.input}
+    ]
+    expected_dtype = {
+        "fp16": int(TensorProto.FLOAT16),
+        "fp32": int(TensorProto.FLOAT),
+    }[str(required_precision)]
+    if not consumers or any(str(consumer.op_type) != "Cast" for consumer in consumers):
+        return None
+    cast_targets = []
+    downstream_names: list[str] = []
+    for cast in consumers:
+        targets = [
+            int(attribute.i)
+            for attribute in cast.attribute
+            if str(attribute.name) == "to"
+        ]
+        cast_targets.extend(targets)
+        for output in cast.output:
+            downstream_names.extend(
+                str(candidate.name)
+                for candidate in graph.node
+                if str(output) in {str(value) for value in candidate.input}
+            )
+    if not cast_targets or any(target != expected_dtype for target in cast_targets):
+        return None
+    if not downstream_names:
+        return None
+    downstream_matches = {
+        downstream: [row for row in rows if has_canonical_identity(row, downstream)]
+        for downstream in sorted(set(downstream_names))
+    }
+    if any(not matches for matches in downstream_matches.values()):
+        return None
+    downstream_precisions = {
+        downstream: sorted({
+            precision_name(row)
+            for row in matches
+            if precision_name(row)
+        })
+        for downstream, matches in downstream_matches.items()
+    }
+    passed = all(
+        str(required_precision) in precisions and "int8" not in precisions
+        for precisions in downstream_precisions.values()
+    )
+    return {
+        "schema_version": "heal-lidar-elided-shape-node-proof-v1",
+        "passed": passed,
+        "onnx_node": str(node_name),
+        "op_type": "Expand",
+        "elision_semantics": "broadcast_shape_only",
+        "explicit_cast_nodes": [str(consumer.name) for consumer in consumers],
+        "cast_target_dtype": str(required_precision),
+        "downstream_canonical_nodes": sorted(set(downstream_names)),
+        "downstream_realized_precisions": downstream_precisions,
+    }
+
+
 def validate_heal_lidar_precision_realization(
     layer_info: Any,
     mapping: CanonicalPrecisionMappingResult,
     *,
     family: str | ModelFamilyAudit,
+    qdq_onnx_path: str | Path | None = None,
 ) -> dict[str, Any]:
     weighted = validate_precision_realization(layer_info, mapping)
     family_id = _family_id(family)
@@ -904,6 +1005,7 @@ def validate_heal_lidar_precision_realization(
         layer_info,
         family=family_id,
         required_precision=required_precision,
+        qdq_onnx_path=qdq_onnx_path,
     )
     return {
         "schema_version": "heal-lidar-trt-precision-acceptance-v1",

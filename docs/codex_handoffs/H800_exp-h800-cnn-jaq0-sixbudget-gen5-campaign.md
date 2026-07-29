@@ -13,6 +13,26 @@
 
 ---
 
+## 2026-07-29T19:10:00+08:00
+
+- DiscoNet `.05` Q-only produced a valid TensorRT engine with all 11 requested
+  INT8 weighted loci realized exactly, but the auxiliary fusion-island audit
+  could not map ONNX `/Expand_2`: Myelin had eliminated that non-arithmetic
+  broadcast node. This was an inspector proof gap, not a precision fallback.
+- Added a fail-closed elided-Expand proof. It accepts the missing TensorRT layer
+  only when the Q/DQ ONNX graph proves that every Expand consumer is an explicit
+  Cast to the required auxiliary dtype and every downstream canonical consumer
+  is inspector-mapped at that same dtype without INT8 realization.
+- The failed DiscoNet artifact now independently verifies with zero issues:
+  `/Expand_2 -> Cast(FP16) -> /Mul_9`, with `/Mul_9` realized FP16. No other
+  missing operator receives an exemption.
+- Focused validation: `34 passed`; direct validation of the produced engine
+  returned `passed=true`, `issues=[]`; `py_compile` and `git diff --check`
+  passed. The successful P-only artifact remains untouched; the campaign will
+  resume in a new output root rather than overwrite the failed diagnostic root.
+
+---
+
 ## 2026-07-29T15:35:00+08:00
 
 - User confirmed the fifth target model is `AttFusion`; its permanent campaign assignment is physical GPU6.

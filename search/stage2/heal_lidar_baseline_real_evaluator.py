@@ -273,6 +273,7 @@ class HealLidarBaselineRealEvaluator:
                 layer_info,
                 qdq_artifact["mapping"],
                 family=self.config.family_id,
+                qdq_onnx_path=qdq_artifact["qdq_onnx_path"],
             )
         self._write_json(destination / "precision_realization_acceptance.json", precision)
         if not precision["passed"]:
