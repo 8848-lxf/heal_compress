@@ -81,6 +81,37 @@ def test_repeat5_runners_accept_only_explicit_completed_budget_subsets():
             parser("005,005")
         with pytest.raises(ValueError):
             parser("075")
+def test_joint_repeat_aggregate_accepts_current_three_repeat_contract():
+    from scripts.run_cnn_formal_joint_full1789_repeat5 import (
+        METRICS,
+        _aggregate,
+    )
+
+    rows = []
+    for repeat in range(3):
+        for replay in ("b0_pre", "b0_post"):
+            rows.append({
+                "assigned_method": "baseline",
+                "variant": replay,
+                "budget": None,
+                "repeat_index": repeat,
+                **{metric: 10.0 + repeat for metric in METRICS},
+            })
+        rows.append({
+            "assigned_method": "greedy",
+            "variant": "joint",
+            "budget": 0.05,
+            "repeat_index": repeat,
+            **{metric: 5.0 + repeat for metric in METRICS},
+        })
+    result = _aggregate(rows, 3)
+    baseline = next(row for row in result if row["assigned_method"] == "baseline")
+    greedy = next(row for row in result if row["assigned_method"] == "greedy")
+    assert baseline["repeat_count"] == 6
+    assert greedy["repeat_count"] == 3
+    assert greedy["speedup_vs_matched_b0_mean"] > 1.0
+
+
 def test_greedy_budget_replay_uses_lowest_taylor_feasible_state(tmp_path):
     from search.ablation.lidar_pyramid_prune_quant import replay_greedy_budget_candidate
     from search.candidate import CandidateGenotype, CandidatePhenotype, PrecisionDecision
