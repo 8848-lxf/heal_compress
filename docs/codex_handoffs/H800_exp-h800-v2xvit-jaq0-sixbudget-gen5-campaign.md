@@ -11,6 +11,14 @@
 
 ---
 
+## 2026-07-29T15:35:00+08:00
+
+- The final full1789 evaluation contract was revised to three serial repetitions for B0, Greedy, GA-final, P-only, and Q-only controls.
+- Search remains `J_AQ=0`, five evolution generations, Stage-2 warmup100/fixed300, and generation-winner warmup200/fixed500.
+- The GPU3 follow-on campaign now requests `--repetitions 3` for both the `.05` budget and the remaining five budgets.
+
+---
+
 ## 2026-07-29T15:10:00+08:00
 
 - The confirmed fifth CNN-family target is `AttFusion`; it remains permanently bound to physical GPU6. V2X-ViT remains on physical GPU3.

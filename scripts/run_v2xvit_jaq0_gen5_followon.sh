@@ -53,7 +53,7 @@ pq005="/data/lxf/heal_data/outputs/h800_v2xvit_r005_jaq0_gen5_pq_full1789_repeat
   --full-manifest "$full1789" \
   --physical-gpu "$physical_gpu" \
   --labels 005 \
-  --repetitions 5 \
+  --repetitions 3 \
   --formal-generations 5 \
   --tensorrt-root "$trt_root"
 "$python_bin" scripts/run_v2xvit_sixbudget_pq_only_full1789_repeat3.py \
@@ -64,7 +64,7 @@ pq005="/data/lxf/heal_data/outputs/h800_v2xvit_r005_jaq0_gen5_pq_full1789_repeat
   --full-manifest "$full1789" \
   --physical-gpu "$physical_gpu" \
   --labels 005 \
-  --repetitions 5 \
+  --repetitions 3 \
   --formal-generations 5 \
   --plugin "$plugin" \
   --tensorrt-root "$trt_root"
@@ -114,7 +114,7 @@ pq_main="/data/lxf/heal_data/outputs/h800_v2xvit_remaining5_jaq0_gen5_pq_full178
   --full-manifest "$full1789" \
   --physical-gpu "$physical_gpu" \
   --labels "$labels" \
-  --repetitions 5 \
+  --repetitions 3 \
   --formal-generations 5 \
   --tensorrt-root "$trt_root"
 "$python_bin" scripts/run_v2xvit_sixbudget_pq_only_full1789_repeat3.py \
@@ -125,7 +125,7 @@ pq_main="/data/lxf/heal_data/outputs/h800_v2xvit_remaining5_jaq0_gen5_pq_full178
   --full-manifest "$full1789" \
   --physical-gpu "$physical_gpu" \
   --labels "$labels" \
-  --repetitions 5 \
+  --repetitions 3 \
   --formal-generations 5 \
   --plugin "$plugin" \
   --tensorrt-root "$trt_root"
