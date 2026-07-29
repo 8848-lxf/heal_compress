@@ -96,7 +96,7 @@ eval005="/data/lxf/heal_data/outputs/h800_${model}_r005_jaq0_gen5_pq_full1789_re
   --budgets 0.05 --run-dir "$build005"
 "$python_bin" scripts/run_heal_lidar_prune_quant_ablation.py \
   --action build-all --config "$config" --run-dir "$build005" \
-  --gpu-id "$physical_gpu"
+  --gpu-id "$physical_gpu" --plugin "$plugin"
 "$python_bin" scripts/run_heal_lidar_prune_quant_ablation.py \
   --action finalize --config "$config" --run-dir "$build005" \
   --gpu-id "$physical_gpu"
@@ -131,7 +131,7 @@ evaluation="/data/lxf/heal_data/outputs/h800_${model}_remaining5_jaq0_gen5_pq_fu
   --budgets "$targets" --run-dir "$build"
 "$python_bin" scripts/run_heal_lidar_prune_quant_ablation.py \
   --action build-all --config "$config" --run-dir "$build" \
-  --gpu-id "$physical_gpu"
+  --gpu-id "$physical_gpu" --plugin "$plugin"
 "$python_bin" scripts/run_heal_lidar_prune_quant_ablation.py \
   --action finalize --config "$config" --run-dir "$build" \
   --gpu-id "$physical_gpu"

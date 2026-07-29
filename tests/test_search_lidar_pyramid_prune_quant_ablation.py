@@ -206,6 +206,19 @@ def test_repeat_prefix_loader_restores_numeric_identity_fields(tmp_path):
     assert rows[1]["budget"] is None
 
 
+def test_pq_builder_explicit_plugin_override_escapes_isolated_worktree(tmp_path):
+    from scripts.run_heal_lidar_prune_quant_ablation import (
+        _resolve_plugin_override,
+    )
+
+    plugin = tmp_path / "libpointpillar_scatter_trt.so"
+    plugin.write_bytes(b"plugin")
+    result = _resolve_plugin_override(
+        plugin, "quantization/plugins/missing/libpointpillar_scatter_trt.so"
+    )
+    assert result == plugin.resolve()
+
+
 def test_greedy_budget_replay_uses_lowest_taylor_feasible_state(tmp_path):
     from search.ablation.lidar_pyramid_prune_quant import replay_greedy_budget_candidate
     from search.candidate import CandidateGenotype, CandidatePhenotype, PrecisionDecision

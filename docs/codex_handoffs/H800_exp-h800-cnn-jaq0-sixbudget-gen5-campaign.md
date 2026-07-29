@@ -23,5 +23,7 @@
 - Added provenance-locked prefix reaggregation so completed five-repeat P+Q runs can formally use identical repeat indices 0/1/2 without rerunning or overwriting the source. Pyramid, DiscoNet, and F-Cooper `.05` repeat3 reports passed.
 - Added one fail-closed follow-on orchestrator for DiscoNet/GPU1, F-Cooper/GPU2, and AttFusion/GPU6. It explicitly requests repeat3 for all new joint and P/Q evaluations and rejects any model/GPU mismatch.
 - The revised focused suite now reports `8 passed`.
+- The first DiscoNet/F-Cooper repeat3 P/Q build attempts stopped before engine construction because their YAML plugin path was relative to the isolated worktree, where the compiled plugin is intentionally absent. Added an explicit, file-validated `--plugin` override to the P/Q builder and wired the campaign to the same accepted absolute plugin used by formal search. No fallback or copied binary was introduced.
+- Focused validation after the plugin fix: `9 passed`.
 
 ---
