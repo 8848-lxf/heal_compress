@@ -42,8 +42,8 @@ summary005="$root005/ga/budget_005/seed_0/budget_summary.json"
 [[ "$(jq -r '.completed_evolution_generations' "$summary005")" == "5" ]]
 [[ "$(jq -r '.results | length' "$root005/reports/formal_ga_results.json")" == "1" ]]
 
-joint005="/data/lxf/heal_data/outputs/h800_v2xvit_r005_jaq0_gen5_joint_full1789_repeat5_${timestamp}"
-pq005="/data/lxf/heal_data/outputs/h800_v2xvit_r005_jaq0_gen5_pq_full1789_repeat5_${timestamp}"
+joint005="/data/lxf/heal_data/outputs/h800_v2xvit_r005_jaq0_gen5_joint_full1789_repeat3_${timestamp}"
+pq005="/data/lxf/heal_data/outputs/h800_v2xvit_r005_jaq0_gen5_pq_full1789_repeat3_${timestamp}"
 "$python_bin" scripts/run_v2xvit_sixbudget_full1789_repeat3.py \
   --main-root "$root005" \
   --frozen005-root "$root005" \
@@ -103,8 +103,8 @@ labels="030,025,020,015,010"
   --activation-taylor-fitness-weight 0
 
 [[ "$(jq -r '.results | length' "$main_root/reports/formal_ga_results.json")" == "5" ]]
-joint_main="/data/lxf/heal_data/outputs/h800_v2xvit_remaining5_jaq0_gen5_joint_full1789_repeat5_${timestamp}"
-pq_main="/data/lxf/heal_data/outputs/h800_v2xvit_remaining5_jaq0_gen5_pq_full1789_repeat5_${timestamp}"
+joint_main="/data/lxf/heal_data/outputs/h800_v2xvit_remaining5_jaq0_gen5_joint_full1789_repeat3_${timestamp}"
+pq_main="/data/lxf/heal_data/outputs/h800_v2xvit_remaining5_jaq0_gen5_pq_full1789_repeat3_${timestamp}"
 "$python_bin" scripts/run_v2xvit_sixbudget_full1789_repeat3.py \
   --main-root "$main_root" \
   --frozen005-root "$root005" \
