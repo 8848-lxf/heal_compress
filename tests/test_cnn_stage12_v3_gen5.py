@@ -189,6 +189,56 @@ def test_physical_gpu_is_mapped_to_process_local_cuda_ordinal(monkeypatch) -> No
     assert logical_cuda_device_index(3) == 3
 
 
+def test_context_gpu_selection_recovers_isolated_physical_gpu(monkeypatch) -> None:
+    from search.integration import runtime_environment
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "6")
+    monkeypatch.setattr(
+        runtime_environment,
+        "query_gpus",
+        lambda: [
+            {
+                "index": index,
+                "memory_total_mib": 81920,
+                "memory_used_mib": 0,
+                "memory_free_mib": 81920,
+                "utilization_gpu_pct": 0,
+            }
+            for index in range(8)
+        ],
+    )
+
+    selection = runtime_environment.select_gpu("0", exclude_gpu_ids=[])
+
+    assert selection.runtime_device == "cuda:0"
+    assert selection.physical_gpu_id == 6
+
+
+def test_context_gpu_selection_maps_physical_gpu_to_visible_ordinal(monkeypatch) -> None:
+    from search.integration import runtime_environment
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "2,6")
+    monkeypatch.setattr(
+        runtime_environment,
+        "query_gpus",
+        lambda: [
+            {
+                "index": index,
+                "memory_total_mib": 81920,
+                "memory_used_mib": 0,
+                "memory_free_mib": 81920,
+                "utilization_gpu_pct": 0,
+            }
+            for index in range(8)
+        ],
+    )
+
+    selection = runtime_environment.select_gpu("6", exclude_gpu_ids=[])
+
+    assert selection.runtime_device == "cuda:1"
+    assert selection.physical_gpu_id == 6
+
+
 def test_size_proxy_field_is_mapped_to_strict_stage1_contract() -> None:
     from search.ga.cnn_stage12_v3 import canonical_size_metrics
 

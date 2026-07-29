@@ -6,6 +6,30 @@ read-only and are never used as current-framework search results.
 
 ---
 
+## 2026-07-28 19:18 -07:00
+
+- A live GPU-to-PID audit found that formal launchers correctly isolated their
+  parent PyTorch processes, but the shared runtime context stored process-local
+  `cuda:0` as physical GPU0.  ModelOpt calibration/evaluation workers for
+  AttFusion (parent GPU2), F-Cooper (GPU3), DiscoNet (GPU5) and Pyramid P/Q
+  decomposition (GPU7) therefore escaped to physical GPU0.
+- Stopped only those four project tasks and their descendants.  CoBEVT,
+  Pyramid `J_AQ=0`, and other users' processes were not signaled.
+- Preserved the old roots as GPU-provenance-invalid evidence rather than
+  deleting or overwriting them.  Frozen progress was AttFusion budget 0.10
+  generation 6, F-Cooper budget 0.10 generation 3, and DiscoNet budget 0.20
+  generation 2; all earlier Stage-2 timing-dependent GA trajectories are not
+  eligible for formal reuse.
+- Fixed `select_gpu()` to retain the process-local CUDA ordinal for PyTorch
+  while recovering the physical index through `CUDA_VISIBLE_DEVICES` for
+  ModelOpt/TensorRT subprocesses.  Also added an explicit physical GPU argument
+  to the Pyramid evaluation provider so no logical-device inference remains.
+- Added single-visible/multi-visible GPU mapping and explicit evaluation-worker
+  environment regression tests.  Targeted suite: 32 passed; compileall and
+  `git diff --check` passed.
+
+---
+
 ## 2026-07-26 02:05:30 -07:00
 
 - Root-caused the new-run budget failures to the specialized CNN Greedy

@@ -32,6 +32,7 @@ def evaluate_engine_modelopt(
     model_config: str | Path,
     heal_root: str | Path,
     device: str,
+    physical_gpu_id: int | None = None,
     output_dir: str | Path,
     tensorrt_root: str | Path,
     plugin_path: str | Path | None,
@@ -50,14 +51,22 @@ def evaluate_engine_modelopt(
     destination.mkdir(parents=True, exist_ok=True)
     request_path = destination / "evaluation_request.json"
     output_path = destination / "evaluation.json"
-    cuda_visible_devices, worker_device = _cuda_visible_and_logical_device(str(device))
+    if physical_gpu_id is None:
+        cuda_visible_devices, worker_device = _cuda_visible_and_logical_device(
+            str(device)
+        )
+        physical_device = str(device)
+    else:
+        cuda_visible_devices = str(int(physical_gpu_id))
+        worker_device = "cuda:0" if str(device).startswith("cuda:") else str(device)
+        physical_device = f"cuda:{int(physical_gpu_id)}"
     request = {
         "engine_path": str(engine_path),
         "checkpoint": str(checkpoint),
         "model_config": str(model_config),
         "heal_root": str(heal_root),
         "device": worker_device,
-        "physical_device": str(device),
+        "physical_device": physical_device,
         "output_path": str(output_path),
         "plugin_path": str(plugin_path) if plugin_path else "",
         "num_frames": int(num_frames),
