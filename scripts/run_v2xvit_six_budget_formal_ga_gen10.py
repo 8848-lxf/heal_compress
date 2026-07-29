@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Run six-budget V2X-ViT GA with the strict Stage-1/Stage-2/V1--V3 runner.
 
-The six exact Greedy winners are immutable V1 anchors.  Every budget runs one
-seed (zero), generation 0 is initialization, and generations 1--10 are the ten
+The six exact Greedy winners are immutable V1 anchors. Every budget runs one
+seed (zero), generation 0 is initialization, and generations 1--5 are the five
 formal evolution generations. Every real Stage-2 candidate uses materialization,
 fresh calibration, export, TensorRT, and the same frozen 500-frame validation
 manifest before it can influence selection.  Top-5 candidates use a 300-frame
@@ -74,7 +74,7 @@ from search.proxy.joint_weight_taylor import JointWeightTaylorProxy
 TARGETS = (0.30, 0.25, 0.20, 0.15, 0.10, 0.05)
 TOLERANCE = 0.005
 SEED = 0
-GENERATIONS = 10
+GENERATIONS = 5
 POPULATION = 64
 OFFSPRING = 64
 STAGE2_QUOTA = 5
@@ -150,11 +150,15 @@ def run(args: argparse.Namespace) -> int:
     if int(args.seed) != SEED:
         raise RuntimeError("v2xvit_six_budget_ga_requires_seed_zero")
     if int(args.generations) != GENERATIONS:
-        raise RuntimeError("v2xvit_six_budget_ga_requires_exactly_ten_generations")
-    if len(args.stage2_gpus) > 2:
-        raise RuntimeError("v2xvit_stage2_gpu_pool_exceeds_two")
-    if len(set(args.stage2_gpus)) != len(args.stage2_gpus):
-        raise RuntimeError("v2xvit_stage2_gpu_pool_contains_duplicates")
+        raise RuntimeError("v2xvit_six_budget_ga_requires_exactly_five_generations")
+    if args.stage2_gpus:
+        raise RuntimeError("v2xvit_campaign_forbids_cross_gpu_stage2")
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if visible != str(args.physical_gpu):
+        raise RuntimeError(
+            "v2xvit_campaign_cuda_visible_devices_mismatch:"
+            f"{visible}!={args.physical_gpu}"
+        )
     if torch.cuda.device_count() != 1:
         raise RuntimeError(
             f"v2xvit_six_budget_ga_requires_one_visible_gpu:{torch.cuda.device_count()}"
@@ -379,7 +383,7 @@ def run(args: argparse.Namespace) -> int:
             "executed_seeds": [0],
             "formal_generations": GENERATIONS,
             "generation_zero_counted": False,
-            "formal_generation_ids": list(range(1, 11)),
+            "formal_generation_ids": list(range(1, GENERATIONS + 1)),
             "population_size": POPULATION,
             "offspring_size": OFFSPRING,
             "survivor_size": POPULATION,
@@ -492,7 +496,7 @@ def run(args: argparse.Namespace) -> int:
                 generations=GENERATIONS,
                 stage2_new_candidate_quota=STAGE2_QUOTA,
                 random_seed=SEED,
-                generation_contract="formal_gen10",
+                generation_contract="formal_gen5",
             )
             runner = StrictStage12V3Runner(
                 space,
@@ -646,7 +650,7 @@ def run(args: argparse.Namespace) -> int:
             "executed_seeds": [0],
             "targets": list(targets),
             "shard_id": str(args.shard_id),
-            "formal_generations": 10,
+            "formal_generations": GENERATIONS,
             "generation_zero_counted": False,
             "population_size": 64,
             "offspring_size": 64,
@@ -689,7 +693,7 @@ def main() -> int:
     )
     parser.add_argument("--physical-gpu", type=int, required=True)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--generations", type=int, default=10)
+    parser.add_argument("--generations", type=int, default=5)
     parser.add_argument(
         "--targets",
         type=_parse_targets,
@@ -735,8 +739,11 @@ def main() -> int:
     parser.add_argument(
         "--activation-taylor-fitness-weight",
         type=float,
-        default=1.0,
-        help="Stage-1 coefficient for raw J_AQ; use 0 only for controlled ablation.",
+        default=0.0,
+        help=(
+            "Stage-1 coefficient for raw J_AQ. This campaign defaults to zero; "
+            "activation quantization remains enabled in deployment."
+        ),
     )
     return run(parser.parse_args())
 

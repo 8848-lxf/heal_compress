@@ -8,6 +8,7 @@ import csv
 import functools
 import json
 import math
+import os
 import random
 import subprocess
 import sys
@@ -54,7 +55,7 @@ from search.proxy.joint_weight_taylor import JointWeightTaylorProxy
 
 
 ALLOWED_BUDGETS = (0.30, 0.25, 0.20, 0.15, 0.10, 0.05)
-BUDGETS = (0.10,)
+BUDGETS = ALLOWED_BUDGETS
 TOLERANCE = 0.005
 SEED = 0
 
@@ -306,6 +307,12 @@ def run(args: argparse.Namespace) -> int:
         raise RuntimeError("activation_taylor_fitness_weight_invalid")
     if torch.cuda.device_count() != 1:
         raise RuntimeError(f"six_budget_proxy_requires_one_visible_gpu:{torch.cuda.device_count()}")
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if visible != str(args.physical_gpu):
+        raise RuntimeError(
+            "six_budget_proxy_cuda_visible_devices_mismatch:"
+            f"{visible}!={args.physical_gpu}"
+        )
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
     random.seed(SEED)
@@ -751,8 +758,11 @@ def main() -> int:
     parser.add_argument(
         "--activation-taylor-fitness-weight",
         type=float,
-        default=1.0,
-        help="Stage-1/Greedy coefficient for raw J_AQ; use 0 only for ablation.",
+        default=0.0,
+        help=(
+            "Stage-1/Greedy coefficient for raw J_AQ. This campaign defaults "
+            "to zero while deployment activation quantization stays enabled."
+        ),
     )
     return run(parser.parse_args())
 
