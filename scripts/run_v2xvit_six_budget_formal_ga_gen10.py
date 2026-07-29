@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import random
 from dataclasses import replace
 from pathlib import Path
@@ -111,6 +112,15 @@ def _shard_suffix(shard_id: str) -> str:
     return f"_{value}"
 
 
+def _validate_visible_gpu(physical_gpu: int) -> None:
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if visible != str(int(physical_gpu)):
+        raise RuntimeError(
+            "v2xvit_campaign_cuda_visible_devices_mismatch:"
+            f"{visible}!={physical_gpu}"
+        )
+
+
 def _load_winner(root: Path, target: float) -> CandidateGenotype:
     path = root / f"greedy/budget_{_label(target)}/exact_winner.json"
     if not path.is_file():
@@ -153,12 +163,7 @@ def run(args: argparse.Namespace) -> int:
         raise RuntimeError("v2xvit_six_budget_ga_requires_exactly_five_generations")
     if args.stage2_gpus:
         raise RuntimeError("v2xvit_campaign_forbids_cross_gpu_stage2")
-    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
-    if visible != str(args.physical_gpu):
-        raise RuntimeError(
-            "v2xvit_campaign_cuda_visible_devices_mismatch:"
-            f"{visible}!={args.physical_gpu}"
-        )
+    _validate_visible_gpu(args.physical_gpu)
     if torch.cuda.device_count() != 1:
         raise RuntimeError(
             f"v2xvit_six_budget_ga_requires_one_visible_gpu:{torch.cuda.device_count()}"

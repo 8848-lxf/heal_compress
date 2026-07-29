@@ -16,6 +16,8 @@
 - The final full1789 evaluation contract was revised to three serial repetitions for B0, Greedy, GA-final, P-only, and Q-only controls.
 - Search remains `J_AQ=0`, five evolution generations, Stage-2 warmup100/fixed300, and generation-winner warmup200/fixed500.
 - The GPU3 follow-on campaign now requests `--repetitions 3` for both the `.05` budget and the remaining five budgets.
+- The first `.05` attempt completed train32 and the 757-step Greedy trajectory, then correctly stopped before GA because the formal entrypoint referenced `os.environ` without importing `os`. Added the missing import, extracted a directly tested GPU-binding validator, and retained the valid proxy/Greedy artifacts for resume.
+- Regression validation for the formal entrypoint and budget shards: `14 passed`.
 
 ---
 
