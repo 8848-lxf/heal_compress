@@ -181,6 +181,15 @@ def _prepare(args: argparse.Namespace) -> dict[str, Any]:
     return manifest
 
 
+def _resolve_plugin_override(
+    explicit: Path | None, configured: str | Path
+) -> Path:
+    path = explicit.resolve() if explicit is not None else _resolve_repo_path(configured)
+    if not path.is_file():
+        raise RuntimeError(f"prune_quant_plugin_missing:{path}")
+    return path
+
+
 def _build_context(
     args: argparse.Namespace,
     *,
@@ -192,6 +201,7 @@ def _build_context(
     proxy = dict(config.get("proxy") or {})
     pruning = dict(config.get("pruning") or {})
     full = dict(config.get("full_validation") or {})
+    plugin_path = _resolve_plugin_override(args.plugin, runtime["plugin_path"])
     return build_heal_lidar_baseline_context(
         family_id=str(model["family_id"]),
         checkpoint_path=model["checkpoint"],
@@ -199,7 +209,7 @@ def _build_context(
         output_dir=args.run_dir / "build_contexts" / row_id,
         heal_root=runtime["heal_root"],
         tensorrt_root=runtime["tensorrt_root"],
-        plugin_path=_resolve_repo_path(runtime["plugin_path"]),
+        plugin_path=plugin_path,
         gpu_id=str(_logical_gpu_id(int(args.gpu_id))),
         exclude_gpu_ids=[],
         tensorrt_env=str(runtime.get("tensorrt_env", "modelopt")),
@@ -561,10 +571,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--row-id", default="")
     parser.add_argument("--gpu-id", type=int, default=0)
+    parser.add_argument(
+        "--plugin",
+        type=Path,
+        help="Explicit absolute TensorRT plugin override for isolated worktrees.",
+    )
     parser.add_argument("--bops-tolerance", type=float, default=0.005)
     args = parser.parse_args()
     args.config = args.config.resolve()
     args.run_dir = args.run_dir.resolve()
+    if args.plugin is not None:
+        args.plugin = args.plugin.resolve()
     if args.action == "prepare":
         legacy = args.ga_root is not None or args.greedy_root is not None
         formal = args.formal_root is not None
