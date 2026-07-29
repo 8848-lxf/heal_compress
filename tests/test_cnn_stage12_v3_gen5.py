@@ -94,7 +94,7 @@ def test_cnn_formal_entrypoint_supports_five_and_pyramid_replay_to_ten() -> None
               / "scripts/run_cnn_formal_ga_gen5.py").read_text()
     assert "requires_5_or_10_generations" in source
     assert "gen10_requires_pyramid_resume_or_direct_jaq0_ablation" in source
-    assert "pyramid_controlled_jaq0_requires_single_budget_005" in source
+    assert "cnn_controlled_jaq0_requires_supported_model_and_single_budget_005" in source
     assert "activation-taylor-fitness-weight" in source
     assert "freeze_gen5_continuation_state" in source
     assert "verify_gen5_replay_prefix" in source
@@ -111,6 +111,21 @@ def test_cnn_formal_entrypoint_supports_five_and_pyramid_replay_to_ten() -> None
                       / "search/ga/cnn_stage12_v3.py").read_text()
     assert "cnn-formal-presearch-proxy-cache-v1" in adapter_source
     assert "physical_ranking_frozen_across_resume" in adapter_source
+
+
+@pytest.mark.parametrize("model", ("pyramid", "disco", "fcooper"))
+def test_controlled_jaq0_ablation_supports_cnn_models(model: str) -> None:
+    from scripts.run_cnn_formal_ga_gen5 import is_controlled_jaq0_experiment
+
+    assert is_controlled_jaq0_experiment(model, 0.0, "0.05") is True
+    assert is_controlled_jaq0_experiment(model, 1.0, "0.05") is False
+    assert is_controlled_jaq0_experiment(model, 0.0, "0.10") is False
+
+
+def test_controlled_jaq0_ablation_rejects_unapproved_model() -> None:
+    from scripts.run_cnn_formal_ga_gen5 import is_controlled_jaq0_experiment
+
+    assert is_controlled_jaq0_experiment("attfusion", 0.0, "0.05") is False
 
 
 def test_pyramid_gen5_snapshot_and_replay_verification_are_fail_closed(

@@ -43,6 +43,21 @@ from search.integration.runtime_environment import query_gpus  # noqa: E402
 
 DEFAULT_TARGETS = (0.30, 0.25, 0.20, 0.15, 0.10, 0.05)
 SUPPORTED_GENERATIONS = (5, 10)
+CONTROLLED_JAQ0_MODELS = frozenset(("pyramid", "disco", "fcooper"))
+
+
+def is_controlled_jaq0_experiment(
+    model: str,
+    activation_taylor_fitness_weight: float,
+    targets: str,
+) -> bool:
+    """Return whether this is the single-budget CNN activation-Taylor ablation."""
+
+    return bool(
+        model in CONTROLLED_JAQ0_MODELS
+        and float(activation_taylor_fitness_weight) == 0.0
+        and targets == "0.05"
+    )
 
 
 def sha256_file(path: Path) -> str:
@@ -234,17 +249,17 @@ def run(args: argparse.Namespace) -> int:
             f"cnn_formal_ga_requires_5_or_10_generations:{args.generations}"
         )
     continuation_mode = bool(generations == 10 and args.resume)
-    controlled_jaq0_experiment = bool(
-        args.model == "pyramid"
-        and activation_weight == 0.0
-        and args.targets == "0.05"
+    controlled_jaq0_experiment = is_controlled_jaq0_experiment(
+        args.model,
+        activation_weight,
+        args.targets,
     )
     direct_jaq0_experiment = bool(
         controlled_jaq0_experiment and not args.resume
     )
     if activation_weight == 0.0 and not controlled_jaq0_experiment:
         raise RuntimeError(
-            "pyramid_controlled_jaq0_requires_single_budget_005"
+            "cnn_controlled_jaq0_requires_supported_model_and_single_budget_005"
         )
     if generations == 10 and not (
         (args.model == "pyramid" and continuation_mode)
