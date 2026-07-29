@@ -300,3 +300,53 @@ def test_ablation_builder_maps_exact_physical_binding_to_logical_zero(
 
     with pytest.raises(RuntimeError, match="requires_exact_gpu_binding"):
         _logical_gpu_id(5)
+
+
+def test_ablation_context_preserves_configured_runtime_graph_policy(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from scripts import run_heal_lidar_prune_quant_ablation as runner
+
+    plugin = tmp_path / "plugin.so"
+    plugin.write_bytes(b"plugin")
+    captured = {}
+
+    def fake_context_builder(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(
+        runner, "build_heal_lidar_baseline_context", fake_context_builder
+    )
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "6")
+    args = SimpleNamespace(run_dir=tmp_path, plugin=plugin, gpu_id=6)
+    config = {
+        "model": {
+            "family_id": "heal_lidar_attfusion",
+            "checkpoint": "/checkpoint.pth",
+            "config": "/config.yaml",
+            "fixed_k": 29696,
+            "max_agents": 2,
+            "search_space_policy": "heal_runtime_graph_v1",
+        },
+        "runtime": {
+            "plugin_path": str(plugin),
+            "heal_root": "/heal",
+            "tensorrt_root": "/tensorrt",
+            "tensorrt_env": "modelopt",
+        },
+        "proxy": {
+            "fisher_calibration_batches": 8,
+            "quant_calibration_batches": 200,
+        },
+        "pruning": {
+            "minimum_retained_ratio": 0.1,
+            "dense_channel_alignment": 4,
+        },
+        "precision": {"default": "FP32"},
+        "full_validation": {"num_frames": 1789, "warmup_frames": 200},
+    }
+
+    runner._build_context(args, config=config, row_id="attfusion-control")
+
+    assert captured["search_space_policy"] == "heal_runtime_graph_v1"

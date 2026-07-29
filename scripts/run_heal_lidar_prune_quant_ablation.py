@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare and build F-Cooper/DiscoNet P/Q ablation engines.
+"""Prepare and build HEAL LiDAR-family P/Q ablation engines.
 
 Engine construction and evaluation are intentionally separate.  This script
 only prepares immutable phenotype specifications or builds one unique P-only /
@@ -231,6 +231,16 @@ def _build_context(
         max_agents=int(model.get("max_agents", 2)),
         minimum_retained_ratio=float(pruning.get("minimum_retained_ratio", 0.10)),
         dense_alignment=int(pruning.get("dense_channel_alignment", 4)),
+        # P/Q controls must use the exact same traced search/deployment policy
+        # as the source formal search.  Falling back to the context default
+        # selects the legacy family-static named-node contract and, for
+        # AttFusion, incorrectly requests DiscoNet fusion node names.
+        search_space_policy=str(
+            model.get(
+                "search_space_policy",
+                "legacy_family_static_dependency_closure_v1",
+            )
+        ),
     )
 
 
