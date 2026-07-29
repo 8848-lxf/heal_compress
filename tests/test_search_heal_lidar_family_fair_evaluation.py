@@ -422,6 +422,11 @@ def test_gpu_pools_allow_whole_repeat_shards_and_reject_overlap() -> None:
     args.seed_method_root = ["greedy=/tmp/complete-greedy"]
     assert _gpu_pools(args) == {"ga": [2, 3], "greedy": [5, 3]}
 
+    args.single_gpu = 6
+    args.ga_extra_gpu = []
+    args.greedy_extra_gpu = []
+    assert _gpu_pools(args) == {"ga": [6], "greedy": [6]}
+
 
 def test_seed_method_prefix_stops_before_first_rejected_item(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

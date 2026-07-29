@@ -154,6 +154,49 @@ def test_collect_family_candidates_uses_ga_stage2_and_greedy_stage2_full(tmp_pat
     assert all(row["stage2_result"]["status"] == "ok" for row in rows)
 
 
+def test_collect_formal_family_candidates_uses_current_joint_result_layout(
+    tmp_path: Path,
+) -> None:
+    from search.ablation.heal_lidar_prune_quant import (
+        collect_formal_family_candidates,
+    )
+
+    family = "heal_lidar_fcooper"
+    root = tmp_path / "formal"
+    _write_json(
+        root / "context_report.json",
+        {"family_id": family, "fixed_k": 29696, "checkpoint_hash": "checkpoint"},
+    )
+    phenotype = _phenotype(pruned=["unit::0"], precision="INT8")
+    results = {}
+    for method, key in (("ga", "final_winner"), ("greedy", "greedy_anchor")):
+        artifact = tmp_path / f"{method}_artifact"
+        _accepted_artifact(artifact, phenotype, candidate_hash=method)
+        results[key] = {
+            "status": "ok",
+            "requested_realized_exact": True,
+            "complete_phenotype_hash": f"{method}-hash",
+            "metadata": {"raw": {"source_artifact_dir": str(artifact)}},
+        }
+    _write_json(root / "reports/formal_ga_results.json", {"results": {"005": results}})
+
+    rows = collect_formal_family_candidates(
+        family_id=family,
+        formal_root=root,
+        repository_root=tmp_path,
+        budgets=(0.05,),
+    )
+
+    assert [(row["method"], row["budget"]) for row in rows] == [
+        ("ga", 0.05),
+        ("greedy", 0.05),
+    ]
+    assert all(
+        row["actual_bops_source"] == "pending_exact_phenotype_recompute"
+        for row in rows
+    )
+
+
 def test_build_all_reuses_one_context_and_safely_resumes(tmp_path: Path, monkeypatch) -> None:
     from scripts import run_heal_lidar_prune_quant_ablation as runner
 
