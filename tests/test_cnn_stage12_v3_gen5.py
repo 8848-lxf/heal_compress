@@ -96,6 +96,7 @@ def test_cnn_formal_entrypoint_supports_fresh_ten_and_pyramid_replay() -> None:
     assert "continuation_mode = bool(generations == 10 and args.resume)" in source
     assert "cnn_gen5_replay_continuation_is_pyramid_only" in source
     assert "activation-taylor-fitness-weight" in source
+    assert "default=0.0" in source
     assert "freeze_gen5_continuation_state" in source
     assert "verify_gen5_replay_prefix" in source
     assert "single_seed_zero_required" in source
@@ -110,6 +111,23 @@ def test_cnn_formal_entrypoint_supports_fresh_ten_and_pyramid_replay() -> None:
                       / "search/ga/cnn_stage12_v3.py").read_text()
     assert "cnn-formal-presearch-proxy-cache-v1" in adapter_source
     assert "physical_ranking_frozen_across_resume" in adapter_source
+
+
+def test_cnn_campaign_defaults_to_activation_taylor_disabled() -> None:
+    from search.ga.cnn_stage12_v3 import PreparedCNNFormalSearch, prepare_search
+
+    assert PreparedCNNFormalSearch.__dataclass_fields__[
+        "activation_taylor_fitness_weight"
+    ].default == 0.0
+    assert prepare_search.__kwdefaults__[
+        "activation_taylor_fitness_weight"
+    ] == 0.0
+
+    import scripts.run_cnn_formal_ga_gen5 as runner
+
+    parser_source = (__import__("inspect").getsource(runner.main))
+    assert '"--activation-taylor-fitness-weight"' in parser_source
+    assert "default=0.0" in parser_source
 
 
 def test_pyramid_gen5_snapshot_and_replay_verification_are_fail_closed(

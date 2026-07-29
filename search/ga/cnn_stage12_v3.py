@@ -223,7 +223,7 @@ class PreparedCNNFormalSearch:
     activation: Any
     gate_mapping: list[dict[str, Any]]
     calibration_sample_count: int
-    activation_taylor_fitness_weight: float = 1.0
+    activation_taylor_fitness_weight: float = 0.0
 
     def evaluator(
         self,
@@ -343,7 +343,7 @@ def prepare_search(
     plugin: Path,
     tensorrt_root: Path,
     taylor_samples: int = 8,
-    activation_taylor_fitness_weight: float = 1.0,
+    activation_taylor_fitness_weight: float = 0.0,
 ) -> PreparedCNNFormalSearch:
     if float(activation_taylor_fitness_weight) not in (0.0, 1.0):
         raise ValueError(
