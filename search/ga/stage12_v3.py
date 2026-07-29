@@ -217,6 +217,7 @@ class UnifiedTaylorStage1Evaluator:
         target: float,
         tolerance_abs: float = 0.005,
         enforce_bops_hard_gate: bool = True,
+        activation_taylor_fitness_weight: float = 0.0,
     ) -> None:
         validate_genotype_schema(baseline, space)
         self.space = space
@@ -229,6 +230,13 @@ class UnifiedTaylorStage1Evaluator:
         self.target = float(target)
         self.tolerance_abs = float(tolerance_abs)
         self.enforce_bops_hard_gate = bool(enforce_bops_hard_gate)
+        self.activation_taylor_fitness_weight = float(
+            activation_taylor_fitness_weight
+        )
+        if self.activation_taylor_fitness_weight not in (0.0, 1.0):
+            raise ValueError(
+                "ga_activation_taylor_fitness_weight_must_be_zero_or_one"
+            )
         self._baseline_phenotype = canonicalize_candidate(baseline, space)
         self._groups = {str(row.group_id): row for row in space.quantization_groups}
         self._cache: dict[str, dict[str, Any]] = {}
@@ -253,6 +261,10 @@ class UnifiedTaylorStage1Evaluator:
                 "J_struct_gate": None,
                 "J_WQ": None,
                 "J_AQ": None,
+                "J_AQ_fitness_contribution": None,
+                "activation_taylor_fitness_weight": (
+                    self.activation_taylor_fitness_weight
+                ),
                 "J_total": float("inf"),
                 "F1": float("inf"),
                 "R_bops_vs_fp32": retention,
@@ -321,7 +333,8 @@ class UnifiedTaylorStage1Evaluator:
                 )
                 current = successor
                 current_phenotype = successor_phenotype
-        j_total = j_struct + j_wq + j_aq
+        j_aq_fitness = self.activation_taylor_fitness_weight * j_aq
+        j_total = j_struct + j_wq + j_aq_fitness
         if not math.isfinite(j_total) or min(j_struct, j_wq, j_aq) < 0.0:
             raise RuntimeError("ga_stage1_taylor_invalid")
         size = dict(self.size_evaluator(candidate_phenotype))
@@ -330,6 +343,13 @@ class UnifiedTaylorStage1Evaluator:
             "J_struct_gate": j_struct,
             "J_WQ": j_wq,
             "J_AQ": j_aq,
+            "J_AQ_fitness_contribution": j_aq_fitness,
+            "activation_taylor_fitness_weight": (
+                self.activation_taylor_fitness_weight
+            ),
+            "activation_taylor_used_for_fitness": bool(
+                self.activation_taylor_fitness_weight
+            ),
             "J_total": j_total,
             "F1": j_total,
             "R_bops_vs_fp32": retention,

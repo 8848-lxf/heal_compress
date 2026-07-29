@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run CoBEVT six-budget, single-seed, ten-generation strict formal GA."""
+"""Run CoBEVT six-budget, single-seed, five-generation strict formal GA."""
 
 from __future__ import annotations
 
@@ -52,10 +52,13 @@ def _gpu_uuid(index: int) -> str:
 def run(args: argparse.Namespace) -> int:
     if int(args.seed) != 0:
         raise RuntimeError("cobevt_formal_ga_requires_seed_zero")
-    if int(args.generations) != 10:
-        raise RuntimeError("cobevt_formal_ga_requires_exactly_ten_generations")
-    if os.environ.get("CUDA_VISIBLE_DEVICES") not in (None, "", str(args.physical_gpu)):
+    if int(args.generations) != 5:
+        raise RuntimeError("cobevt_formal_ga_requires_exactly_five_generations")
+    if os.environ.get("CUDA_VISIBLE_DEVICES", "").strip() != str(args.physical_gpu):
         raise RuntimeError("cobevt_formal_ga_cuda_visible_devices_mismatch")
+    activation_weight = float(args.activation_taylor_fitness_weight)
+    if activation_weight not in (0.0, 1.0):
+        raise RuntimeError("cobevt_activation_taylor_weight_must_be_zero_or_one")
     root = args.output_root.resolve()
     if root.exists() and any(root.iterdir()) and not args.resume:
         raise RuntimeError(f"cobevt_formal_ga_output_root_not_empty:{root}")
@@ -87,11 +90,14 @@ def run(args: argparse.Namespace) -> int:
             "framework": "StrictStage12V3Runner",
             "seed_count": 1,
             "executed_seeds": [0],
-            "generations": 10,
+            "generations": 5,
             "population_size": 64,
             "offspring_size": 64,
             "stage2_quota": 5,
             "targets": list(TARGETS),
+            "activation_taylor_fitness_weight": activation_weight,
+            "activation_taylor_used_for_fitness": bool(activation_weight),
+            "activation_quantization_used_in_deployment": True,
             "full1789": False,
         },
     )
@@ -101,6 +107,7 @@ def run(args: argparse.Namespace) -> int:
         plugin=args.plugin.resolve(),
         tensorrt_root=args.tensorrt_root.resolve(),
         taylor_samples=32,
+        activation_taylor_fitness_weight=activation_weight,
     )
     anchors = greedy_anchors(prepared, targets=TARGETS, output_root=root)
     real = create_real_evaluator(
@@ -135,7 +142,7 @@ def run(args: argparse.Namespace) -> int:
                 anchor_genotype=anchor,
                 output_root=root,
                 seed=0,
-                generations=10,
+                generations=5,
                 real_evaluator=real,
                 validation_evaluator=validation,
             )
@@ -171,12 +178,15 @@ def run(args: argparse.Namespace) -> int:
             "framework": "StrictStage12V3Runner",
             "seed_count": 1,
             "executed_seeds": [0],
-            "formal_generations": 10,
+            "formal_generations": 5,
             "generation_zero_counted": False,
             "population_size": 64,
             "offspring_size": 64,
             "stage2_new_candidate_quota": 5,
             "targets": list(TARGETS),
+            "activation_taylor_fitness_weight": activation_weight,
+            "activation_taylor_used_for_fitness": bool(activation_weight),
+            "activation_quantization_used_in_deployment": True,
             "results": results,
             "failures": failures,
             "full1789_executed": False,
@@ -190,7 +200,13 @@ def main() -> int:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, required=True)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--generations", type=int, default=10)
+    parser.add_argument("--generations", type=int, default=5)
+    parser.add_argument(
+        "--activation-taylor-fitness-weight",
+        type=float,
+        choices=(0.0, 1.0),
+        default=0.0,
+    )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument(

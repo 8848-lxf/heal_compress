@@ -212,6 +212,7 @@ class PreparedCNNFormalSearch:
     activation: Any
     gate_mapping: list[dict[str, Any]]
     calibration_sample_count: int
+    activation_taylor_fitness_weight: float = 0.0
 
     def evaluator(
         self,
@@ -230,6 +231,9 @@ class PreparedCNNFormalSearch:
             target=float(target),
             tolerance_abs=0.005,
             enforce_bops_hard_gate=enforce_bops_hard_gate,
+            activation_taylor_fitness_weight=(
+                self.activation_taylor_fitness_weight
+            ),
         )
 
 
@@ -1039,7 +1043,9 @@ def greedy_anchors(
         capture_details,
         recovery_trace,
         search_audit,
-    ) = run_path(1.0)
+    ) = run_path(
+        float(getattr(prepared, "activation_taylor_fitness_weight", 0.0))
+    )
     (
         counterfactual_trace,
         counterfactual_captured,
@@ -1229,7 +1235,9 @@ def greedy_anchors(
         output_root / "reports/activation_taylor_pruning_bias_audit.json",
         {
             "schema_version": "greedy-activation-taylor-pruning-bias-v1",
-            "main_search_uses_activation_taylor": True,
+            "main_search_uses_activation_taylor": bool(
+                getattr(prepared, "activation_taylor_fitness_weight", 0.0)
+            ),
             "counterfactual_used_for_winner_selection": False,
             "counterfactual_forward_calls": 0,
             "counterfactual_backward_calls": 0,

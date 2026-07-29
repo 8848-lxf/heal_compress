@@ -101,6 +101,7 @@ def prepare_cobevt_search(
     plugin: Path,
     tensorrt_root: Path,
     taylor_samples: int = 32,
+    activation_taylor_fitness_weight: float = 0.0,
 ) -> PreparedCNNFormalSearch:
     """Build one frozen CoBEVT unified search space and Taylor cache."""
 
@@ -346,12 +347,25 @@ def prepare_cobevt_search(
         activation=activation,
         gate_mapping=gate_mapping,
         calibration_sample_count=int(taylor_samples),
+        activation_taylor_fitness_weight=float(
+            activation_taylor_fitness_weight
+        ),
     )
     write_json(
         output_root / "reports/new_ga_proxy_contract.json",
         {
             "model": "cobevt",
-            "stage1_proxy": "J_struct_gate + J_WQ + J_AQ",
+            "stage1_proxy": (
+                "J_struct_gate + J_WQ + "
+                f"{float(activation_taylor_fitness_weight):g} * J_AQ"
+            ),
+            "activation_taylor_fitness_weight": float(
+                activation_taylor_fitness_weight
+            ),
+            "activation_taylor_used_for_fitness": bool(
+                activation_taylor_fitness_weight
+            ),
+            "activation_quantization_used_in_deployment": True,
             "cnn_domain_count": sum(
                 domain.domain_type in {"cnn_channel", "grouped_conv_channel"}
                 for domain in domains
