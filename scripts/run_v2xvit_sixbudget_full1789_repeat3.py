@@ -129,6 +129,20 @@ def _control_record(
         )
     acceptance = _engine_acceptance(candidate_dir)
     physical = _read(candidate_dir / "physical_report.json")
+    physical_structure_hash = str(physical.get("structure_hash") or "").strip()
+    if not physical_structure_hash:
+        raise RuntimeError(
+            f"candidate_physical_structure_hash_missing:{label}:{method}:"
+            f"{candidate_dir / 'physical_report.json'}"
+        )
+    metadata_structure_hash = str(
+        dict(candidate.get("metadata") or {}).get("physical_structure_hash") or ""
+    ).strip()
+    if metadata_structure_hash and metadata_structure_hash != physical_structure_hash:
+        raise RuntimeError(
+            "candidate_physical_structure_hash_mismatch:"
+            f"{label}:{method}:{metadata_structure_hash}:{physical_structure_hash}"
+        )
     precision_genes = dict(candidate["genotype"]["precision_genes"])
     requested_counts = {
         state: sum(value == state for value in precision_genes.values())
@@ -141,7 +155,11 @@ def _control_record(
         "budget": int(label) / 100.0,
         "method": method,
         "candidate_hash": candidate_hash,
-        "physical_structure_hash": str(candidate["metadata"]["physical_structure_hash"]),
+        # The materialized physical report is authoritative.  New GA summaries
+        # intentionally keep deployment metadata compact and may omit the old
+        # duplicated metadata field; when it is present, the check above still
+        # requires an exact match.
+        "physical_structure_hash": physical_structure_hash,
         "engine_path": str(engine),
         "engine_sha256": engine_hash,
         "engine_size_bytes": engine.stat().st_size,
