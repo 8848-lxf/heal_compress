@@ -275,7 +275,11 @@ def build_family_evaluation_inventories(
 ) -> dict[str, list[dict[str, Any]]]:
     """Validate the logical 2x6x3 matrix and prepend one FP32 per method."""
 
-    if family_id not in {"heal_lidar_fcooper", "heal_lidar_disco"}:
+    if family_id not in {
+        "heal_lidar_attfusion",
+        "heal_lidar_fcooper",
+        "heal_lidar_disco",
+    }:
         raise ValueError(f"unsupported_heal_lidar_family:{family_id}")
     root = Path(build_root).expanduser().resolve()
     inventory_path = root / "engine_inventory.json"

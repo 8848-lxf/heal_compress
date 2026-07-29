@@ -33,7 +33,11 @@ from .lidar_pyramid_prune_quant import (
 )
 
 
-SUPPORTED_FAMILIES = ("heal_lidar_fcooper", "heal_lidar_disco")
+SUPPORTED_FAMILIES = (
+    "heal_lidar_attfusion",
+    "heal_lidar_fcooper",
+    "heal_lidar_disco",
+)
 HEAL_LIDAR_AUXILIARY_PRECISION_KEY = "heal_lidar_auxiliary_precision"
 
 
