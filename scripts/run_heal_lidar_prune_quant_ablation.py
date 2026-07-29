@@ -14,6 +14,7 @@ import argparse
 from datetime import datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -82,6 +83,19 @@ def _resolve_repo_path(value: str | Path) -> Path:
     if not path.is_absolute():
         path = REPO_ROOT / path
     return path.resolve()
+
+
+def _logical_gpu_id(physical_gpu: int) -> int:
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if not visible:
+        return int(physical_gpu)
+    devices = [value.strip() for value in visible.split(",") if value.strip()]
+    physical = str(int(physical_gpu))
+    if devices != [physical]:
+        raise RuntimeError(
+            f"heal_lidar_ablation_requires_exact_gpu_binding:{devices}:{physical}"
+        )
+    return 0
 
 
 def _prepare(args: argparse.Namespace) -> dict[str, Any]:
@@ -186,7 +200,7 @@ def _build_context(
         heal_root=runtime["heal_root"],
         tensorrt_root=runtime["tensorrt_root"],
         plugin_path=_resolve_repo_path(runtime["plugin_path"]),
-        gpu_id=str(int(args.gpu_id)),
+        gpu_id=str(_logical_gpu_id(int(args.gpu_id))),
         exclude_gpu_ids=[],
         tensorrt_env=str(runtime.get("tensorrt_env", "modelopt")),
         fisher_calibration_batches=int(proxy.get("fisher_calibration_batches", 8)),
