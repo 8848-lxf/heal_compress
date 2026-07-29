@@ -52,7 +52,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--family-id",
         required=True,
-        choices=("heal_lidar_fcooper", "heal_lidar_disco"),
+        choices=(
+            "heal_lidar_attfusion",
+            "heal_lidar_fcooper",
+            "heal_lidar_disco",
+        ),
     )
     parser.add_argument("--build-root", required=True, type=Path)
     parser.add_argument("--baseline-engine", required=True, type=Path)
@@ -196,6 +200,7 @@ def _new_run_dir(args: argparse.Namespace) -> Path:
         return destination
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     short = {
+        "heal_lidar_attfusion": "attfusion",
         "heal_lidar_fcooper": "fcooper",
         "heal_lidar_disco": "disconet",
     }[args.family_id]
