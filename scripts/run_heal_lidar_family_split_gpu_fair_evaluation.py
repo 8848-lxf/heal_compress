@@ -85,6 +85,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Additional idle GPU for whole-repeat Greedy sharding.",
     )
     parser.add_argument("--repeat-count", type=int, default=5)
+    parser.add_argument(
+        "--budgets",
+        default="0.30,0.25,0.20,0.15,0.10,0.05",
+        help="Comma-separated completed budget subset.",
+    )
+    parser.add_argument(
+        "--single-gpu",
+        type=int,
+        default=None,
+        help="Run both methods strictly serially on this one physical GPU.",
+    )
     parser.add_argument("--num-frames", type=int, default=1789)
     parser.add_argument("--warmup-frames", type=int, default=200)
     parser.add_argument("--latency-rounds", type=int, default=3)
@@ -145,6 +156,12 @@ def _seed_method_prefix_roots(args: argparse.Namespace) -> dict[str, Path]:
 
 
 def _gpu_pools(args: argparse.Namespace) -> dict[str, list[int]]:
+    single_gpu = getattr(args, "single_gpu", None)
+    if single_gpu is not None:
+        if args.ga_extra_gpu or args.greedy_extra_gpu:
+            raise RuntimeError("family_single_gpu_forbids_extra_gpu_shards")
+        gpu = int(single_gpu)
+        return {"ga": [gpu], "greedy": [gpu]}
     pools = {
         "ga": [int(args.ga_gpu), *[int(value) for value in args.ga_extra_gpu]],
         "greedy": [
@@ -207,7 +224,10 @@ def _preflight(
         raise RuntimeError(f"family_fair_evaluation_preflight_missing:{missing}")
     if int(args.repeat_count) <= 0:
         raise ValueError("repeat_count_must_be_positive")
-    gpu_assignment = {"ga": int(args.ga_gpu), "greedy": int(args.greedy_gpu)}
+    if args.single_gpu is not None:
+        gpu_assignment = {"ga": int(args.single_gpu), "greedy": int(args.single_gpu)}
+    else:
+        gpu_assignment = {"ga": int(args.ga_gpu), "greedy": int(args.greedy_gpu)}
     gpu_pools = _gpu_pools(args)
     fully_seeded_methods = set(_seed_method_roots(args))
     snapshots = {
@@ -231,12 +251,20 @@ def _preflight(
         raise RuntimeError("family_fair_evaluation_manifest_warmup_insufficient")
     if len(list(manifest.get("evaluation_frame_ids") or [])) < int(args.num_frames):
         raise RuntimeError("family_fair_evaluation_manifest_evaluation_insufficient")
+    budgets = tuple(float(value) for value in str(args.budgets).split(",") if value)
+    if not budgets or len(budgets) != len(set(budgets)):
+        raise ValueError(f"family_fair_evaluation_budgets_invalid:{args.budgets}")
     inventories = build_family_evaluation_inventories(
         build_root=args.build_root,
         baseline_engine_path=args.baseline_engine,
         family_id=args.family_id,
+        budgets=budgets,
     )
-    if any(len(inventory) != 19 for inventory in inventories.values()):
+    expected_inventory_count = 1 + len(budgets) * 3
+    if any(
+        len(inventory) != expected_inventory_count
+        for inventory in inventories.values()
+    ):
         raise RuntimeError(
             f"family_fair_evaluation_inventory_count:{ {k: len(v) for k, v in inventories.items()} }"
         )
@@ -279,6 +307,7 @@ def _preflight(
             for method, inventory in inventories.items()
         },
         "repeat_count": int(args.repeat_count),
+        "budgets": list(budgets),
         "seed_method_roots": {
             method: str(path) for method, path in sorted(seed_roots.items())
         },
@@ -298,7 +327,7 @@ def _preflight(
         "gpu_pools": gpu_pools,
         "gpu_preflight": snapshots,
         "execution_policy": {
-            "cross_method_parallel": True,
+            "cross_method_parallel": args.single_gpu is None,
             "same_gpu_serial": True,
             "whole_repeat_gpu_sharding": True,
             "complete_seed_methods_skip_gpu_idle_requirement": sorted(
@@ -321,6 +350,7 @@ def _preflight(
             "eval_manifest": str(args.eval_manifest.resolve()),
             "eval_manifest_hash": manifest.get("manifest_hash"),
             "eval_manifest_file_sha256": sha256_file(args.eval_manifest),
+            "budgets": list(budgets),
         },
         "inventories": inventories,
         "run_identity": run_identity,
@@ -762,29 +792,43 @@ def main(argv: list[str] | None = None) -> int:
     )
     pools = _gpu_pools(args)
     by_method: dict[str, list[dict[str, Any]]] = {"ga": [], "greedy": []}
-    shard_specs: list[tuple[str, int, list[int]]] = []
     all_repeats = list(range(int(args.repeat_count)))
-    for method in ("ga", "greedy"):
-        for shard_index, gpu_id in enumerate(pools[method]):
-            repeats = all_repeats[shard_index :: len(pools[method])]
-            if repeats:
-                shard_specs.append((method, gpu_id, repeats))
-    with ThreadPoolExecutor(max_workers=len(shard_specs)) as executor:
-        futures = {
-            executor.submit(
-                _run_method,
-                method=method,
-                gpu_id=gpu_id,
-                inventory=inventories[method],
-                args=args,
-                run_dir=run_dir,
-                repeat_indices=repeats,
-            ): (method, gpu_id, repeats)
-            for method, gpu_id, repeats in shard_specs
-        }
-        for future in as_completed(futures):
-            method, _, _ = futures[future]
-            by_method[method].extend(future.result())
+    if args.single_gpu is not None:
+        gpu_id = int(args.single_gpu)
+        for method in ("ga", "greedy"):
+            by_method[method].extend(
+                _run_method(
+                    method=method,
+                    gpu_id=gpu_id,
+                    inventory=inventories[method],
+                    args=args,
+                    run_dir=run_dir,
+                    repeat_indices=all_repeats,
+                )
+            )
+    else:
+        shard_specs: list[tuple[str, int, list[int]]] = []
+        for method in ("ga", "greedy"):
+            for shard_index, gpu_id in enumerate(pools[method]):
+                repeats = all_repeats[shard_index :: len(pools[method])]
+                if repeats:
+                    shard_specs.append((method, gpu_id, repeats))
+        with ThreadPoolExecutor(max_workers=len(shard_specs)) as executor:
+            futures = {
+                executor.submit(
+                    _run_method,
+                    method=method,
+                    gpu_id=gpu_id,
+                    inventory=inventories[method],
+                    args=args,
+                    run_dir=run_dir,
+                    repeat_indices=repeats,
+                ): (method, gpu_id, repeats)
+                for method, gpu_id, repeats in shard_specs
+            }
+            for future in as_completed(futures):
+                method, _, _ = futures[future]
+                by_method[method].extend(future.result())
     for method in by_method:
         by_method[method].sort(
             key=lambda row: (int(row["repeat_index"]), int(row["sequence_index"]))
@@ -798,9 +842,9 @@ def main(argv: list[str] | None = None) -> int:
     contribution_aggregate = aggregate_contribution_rows(
         contribution_rows, repeat_count=int(args.repeat_count)
     )
-    expected_per_frame = (
-        2 * 19 * int(args.repeat_count) * int(args.num_frames)
-    )
+    expected_per_frame = sum(len(values) for values in inventories.values()) * int(
+        args.repeat_count
+    ) * int(args.num_frames)
     per_frame = _combine_per_frame_csv(
         run_dir, expected_rows=expected_per_frame
     )

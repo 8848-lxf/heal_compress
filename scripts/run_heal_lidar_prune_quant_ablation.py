@@ -28,11 +28,20 @@ if str(REPO_ROOT) not in sys.path:
 from search.ablation.heal_lidar_prune_quant import (  # noqa: E402
     build_family_ablation_matrix,
     collect_authoritative_family_candidates,
+    collect_formal_family_candidates,
 )
 from search.candidate import CandidatePhenotype  # noqa: E402
 from search.integration.heal_lidar_baseline_context import (  # noqa: E402
     build_heal_lidar_baseline_context,
 )
+from search.proxy.bops_proxy import BOPSProxy  # noqa: E402
+from search.proxy.parameter_slice_resolver import (  # noqa: E402
+    build_unit_parameter_slices,
+)
+from search.proxy.runtime_shape_profiler import (  # noqa: E402
+    profile_runtime_layer_shapes,
+)
+from search.proxy.size_proxy import SizeProxy  # noqa: E402
 from search.stage2.heal_lidar_baseline_real_evaluator import (  # noqa: E402
     HealLidarBaselineCandidateEvaluator,
 )
@@ -82,13 +91,26 @@ def _prepare(args: argparse.Namespace) -> dict[str, Any]:
     run_dir.mkdir(parents=True, exist_ok=True)
     config = _load_config(args.config)
     family_id = str(dict(config.get("model") or {}).get("family_id", ""))
-    sources = collect_authoritative_family_candidates(
-        family_id=family_id,
-        ga_root=args.ga_root,
-        greedy_root=args.greedy_root,
-        repository_root=REPO_ROOT,
-        tolerance=float(args.bops_tolerance),
-    )
+    budgets = tuple(float(value) for value in str(args.budgets).split(",") if value)
+    if not budgets or len(budgets) != len(set(budgets)):
+        raise ValueError(f"heal_lidar_ablation_budgets_invalid:{args.budgets}")
+    if args.formal_root is not None:
+        sources = collect_formal_family_candidates(
+            family_id=family_id,
+            formal_root=args.formal_root,
+            repository_root=REPO_ROOT,
+            budgets=budgets,
+            tolerance=float(args.bops_tolerance),
+        )
+    else:
+        sources = collect_authoritative_family_candidates(
+            family_id=family_id,
+            ga_root=args.ga_root,
+            greedy_root=args.greedy_root,
+            repository_root=REPO_ROOT,
+            budgets=budgets,
+            tolerance=float(args.bops_tolerance),
+        )
     matrix = build_family_ablation_matrix(sources)
     serialized_rows = []
     for row in matrix:
@@ -116,8 +138,14 @@ def _prepare(args: argparse.Namespace) -> dict[str, Any]:
         "family_id": family_id,
         "config_path": str(args.config.resolve()),
         "config_sha256": _sha256(args.config),
-        "ga_root": str(args.ga_root.resolve()),
-        "greedy_root": str(args.greedy_root.resolve()),
+        "formal_root": (
+            str(args.formal_root.resolve()) if args.formal_root is not None else None
+        ),
+        "ga_root": str(args.ga_root.resolve()) if args.ga_root is not None else None,
+        "greedy_root": (
+            str(args.greedy_root.resolve()) if args.greedy_root is not None else None
+        ),
+        "budgets": list(budgets),
         "protocol": {
             "variants": ["prune_quant", "prune_only", "quant_only"],
             "prune_quant": "reuse_exact_accepted_joint_engine_read_only",
@@ -220,6 +248,57 @@ def _new_evaluator(
     )
 
 
+def _refresh_exact_resources(
+    *, manifest: dict[str, Any], context: Any, manifest_path: Path
+) -> dict[str, Any]:
+    """Recompute resource metrics from each immutable serialized phenotype."""
+
+    runtime = profile_runtime_layer_shapes(
+        context.model,
+        context.trace_example_inputs,
+        forward_fn=context.model_bundle.adapter.forward_for_task,
+    )
+    slices = build_unit_parameter_slices(
+        context.model, context.atomic_prune_units
+    )
+    bops = BOPSProxy(
+        context.model,
+        unit_to_parameter_slices=slices,
+        runtime_shapes=runtime.shapes,
+        default_precision="FP32",
+    )
+    size = SizeProxy(
+        context.model,
+        unit_to_parameter_slices=slices,
+        default_precision="FP32",
+        include_constant_parameters_in_size=True,
+    )
+    for row in manifest["rows"]:
+        phenotype = CandidatePhenotype.from_dict(_read_json(row["phenotype_path"]))
+        bops_metrics = bops.evaluate_breakdown(phenotype)
+        size_metrics = size.evaluate_breakdown(phenotype)
+        row.update(
+            {
+                "actual_bops": float(bops_metrics["R_bops_vs_fp32"]),
+                "actual_bops_source": "production_proxy_exact_phenotype_recompute",
+                "mixed_weight_retention": float(size_metrics["R_size_vs_fp32"]),
+                "mixed_weight_compression_ratio": (
+                    1.0 / float(size_metrics["R_size_vs_fp32"])
+                    if float(size_metrics["R_size_vs_fp32"]) > 0.0
+                    else None
+                ),
+                "resource_metrics": {
+                    "bops": bops_metrics,
+                    "size": size_metrics,
+                },
+            }
+        )
+    manifest["resource_metrics_recomputed"] = True
+    manifest["resource_metrics_source"] = "current_production_proxy"
+    _write_json(manifest_path, manifest)
+    return manifest
+
+
 def _build_owner(
     row: dict[str, Any],
     *,
@@ -301,7 +380,9 @@ def _build_all(args: argparse.Namespace) -> dict[str, Any]:
         "updated_at": datetime.now().astimezone().isoformat(),
     }
     _write_json(progress_path, progress)
-    if not missing:
+    needs_resource_refresh = bool(manifest.get("formal_root"))
+    resources_ready = bool(manifest.get("resource_metrics_recomputed", False))
+    if not missing and (not needs_resource_refresh or resources_ready):
         return progress
 
     config = _load_config(args.config)
@@ -310,6 +391,12 @@ def _build_all(args: argparse.Namespace) -> dict[str, Any]:
         config=config,
         row_id=f"build_all_gpu_{int(args.gpu_id)}",
     )
+    if needs_resource_refresh:
+        manifest = _refresh_exact_resources(
+            manifest=manifest,
+            context=context,
+            manifest_path=args.run_dir / "ablation_manifest.json",
+        )
     evaluator = _new_evaluator(
         args,
         config=config,
@@ -451,6 +538,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--ga-root", type=Path)
     parser.add_argument("--greedy-root", type=Path)
+    parser.add_argument("--formal-root", type=Path)
+    parser.add_argument(
+        "--budgets",
+        default="0.30,0.25,0.20,0.15,0.10,0.05",
+        help="Comma-separated completed budget subset.",
+    )
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--row-id", default="")
     parser.add_argument("--gpu-id", type=int, default=0)
@@ -458,8 +551,16 @@ def _parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     args.config = args.config.resolve()
     args.run_dir = args.run_dir.resolve()
-    if args.action == "prepare" and (args.ga_root is None or args.greedy_root is None):
-        parser.error("prepare requires --ga-root and --greedy-root")
+    if args.action == "prepare":
+        legacy = args.ga_root is not None or args.greedy_root is not None
+        formal = args.formal_root is not None
+        if legacy == formal:
+            parser.error(
+                "prepare requires exactly one source mode: --formal-root or "
+                "both --ga-root/--greedy-root"
+            )
+        if legacy and (args.ga_root is None or args.greedy_root is None):
+            parser.error("legacy source mode requires --ga-root and --greedy-root")
     if args.action == "build-one" and not args.row_id:
         parser.error("build-one requires --row-id")
     return args

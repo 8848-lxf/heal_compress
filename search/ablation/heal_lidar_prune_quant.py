@@ -221,6 +221,109 @@ def collect_authoritative_family_candidates(
     )
 
 
+def collect_formal_family_candidates(
+    *,
+    family_id: str,
+    formal_root: str | Path,
+    repository_root: str | Path,
+    budgets: Iterable[float] = DEFAULT_BUDGETS,
+    tolerance: float = 0.005,
+) -> list[dict[str, Any]]:
+    """Collect accepted Greedy/GA engines from the unified formal runner.
+
+    Current formal runs place both methods in one ``formal_ga_results.json``.
+    Resource metrics are intentionally recomputed from each serialized
+    phenotype during the build phase; the target stored here is only a
+    provisional in-band value and is never reported as independently exact.
+    """
+
+    if family_id not in SUPPORTED_FAMILIES:
+        raise ValueError(f"unsupported_heal_lidar_ablation_family:{family_id}")
+    repo = Path(repository_root).resolve()
+    root = Path(formal_root).resolve()
+    _require_family_run(root, family_id=family_id)
+    result_path = root / "reports/formal_ga_results.json"
+    if not result_path.is_file():
+        raise RuntimeError(f"heal_lidar_formal_results_missing:{result_path}")
+    formal = _read_json(result_path)
+    requested = tuple(float(value) for value in budgets)
+    labels = {f"{int(round(value * 100)):03d}": value for value in requested}
+    missing = sorted(set(labels) - set(dict(formal.get("results") or {})))
+    if missing:
+        raise RuntimeError(f"heal_lidar_formal_budget_missing:{missing}")
+
+    rows: list[dict[str, Any]] = []
+    for method, key in (("ga", "final_winner"), ("greedy", "greedy_anchor")):
+        for label, budget in labels.items():
+            payload = dict(formal["results"][label][key])
+            if str(payload.get("status", "")) != "ok":
+                raise RuntimeError(
+                    f"heal_lidar_formal_candidate_not_ok:{method}:{label}:"
+                    f"{payload.get('status')}"
+                )
+            if payload.get("requested_realized_exact") is not True:
+                raise RuntimeError(
+                    f"heal_lidar_formal_candidate_precision_not_exact:{method}:{label}"
+                )
+            metadata = dict(payload.get("metadata") or {})
+            raw = dict(metadata.get("raw") or {})
+            artifact_value = (
+                raw.get("source_artifact_dir")
+                or metadata.get("source_artifact_dir")
+            )
+            if not artifact_value:
+                engine_value = raw.get("engine_path") or metadata.get("engine_path")
+                if not engine_value:
+                    raise RuntimeError(
+                        f"heal_lidar_formal_artifact_missing:{method}:{label}"
+                    )
+                engine_path = _resolve_path(engine_value, repository_root=repo)
+                artifact_value = (
+                    engine_path.parent.parent
+                    if engine_path.parent.name == "deployment"
+                    else engine_path.parent
+                )
+            accepted = accepted_candidate_artifacts(
+                artifact_value, repository_root=repo
+            )
+            candidate_hash = str(payload.get("complete_phenotype_hash", ""))
+            if not candidate_hash:
+                raise RuntimeError(
+                    f"heal_lidar_formal_candidate_hash_missing:{method}:{label}"
+                )
+            rows.append(
+                {
+                    "family_id": family_id,
+                    "method": method,
+                    "budget": float(budget),
+                    "actual_bops": float(budget),
+                    "actual_bops_source": "pending_exact_phenotype_recompute",
+                    "candidate_hash": candidate_hash,
+                    "source_record": str(result_path.resolve()),
+                    **accepted,
+                }
+            )
+    expected = {
+        (method, round(float(budget), 6))
+        for method in ("ga", "greedy")
+        for budget in requested
+    }
+    actual = {
+        (str(row["method"]), round(float(row["budget"]), 6)) for row in rows
+    }
+    if actual != expected:
+        raise RuntimeError(
+            "heal_lidar_formal_budget_set_mismatch:"
+            f"missing={sorted(expected-actual)}:extra={sorted(actual-expected)}"
+        )
+    if any(abs(float(row["actual_bops"]) - float(row["budget"])) > tolerance for row in rows):
+        raise RuntimeError("heal_lidar_formal_provisional_bops_out_of_band")
+    return sorted(
+        rows,
+        key=lambda row: (0 if row["method"] == "ga" else 1, -float(row["budget"])),
+    )
+
+
 def validate_family_ablation_derivation(
     source: CandidatePhenotype,
     derived: CandidatePhenotype,
@@ -355,5 +458,6 @@ __all__ = [
     "accepted_candidate_artifacts",
     "build_family_ablation_matrix",
     "collect_authoritative_family_candidates",
+    "collect_formal_family_candidates",
     "validate_family_ablation_derivation",
 ]
