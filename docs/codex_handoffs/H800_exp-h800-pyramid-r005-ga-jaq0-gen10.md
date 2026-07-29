@@ -78,3 +78,27 @@ Timestamp: 2026-07-28 18:24 CST
   allowing the five-generation search to continue.
 - Regression after the isolation fix: 30 targeted tests passed; compileall and
   `git diff --check` passed.
+
+---
+
+Timestamp: 2026-07-28 18:39 CST
+
+## Stage-2 evaluation subprocess physical-GPU closure
+
+- The first restart proved the context fix (`physical_gpu_id=6`,
+  `runtime_device=cuda:0`) and completed the proxy/Greedy phase, but the manual
+  first-child gate found a second, evaluation-specific path that translated
+  `runtime_device=cuda:0` back into `CUDA_VISIBLE_DEVICES=0`.
+- Stopped only this run's main/evaluation PIDs before the baseline evaluation
+  processed a valid result.  The restart root
+  `/data/lxf/heal_data/outputs/h800_pyramid_r005_ga_jaq0_gen5_20260728_182628`
+  is retained as failed provenance and must not be resumed.
+- Extended `evaluate_engine_modelopt()` with an explicit physical GPU argument
+  and wired `LidarPyramidRealEvaluator` to pass the context's physical GPU.
+  The worker request now records physical `cuda:6`, while its process-local
+  execution device remains `cuda:0`.
+- Added a provider regression test that asserts both the worker request and
+  ModelOpt subprocess environment use physical GPU6 when the parent runtime
+  device is logical `cuda:0`.
+- Regression after closing both context and evaluation paths: 34 targeted
+  tests passed; compileall and `git diff --check` passed.

@@ -2137,6 +2137,7 @@ class LidarPyramidRealEvaluator:
             model_config=self.context.model_config,
             heal_root="/home/lixingfeng/UniAD_examine/HEAL",
             device=self.context.runtime_device,
+            physical_gpu_id=self.context.physical_gpu_id,
             output_dir=output_dir,
             tensorrt_root=self.context.tensorrt.tensorrt_root,
             plugin_path=self.context.tensorrt.plugin_path,
