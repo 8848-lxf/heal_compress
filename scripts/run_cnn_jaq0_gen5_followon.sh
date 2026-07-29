@@ -68,7 +68,9 @@ manifest="/home/lixingfeng/UniAD_examine/heal_compress/outputs/H800_explicit_qdq
 [[ "$(jq -r '.results | length' "$search005/reports/formal_ga_results.json")" == "1" ]]
 
 joint005="/data/lxf/heal_data/outputs/h800_${model}_r005_jaq0_gen5_joint_full1789_repeat3_${timestamp}"
-if [[ "$model" == "disco" || "$model" == "fcooper" ]]; then
+if [[ -f "$joint005/reports/final_report.json" ]]; then
+  [[ "$(jq -r '.passed' "$joint005/reports/final_report.json")" == "true" ]]
+elif [[ "$model" == "disco" || "$model" == "fcooper" ]]; then
   legacy="/data/lxf/heal_data/outputs/h800_${model}_r005_jaq0_gen5_joint_full1789_repeat5_20260729_133000"
   "$python_bin" scripts/reaggregate_formal_repeat_prefix.py \
     --kind cnn-joint \
