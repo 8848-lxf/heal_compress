@@ -123,15 +123,62 @@ def query_gpus() -> list[dict[str, Any]]:
 def select_gpu(gpu_id: str = "auto", exclude_gpu_ids: list[int] | None = None) -> GPUSelection:
     excluded = [int(value) for value in (exclude_gpu_ids or [5, 6, 7])]
     report = query_gpus()
+    visible_raw = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    visible_physical_ids: list[int] | None = None
+    if visible_raw:
+        visible_entries = [
+            value.strip() for value in visible_raw.split(",") if value.strip()
+        ]
+        try:
+            visible_physical_ids = [int(value) for value in visible_entries]
+        except ValueError:
+            # UUID-based visibility cannot be reconciled with the index-only
+            # nvidia-smi report used here. Preserve the historical behavior and
+            # leave validation to the CUDA runtime in that uncommon mode.
+            visible_physical_ids = None
     if str(gpu_id) != "auto":
-        selected = int(gpu_id)
-        return GPUSelection(str(gpu_id), selected, f"cuda:{selected}", excluded, report)
-    candidates = [row for row in report if int(row["index"]) not in set(excluded)]
+        requested = int(gpu_id)
+        if visible_physical_ids is None:
+            return GPUSelection(
+                str(gpu_id), requested, f"cuda:{requested}", excluded, report
+            )
+        if requested in visible_physical_ids:
+            physical = requested
+            logical = visible_physical_ids.index(requested)
+        elif 0 <= requested < len(visible_physical_ids):
+            # Context builders receive a process-local CUDA ordinal after a
+            # formal launcher isolates physical devices. Preserve that ordinal
+            # for PyTorch while recovering the physical index that ModelOpt and
+            # TensorRT subprocesses must put in CUDA_VISIBLE_DEVICES.
+            logical = requested
+            physical = visible_physical_ids[logical]
+        else:
+            raise RuntimeError(
+                "requested_gpu_not_visible:"
+                f"requested={requested}:visible={visible_physical_ids}"
+            )
+        return GPUSelection(
+            str(gpu_id), physical, f"cuda:{logical}", excluded, report
+        )
+    candidates = [
+        row
+        for row in report
+        if int(row["index"]) not in set(excluded)
+        and (
+            visible_physical_ids is None
+            or int(row["index"]) in set(visible_physical_ids)
+        )
+    ]
     if not candidates:
         raise RuntimeError(f"no_usable_gpu_after_exclusion:{excluded}")
     candidates.sort(key=lambda row: (-int(row["memory_free_mib"]), int(row["utilization_gpu_pct"]), int(row["memory_used_mib"]), int(row["index"])))
     selected = int(candidates[0]["index"])
-    return GPUSelection(str(gpu_id), selected, f"cuda:{selected}", excluded, report)
+    logical = (
+        visible_physical_ids.index(selected)
+        if visible_physical_ids is not None
+        else selected
+    )
+    return GPUSelection(str(gpu_id), selected, f"cuda:{logical}", excluded, report)
 
 
 def discover_trt_environment(

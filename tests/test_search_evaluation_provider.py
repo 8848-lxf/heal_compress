@@ -53,6 +53,53 @@ def test_evaluation_provider_requests_gpu_postprocess_and_eight_workers(tmp_path
     assert captured["env"]["MKL_NUM_THREADS"] == "4"
 
 
+def test_evaluation_provider_uses_explicit_physical_gpu_for_isolated_worker(
+    tmp_path, monkeypatch
+) -> None:
+    from search.integration import evaluation_provider
+
+    captured = {}
+
+    def fake_subprocess_env(**kwargs):
+        captured["subprocess_env_kwargs"] = dict(kwargs)
+        return {"LD_LIBRARY_PATH": "existing"}
+
+    def fake_run(command, *, text, stdout, stderr, env, check):
+        request_path = command[-1]
+        request = json.loads(open(request_path, encoding="utf-8").read())
+        captured["request"] = request
+        with open(request["output_path"], "w", encoding="utf-8") as handle:
+            json.dump({"status": "ok"}, handle)
+        return SimpleNamespace(returncode=0, stdout="ok")
+
+    monkeypatch.setattr(
+        evaluation_provider, "modelopt_python_command", lambda _env: ["python"]
+    )
+    monkeypatch.setattr(
+        evaluation_provider, "modelopt_subprocess_env", fake_subprocess_env
+    )
+    monkeypatch.setattr(evaluation_provider.subprocess, "run", fake_run)
+
+    result = evaluation_provider.evaluate_engine_modelopt(
+        engine_path=tmp_path / "engine.plan",
+        checkpoint=tmp_path / "model.pth",
+        model_config=tmp_path / "config.yaml",
+        heal_root=tmp_path / "HEAL",
+        device="cuda:0",
+        physical_gpu_id=6,
+        output_dir=tmp_path / "evaluation",
+        tensorrt_root=tmp_path / "TensorRT",
+        plugin_path=tmp_path / "plugin.so",
+        num_frames=300,
+        warmup_frames=100,
+    )
+
+    assert result["status"] == "ok"
+    assert captured["request"]["device"] == "cuda:0"
+    assert captured["request"]["physical_device"] == "cuda:6"
+    assert captured["subprocess_env_kwargs"]["cuda_visible_devices"] == "6"
+
+
 def test_shared_full_manifest_selects_stable_stage2_prefix() -> None:
     from search.integration.evaluation_worker import _fixed_manifest_subset
 
