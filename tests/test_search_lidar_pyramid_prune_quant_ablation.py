@@ -107,6 +107,9 @@ def test_latest_pq_runner_compacts_only_derived_contract_history(tmp_path):
 
 
 def test_repeat5_runners_accept_only_explicit_completed_budget_subsets():
+    from scripts.run_cnn_formal_joint_full1789_repeat5 import (
+        _parse_budget_labels as parse_cnn_labels,
+    )
     from scripts.run_pyramid_greedy_ga_full1789_repeat5 import (
         _parse_budget_labels as parse_joint_labels,
     )
@@ -121,7 +124,9 @@ def test_repeat5_runners_accept_only_explicit_completed_budget_subsets():
 
     import pytest
 
-    for parser in (parse_joint_labels, parse_control_labels):
+    assert parse_cnn_labels("005") == ("005",)
+
+    for parser in (parse_joint_labels, parse_control_labels, parse_cnn_labels):
         with pytest.raises(ValueError):
             parser("")
         with pytest.raises(ValueError):
