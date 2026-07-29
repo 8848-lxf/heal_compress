@@ -12,6 +12,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 import statistics
 import subprocess
 import sys
@@ -26,7 +27,20 @@ from search.model_family.evaluation import evaluate_v2xvit_engine_modelopt
 
 
 LABELS = ("030", "025", "020", "015", "010", "005")
-METRICS = ("AP@0.3", "AP@0.5", "AP@0.7", "mAP", "forward_p50_ms")
+METRICS = (
+    "AP@0.3", "AP@0.5", "AP@0.7", "mAP", "forward_p50_ms",
+    "forward_p90_ms", "forward_p99_ms",
+)
+
+
+def _parse_labels(value: str) -> tuple[str, ...]:
+    labels = tuple(part.strip() for part in str(value).split(",") if part.strip())
+    if not labels or len(labels) != len(set(labels)):
+        raise ValueError(f"v2xvit_full1789_labels_invalid:{value}")
+    invalid = sorted(set(labels) - set(LABELS))
+    if invalid:
+        raise ValueError(f"v2xvit_full1789_labels_unknown:{invalid}")
+    return labels
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -159,6 +173,8 @@ def discover_controls(
     main_root: Path,
     frozen005_root: Path,
     b0_engine: Path,
+    labels: tuple[str, ...] = LABELS,
+    formal_generations: int = 10,
 ) -> list[dict[str, Any]]:
     if not b0_engine.is_file():
         raise RuntimeError(f"b0_engine_missing:{b0_engine}")
@@ -181,14 +197,20 @@ def discover_controls(
             "parameter_prune_rate": 0.0,
         }
     ]
-    for label in LABELS:
+    for label in labels:
         root = _source_root(label, main_root, frozen005_root)
         summary_path = root / f"ga/budget_{label}/seed_0/budget_summary.json"
         if not summary_path.is_file():
             raise RuntimeError(f"budget_summary_missing:{label}:{summary_path}")
         summary = _read(summary_path)
-        if int(summary.get("completed_evolution_generations", -1)) != 10:
-            raise RuntimeError(f"budget_not_gen10_complete:{label}")
+        if int(summary.get("completed_evolution_generations", -1)) != int(
+            formal_generations
+        ):
+            raise RuntimeError(
+                f"budget_generation_count:{label}:"
+                f"{summary.get('completed_evolution_generations')}:"
+                f"{formal_generations}"
+            )
         controls.append(
             _control_record(
                 label=label,
@@ -205,14 +227,16 @@ def discover_controls(
                 source_root=root,
             )
         )
-    if len(controls) != 13:
+    if len(controls) != 1 + 2 * len(labels):
         raise RuntimeError(f"unexpected_control_count:{len(controls)}")
     return controls
 
 
-def summarize_repetitions(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+def summarize_repetitions(
+    rows: Iterable[Mapping[str, Any]], *, repeat_count: int = 3
+) -> dict[str, Any]:
     materialized = list(rows)
-    if len(materialized) != 3:
+    if len(materialized) != int(repeat_count):
         raise RuntimeError(f"repeat_count_mismatch:{len(materialized)}")
     result: dict[str, Any] = {"repetitions": materialized}
     for metric in METRICS:
@@ -234,6 +258,14 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if visible != str(int(args.physical_gpu)):
+        raise RuntimeError(
+            f"v2xvit_full1789_gpu_binding_mismatch:{visible}:"
+            f"{args.physical_gpu}"
+        )
+    if int(args.repetitions) < 2:
+        raise ValueError("v2xvit_full1789_repetitions_must_be_at_least_two")
     output_root = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     for name in ("provenance", "evaluation_full1789", "latency", "reports", "logs"):
@@ -246,21 +278,26 @@ def run(args: argparse.Namespace) -> int:
     if len(warmup_ids) < 200:
         raise RuntimeError(f"full1789_warmup_insufficient:{len(warmup_ids)}")
     request = _read(args.request_json.resolve())
+    labels = _parse_labels(args.labels)
     controls = discover_controls(
         main_root=args.main_root.resolve(),
         frozen005_root=args.frozen005_root.resolve(),
         b0_engine=args.b0_engine.resolve(),
+        labels=labels,
+        formal_generations=int(args.formal_generations),
     )
     gpu_uuid = _gpu_uuid(args.physical_gpu)
     provenance = {
-        "protocol": "v2xvit-sixbudget-greedy-ga-full1789-repeat3-v1",
+        "protocol": "v2xvit-budget-subset-greedy-ga-full1789-repeat-v2",
         "physical_gpu": int(args.physical_gpu),
         "gpu_uuid": gpu_uuid,
         "manifest_path": str(args.full_manifest.resolve()),
         "manifest_hash": manifest.get("manifest_hash"),
         "evaluation_frame_count": len(evaluation_ids),
         "warmup_frame_count": len(warmup_ids),
-        "repetitions": 3,
+        "repetitions": int(args.repetitions),
+        "labels": list(labels),
+        "formal_generations": int(args.formal_generations),
         "control_count": len(controls),
         "controls": controls,
     }
@@ -270,7 +307,8 @@ def run(args: argparse.Namespace) -> int:
         return 0
     all_results: dict[str, list[dict[str, Any]]] = {}
     progress_path = output_root / "reports/progress.json"
-    for repeat in range(1, 4):
+    total_evaluations = int(args.repetitions) * len(controls)
+    for repeat in range(1, int(args.repetitions) + 1):
         for control in controls:
             control_id = str(control["id"])
             destination = output_root / "evaluation_full1789" / f"repeat_{repeat}" / control_id
@@ -324,14 +362,17 @@ def run(args: argparse.Namespace) -> int:
                 "status": "running",
                 "gpu_uuid": gpu_uuid,
                 "completed_evaluations": sum(len(value) for value in all_results.values()),
-                "total_evaluations": 39,
+                "total_evaluations": total_evaluations,
                 "last_control": control_id,
                 "last_repeat": repeat,
                 "results": all_results,
             })
             print(json.dumps({"event": "full1789_complete", "control": control_id,
                               "repeat": repeat, "mAP": row["mAP"]}, sort_keys=True), flush=True)
-    summaries = {key: summarize_repetitions(value) for key, value in all_results.items()}
+    summaries = {
+        key: summarize_repetitions(value, repeat_count=int(args.repetitions))
+        for key, value in all_results.items()
+    }
     baseline = summaries["B0"]
     baseline_map = float(baseline["mAP_mean"])
     baseline_p50 = float(baseline["forward_p50_ms_mean"])
@@ -356,6 +397,10 @@ def run(args: argparse.Namespace) -> int:
             "mAP_retention_vs_B0": float(summary["mAP_mean"]) / baseline_map,
             "forward_p50_ms_mean": summary["forward_p50_ms_mean"],
             "forward_p50_ms_std": summary["forward_p50_ms_std"],
+            "forward_p90_ms_mean": summary["forward_p90_ms_mean"],
+            "forward_p90_ms_std": summary["forward_p90_ms_std"],
+            "forward_p99_ms_mean": summary["forward_p99_ms_mean"],
+            "forward_p99_ms_std": summary["forward_p99_ms_std"],
             "speedup_vs_B0_fullval_p50": baseline_p50 / float(summary["forward_p50_ms_mean"]),
             "parameter_count": control["physical_parameter_count"],
             "parameter_retention": control["parameter_retention"],
@@ -370,8 +415,9 @@ def run(args: argparse.Namespace) -> int:
             "skipped_total": 0,
         })
     table.sort(key=lambda row: (-float(row["budget"]), str(row["method"])))
-    _write_csv(output_root / "reports/full1789_repeat3_summary.csv", table)
-    _write(output_root / "reports/full1789_repeat3_summary.json", {
+    suffix = f"repeat{int(args.repetitions)}"
+    _write_csv(output_root / f"reports/full1789_{suffix}_summary.csv", table)
+    _write(output_root / f"reports/full1789_{suffix}_summary.json", {
         "status": "complete",
         "protocol": provenance,
         "controls": inventory,
@@ -381,8 +427,8 @@ def run(args: argparse.Namespace) -> int:
     _write(progress_path, {
         "status": "complete",
         "gpu_uuid": gpu_uuid,
-        "completed_evaluations": 39,
-        "total_evaluations": 39,
+        "completed_evaluations": total_evaluations,
+        "total_evaluations": total_evaluations,
     })
     return 0
 
@@ -396,6 +442,9 @@ def main() -> int:
     parser.add_argument("--request-json", type=Path, required=True)
     parser.add_argument("--full-manifest", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, required=True)
+    parser.add_argument("--labels", default=",".join(LABELS))
+    parser.add_argument("--repetitions", type=int, default=3)
+    parser.add_argument("--formal-generations", type=int, default=10)
     parser.add_argument("--inventory-only", action="store_true")
     parser.add_argument(
         "--tensorrt-root",

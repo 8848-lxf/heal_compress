@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import random
 import statistics
 import sys
@@ -35,6 +36,7 @@ from scripts.run_v2xvit_greedy005_full import _baseline_candidate, _build_full_s
 from scripts.run_v2xvit_greedy005_stage2 import _export_candidate
 from scripts.run_v2xvit_sixbudget_full1789_repeat3 import (
     LABELS,
+    _parse_labels,
     _read,
     _sha256,
     _source_root,
@@ -179,11 +181,16 @@ def _build_p_only(
     return report
 
 
-def _summary(values: list[dict[str, Any]]) -> dict[str, Any]:
-    if len(values) != 3:
+def _summary(
+    values: list[dict[str, Any]], *, repeat_count: int = 3
+) -> dict[str, Any]:
+    if len(values) != int(repeat_count):
         raise RuntimeError(f"pq_repeat_count_mismatch:{len(values)}")
     output: dict[str, Any] = {"repetitions": values}
-    for metric in ("AP@0.3", "AP@0.5", "AP@0.7", "mAP", "forward_p50_ms"):
+    for metric in (
+        "AP@0.3", "AP@0.5", "AP@0.7", "mAP", "forward_p50_ms",
+        "forward_p90_ms", "forward_p99_ms",
+    ):
         rows = [float(value[metric]) for value in values]
         output[f"{metric}_mean"] = statistics.fmean(rows)
         output[f"{metric}_std"] = statistics.stdev(rows)
@@ -191,6 +198,12 @@ def _summary(values: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def run(args: argparse.Namespace) -> int:
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if visible != str(int(args.physical_gpu)):
+        raise RuntimeError(
+            f"v2xvit_pq_only_gpu_binding_mismatch:{visible}:"
+            f"{args.physical_gpu}"
+        )
     if torch.cuda.device_count() != 1:
         raise RuntimeError(
             f"v2xvit_pq_only_requires_one_visible_gpu:{torch.cuda.device_count()}"
@@ -211,6 +224,9 @@ def run(args: argparse.Namespace) -> int:
     if len(manifest["warmup_frame_ids"]) < 200:
         raise RuntimeError("pq_full1789_warmup_invalid")
     request = _read(args.request_json.resolve())
+    labels = _parse_labels(args.labels)
+    if int(args.repetitions) < 2:
+        raise ValueError("v2xvit_pq_repetitions_must_be_at_least_two")
     model, adapter, hypes, _ = _load("v2xvit", device)
     batch, _, _ = _multi_agent_validation_batch(adapter, hypes, device)
     identity = _build_full_space(model, adapter, hypes, batch)
@@ -222,120 +238,133 @@ def run(args: argparse.Namespace) -> int:
         for path in (spec.q_projection_paths + spec.k_projection_paths)
     )
     controls: dict[str, dict[str, Any]] = {}
-    for label in LABELS:
+    expected_control_count = 4 * len(labels)
+    for label in labels:
         source_root = _source_root(
             label, args.main_root.resolve(), args.frozen005_root.resolve()
         )
         summary_path = source_root / f"ga/budget_{label}/seed_0/budget_summary.json"
         summary = _read(summary_path)
-        winner = summary["final_winner"]
-        ga_final = CandidateGenotype.from_dict(winner["genotype"])
-        candidate_hash = str(winner["complete_phenotype_hash"])
-        source = _candidate_source(source_root, label, candidate_hash)
+        if int(summary.get("completed_evolution_generations", -1)) != int(
+            args.formal_generations
+        ):
+            raise RuntimeError(
+                f"v2xvit_pq_generation_count:{label}:"
+                f"{summary.get('completed_evolution_generations')}:"
+                f"{args.formal_generations}"
+            )
+        for method, key in (("Greedy", "greedy_anchor"), ("GA-final", "final_winner")):
+            winner = summary[key]
+            ga_final = CandidateGenotype.from_dict(winner["genotype"])
+            candidate_hash = str(winner["complete_phenotype_hash"])
+            source = _candidate_source(source_root, label, candidate_hash)
 
-        p_dir = root / f"engines/budget_{label}/P-only"
-        p_report_path = p_dir / "control_report.json"
-        if p_report_path.is_file():
-            p_report = _read(p_report_path)
-        else:
-            p_report = _build_p_only(
-                source=source,
-                destination=p_dir,
-                tensorrt_root=args.tensorrt_root.resolve(),
-                plugin=args.plugin.resolve(),
-                physical_gpu=args.physical_gpu,
-            )
-        controls[f"budget_{label}/P-only"] = {
-            **p_report,
-            "budget": int(label) / 100.0,
-            "source_candidate_hash": candidate_hash,
-        }
-
-        q_dir = root / f"engines/budget_{label}/Q-only"
-        q_report_path = q_dir / "control_report.json"
-        if q_report_path.is_file():
-            q_report = _read(q_report_path)
-        else:
-            q_candidate = q_only_genotype(
-                baseline, ga_final, tuple(space.precision_gene_ids)
-            )
-            q_phenotype = canonicalize_candidate(q_candidate, space)
-            q_hash = stable_json_hash(
-                {
-                    "control": "Q-only",
-                    "source_candidate_hash": candidate_hash,
-                    "phenotype": q_phenotype.to_dict(),
-                }
-            )
-            q_dir.mkdir(parents=True, exist_ok=False)
-            export = _export_candidate(
-                q_dir,
-                model,
-                adapter,
-                batch,
-                hypes,
-                q_phenotype,
-                q_hash,
-                stable_json_hash({"structure": "original", "control": "Q-only"}),
-                build_engine=True,
-                tensorrt_root=args.tensorrt_root.resolve(),
-                plugin=args.plugin.resolve(),
-                calibration_frames=(
-                    200
-                    if any(value == "INT8" for value in q_candidate.precision_genes.values())
-                    else 0
-                ),
-                qkv_paths=qkv_paths,
-                fixed_k_override=int(request["fixed_k"]),
-                physical_gpu_id=args.physical_gpu,
-            )
-            if not export.get("passed") or not export.get("engine", {}).get("passed"):
-                raise RuntimeError(f"q_only_engine_build_failed:{label}:{export}")
-            acceptance = _read(q_dir / "engine_build_acceptance.json")
-            precision = dict(acceptance.get("precision_realization_validation") or {})
-            functional = _read(q_dir / "functional_precision_trt_audit.json")
-            av = _read(q_dir / "av_profile_trt_audit.json")
-            if not (
-                precision.get("passed")
-                and not precision.get("mismatches")
-                and int(precision.get("unresolved_layer_count", 0)) == 0
-                and functional.get("passed")
-                and int(functional.get("unmapped_count", 0)) == 0
-                and int(functional.get("conflict_count", 0)) == 0
-                and av.get("passed")
-                and int(av.get("unmapped_count", 0)) == 0
-                and int(av.get("conflict_count", 0)) == 0
-                and int(av.get("fallback_count", 0)) == 0
-            ):
-                raise RuntimeError(f"q_only_precision_audit_failed:{label}")
-            q_report = {
-                "control": "Q-only",
-                "diagnostic_control": True,
-                "candidate_hash": q_hash,
+            p_dir = root / f"engines/budget_{label}/{method}/P-only"
+            p_report_path = p_dir / "control_report.json"
+            if p_report_path.is_file():
+                p_report = _read(p_report_path)
+            else:
+                p_report = _build_p_only(
+                    source=source,
+                    destination=p_dir,
+                    tensorrt_root=args.tensorrt_root.resolve(),
+                    plugin=args.plugin.resolve(),
+                    physical_gpu=args.physical_gpu,
+                )
+            controls[f"budget_{label}/{method}/P-only"] = {
+                **p_report,
+                "method": method,
+                "budget": int(label) / 100.0,
                 "source_candidate_hash": candidate_hash,
-                "candidate_plan": str(q_dir / "candidate.plan"),
-                "engine_sha256": _sha256(q_dir / "candidate.plan"),
-                "engine_size_bytes": (q_dir / "candidate.plan").stat().st_size,
-                "requested_realized_exact": True,
-                "mutable_precision_counts": {
-                    state: sum(value == state for value in q_candidate.precision_genes.values())
-                    for state in ("FP32", "FP16", "INT8")
-                },
-                "calibration_required": any(
-                    value == "INT8" for value in q_candidate.precision_genes.values()
-                ),
-                "export": export,
             }
-            _write(q_report_path, q_report)
-        controls[f"budget_{label}/Q-only"] = {
-            **q_report,
-            "budget": int(label) / 100.0,
-            "source_candidate_hash": candidate_hash,
-        }
+
+            q_dir = root / f"engines/budget_{label}/{method}/Q-only"
+            q_report_path = q_dir / "control_report.json"
+            if q_report_path.is_file():
+                q_report = _read(q_report_path)
+            else:
+                q_candidate = q_only_genotype(
+                    baseline, ga_final, tuple(space.precision_gene_ids)
+                )
+                q_phenotype = canonicalize_candidate(q_candidate, space)
+                q_hash = stable_json_hash(
+                    {
+                        "control": "Q-only",
+                        "method": method,
+                        "source_candidate_hash": candidate_hash,
+                        "phenotype": q_phenotype.to_dict(),
+                    }
+                )
+                q_dir.mkdir(parents=True, exist_ok=False)
+                export = _export_candidate(
+                    q_dir,
+                    model,
+                    adapter,
+                    batch,
+                    hypes,
+                    q_phenotype,
+                    q_hash,
+                    stable_json_hash({"structure": "original", "control": "Q-only"}),
+                    build_engine=True,
+                    tensorrt_root=args.tensorrt_root.resolve(),
+                    plugin=args.plugin.resolve(),
+                    calibration_frames=(
+                        200
+                        if any(value == "INT8" for value in q_candidate.precision_genes.values())
+                        else 0
+                    ),
+                    qkv_paths=qkv_paths,
+                    fixed_k_override=int(request["fixed_k"]),
+                    physical_gpu_id=args.physical_gpu,
+                )
+                if not export.get("passed") or not export.get("engine", {}).get("passed"):
+                    raise RuntimeError(f"q_only_engine_build_failed:{label}:{method}:{export}")
+                acceptance = _read(q_dir / "engine_build_acceptance.json")
+                precision = dict(acceptance.get("precision_realization_validation") or {})
+                functional = _read(q_dir / "functional_precision_trt_audit.json")
+                av = _read(q_dir / "av_profile_trt_audit.json")
+                if not (
+                    precision.get("passed")
+                    and not precision.get("mismatches")
+                    and int(precision.get("unresolved_layer_count", 0)) == 0
+                    and functional.get("passed")
+                    and int(functional.get("unmapped_count", 0)) == 0
+                    and int(functional.get("conflict_count", 0)) == 0
+                    and av.get("passed")
+                    and int(av.get("unmapped_count", 0)) == 0
+                    and int(av.get("conflict_count", 0)) == 0
+                    and int(av.get("fallback_count", 0)) == 0
+                ):
+                    raise RuntimeError(f"q_only_precision_audit_failed:{label}:{method}")
+                q_report = {
+                    "control": "Q-only",
+                    "diagnostic_control": True,
+                    "candidate_hash": q_hash,
+                    "source_candidate_hash": candidate_hash,
+                    "candidate_plan": str(q_dir / "candidate.plan"),
+                    "engine_sha256": _sha256(q_dir / "candidate.plan"),
+                    "engine_size_bytes": (q_dir / "candidate.plan").stat().st_size,
+                    "requested_realized_exact": True,
+                    "mutable_precision_counts": {
+                        state: sum(value == state for value in q_candidate.precision_genes.values())
+                        for state in ("FP32", "FP16", "INT8")
+                    },
+                    "calibration_required": any(
+                        value == "INT8" for value in q_candidate.precision_genes.values()
+                    ),
+                    "export": export,
+                }
+                _write(q_report_path, q_report)
+            controls[f"budget_{label}/{method}/Q-only"] = {
+                **q_report,
+                "method": method,
+                "budget": int(label) / 100.0,
+                "source_candidate_hash": candidate_hash,
+            }
         _write(root / "reports/build_progress.json", {
             "status": "building",
             "completed_control_count": len(controls),
-            "total_control_count": 12,
+            "total_control_count": expected_control_count,
             "controls": controls,
         })
         torch.cuda.empty_cache()
@@ -344,7 +373,8 @@ def run(args: argparse.Namespace) -> int:
     })
 
     results: dict[str, list[dict[str, Any]]] = {}
-    for repeat in range(1, 4):
+    total_evaluations = expected_control_count * int(args.repetitions)
+    for repeat in range(1, int(args.repetitions) + 1):
         for control_id, control in controls.items():
             destination = root / "evaluation_full1789" / f"repeat_{repeat}" / control_id
             result_path = destination / "evaluation.json"
@@ -382,6 +412,8 @@ def run(args: argparse.Namespace) -> int:
                 "AP@0.7": float(evaluation["AP@0.7"]),
                 "mAP": float(evaluation["mAP"]),
                 "forward_p50_ms": float(evaluation["forward_p50_ms"]),
+                "forward_p90_ms": float(evaluation["forward_p90_ms"]),
+                "forward_p99_ms": float(evaluation["forward_p99_ms"]),
                 "evaluated": 1789,
                 "skipped": 0,
             }
@@ -392,15 +424,18 @@ def run(args: argparse.Namespace) -> int:
             _write(root / "reports/evaluation_progress.json", {
                 "status": "running",
                 "completed_evaluations": sum(len(value) for value in results.values()),
-                "total_evaluations": 36,
+                "total_evaluations": total_evaluations,
                 "last_control": control_id,
                 "last_repeat": repeat,
                 "results": results,
             })
             print(json.dumps({"event": "pq_full1789_complete", "control": control_id,
                               "repeat": repeat, "mAP": row["mAP"]}, sort_keys=True), flush=True)
-    summaries = {control_id: _summary(rows) for control_id, rows in results.items()}
-    _write(root / "reports/pq_only_full1789_repeat3.json", {
+    summaries = {
+        control_id: _summary(rows, repeat_count=int(args.repetitions))
+        for control_id, rows in results.items()
+    }
+    _write(root / f"reports/pq_only_full1789_repeat{int(args.repetitions)}.json", {
         "status": "complete",
         "manifest": str(args.full_manifest.resolve()),
         "manifest_hash": manifest.get("manifest_hash"),
@@ -408,7 +443,9 @@ def run(args: argparse.Namespace) -> int:
         "summaries": summaries,
     })
     _write(root / "reports/evaluation_progress.json", {
-        "status": "complete", "completed_evaluations": 36, "total_evaluations": 36,
+        "status": "complete",
+        "completed_evaluations": total_evaluations,
+        "total_evaluations": total_evaluations,
     })
     return 0
 
@@ -421,6 +458,9 @@ def main() -> int:
     parser.add_argument("--request-json", type=Path, required=True)
     parser.add_argument("--full-manifest", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, required=True)
+    parser.add_argument("--labels", default=",".join(LABELS))
+    parser.add_argument("--repetitions", type=int, default=3)
+    parser.add_argument("--formal-generations", type=int, default=10)
     parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument(
         "--tensorrt-root",

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.run_v2xvit_sixbudget_full1789_repeat3 import summarize_repetitions
+from scripts.run_v2xvit_sixbudget_full1789_repeat3 import (
+    _parse_labels,
+    summarize_repetitions,
+)
 
 
 def _row(index: int) -> dict[str, float | int]:
@@ -13,6 +16,8 @@ def _row(index: int) -> dict[str, float | int]:
         "AP@0.7": 0.4 + index * 0.001,
         "mAP": 0.5 + index * 0.001,
         "forward_p50_ms": 10.0 + index,
+        "forward_p90_ms": 11.0 + index,
+        "forward_p99_ms": 12.0 + index,
     }
 
 
@@ -26,3 +31,21 @@ def test_repeat3_summary_uses_all_three_repetitions() -> None:
 def test_repeat3_summary_fails_closed_on_missing_repeat() -> None:
     with pytest.raises(RuntimeError, match="repeat_count_mismatch"):
         summarize_repetitions([_row(1), _row(2)])
+
+
+def test_repeat5_summary_uses_all_five_repetitions() -> None:
+    result = summarize_repetitions(
+        [_row(index) for index in range(1, 6)], repeat_count=5
+    )
+    assert result["mAP_mean"] == pytest.approx(0.503)
+    assert result["forward_p90_ms_mean"] == pytest.approx(14.0)
+    assert result["forward_p99_ms_mean"] == pytest.approx(15.0)
+    assert len(result["repetitions"]) == 5
+
+
+def test_budget_subset_parser_is_ordered_and_fail_closed() -> None:
+    assert _parse_labels("005,030,010") == ("005", "030", "010")
+    with pytest.raises(ValueError, match="labels_unknown"):
+        _parse_labels("005,007")
+    with pytest.raises(ValueError, match="labels_invalid"):
+        _parse_labels("005,005")
