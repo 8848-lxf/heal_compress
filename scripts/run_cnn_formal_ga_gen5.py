@@ -53,7 +53,12 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def freeze_gen5_continuation_state(root: Path) -> dict[str, object]:
+def freeze_gen5_continuation_state(
+    root: Path,
+    *,
+    labels: tuple[str, ...] | None = None,
+    expected_activation_taylor_weight: float | None = None,
+) -> dict[str, object]:
     """Preserve the completed five-generation audit before deterministic replay.
 
     The original runner did not serialize all 64 survivors or ``random.Random``
@@ -68,6 +73,14 @@ def freeze_gen5_continuation_state(root: Path) -> dict[str, object]:
     manifest_path = destination / "snapshot_manifest.json"
     if manifest_path.is_file():
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if labels is not None and set(payload.get("budget_labels", [])) != set(labels):
+            raise RuntimeError("cnn_gen5_snapshot_budget_contract_mismatch")
+        if (
+            expected_activation_taylor_weight is not None
+            and float(payload.get("activation_taylor_fitness_weight", -1.0))
+            != float(expected_activation_taylor_weight)
+        ):
+            raise RuntimeError("cnn_gen5_snapshot_activation_weight_mismatch")
         for row in payload.get("files", []):
             snapshot = destination / str(row["snapshot_relative_path"])
             if not snapshot.is_file() or sha256_file(snapshot) != str(row["sha256"]):
@@ -83,7 +96,16 @@ def freeze_gen5_continuation_state(root: Path) -> dict[str, object]:
     if int(results.get("formal_generations", -1)) != 5:
         raise RuntimeError("cnn_gen10_continuation_source_not_gen5")
     completed = dict(results.get("results") or {})
-    expected_labels = {f"{int(round(value * 100)):03d}" for value in DEFAULT_TARGETS}
+    expected_labels = set(
+        labels
+        or tuple(f"{int(round(value * 100)):03d}" for value in DEFAULT_TARGETS)
+    )
+    if (
+        expected_activation_taylor_weight is not None
+        and float(results.get("activation_taylor_fitness_weight", -1.0))
+        != float(expected_activation_taylor_weight)
+    ):
+        raise RuntimeError("cnn_gen10_continuation_activation_weight_mismatch")
     if set(completed) != expected_labels or any(
         int(row.get("completed_evolution_generations", -1)) != 5
         for row in completed.values()
@@ -128,6 +150,10 @@ def freeze_gen5_continuation_state(root: Path) -> dict[str, object]:
         "continuation_target_generation": 10,
         "replay_generations": [1, 2, 3, 4, 5],
         "new_generations": [6, 7, 8, 9, 10],
+        "budget_labels": sorted(expected_labels),
+        "activation_taylor_fitness_weight": float(
+            results.get("activation_taylor_fitness_weight", 1.0)
+        ),
         "stage2_artifacts_copied": False,
         "stage2_cache_reused_by_complete_phenotype_hash": True,
         "files": rows,
@@ -208,22 +234,24 @@ def run(args: argparse.Namespace) -> int:
             f"cnn_formal_ga_requires_5_or_10_generations:{args.generations}"
         )
     continuation_mode = bool(generations == 10 and args.resume)
-    direct_jaq0_experiment = bool(
-        generations == 10
-        and args.model == "pyramid"
-        and not args.resume
+    controlled_jaq0_experiment = bool(
+        args.model == "pyramid"
         and activation_weight == 0.0
+        and args.targets == "0.05"
     )
+    direct_jaq0_experiment = bool(
+        controlled_jaq0_experiment and not args.resume
+    )
+    if activation_weight == 0.0 and not controlled_jaq0_experiment:
+        raise RuntimeError(
+            "pyramid_controlled_jaq0_requires_single_budget_005"
+        )
     if generations == 10 and not (
         (args.model == "pyramid" and continuation_mode)
         or direct_jaq0_experiment
     ):
         raise RuntimeError(
             "cnn_formal_ga_gen10_requires_pyramid_resume_or_direct_jaq0_ablation"
-        )
-    if direct_jaq0_experiment and args.targets != "0.05":
-        raise RuntimeError(
-            "pyramid_direct_jaq0_ablation_requires_single_budget_005"
         )
     if int(args.seed) != 0:
         raise RuntimeError(f"cnn_formal_ga_single_seed_zero_required:{args.seed}")
@@ -253,7 +281,11 @@ def run(args: argparse.Namespace) -> int:
         (root / name).mkdir(parents=True, exist_ok=True)
     continuation_snapshot = None
     if continuation_mode:
-        continuation_snapshot = freeze_gen5_continuation_state(root)
+        continuation_snapshot = freeze_gen5_continuation_state(
+            root,
+            labels=tuple(f"{int(round(target * 100)):03d}" for target in targets),
+            expected_activation_taylor_weight=activation_weight,
+        )
     spec = MODEL_SPECS[args.model]
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -282,7 +314,7 @@ def run(args: argparse.Namespace) -> int:
         "generation_contract": f"formal_gen{generations}",
         "generations": generations,
         "deterministic_replay_continuation": continuation_mode,
-        "controlled_jaq0_ablation": direct_jaq0_experiment,
+        "controlled_jaq0_ablation": controlled_jaq0_experiment,
         "activation_taylor_fitness_weight": activation_weight,
         "activation_taylor_used_for_fitness": bool(activation_weight),
         "continuation_snapshot": continuation_snapshot,
@@ -521,7 +553,7 @@ def run(args: argparse.Namespace) -> int:
         "formal_generations": generations,
         "formal_generation_ids": list(range(1, generations + 1)),
         "deterministic_replay_continuation": continuation_mode,
-        "controlled_jaq0_ablation": direct_jaq0_experiment,
+        "controlled_jaq0_ablation": controlled_jaq0_experiment,
         "activation_taylor_fitness_weight": activation_weight,
         "activation_taylor_used_for_fitness": bool(activation_weight),
         "gen5_replay_verification": replay_verification,
@@ -554,7 +586,7 @@ def run(args: argparse.Namespace) -> int:
         "generations_requested": generations,
         "generation_ids": list(range(1, generations + 1)),
         "deterministic_replay_continuation": continuation_mode,
-        "controlled_jaq0_ablation": direct_jaq0_experiment,
+        "controlled_jaq0_ablation": controlled_jaq0_experiment,
         "activation_taylor_fitness_weight": activation_weight,
         "activation_taylor_used_for_fitness": bool(activation_weight),
         "gen5_replay_prefix_exact": (
@@ -591,6 +623,48 @@ def run(args: argparse.Namespace) -> int:
         "failures": failures,
         "full1789_executed": False,
     })
+    if generations == 5 and not failures:
+        continuation_files = []
+        for target in targets:
+            label = f"{int(round(target * 100)):03d}"
+            for generation in range(0, 6):
+                path = (
+                    root
+                    / f"ga/budget_{label}/seed_0/generation_{generation:02d}"
+                    / "generation_summary.json"
+                )
+                if not path.is_file():
+                    raise RuntimeError(
+                        f"cnn_gen5_continuation_generation_missing:{path}"
+                    )
+                continuation_files.append(
+                    {
+                        "relative_path": str(path.relative_to(root)),
+                        "sha256": sha256_file(path),
+                    }
+                )
+        write_json(root / "reports/continuation_ready.json", {
+            "schema_version": "cnn-formal-ga-gen5-continuation-ready-v1",
+            "ready": True,
+            "source_generations": 5,
+            "supported_continuation_target_generations": [10],
+            "continuation_mode": (
+                "deterministic_replay_generations_1_to_5_with_stage2_cache_reuse_"
+                "and_exact_prefix_verification_then_run_6_to_10"
+            ),
+            "model": args.model,
+            "seed": int(args.seed),
+            "targets": list(targets),
+            "activation_taylor_fitness_weight": activation_weight,
+            "activation_taylor_used_for_fitness": bool(activation_weight),
+            "resume_arguments": [
+                "--resume", "--generations", "10",
+                "--activation-taylor-fitness-weight", str(activation_weight),
+                "--targets", args.targets,
+            ],
+            "generation_summary_files": continuation_files,
+            "stage2_cache_reused_by_complete_phenotype_hash": True,
+        })
     gpu_end = query_gpus()
     write_json(root / "provenance/end.json", {
         "gpu": next(

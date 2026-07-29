@@ -26,3 +26,26 @@ Timestamp: 2026-07-28 05:10 CST
 - Targeted regression: 33 passed; compileall, py_compile and git diff check
   passed.
 
+---
+
+Timestamp: 2026-07-29 08:59:40 CST
+
+## Five-generation launch and continuation closure
+
+- Changed the controlled Pyramid `J_AQ=0` experiment to support a fresh,
+  single-budget five-generation run while retaining the exact same
+  `StrictStage12V3Runner`, population 64, offspring 64, Stage-2 quota 5 and
+  seed 0 contracts.
+- Generalized the generation-5 freeze/verification code from the historical
+  hard-coded six-budget set to the actual requested budget labels.  This lets
+  the single `R_BOPS=0.05` ablation be resumed safely.
+- Bound continuation to the original activation-Taylor fitness weight.  A
+  request that changes `0.0` to `1.0` fails closed instead of mixing proxy
+  contracts.
+- Added `reports/continuation_ready.json` after a successful generation-5
+  run.  It records generation 0--5 summary hashes and the supported resume
+  arguments.  The supported extension is `--resume --generations 10`: it
+  deterministically replays generations 1--5 using immutable Stage-2 caches,
+  verifies every summary hash, then executes new generations 6--10.
+- Regression after the change: 28 targeted tests passed; compileall and
+  `git diff --check` passed.

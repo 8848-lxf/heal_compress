@@ -94,10 +94,11 @@ def test_cnn_formal_entrypoint_supports_five_and_pyramid_replay_to_ten() -> None
               / "scripts/run_cnn_formal_ga_gen5.py").read_text()
     assert "requires_5_or_10_generations" in source
     assert "gen10_requires_pyramid_resume_or_direct_jaq0_ablation" in source
-    assert "pyramid_direct_jaq0_ablation_requires_single_budget_005" in source
+    assert "pyramid_controlled_jaq0_requires_single_budget_005" in source
     assert "activation-taylor-fitness-weight" in source
     assert "freeze_gen5_continuation_state" in source
     assert "verify_gen5_replay_prefix" in source
+    assert "continuation_ready.json" in source
     assert "single_seed_zero_required" in source
     assert '"StrictStage12V3Runner"' in source
     assert "full1789_executed" in source
@@ -153,6 +154,52 @@ def test_pyramid_gen5_snapshot_and_replay_verification_are_fail_closed(
     changed.write_text('{"generation": 5, "drift": true}')
     with pytest.raises(RuntimeError, match="replay_prefix_mismatch"):
         verify_gen5_replay_prefix(tmp_path, labels)
+
+
+def test_pyramid_single_budget_jaq0_gen5_snapshot_is_resumable(
+    tmp_path: Path,
+) -> None:
+    from scripts.run_cnn_formal_ga_gen5 import freeze_gen5_continuation_state
+
+    label = "005"
+    (tmp_path / "reports").mkdir()
+    (tmp_path / "provenance").mkdir()
+    (tmp_path / "provenance/start.json").write_text(
+        json.dumps({"activation_taylor_fitness_weight": 0.0})
+    )
+    result = {
+        "formal_generations": 5,
+        "activation_taylor_fitness_weight": 0.0,
+        "targets": [0.05],
+        "results": {label: {"completed_evolution_generations": 5}},
+    }
+    (tmp_path / "reports/formal_ga_results.json").write_text(json.dumps(result))
+    (tmp_path / "reports/formal_ga_budget_summary.csv").write_text("budget\n")
+    (tmp_path / "reports/final_acceptance.json").write_text("{}")
+    seed = tmp_path / f"ga/budget_{label}/seed_0"
+    seed.mkdir(parents=True)
+    (seed / "budget_summary.json").write_text("{}")
+    for generation in range(6):
+        destination = seed / f"generation_{generation:02d}"
+        destination.mkdir()
+        (destination / "generation_summary.json").write_text(
+            json.dumps({"generation": generation, "budget": label})
+        )
+
+    snapshot = freeze_gen5_continuation_state(
+        tmp_path,
+        labels=(label,),
+        expected_activation_taylor_weight=0.0,
+    )
+    assert snapshot["budget_labels"] == [label]
+    assert snapshot["activation_taylor_fitness_weight"] == 0.0
+    assert snapshot["new_generations"] == [6, 7, 8, 9, 10]
+    with pytest.raises(RuntimeError, match="activation_weight_mismatch"):
+        freeze_gen5_continuation_state(
+            tmp_path,
+            labels=(label,),
+            expected_activation_taylor_weight=1.0,
+        )
 
 
 def test_cnn_two_tier_real_evaluation_protocol_is_frozen() -> None:
