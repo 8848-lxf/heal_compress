@@ -49,3 +49,32 @@ Timestamp: 2026-07-29 08:59:40 CST
   verifies every summary hash, then executes new generations 6--10.
 - Regression after the change: 28 targeted tests passed; compileall and
   `git diff --check` passed.
+
+---
+
+Timestamp: 2026-07-28 18:24 CST
+
+## Physical/logical GPU isolation correction before restart
+
+- The first five-generation launch was stopped during the Greedy-anchor
+  TensorRT calibration phase after read-only process inspection showed that
+  the main PyTorch process was correctly isolated on physical GPU6, but its
+  ModelOpt calibration worker had been launched on physical GPU0.
+- Root cause: the formal launcher correctly converted physical GPU6 to the
+  process-local CUDA ordinal 0, while `select_gpu()` subsequently stored that
+  local ordinal as `physical_gpu_id=0`.  ModelOpt subprocess construction then
+  reused the incorrect physical identifier in `CUDA_VISIBLE_DEVICES`.
+- Fixed the shared runtime GPU selection helper so an isolated local ordinal
+  is mapped back through the existing `CUDA_VISIBLE_DEVICES` list.  PyTorch
+  retains `runtime_device=cuda:0`, while calibration, TensorRT and evaluation
+  subprocesses retain `physical_gpu_id=6`.
+- Added single-visible-device and multiple-visible-device regression tests.
+  A live dry check under `CUDA_VISIBLE_DEVICES=6` now resolves to
+  `physical_gpu_id=6` and `runtime_device=cuda:0`.
+- The invalid run root
+  `/data/lxf/heal_data/outputs/h800_pyramid_r005_ga_jaq0_gen5_20260729_090028`
+  is retained as failed provenance and is not resumed or reused.  Restart must
+  use a new run root and verify the first ModelOpt worker environment before
+  allowing the five-generation search to continue.
+- Regression after the isolation fix: 30 targeted tests passed; compileall and
+  `git diff --check` passed.
