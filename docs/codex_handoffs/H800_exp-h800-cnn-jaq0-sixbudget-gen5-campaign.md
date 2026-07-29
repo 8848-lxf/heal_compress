@@ -20,5 +20,8 @@
 - Generalized the Pyramid and generic CNN joint/P-only/Q-only full1789 runners to record an explicit repeat count; their campaign default is now three.
 - Existing evaluations that had already passed three repetitions were not interrupted. Any fourth/fifth repetitions already produced remain diagnostic only and will not enter the formal three-repeat aggregation.
 - Focused validation: `7 passed`; `py_compile` and `git diff --check` passed.
+- Added provenance-locked prefix reaggregation so completed five-repeat P+Q runs can formally use identical repeat indices 0/1/2 without rerunning or overwriting the source. Pyramid, DiscoNet, and F-Cooper `.05` repeat3 reports passed.
+- Added one fail-closed follow-on orchestrator for DiscoNet/GPU1, F-Cooper/GPU2, and AttFusion/GPU6. It explicitly requests repeat3 for all new joint and P/Q evaluations and rejects any model/GPU mismatch.
+- The revised focused suite now reports `8 passed`.
 
 ---

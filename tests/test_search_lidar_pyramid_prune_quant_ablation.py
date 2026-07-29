@@ -189,6 +189,23 @@ def test_pyramid_pq_child_propagates_three_repeat_contract():
     assert command[position + 1] == "3"
 
 
+def test_repeat_prefix_loader_restores_numeric_identity_fields(tmp_path):
+    from scripts.reaggregate_formal_repeat_prefix import _load_rows
+
+    path = tmp_path / "repeat_results.csv"
+    path.write_text(
+        "repeat_index,budget,assigned_method,num_evaluated_frames,"
+        "num_skipped_frames,mAP\n0,0.05,greedy,1789,0,0.5\n"
+        "1,,baseline,1789,0,0.6\n",
+        encoding="utf-8",
+    )
+    rows = _load_rows(path)
+    assert rows[0]["repeat_index"] == 0
+    assert rows[0]["budget"] == 0.05
+    assert rows[1]["repeat_index"] == 1
+    assert rows[1]["budget"] is None
+
+
 def test_greedy_budget_replay_uses_lowest_taylor_feasible_state(tmp_path):
     from search.ablation.lidar_pyramid_prune_quant import replay_greedy_budget_candidate
     from search.candidate import CandidateGenotype, CandidatePhenotype, PrecisionDecision
