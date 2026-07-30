@@ -227,6 +227,78 @@ def test_adaptive_int8_merge_qdq_keeps_dequantized_inputs_and_no_float_merge_cas
     assert audit["derived_merge_precision"] == "int8"
 
 
+def test_adaptive_merge_calibration_and_qdq_share_pre_merge_boundary(tmp_path) -> None:
+    import struct
+
+    import onnx
+    import pytest
+
+    from quantization.config import QDQConfig
+    from quantization.precision.merge_contract import apply_adaptive_merge_output_contract
+    from quantization.precision.qdq_inserter import insert_explicit_qdq
+    from search.integration.calibration_provider import (
+        qdq_scales_from_tensorrt_entropy_cache,
+    )
+
+    model, mapping = _adaptive_merge_fixture("int8", "int8")
+    resolved, _report = apply_adaptive_merge_output_contract(model, mapping)
+    input_path = tmp_path / "adaptive_calibration.onnx"
+    output_path = tmp_path / "adaptive_calibration_qdq.onnx"
+    cache_path = tmp_path / "adaptive_calibration.cache"
+    onnx.save(model, input_path)
+    cache_path.write_text(
+        "\n".join(
+            [
+                "TRT-100900-EntropyCalibration2",
+                f"x: {struct.pack('!f', 0.1).hex()}",
+                f"a: {struct.pack('!f', 0.2).hex()}",
+                f"b: {struct.pack('!f', 0.3).hex()}",
+                f"merged: {struct.pack('!f', 0.4).hex()}",
+                f"y: {struct.pack('!f', 0.5).hex()}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config = QDQConfig(
+        allowed_precisions=("fp32", "fp16", "int8"),
+        merge_policy="adaptive_upcast_merge",
+    )
+
+    scales, details = qdq_scales_from_tensorrt_entropy_cache(
+        onnx_path=input_path,
+        origin_map=resolved,
+        module_paths=["a", "b"],
+        cache_path=cache_path,
+        weight_granularity="per_channel",
+        precision_mapping=resolved,
+        merge_policy=config.merge_policy,
+    )
+
+    assert scales["a"]["activation_output_tensor"] == "a"
+    assert scales["b"]["activation_output_tensor"] == "b"
+    assert scales["a"]["activation_output_boundary_stop_before_merge"] is True
+    assert scales["a"]["activation_output_scale"] == pytest.approx(0.2)
+    assert scales["b"]["activation_output_scale"] == pytest.approx(0.3)
+    assert details["activation_output_boundary_precision_mapping_used"] is True
+
+    result = insert_explicit_qdq(
+        input_path,
+        output_path,
+        resolved,
+        scales=scales,
+        config=config,
+    )
+    by_module = {
+        row["canonical_layer"]: row
+        for row in result.calibration_metadata["weighted_qdq_boundary_audit"]
+    }
+    assert by_module["a"]["activation_scale_owner"] == "a"
+    assert by_module["b"]["activation_scale_owner"] == "b"
+    assert by_module["a"]["q_node_actual_input_tensor"] == ["a__before_output_qdq"]
+    assert by_module["b"]["q_node_actual_input_tensor"] == ["b__before_output_qdq"]
+
+
 def test_adaptive_mixed_merge_promotes_only_at_merge_edges(tmp_path) -> None:
     import onnx
 

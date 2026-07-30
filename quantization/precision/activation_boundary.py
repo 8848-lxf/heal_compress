@@ -5,6 +5,24 @@ from __future__ import annotations
 from typing import Any
 
 
+def activation_output_boundary_stops_before_merge(
+    *,
+    merge_policy: str,
+    realized_output_precision: str,
+) -> bool:
+    """Return whether one weighted output must own scale before a merge.
+
+    Adaptive runtime merges quantize an INT8 producer before the merge and
+    derive the merge precision from all incoming branches.  Calibration and
+    Q/DQ insertion must therefore stop at the same raw weighted boundary.
+    """
+
+    return (
+        str(merge_policy).lower() == "adaptive_upcast_merge"
+        and str(realized_output_precision).lower() == "int8"
+    )
+
+
 def resolve_activation_output_boundary(
     model: Any,
     weighted_node_name: str,
@@ -129,4 +147,30 @@ def resolve_activation_output_boundary(
         "following_ops": following_ops,
         "resolution": resolution,
         "moved_after_weighted_node": str(boundary_node.name) != str(weighted_node_name),
+    }
+
+
+def resolve_activation_output_boundary_for_precision(
+    model: Any,
+    weighted_node_name: str,
+    *,
+    merge_policy: str,
+    realized_output_precision: str,
+) -> dict[str, Any]:
+    """Resolve a boundary using the realized deployment precision contract."""
+
+    stop_before_merge = activation_output_boundary_stops_before_merge(
+        merge_policy=merge_policy,
+        realized_output_precision=realized_output_precision,
+    )
+    boundary = resolve_activation_output_boundary(
+        model,
+        weighted_node_name,
+        stop_before_merge=stop_before_merge,
+    )
+    return {
+        **boundary,
+        "merge_policy": str(merge_policy),
+        "realized_output_precision": str(realized_output_precision).lower(),
+        "stop_before_merge": bool(stop_before_merge),
     }

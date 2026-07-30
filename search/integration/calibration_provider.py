@@ -205,6 +205,8 @@ def qdq_scales_from_tensorrt_entropy_cache(
     cache_path: str | Path,
     weight_granularity: str = "per_channel",
     activation_scale_source: str = "fresh_TensorRT_IInt8EntropyCalibrator2_exact_tensor_match",
+    precision_mapping: Any | None = None,
+    merge_policy: str = "fp16_merge",
 ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
     """Create production Q/DQ scales from exact TensorRT cache tensor names.
 
@@ -218,9 +220,13 @@ def qdq_scales_from_tensorrt_entropy_cache(
     import onnx
     from onnx import numpy_helper
     try:
-        from quantization.precision.activation_boundary import resolve_activation_output_boundary
+        from quantization.precision.activation_boundary import (
+            resolve_activation_output_boundary_for_precision,
+        )
     except ImportError:
-        from heal_compress.quantization.precision.activation_boundary import resolve_activation_output_boundary
+        from heal_compress.quantization.precision.activation_boundary import (
+            resolve_activation_output_boundary_for_precision,
+        )
 
     if str(weight_granularity) not in {"per_tensor", "per_channel"}:
         raise RuntimeError(f"unsupported_qdq_weight_granularity:{weight_granularity}")
@@ -235,6 +241,21 @@ def qdq_scales_from_tensorrt_entropy_cache(
     missing_entries = [name for name in requested if name not in entries]
     if missing_entries:
         raise RuntimeError(f"qdq_calibration_origin_entries_missing:{missing_entries}")
+    precision_entries = (
+        {
+            str(_field(row, "module_path")): row
+            for row in _origin_entries(precision_mapping)
+        }
+        if precision_mapping is not None
+        else {}
+    )
+    missing_precision_entries = [
+        name for name in requested if precision_mapping is not None and name not in precision_entries
+    ]
+    if missing_precision_entries:
+        raise RuntimeError(
+            f"qdq_calibration_precision_entries_missing:{missing_precision_entries}"
+        )
 
     scales: dict[str, dict[str, Any]] = {}
     exact_matches: list[dict[str, str]] = []
@@ -246,7 +267,25 @@ def qdq_scales_from_tensorrt_entropy_cache(
         if not node.input or not node.output:
             raise RuntimeError(f"qdq_calibration_weighted_node_boundary_missing:{name}")
         input_tensor = str(node.input[0])
-        output_boundary = resolve_activation_output_boundary(model, str(node.name))
+        precision_entry = precision_entries.get(name)
+        realized_output_precision = (
+            str(
+                (
+                    _field(precision_entry, "realized_output_precision")
+                    or _field(precision_entry, "realized_request_precision")
+                )
+                if precision_entry is not None
+                else ""
+            )
+            .strip()
+            .lower()
+        )
+        output_boundary = resolve_activation_output_boundary_for_precision(
+            model,
+            str(node.name),
+            merge_policy=merge_policy,
+            realized_output_precision=realized_output_precision,
+        )
         output_tensor = str(output_boundary["boundary_output_tensor"])
         missing_boundaries = [tensor for tensor in (input_tensor, output_tensor) if tensor not in cache]
         if missing_boundaries:
@@ -296,6 +335,13 @@ def qdq_scales_from_tensorrt_entropy_cache(
             "activation_output_tensor": output_tensor,
             "activation_output_boundary_resolution": str(output_boundary["resolution"]),
             "activation_output_boundary_node": str(output_boundary["boundary_node_name"]),
+            "activation_output_boundary_merge_policy": str(output_boundary["merge_policy"]),
+            "activation_output_boundary_realized_precision": str(
+                output_boundary["realized_output_precision"]
+            ),
+            "activation_output_boundary_stop_before_merge": bool(
+                output_boundary["stop_before_merge"]
+            ),
             "activation_scale_source": str(activation_scale_source),
             "weight_scale": weight_scale,
             "weight_axis": weight_axis,
@@ -313,6 +359,8 @@ def qdq_scales_from_tensorrt_entropy_cache(
         "semantics_version": TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION,
         "activation_calibration_method": "tensorrt_entropy_calibration2",
         "activation_scale_source": str(activation_scale_source),
+        "activation_output_boundary_merge_policy": str(merge_policy),
+        "activation_output_boundary_precision_mapping_used": precision_mapping is not None,
         "cache_path": str(Path(cache_path).expanduser().resolve()),
         "cache_sha256": _sha256_file(Path(cache_path).expanduser().resolve()),
         "cache_positive_scale_count": len(cache),

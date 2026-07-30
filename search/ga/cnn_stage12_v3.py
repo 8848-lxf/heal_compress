@@ -9,6 +9,7 @@ retaining their already-audited model loaders and TensorRT evaluators.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 import os
@@ -1276,6 +1277,8 @@ def build_initial_population(
 
 
 class CNNRealStage2Evaluator:
+    cache_schema_version = "cnn-real-stage2-cache-v2-retry-stale-failures"
+
     def __init__(
         self,
         *,
@@ -1327,17 +1330,28 @@ class CNNRealStage2Evaluator:
                     "cnn_stage2_cache_protocol_mismatch:"
                     f"{complete_hash}:{metadata}"
                 )
-            return Stage2Result(
-                complete_phenotype_hash=complete_hash,
-                genotype=genotype,
-                status=str(payload["status"]),
-                map=payload.get("mAP"),
-                p50_ms=payload.get("p50_ms"),
-                requested_realized_exact=bool(payload["requested_realized_exact"]),
-                evaluated=int(payload["evaluated"]),
-                skipped=int(payload["skipped"]),
-                metadata=metadata,
+            cache_schema_current = (
+                str(metadata.get("stage2_cache_schema", ""))
+                == self.cache_schema_version
             )
+            if str(payload["status"]) == "ok" or cache_schema_current:
+                return Stage2Result(
+                    complete_phenotype_hash=complete_hash,
+                    genotype=genotype,
+                    status=str(payload["status"]),
+                    map=payload.get("mAP"),
+                    p50_ms=payload.get("p50_ms"),
+                    requested_realized_exact=bool(payload["requested_realized_exact"]),
+                    evaluated=int(payload["evaluated"]),
+                    skipped=int(payload["skipped"]),
+                    metadata=metadata,
+                )
+            stale_hash = hashlib.sha256(result_path.read_bytes()).hexdigest()[:12]
+            stale_path = destination / (
+                f"strict_stage2_result.stale_{stale_hash}.json"
+            )
+            if not stale_path.is_file():
+                write_json(stale_path, payload)
         phenotype = canonicalize_candidate(genotype, self.prepared.space)
         raw = self.real_evaluator.evaluate_candidate(
             phenotype,
@@ -1385,6 +1399,7 @@ class CNNRealStage2Evaluator:
                 "evaluation_frames": self.evaluation_frames,
                 "evaluation_warmup_frames": self.evaluation_warmup_frames,
                 "evaluation_protocol": self.evaluation_protocol,
+                "stage2_cache_schema": self.cache_schema_version,
             },
         )
         write_json(result_path, stage2_payload(result))

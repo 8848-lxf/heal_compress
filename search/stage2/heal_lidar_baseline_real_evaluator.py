@@ -21,6 +21,7 @@ from search.model_family.heal_lidar_deployment import (
     HEAL_LIDAR_BASELINE_INPUT_NAMES,
     build_heal_lidar_baseline_precision_mapping,
     export_heal_lidar_baseline_fixed_k_onnx,
+    heal_lidar_baseline_qdq_config,
     insert_heal_lidar_baseline_explicit_qdq,
     validate_heal_lidar_precision_realization,
 )
@@ -491,6 +492,7 @@ class HealLidarBaselineCandidateEvaluator:
         model: nn.Module,
         export_artifact: Any,
         mapping: Any,
+        qdq_config: Any,
         output_dir: Path,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         int8_modules = sorted({
@@ -531,6 +533,8 @@ class HealLidarBaselineCandidateEvaluator:
                 module_paths=int8_modules,
                 cache_path=entropy["calibration_cache_path"],
                 weight_granularity="per_channel",
+                precision_mapping=mapping,
+                merge_policy=qdq_config.merge_policy,
             )
             return scales, {**metadata, "entropy_build": entropy}
         if backend == "external_tensorrt_entropy_cache_exact_match":
@@ -544,6 +548,8 @@ class HealLidarBaselineCandidateEvaluator:
                 module_paths=int8_modules,
                 cache_path=self.context.quant_activation_calibration_cache_path,
                 weight_granularity="per_channel",
+                precision_mapping=mapping,
+                merge_policy=qdq_config.merge_policy,
             )
         from search.integration.calibration_provider import (
             BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
@@ -713,12 +719,14 @@ class HealLidarBaselineCandidateEvaluator:
                     module_to_precision_group=module_to_precision_group,
                 ),
             )
+            qdq_config = heal_lidar_baseline_qdq_config(mapping)
             scales, calibration = timed(
                 "activation_calibration_seconds",
                 lambda: self._calibration_scales(
                     model=model,
                     export_artifact=export,
                     mapping=mapping,
+                    qdq_config=qdq_config,
                     output_dir=destination / "calibration",
                 ),
             )
@@ -730,6 +738,7 @@ class HealLidarBaselineCandidateEvaluator:
                     mapping,
                     family=self.context.family_id,
                     scales=scales,
+                    config=qdq_config,
                     calibration_metadata=calibration,
                 ),
             )

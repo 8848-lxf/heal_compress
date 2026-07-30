@@ -13,7 +13,7 @@ from ..config import QDQConfig
 from ..exceptions import QDQInsertionError
 from ..types import CanonicalPrecisionMappingResult, QDQInsertionRecord, QDQInsertionResult, stable_json_hash
 from ..export.origin_trace import build_weight_trace_index, trace_compute_node_weight
-from .activation_boundary import resolve_activation_output_boundary
+from .activation_boundary import resolve_activation_output_boundary_for_precision
 from .merge_contract import (
     adaptive_merge_cast_name,
     adaptive_merge_dtype_audit,
@@ -1091,13 +1091,11 @@ def insert_explicit_qdq(
             weight_axis = normalized_axis
         elif weight_axis is not None:
             raise QDQInsertionError(f"scalar weight scale must not declare an axis for {entry.module_path}")
-        output_boundary = resolve_activation_output_boundary(
+        output_boundary = resolve_activation_output_boundary_for_precision(
             model,
             name,
-            stop_before_merge=(
-                policy.merge_policy == "adaptive_upcast_merge"
-                and str(entry.realized_output_precision).lower() == "int8"
-            ),
+            merge_policy=policy.merge_policy,
+            realized_output_precision=str(entry.realized_output_precision),
         )
         insert_output_qdq = _insert_output_qdq_for(entry, metadata, policy)
         scale_owner = str(metadata.get("activation_output_tensor", ""))

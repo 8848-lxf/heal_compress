@@ -664,26 +664,17 @@ def insert_heal_lidar_baseline_explicit_qdq(
     """Insert exact Q/DQ and re-audit the semantic fusion island."""
 
     family_id = _family_id(family)
-    adaptive_runtime = "adaptive-runtime-merge" in str(mapping.policy_version)
+    effective_config = heal_lidar_baseline_qdq_config(mapping, config=config)
+    adaptive_runtime = "adaptive-runtime-merge" in str(
+        getattr(mapping, "policy_version", "")
+    )
     if adaptive_runtime:
-        adaptive_config = (
-            replace(config, merge_policy="adaptive_upcast_merge")
-            if config is not None
-            else QDQConfig(
-                allowed_precisions=("fp32", "fp16", "int8"),
-                merge_policy="adaptive_upcast_merge",
-                grouped_conv_int8_allowed_channels_per_group=(
-                    4, 8, 16, 32, 64, 128, 256, 512
-                ),
-                policy_version="explicit-qdq-adaptive-runtime-merge-v1",
-            )
-        )
         result = insert_explicit_qdq(
             input_onnx,
             output_onnx,
             mapping,
             scales=scales,
-            config=adaptive_config,
+            config=effective_config,
             calibration_metadata=calibration_metadata,
         )
         inserted_auxiliary = dict(
@@ -783,7 +774,7 @@ def insert_heal_lidar_baseline_explicit_qdq(
         output_onnx,
         mapping,
         scales=scales,
-        config=config,
+        config=effective_config,
         calibration_metadata=calibration_metadata,
     )
     realized_nodes = _fusion_island_nodes(
@@ -836,6 +827,30 @@ def insert_heal_lidar_baseline_explicit_qdq(
     if not audit["passed"]:
         raise RuntimeError("heal_lidar_qdq_fusion_island_audit_failed")
     return result, audit
+
+
+def heal_lidar_baseline_qdq_config(
+    mapping: CanonicalPrecisionMappingResult,
+    *,
+    config: QDQConfig | None = None,
+) -> QDQConfig:
+    """Build the single Q/DQ policy shared by calibration and insertion."""
+
+    adaptive_runtime = "adaptive-runtime-merge" in str(
+        getattr(mapping, "policy_version", "")
+    )
+    if adaptive_runtime:
+        if config is not None:
+            return replace(config, merge_policy="adaptive_upcast_merge")
+        return QDQConfig(
+            allowed_precisions=("fp32", "fp16", "int8"),
+            merge_policy="adaptive_upcast_merge",
+            grouped_conv_int8_allowed_channels_per_group=(
+                4, 8, 16, 32, 64, 128, 256, 512
+            ),
+            policy_version="explicit-qdq-adaptive-runtime-merge-v1",
+        )
+    return config or QDQConfig()
 
 
 def validate_heal_lidar_fusion_island_realization(
@@ -1038,6 +1053,7 @@ __all__ = [
     "build_heal_lidar_baseline_quantization_groups",
     "canonicalize_heal_lidar_baseline_onnx",
     "export_heal_lidar_baseline_fixed_k_onnx",
+    "heal_lidar_baseline_qdq_config",
     "insert_heal_lidar_baseline_explicit_qdq",
     "validate_heal_lidar_fusion_island_realization",
     "validate_heal_lidar_precision_realization",
