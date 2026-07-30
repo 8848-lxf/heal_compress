@@ -266,6 +266,27 @@ def summarize_repetitions(
     return result
 
 
+def _evaluation_row(result: Mapping[str, Any], *, repeat: int) -> dict[str, Any]:
+    """Keep every metric consumed by ``summarize_repetitions``.
+
+    Evaluation artifacts are the authoritative source for latency percentiles.
+    Building this row in one place prevents the progress serialization schema
+    from silently drifting behind ``METRICS``.
+    """
+
+    row: dict[str, Any] = {
+        "repeat": int(repeat),
+        "evaluated": int(result["num_evaluated_frames"]),
+        "skipped": int(result["num_skipped_frames"]),
+        "manifest_hash": str(result["eval_manifest_hash"]),
+    }
+    for metric in METRICS:
+        if metric not in result:
+            raise RuntimeError(f"evaluation_metric_missing:{metric}")
+        row[metric] = float(result[metric])
+    return row
+
+
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fields = list(rows[0])
@@ -361,17 +382,7 @@ def run(args: argparse.Namespace) -> int:
                     f"status={result.get('status')}:evaluated={result.get('num_evaluated_frames')}:"
                     f"skipped={result.get('num_skipped_frames')}"
                 )
-            row = {
-                "repeat": repeat,
-                "AP@0.3": float(result["AP@0.3"]),
-                "AP@0.5": float(result["AP@0.5"]),
-                "AP@0.7": float(result["AP@0.7"]),
-                "mAP": float(result["mAP"]),
-                "forward_p50_ms": float(result["forward_p50_ms"]),
-                "evaluated": 1789,
-                "skipped": 0,
-                "manifest_hash": str(result["eval_manifest_hash"]),
-            }
+            row = _evaluation_row(result, repeat=repeat)
             all_results.setdefault(control_id, [])
             existing = {int(item["repeat"]): item for item in all_results[control_id]}
             existing[repeat] = row

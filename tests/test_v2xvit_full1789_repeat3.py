@@ -4,6 +4,7 @@ import pytest
 
 from scripts.run_v2xvit_sixbudget_full1789_repeat3 import (
     _control_record,
+    _evaluation_row,
     _parse_labels,
     summarize_repetitions,
 )
@@ -50,6 +51,31 @@ def test_budget_subset_parser_is_ordered_and_fail_closed() -> None:
         _parse_labels("005,007")
     with pytest.raises(ValueError, match="labels_invalid"):
         _parse_labels("005,005")
+
+
+def test_evaluation_row_preserves_all_summary_latency_percentiles() -> None:
+    source = {
+        **_row(1),
+        "num_evaluated_frames": 1789,
+        "num_skipped_frames": 0,
+        "eval_manifest_hash": "manifest-a",
+    }
+    result = _evaluation_row(source, repeat=1)
+    assert result["forward_p50_ms"] == 11.0
+    assert result["forward_p90_ms"] == 12.0
+    assert result["forward_p99_ms"] == 13.0
+
+
+def test_evaluation_row_fails_closed_on_missing_summary_metric() -> None:
+    source = {
+        **_row(1),
+        "num_evaluated_frames": 1789,
+        "num_skipped_frames": 0,
+        "eval_manifest_hash": "manifest-a",
+    }
+    source.pop("forward_p90_ms")
+    with pytest.raises(RuntimeError, match="evaluation_metric_missing:forward_p90_ms"):
+        _evaluation_row(source, repeat=1)
 
 
 def test_control_record_uses_authoritative_physical_report_hash(
