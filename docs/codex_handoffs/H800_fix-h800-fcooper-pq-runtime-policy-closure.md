@@ -61,3 +61,38 @@ The 1789-frame, repeat-3, same-GPU serial decomposition evaluation is running un
 ---
 
 Timestamp: `2026-07-30T10:58:14+08:00`
+
+## 2026-07-30 — Full 1789-frame repeat-3 acceptance
+
+The fixed decomposition completed 96/96 same-GPU serial evaluation items: 2 methods × 16 engines × 3 repeats. Every item evaluated 1789 frames, skipped zero frames, and preserved its source engine hash.
+
+Evaluation root:
+
+`/data/lxf/heal_data/outputs/h800_fcooper_remaining5_jaq0_gen5_pq_runtime_policy_fix_v2_full1789_repeat3_20260730_102354`
+
+| method | R_BOPS | FP32 mAP | P+Q mAP | P-only mAP | Q-only mAP | P+Q p50 ms | P+Q speedup |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| GA | 0.30 | 0.559168 | 0.558792 | 0.558871 | 0.559193 | 4.2109 | 1.481x |
+| GA | 0.25 | 0.559168 | 0.558794 | 0.558912 | 0.559048 | 3.2767 | 1.903x |
+| GA | 0.20 | 0.559168 | 0.558798 | 0.558813 | 0.559098 | 2.9479 | 2.115x |
+| GA | 0.15 | 0.559168 | 0.558428 | 0.558984 | 0.558823 | 2.5626 | 2.433x |
+| GA | 0.10 | 0.559168 | 0.553388 | 0.558996 | 0.465151 | 2.3505 | 2.653x |
+| Greedy | 0.30 | 0.559133 | 0.558805 | 0.558860 | 0.559226 | 4.2471 | 1.465x |
+| Greedy | 0.25 | 0.559133 | 0.558913 | 0.558906 | 0.559262 | 3.7006 | 1.681x |
+| Greedy | 0.20 | 0.559133 | 0.558820 | 0.558895 | 0.559230 | 3.5114 | 1.772x |
+| Greedy | 0.15 | 0.559133 | 0.558576 | 0.558851 | 0.558808 | 3.1617 | 1.968x |
+| Greedy | 0.10 | 0.559133 | 0.558461 | 0.558890 | 0.467501 | 2.3197 | 2.682x |
+
+The 0.10 Q-only control is now a valid deployment result, not a build failure. Its accuracy collapse is reproducible and arises when the jointly selected precision map is applied to the original unpruned structure. The corresponding P+Q candidates retain substantially higher accuracy, demonstrating a strong structure–quantization/calibration interaction at this budget.
+
+Build acceptance totals:
+
+- 18/18 unique derived engines accepted;
+- requested/realized INT8 totals 10/10;
+- precision mismatches 0;
+- unresolved canonical layers 0;
+- 30 logical P-only/Q-only/P+Q rows finalized.
+
+---
+
+Timestamp: `2026-07-30T12:45:29+08:00`
