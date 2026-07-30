@@ -11,6 +11,24 @@
 
 ---
 
+## 2026-07-29T17:22:00+08:00
+
+- Fixed full1789 recovery for current GA artifacts: the physical structure hash
+  is now read from the authoritative materialization `physical_report.json`.
+  A duplicated legacy metadata hash is accepted only when it matches exactly.
+- Fixed the repeat-summary schema so p50, p90, and p99 are all copied from each
+  evaluation artifact before aggregation. Missing required metrics fail closed.
+- Regression validation: `10 passed`; `compileall` and `git diff --check`
+  passed. Commits: `f4ef614a` and `beb04c61`.
+- Recovery reused nine already valid 1789/1789 evaluations after the summary
+  fix. Three-repeat mAP values were approximately B0 `0.66693`, Greedy
+  `0.31619`, and GA-final `0.32446` for R=0.05.
+- All four R=0.05 P/Q control engines were subsequently built on GPU3 with
+  `requested_realized_exact=true`. The first full1789 P/Q repeat also completed
+  1789/1789 with zero skipped frames for all four controls.
+
+---
+
 ## 2026-07-29T15:35:00+08:00
 
 - The final full1789 evaluation contract was revised to three serial repetitions for B0, Greedy, GA-final, P-only, and Q-only controls.
