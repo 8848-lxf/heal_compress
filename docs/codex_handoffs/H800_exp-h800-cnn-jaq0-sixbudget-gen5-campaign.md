@@ -13,6 +13,27 @@
 
 ---
 
+## 2026-07-29T17:22:00+08:00
+
+- Isolated AttFusion follow-on branch: `fix/h800-attfusion-jaq0-followon`.
+- Root cause of the failed P/Q build was `_build_context` dropping the model
+  configuration's `search_space_policy`. That silently selected the legacy
+  DiscoNet static-node contract and requested `/Where_3`, `/Expand_2`,
+  `/Mul_9`, and `/ReduceSum` from an AttFusion graph.
+- The builder now forwards the configured `heal_runtime_graph_v1` policy into
+  `build_heal_lidar_baseline_context`; a regression test locks this behavior.
+  Focused ablation/deployment validation: `26 passed`; `compileall` and
+  `git diff --check` passed. Commit: `a3e5a45f`.
+- Runtime recovery verified `requested_search_space_policy` and realized
+  `search_space_policy` are both `heal_runtime_graph_v1`. All four R=0.05
+  P-only/Q-only owners built successfully on GPU6. Both Q-only engines realized
+  the single requested INT8 locus exactly; no legacy named-node failure or
+  precision fallback occurred.
+- The serial three-repeat full1789 P/Q evaluation has started in a fresh output
+  root; the first strict FP32 control completed 1789/1789 with zero skips.
+
+---
+
 ## 2026-07-29T19:10:00+08:00
 
 - DiscoNet `.05` Q-only produced a valid TensorRT engine with all 11 requested
