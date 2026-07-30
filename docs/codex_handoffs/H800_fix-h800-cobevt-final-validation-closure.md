@@ -49,3 +49,18 @@
 - Do not accept validation artifacts written with the old schema as final; the patched validator automatically re-audits them.
 
 ---
+
+## 2026-07-30T14:43:00+08:00
+
+- Reconfirmed the active CoBEVT campaign remains on GPU7 at PID `508877` and
+  still imports the pre-fix worktree.  No signal was sent and no active
+  artifact was changed.
+- Added `scripts/resume_cobevt_validation_after_active_search.sh`.  It waits
+  read-only for both the active search and its previously queued legacy
+  follow-on, verifies PID identities while they exist, then resumes the same
+  output root with the fixed validation schema.
+- The continuation requires six completed budgets and zero formal failures
+  before starting the existing single-GPU repeat-3 P/Q evaluation on GPU7.
+  It performs no search rerun when hash-matched Stage-2 artifacts are valid.
+
+---
