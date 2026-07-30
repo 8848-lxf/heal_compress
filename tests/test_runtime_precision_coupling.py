@@ -542,3 +542,63 @@ def test_adaptive_merge_requires_runtime_relation_kind_to_match_onnx_op(tmp_path
         row["merge_op_name"]
         for row in result.calibration_metadata["merge_quantization_audit"]
     ] == ["activation_mul"]
+
+
+def test_shape_only_runtime_stack_relation_is_proven_non_activation() -> None:
+    import numpy as np
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.precision.merge_contract import apply_adaptive_merge_output_contract
+    from quantization.types import CanonicalPrecisionEntry, CanonicalPrecisionMappingResult
+
+    graph = helper.make_graph(
+        [
+            helper.make_node("Conv", ["x", "wa"], ["a"], name="conv_a"),
+            helper.make_node("Conv", ["x", "wb"], ["b"], name="conv_b"),
+            helper.make_node("Shape", ["a"], ["shape_a"], name="shape_a"),
+            helper.make_node("Shape", ["b"], ["shape_b"], name="shape_b"),
+            helper.make_node(
+                "Concat", ["shape_a", "shape_b"], ["shape_join"],
+                name="shape_stack_concat", axis=0,
+            ),
+            helper.make_node("Add", ["a", "b"], ["y"], name="activation_add"),
+        ],
+        "shape_stack_relation",
+        [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4, 2, 2])],
+        [helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4, 2, 2])],
+        [
+            numpy_helper.from_array(np.ones((4, 4, 1, 1), dtype=np.float32), name="wa"),
+            numpy_helper.from_array(np.ones((4, 4, 1, 1), dtype=np.float32), name="wb"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                "a", "conv_a", "pg_a", "fp16", "fp16",
+                weight_initializer="wa", onnx_op_type="Conv",
+            ),
+            CanonicalPrecisionEntry(
+                "b", "conv_b", "pg_b", "fp16", "fp16",
+                weight_initializer="wb", onnx_op_type="Conv",
+            ),
+        ]
+    )
+
+    resolved, report = apply_adaptive_merge_output_contract(
+        model,
+        mapping,
+        runtime_relations=[{
+            "relation_id": "runtime_shape_stack",
+            "relation_kind": "stack",
+            "member_modules": ["a", "b"],
+        }],
+    )
+
+    assert report["unresolved_runtime_relation_ids"] == []
+    assert report["non_activation_runtime_relation_ids"] == ["runtime_shape_stack"]
+    relation = report["runtime_relation_matches"][0]
+    assert relation["resolution"] == "excluded_proven_non_floating_shape_merge"
+    assert relation["non_activation_shape_nodes"] == ["shape_stack_concat"]
+    assert "shape_stack_concat" not in resolved.auxiliary_layer_precisions

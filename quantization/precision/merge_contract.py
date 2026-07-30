@@ -175,6 +175,8 @@ def apply_adaptive_merge_output_contract(
         weighted_branches = [branch for branch in branches if branch]
         if len(weighted_branches) < 2:
             continue
+        canonical_targets = sorted({name for branch in weighted_branches for name in branch})
+        member_modules = sorted({entries[name].module_path for name in canonical_targets})
         dtype_audit = adaptive_merge_dtype_audit(
             model,
             node,
@@ -185,6 +187,7 @@ def apply_adaptive_merge_output_contract(
             "merge_op_type": str(node.op_type),
             "input_tensors": [str(value) for value in node.input],
             "dtype_audit": dtype_audit,
+            "member_modules": member_modules,
         }
         if not dtype_audit["safe_floating_activation_merge"]:
             excluded_merges.append(candidate_identity)
@@ -197,8 +200,6 @@ def apply_adaptive_merge_output_contract(
             for branch in weighted_branches
         ]
         merge_precision = _promoted_precision(branch_precisions)
-        canonical_targets = sorted({name for branch in weighted_branches for name in branch})
-        member_modules = sorted({entries[name].module_path for name in canonical_targets})
         merge_candidates.append(
             {
                 **candidate_identity,
@@ -251,6 +252,21 @@ def apply_adaptive_merge_output_contract(
                 merge_name = str(row["merge_op_name"])
                 matches.append(merge_name)
                 merge_relation_ids[merge_name].append(relation_id)
+        non_activation_matches = []
+        if not matches:
+            for row in excluded_merges:
+                dtype_audit = dict(row.get("dtype_audit", {}) or {})
+                exclusion_reason = str(dtype_audit.get("exclusion_reason", ""))
+                canonical_members = set(row.get("member_modules", []))
+                if (
+                    str(row.get("merge_op_type", "")) in compatible_ops
+                    and members
+                    and (members == canonical_members or members.issubset(canonical_members))
+                    and exclusion_reason
+                    in {"non_floating_data_input", "non_floating_output"}
+                ):
+                    non_activation_matches.append(str(row["merge_op_name"]))
+        resolved_as_non_activation = bool(non_activation_matches) and not matches
         runtime_relation_matches.append(
             {
                 "relation_id": relation_id,
@@ -258,7 +274,15 @@ def apply_adaptive_merge_output_contract(
                 "compatible_onnx_ops": sorted(compatible_ops),
                 "member_modules": sorted(members),
                 "canonical_merge_nodes": matches,
-                "resolved": bool(matches),
+                "non_activation_shape_nodes": sorted(non_activation_matches),
+                "resolution": (
+                    "floating_activation_merge"
+                    if matches
+                    else "excluded_proven_non_floating_shape_merge"
+                    if resolved_as_non_activation
+                    else "unresolved"
+                ),
+                "resolved": bool(matches or resolved_as_non_activation),
             }
         )
 
@@ -311,6 +335,11 @@ def apply_adaptive_merge_output_contract(
     unresolved_relation_ids = sorted(
         row["relation_id"] for row in runtime_relation_matches if not row["resolved"]
     )
+    non_activation_relation_ids = sorted(
+        row["relation_id"]
+        for row in runtime_relation_matches
+        if row["resolution"] == "excluded_proven_non_floating_shape_merge"
+    )
     report = {
         "policy": "adaptive_upcast_merge",
         "status": "resolved",
@@ -322,6 +351,7 @@ def apply_adaptive_merge_output_contract(
         "runtime_relation_count": len(runtime_rows),
         "runtime_relation_matches": runtime_relation_matches,
         "unresolved_runtime_relation_ids": unresolved_relation_ids,
+        "non_activation_runtime_relation_ids": non_activation_relation_ids,
         "mapping_hash_before": mapping.mapping_hash,
         "mapping_hash_after": resolved.mapping_hash,
     }
