@@ -272,7 +272,10 @@ def test_cobevt_fixed500_reuses_hash_bound_static_precision_acceptance(
 ) -> None:
     from search.candidate import CandidateGenotype
     from search.ga.cnn_stage12_v3 import (
+        GENERATION_WINNER_FRAMES,
+        GENERATION_WINNER_PROTOCOL,
         GENERATION_WINNER_VALIDATION_SCHEMA,
+        GENERATION_WINNER_WARMUP_FRAMES,
         validate_generation_winner,
     )
     from search.ga.stage12_v3 import Stage2Result
@@ -333,7 +336,10 @@ def test_cobevt_fixed500_reuses_hash_bound_static_precision_acceptance(
     )
 
     class MetricsOnlyEvaluator:
+        calls = 0
+
         def reevaluate_existing_candidate_engine(self, *_args, **_kwargs):
+            self.calls += 1
             # This is the real CoBEVT fixed500 payload shape: evaluation
             # metrics only, without the immutable Stage-2 precision fields.
             return {
@@ -348,15 +354,39 @@ def test_cobevt_fixed500_reuses_hash_bound_static_precision_acceptance(
         space=_space(),
         spec=SimpleNamespace(model_id="cobevt"),
     )
+    stale_result = (
+        tmp_path
+        / "run/ga/budget_030/generation_winner_validation"
+        / complete_hash
+        / "generation_winner_result.json"
+    )
+    stale_result.parent.mkdir(parents=True)
+    stale_result.write_text(json.dumps({
+        "status": "failed",
+        "mAP": 0.645,
+        "p50_ms": 5.0,
+        "requested_realized_exact": False,
+        "evaluated": 500,
+        "skipped": 0,
+        "metadata": {
+            "evaluation_frames": GENERATION_WINNER_FRAMES,
+            "evaluation_warmup_frames": GENERATION_WINNER_WARMUP_FRAMES,
+            "evaluation_protocol": GENERATION_WINNER_PROTOCOL,
+            # Deliberately omit validation_contract_schema to represent the
+            # historic false-negative cache that must be re-audited.
+        },
+    }))
+    evaluator = MetricsOnlyEvaluator()
     result = validate_generation_winner(
         prepared,
         screening_result=screening,
         output_root=tmp_path / "run",
         budget_label="030",
         generation=0,
-        validation_evaluator=MetricsOnlyEvaluator(),
+        validation_evaluator=evaluator,
     )
 
+    assert evaluator.calls == 1
     assert result.deployable
     assert result.requested_realized_exact is True
     assert result.map == 0.645
