@@ -100,7 +100,13 @@ def _inventories(trace: dict[str, Any]) -> tuple[list[OperationInventoryEntry], 
                 output_shapes=output_shapes,
                 metadata={
                     key: row[key]
-                    for key in ("cat_dim", "num_inputs", "module_scope")
+                    for key in (
+                        "cat_dim",
+                        "num_inputs",
+                        "module_scope",
+                        "input_dtypes",
+                        "output_dtypes",
+                    )
                     if key in row
                 },
             )

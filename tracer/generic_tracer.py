@@ -42,6 +42,12 @@ def _shape_of(t: torch.Tensor) -> List[int]:
     return [int(v) for v in t.shape]
 
 
+def _dtype_of(t: torch.Tensor) -> str:
+    """Return a stable runtime dtype token for precision-coupling audits."""
+
+    return str(t.dtype).removeprefix("torch.")
+
+
 class GenericTracer:
     """Records modules and structural tensor ops executed for a sample input.
 
@@ -267,6 +273,8 @@ class GenericTracer:
             "module_scope": list(self.module_stack),
             "input_shapes": [_shape_of(t) for t in input_tensors],
             "output_shapes": [_shape_of(t) for t in outputs],
+            "input_dtypes": [_dtype_of(t) for t in input_tensors],
+            "output_dtypes": [_dtype_of(t) for t in outputs],
         }
         if op_name == "torch.cat":
             dim = kwargs.get("dim", args[1] if len(args) > 1 else 0)

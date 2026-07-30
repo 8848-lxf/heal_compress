@@ -91,6 +91,45 @@ def test_runtime_precision_relation_survives_functional_softmax() -> None:
     assert multiply.member_modules == ["feature", "weight"]
 
 
+def test_runtime_precision_excludes_integer_shape_stack_with_weighted_provenance() -> None:
+    from tracer.api import trace_model
+    from tracer.config import TraceConfig
+    from tracer.precision_coupling_tracer import build_runtime_precision_coupling
+
+    class ShapeStack(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.left = nn.Conv2d(3, 4, 1)
+            self.right = nn.Conv2d(3, 4, 1)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            # Force the runtime backend and retain weighted provenance through
+            # two shape reads.  The int64 stack must not become a precision
+            # relation even though both branches originate at weighted ops.
+            if bool((x.sum() > -1.0).item()):
+                left = self.left(x)
+            right = self.right(x)
+            shape = torch.stack(
+                [
+                    torch.as_tensor(left.shape[-1], device=x.device),
+                    torch.as_tensor(right.shape[-1], device=x.device),
+                ]
+            )
+            return left + right + shape.float().sum() * 0.0
+
+    model = ShapeStack().eval()
+    trace = trace_model(
+        model,
+        torch.ones(1, 3, 2, 2),
+        config=TraceConfig(fail_on_fx_trace_error=False),
+    )
+    assert trace.config["realized_backend"] == "runtime_tensor_flow"
+    result = build_runtime_precision_coupling(model, trace)
+
+    assert all(relation.relation_kind != "stack" for relation in result.relations)
+    assert any(relation.relation_kind == "residual_add" for relation in result.relations)
+
+
 def _adaptive_merge_fixture(left: str, right: str):
     import numpy as np
     import onnx

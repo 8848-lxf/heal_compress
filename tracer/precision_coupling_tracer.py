@@ -92,6 +92,36 @@ def _runtime_relation_kind(op_type: str) -> str:
     return "runtime_multi_input"
 
 
+def _runtime_merge_has_floating_output(operation: Any) -> bool:
+    """Reject shape/index joins before they become precision relations.
+
+    Runtime provenance can legitimately flow from a weighted activation into
+    shape construction (for example ``torch.stack`` over values obtained from
+    ``Tensor.shape``).  Such an integer stack is not an activation merge and
+    therefore has no Q/DQ precision contract.  New runtime traces carry dtype
+    metadata; traces created before that metadata existed retain the previous
+    conservative behaviour and are resolved by the ONNX fail-closed pass.
+    """
+
+    metadata = dict(getattr(operation, "metadata", {}) or {})
+    dtypes = [
+        str(value).lower().removeprefix("torch.")
+        for value in metadata.get("output_dtypes", []) or []
+    ]
+    if not dtypes:
+        return True
+    floating = {
+        "float16",
+        "float32",
+        "float64",
+        "bfloat16",
+        "half",
+        "float",
+        "double",
+    }
+    return all(value in floating for value in dtypes)
+
+
 def _runtime_weighted_producers(
     operation_id: str,
     *,
@@ -227,6 +257,8 @@ def build_runtime_precision_coupling(
             continue
         relation_kind = _runtime_relation_kind(str(getattr(operation, "op_type", "")))
         if relation_kind == "runtime_multi_input":
+            continue
+        if not _runtime_merge_has_floating_output(operation):
             continue
         relation_payload = {
             "operation_id": operation_id,
