@@ -150,6 +150,84 @@ class HeterModelBaseline(nn.Module):
         return self.cls_head(value), self.reg_head(value), self.dir_head(value)
 
 
+class BasicBlock(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, stride: int = 1) -> None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(
+            in_channels, out_channels, 3, stride=stride, padding=1, bias=False
+        )
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.downsample = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 1, stride=stride, bias=False),
+            nn.BatchNorm2d(out_channels),
+        ) if stride != 1 or in_channels != out_channels else nn.Identity()
+
+    def forward(self, value: torch.Tensor) -> torch.Tensor:
+        identity = self.downsample(value)
+        value = torch.relu(self.bn1(self.conv1(value)))
+        return torch.relu(self.bn2(self.conv2(value)) + identity)
+
+
+def _residual_layer(
+    in_channels: int, out_channels: int, count: int, stride: int
+) -> nn.Sequential:
+    return nn.Sequential(
+        BasicBlock(in_channels, out_channels, stride),
+        *(BasicBlock(out_channels, out_channels) for _ in range(count - 1)),
+    )
+
+
+class ResNetModified(nn.Module):
+    def __init__(self, *, input_backbone: bool) -> None:
+        super().__init__()
+        if input_backbone:
+            self.layer0 = _residual_layer(64, 64, 3, 2)
+        else:
+            self.layer0 = _residual_layer(64, 64, 3, 1)  # intentionally dormant
+            self.layer1 = _residual_layer(64, 128, 5, 2)
+            self.layer2 = _residual_layer(128, 256, 8, 2)
+
+
+class ResNetBEVBackbone(nn.Module):
+    def __init__(self, *, input_backbone: bool) -> None:
+        super().__init__()
+        self.resnet = ResNetModified(input_backbone=input_backbone)
+        self.deblocks = nn.ModuleList([] if input_backbone else [
+            nn.Sequential(nn.ConvTranspose2d(64, 128, 1, stride=1, bias=False), nn.BatchNorm2d(128), nn.ReLU()),
+            nn.Sequential(nn.ConvTranspose2d(128, 128, 2, stride=2, bias=False), nn.BatchNorm2d(128), nn.ReLU()),
+            nn.Sequential(nn.ConvTranspose2d(256, 128, 4, stride=4, bias=False), nn.BatchNorm2d(128), nn.ReLU()),
+        ])
+
+
+class HeterModelBaselineMs(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.backbone_m1 = ResNetBEVBackbone(input_backbone=True)
+        self.backbone = ResNetBEVBackbone(input_backbone=False)
+        self.fusion_net = nn.ModuleList((AttFusion(64), AttFusion(128), AttFusion(256)))
+        self.shrink_conv = DownsampleConv()
+        self.cls_head = nn.Conv2d(256, 2, 1)
+        self.reg_head = nn.Conv2d(256, 14, 1)
+        self.dir_head = nn.Conv2d(256, 4, 1)
+
+    def forward(self, value: torch.Tensor) -> tuple[torch.Tensor, ...]:
+        level0 = self.backbone_m1.resnet.layer0(value)
+        level1 = self.backbone.resnet.layer1(level0)
+        level2 = self.backbone.resnet.layer2(level1)
+        levels = [
+            fusion(level)
+            for fusion, level in zip(self.fusion_net, (level0, level1, level2))
+        ]
+        decoded = torch.cat(
+            [deblock(level) for deblock, level in zip(self.backbone.deblocks, levels)],
+            dim=1,
+        )
+        decoded = self.shrink_conv(decoded)
+        return self.cls_head(decoded), self.reg_head(decoded), self.dir_head(decoded)
+
+
 def _feature_units(model: nn.Module, family_id: str):
     from search.model_family import build_heal_lidar_baseline_atomic_units
 
@@ -321,6 +399,68 @@ def test_attfusion_topology_rejects_stale_parameter_free_scale() -> None:
         validate_heal_lidar_baseline_pruning_topology(
             model, "heal_lidar_attfusion"
         )
+
+
+def test_coalign_three_scale_topology_has_dependency_closed_domains() -> None:
+    from search.model_family import (
+        build_heal_lidar_baseline_atomic_units,
+        validate_heal_lidar_baseline_pruning_topology,
+    )
+
+    model = HeterModelBaselineMs().eval()
+    topology = validate_heal_lidar_baseline_pruning_topology(
+        model, "heal_lidar_coalign"
+    )
+    units = build_heal_lidar_baseline_atomic_units(
+        model, "heal_lidar_coalign"
+    )
+
+    assert len(topology.production_domain_specs) == 21
+    assert len(units) == 3840
+    assert topology.concat_width == 384
+    assert topology.feature_width == 256
+    assert topology.deblock_conv_paths == (
+        "backbone.deblocks.0.0",
+        "backbone.deblocks.1.0",
+        "backbone.deblocks.2.0",
+    )
+    assert [module.att.sqrt_dim for module in model.fusion_net] == pytest.approx(
+        [math.sqrt(64), math.sqrt(128), math.sqrt(256)]
+    )
+
+
+def test_coalign_residual_stream_pruning_updates_deblock_next_level_and_scale() -> None:
+    from search.model_family import (
+        build_heal_lidar_baseline_atomic_units,
+        materialize_heal_lidar_baseline,
+    )
+
+    torch.manual_seed(17)
+    model = HeterModelBaselineMs().eval()
+    units = build_heal_lidar_baseline_atomic_units(
+        model, "heal_lidar_coalign"
+    )
+    stream_units = [
+        unit for unit in units
+        if unit.root_module_path == "backbone_m1.resnet.layer0.0.conv2"
+    ]
+    request = _request_for_units(units, stream_units[:4])
+    result = materialize_heal_lidar_baseline(
+        model,
+        request,
+        family="heal_lidar_coalign",
+        example_inputs=torch.randn(1, 64, 16, 16),
+    )
+    physical = result["model"]
+
+    assert result["strict_replay_reload_verified"] is True
+    assert physical.backbone_m1.resnet.layer0[2].conv2.out_channels == 60
+    assert physical.backbone.resnet.layer1[0].conv1.in_channels == 60
+    assert physical.backbone.resnet.layer1[0].downsample[0].in_channels == 60
+    assert physical.backbone.deblocks[0][0].in_channels == 60
+    assert physical.fusion_net[0].att.sqrt_dim == pytest.approx(math.sqrt(60))
+    assert result["attfusion_scale_audit"]["passed"] is True
+    assert result["ledger_summary"]["status_counts"]["repaired"] == 0
 
 
 def test_disconet_alignment_repair_uses_complete_double_half_map() -> None:

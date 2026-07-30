@@ -63,6 +63,17 @@ class _HealLidarBaselineProvider:
     def _weight_axis(module: nn.Module) -> int:
         return 1 if isinstance(module, (nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)) else 0
 
+    def _include_weighted_module(self, name: str, module: nn.Module) -> bool:
+        """Return whether a parameterized module belongs to the real forward.
+
+        The single-scale baselines execute every registered weighted module.
+        Multi-scale CoAlign deliberately skips ``fusion_backbone.layer0`` and
+        overrides this hook so those dormant checkpoint tensors do not become
+        fake precision loci or unresolved ONNX requirements.
+        """
+
+        return True
+
     def _require_real_structure(self, model: nn.Module, config: Mapping[str, Any]) -> None:
         """Reject lookalikes: audit data must describe the loaded HEAL topology."""
         args = self._model_args(config)
@@ -278,7 +289,8 @@ class _HealLidarBaselineProvider:
         self._require_real_structure(model, config)
         weighted = tuple(sorted(
             (self._weighted_capability(name, module) for name, module in model.named_modules()
-             if name and isinstance(module, _WEIGHTED_TYPES)),
+             if name and isinstance(module, _WEIGHTED_TYPES)
+             and self._include_weighted_module(name, module)),
             key=lambda row: row.canonical_id,
         ))
         args = self._model_args(config)
@@ -362,6 +374,124 @@ class HealLidarAttFusionProvider(_HealLidarBaselineProvider):
 
     def _fusion_pruning_strategy(self) -> str:
         return "shared_feature_width_closed_through_projection_free_agent_attention"
+
+
+class HealLidarCoAlignProvider(_HealLidarBaselineProvider):
+    """Real three-scale CoAlign/AttFusion topology.
+
+    CoAlign is *not* a Q/K/V projection Transformer.  Its three AttFusion
+    modules are parameter-free per-pixel agent attention at 64/128/256
+    channels.  Structural closure therefore follows the three residual BEV
+    streams and their deblock inputs, while the attention ``sqrt_dim`` values
+    are synchronized by the physical materializer.
+    """
+
+    family_id = "heal_lidar_coalign"
+    fusion_method = "att"
+    fusion_class = "ModuleList[AttFusion,AttFusion,AttFusion]"
+
+    def matches(self, config: Mapping[str, Any]) -> bool:
+        args = self._model_args(config)
+        model = config.get("model", {})
+        return (
+            isinstance(model, Mapping)
+            and str(model.get("core_method", "")).lower()
+            == "heter_model_baseline_ms"
+            and str(args.get("fusion_method", "")).lower() == "att"
+            and str(args.get("ego_modality", "m1")) == "m1"
+            and isinstance(args.get("m1"), Mapping)
+            and str(args["m1"].get("core_method", "")).lower()
+            == "point_pillar"
+        )
+
+    def _include_weighted_module(self, name: str, module: nn.Module) -> bool:
+        # HeterModelBaselineMs explicitly says "we omit self.backbone's first
+        # layer".  These six Conv tensors exist in the checkpoint but are not
+        # called by the real forward or fixed-K export graph.
+        return not str(name).startswith("backbone.resnet.layer0.")
+
+    def _require_real_structure(
+        self, model: nn.Module, config: Mapping[str, Any]
+    ) -> None:
+        args = self._model_args(config)
+        if type(model).__name__ != "HeterModelBaselineMs":
+            raise RuntimeError(
+                f"{self.family_id}_provider_model_structure_mismatch:model_type"
+            )
+        required_classes = {
+            "encoder_m1.pillar_vfe": "PillarVFE",
+            "encoder_m1.scatter": "PointPillarScatter",
+            "backbone_m1": "ResNetBEVBackbone",
+            "aligner_m1": "AlignNet",
+            "backbone": "ResNetBEVBackbone",
+            "shrink_conv": "DownsampleConv",
+        }
+        for path, expected_class in required_classes.items():
+            try:
+                module = model.get_submodule(path)
+            except AttributeError as exc:
+                raise RuntimeError(
+                    f"{self.family_id}_provider_model_structure_mismatch:{path}"
+                ) from exc
+            if type(module).__name__ != expected_class:
+                raise RuntimeError(
+                    f"{self.family_id}_provider_model_structure_mismatch:{path}:"
+                    f"{type(module).__name__}!={expected_class}"
+                )
+        fusion = getattr(model, "fusion_net", None)
+        if not isinstance(fusion, nn.ModuleList) or len(fusion) != 3:
+            raise RuntimeError(
+                f"{self.family_id}_provider_model_structure_mismatch:fusion_net"
+            )
+        if any(type(module).__name__ != "AttFusion" for module in fusion):
+            raise RuntimeError(
+                f"{self.family_id}_provider_model_structure_mismatch:fusion_types"
+            )
+        expected_dims = tuple(
+            int(value) for value in args.get("att", {}).get("feat_dim", ())
+        )
+        if expected_dims != (64, 128, 256):
+            raise RuntimeError(
+                f"{self.family_id}_provider_config_attention_dims:{expected_dims}"
+            )
+        anchor_number = int(args.get("anchor_number", 0))
+        bins = int(args.get("dir_args", {}).get("num_bins", 0))
+        for path, expected_out in (
+            ("cls_head", anchor_number),
+            ("reg_head", 7 * anchor_number),
+            ("dir_head", bins * anchor_number),
+        ):
+            head = model.get_submodule(path)
+            if not isinstance(head, nn.Conv2d) or head.out_channels != expected_out:
+                raise RuntimeError(
+                    f"{self.family_id}_provider_model_structure_mismatch:{path}"
+                )
+
+    def _fusion_operator_kinds(self) -> tuple[str, ...]:
+        return (
+            "GridSample", "BatchMatMul", "Softmax", "Reshape", "Transpose",
+        )
+
+    def _fusion_pruning_strategy(self) -> str:
+        return (
+            "three_residual_stream_widths_closed_through_projection_free_"
+            "attention_and_fixed_128_channel_deblocks"
+        )
+
+    def _merge_boundaries(self) -> tuple[MergeBoundaryCapability, ...]:
+        return tuple(
+            MergeBoundaryCapability(
+                boundary_id=f"coalign_scale_{index}_agent_attention",
+                merge_kind="projection_free_agent_attention",
+                member_modules=(f"fusion_net.{index}",),
+                policy="runtime_derived_precision_with_parameter_free_attention",
+                scale_policy="sqrt_dim_tracks_realized_feature_width",
+                output_requantization="owned_by_deblock_input_or_next_weighted_input",
+                production_enabled=True,
+                gate_reason="",
+            )
+            for index in range(3)
+        )
 
     def _merge_boundaries(self) -> tuple[MergeBoundaryCapability, ...]:
         return (MergeBoundaryCapability(

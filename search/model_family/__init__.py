@@ -10,6 +10,7 @@ from .contracts import (
 )
 from .heal_lidar_baselines import (
     HealLidarAttFusionProvider,
+    HealLidarCoAlignProvider,
     HealLidarCoBEVTProvider,
     HealLidarDiscoNetProvider,
     HealLidarFCooperProvider,
@@ -51,6 +52,7 @@ register_model_family(HealLidarFCooperProvider())
 register_model_family(HealLidarDiscoNetProvider())
 register_model_family(HealLidarAttFusionProvider())
 register_model_family(HealLidarCoBEVTProvider())
+register_model_family(HealLidarCoAlignProvider())
 
 
 __all__ = [
@@ -59,6 +61,7 @@ __all__ = [
     "HEAL_LIDAR_BASELINE_OUTPUT_NAMES",
     "HealLidarBaselineOnnxExport",
     "HealLidarAttFusionProvider",
+    "HealLidarCoAlignProvider",
     "HealLidarCoBEVTProvider",
     "HealLidarBaselinePruningTopology",
     "HealLidarDiscoNetProvider",

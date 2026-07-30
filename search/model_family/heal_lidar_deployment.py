@@ -53,6 +53,7 @@ SUPPORTED_DEPLOYMENT_FAMILIES = (
     "heal_lidar_disco",
     "heal_lidar_attfusion",
     "heal_lidar_cobevt",
+    "heal_lidar_coalign",
 )
 WRAPPER_PARITY_MAX_ABS_TOL = 5.0e-3
 WRAPPER_PARITY_MEAN_ABS_TOL = 5.0e-5
@@ -289,9 +290,22 @@ def export_heal_lidar_baseline_fixed_k_onnx(
         "heal_lidar_disco": "DiscoFusion",
         "heal_lidar_attfusion": "AttFusion",
         "heal_lidar_cobevt": "CoBEVT",
+        "heal_lidar_coalign": "ModuleList[AttFusion,AttFusion,AttFusion]",
     }[family_id]
-    if type(model.fusion_net).__name__ != expected_fusion:
-        raise RuntimeError(f"heal_lidar_baseline_export_fusion_mismatch:{type(model.fusion_net).__name__}")
+    if family_id == "heal_lidar_coalign":
+        fusion = getattr(model, "fusion_net", None)
+        valid_fusion = bool(
+            isinstance(fusion, nn.ModuleList)
+            and len(fusion) == 3
+            and all(type(module).__name__ == "AttFusion" for module in fusion)
+        )
+    else:
+        valid_fusion = type(model.fusion_net).__name__ == expected_fusion
+    if not valid_fusion:
+        raise RuntimeError(
+            f"heal_lidar_baseline_export_fusion_mismatch:"
+            f"{type(model.fusion_net).__name__}:expected={expected_fusion}"
+        )
     wrapper = build_heal_lidar_baseline_export_module(model, policy=policy).eval()
     prepared = prepare_heal_lidar_baseline_inputs(ego_batch, policy=policy)
     if tuple(prepared) != HEAL_LIDAR_BASELINE_INPUT_NAMES:

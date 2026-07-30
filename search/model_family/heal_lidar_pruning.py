@@ -30,6 +30,7 @@ SUPPORTED_HEAL_LIDAR_BASELINE_FAMILIES = (
     "heal_lidar_disco",
     "heal_lidar_attfusion",
     "heal_lidar_cobevt",
+    "heal_lidar_coalign",
 )
 
 
@@ -126,6 +127,63 @@ def _synchronize_attfusion_scale(model: nn.Module, feature_width: int) -> dict[s
     return {**audit, "before_sqrt_dim": before, "updated": not math.isclose(before, audit["expected_sqrt_dim"], rel_tol=0.0, abs_tol=1.0e-12)}
 
 
+def _coalign_feature_widths(model: nn.Module) -> tuple[int, int, int]:
+    paths = (
+        "backbone_m1.resnet.layer0.2.conv2",
+        "backbone.resnet.layer1.4.conv2",
+        "backbone.resnet.layer2.7.conv2",
+    )
+    return tuple(
+        int(_require_module(model, path, nn.Conv2d).out_channels)
+        for path in paths
+    )
+
+
+def _coalign_attention_scale_audit(model: nn.Module) -> dict[str, Any]:
+    fusion = _require_module(model, "fusion_net", nn.ModuleList)
+    if len(fusion) != 3:
+        raise RuntimeError("heal_lidar_coalign_requires_three_attention_scales")
+    widths = _coalign_feature_widths(model)
+    rows: list[dict[str, Any]] = []
+    for index, (module, width) in enumerate(zip(fusion, widths)):
+        attention = getattr(module, "att", None)
+        if attention is None or not hasattr(attention, "sqrt_dim"):
+            raise RuntimeError(
+                f"heal_lidar_coalign_attention_scale_missing:fusion_net.{index}"
+            )
+        observed = float(getattr(attention, "sqrt_dim"))
+        expected = math.sqrt(float(width))
+        rows.append({
+            "module_path": f"fusion_net.{index}.att",
+            "feature_width": int(width),
+            "observed_sqrt_dim": observed,
+            "expected_sqrt_dim": expected,
+            "passed": bool(
+                math.isfinite(observed)
+                and math.isclose(observed, expected, rel_tol=0.0, abs_tol=1.0e-12)
+            ),
+        })
+    return {"passed": all(row["passed"] for row in rows), "scales": rows}
+
+
+def _synchronize_coalign_attention_scales(model: nn.Module) -> dict[str, Any]:
+    fusion = _require_module(model, "fusion_net", nn.ModuleList)
+    widths = _coalign_feature_widths(model)
+    before: list[float] = []
+    for module, width in zip(fusion, widths):
+        attention = getattr(module, "att", None)
+        if attention is None or not hasattr(attention, "sqrt_dim"):
+            raise RuntimeError("heal_lidar_coalign_attention_scale_missing")
+        before.append(float(getattr(attention, "sqrt_dim")))
+        setattr(attention, "sqrt_dim", math.sqrt(float(width)))
+    audit = _coalign_attention_scale_audit(model)
+    if not audit["passed"]:
+        raise RuntimeError(
+            f"heal_lidar_coalign_attention_scale_update_failed:{audit}"
+        )
+    return {**audit, "before_sqrt_dims": before}
+
+
 def _conv_bn_paths(model: nn.Module, prefix: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
     sequence = _require_module(model, prefix, nn.Sequential)
     children = list(sequence.named_children())
@@ -175,6 +233,224 @@ def _domain(
     )
 
 
+def _validate_heal_lidar_coalign_pruning_topology(
+    model: nn.Module,
+    *,
+    require_original_widths: bool,
+) -> HealLidarBaselinePruningTopology:
+    """Validate CoAlign's real three-scale residual/deblock closure."""
+
+    if type(model).__name__ != "HeterModelBaselineMs":
+        raise RuntimeError("heal_lidar_coalign_pruning_topology_model_type")
+    fusion = _require_module(model, "fusion_net", nn.ModuleList)
+    if len(fusion) != 3 or any(
+        type(module).__name__ != "AttFusion" for module in fusion
+    ):
+        raise RuntimeError("heal_lidar_coalign_fusion_topology")
+
+    domains: list[HealLidarPruningDomainSpec] = []
+    all_conv_paths: list[tuple[str, ...]] = []
+    all_bn_paths: list[tuple[str, ...]] = []
+    stream_widths: list[int] = []
+    level_specs = (
+        ("backbone_m1.resnet.layer0", 3, 64, 64),
+        ("backbone.resnet.layer1", 5, None, 128),
+        ("backbone.resnet.layer2", 8, None, 256),
+    )
+    previous_width = 64
+    level_members: list[list[tuple[str, str, str]]] = []
+    for level_index, (prefix, block_count, fixed_input, canonical_width) in enumerate(
+        level_specs
+    ):
+        sequence = _require_module(model, prefix, nn.Sequential)
+        if len(sequence) != int(block_count):
+            raise RuntimeError(
+                f"heal_lidar_coalign_residual_block_count:{prefix}:{len(sequence)}"
+            )
+        expected_input = int(fixed_input or previous_width)
+        conv_paths: list[str] = []
+        bn_paths: list[str] = []
+        residual_members: list[tuple[str, str, str]] = []
+        stream_width: int | None = None
+        for block_index in range(int(block_count)):
+            base = f"{prefix}.{block_index}"
+            conv1_path, bn1_path = f"{base}.conv1", f"{base}.bn1"
+            conv2_path, bn2_path = f"{base}.conv2", f"{base}.bn2"
+            conv1 = _require_module(model, conv1_path, nn.Conv2d)
+            bn1 = _require_module(model, bn1_path, nn.BatchNorm2d)
+            conv2 = _require_module(model, conv2_path, nn.Conv2d)
+            bn2 = _require_module(model, bn2_path, nn.BatchNorm2d)
+            if conv1.in_channels != expected_input or bn1.num_features != conv1.out_channels:
+                raise RuntimeError(
+                    f"heal_lidar_coalign_residual_conv1_contract:{conv1_path}"
+                )
+            if conv2.in_channels != conv1.out_channels or bn2.num_features != conv2.out_channels:
+                raise RuntimeError(
+                    f"heal_lidar_coalign_residual_conv2_contract:{conv2_path}"
+                )
+            if stream_width is None:
+                stream_width = int(conv2.out_channels)
+            if int(conv2.out_channels) != int(stream_width):
+                raise RuntimeError(
+                    f"heal_lidar_coalign_residual_stream_width:{conv2_path}"
+                )
+            if require_original_widths and (
+                int(conv1.out_channels) != int(canonical_width)
+                or int(conv2.out_channels) != int(canonical_width)
+            ):
+                raise RuntimeError(
+                    f"heal_lidar_coalign_original_width:{conv1_path}"
+                )
+            conv_paths.extend((conv1_path, conv2_path))
+            bn_paths.extend((bn1_path, bn2_path))
+            domains.append(_domain(
+                root=conv1_path,
+                width=int(conv1.out_channels),
+                members=(
+                    (conv1_path, "out", "root_output"),
+                    (bn1_path, "channel", "batchnorm_output_coupling"),
+                    (conv2_path, "in", "residual_block_internal_input"),
+                ),
+                domain_kind="coalign_residual_block_hidden_width",
+            ))
+            residual_members.extend((
+                (conv2_path, "out", "residual_stream_output"),
+                (bn2_path, "channel", "residual_stream_batchnorm"),
+            ))
+            if block_index == 0:
+                down_conv_path = f"{base}.downsample.0"
+                down_bn_path = f"{base}.downsample.1"
+                down_conv = _require_module(model, down_conv_path, nn.Conv2d)
+                down_bn = _require_module(model, down_bn_path, nn.BatchNorm2d)
+                if (
+                    down_conv.in_channels != expected_input
+                    or down_conv.out_channels != stream_width
+                    or down_bn.num_features != stream_width
+                ):
+                    raise RuntimeError(
+                        f"heal_lidar_coalign_downsample_contract:{base}"
+                    )
+                residual_members.extend((
+                    (down_conv_path, "out", "residual_projection_output"),
+                    (down_bn_path, "channel", "residual_projection_batchnorm"),
+                ))
+            else:
+                residual_members.append(
+                    (conv1_path, "in", "residual_identity_stream_input")
+                )
+            expected_input = int(stream_width)
+        if stream_width is None:
+            raise RuntimeError(f"heal_lidar_coalign_empty_level:{prefix}")
+        stream_widths.append(int(stream_width))
+        previous_width = int(stream_width)
+        all_conv_paths.append(tuple(conv_paths))
+        all_bn_paths.append(tuple(bn_paths))
+        level_members.append(residual_members)
+
+    deblock_paths: list[str] = []
+    fixed_contracts: dict[str, int] = {}
+    for level, stream_width in enumerate(stream_widths):
+        path = f"backbone.deblocks.{level}.0"
+        bn_path = f"backbone.deblocks.{level}.1"
+        deblock = _require_module(model, path, nn.ConvTranspose2d)
+        bn = _require_module(model, bn_path, nn.BatchNorm2d)
+        if (
+            deblock.in_channels != stream_width
+            or deblock.out_channels != 128
+            or bn.num_features != 128
+        ):
+            raise RuntimeError(f"heal_lidar_coalign_deblock_contract:{path}")
+        deblock_paths.append(path)
+        fixed_contracts[path] = 128
+        level_members[level].append((path, "in", "fixed_deblock_input"))
+        if level < 2:
+            next_base = f"backbone.resnet.layer{level + 1}.0"
+            level_members[level].extend((
+                (f"{next_base}.conv1", "in", "next_residual_level_input"),
+                (f"{next_base}.downsample.0", "in", "next_residual_projection_input"),
+            ))
+
+    for level, members in enumerate(level_members):
+        root = (
+            "backbone_m1.resnet.layer0.0.conv2"
+            if level == 0
+            else f"backbone.resnet.layer{level}.0.conv2"
+        )
+        domains.append(_domain(
+            root=root,
+            width=stream_widths[level],
+            members=tuple(members),
+            domain_kind=f"coalign_scale_{level}_attention_feature_width",
+        ))
+
+    concat_width = sum(
+        int(_require_module(model, path, nn.ConvTranspose2d).out_channels)
+        for path in deblock_paths
+    )
+    if concat_width != 384:
+        raise RuntimeError(f"heal_lidar_coalign_concat_width:{concat_width}")
+    shrink_paths = (
+        "shrink_conv.layers.0.double_conv.0",
+        "shrink_conv.layers.0.double_conv.2",
+    )
+    shrink_first = _require_module(model, shrink_paths[0], nn.Conv2d)
+    shrink_final = _require_module(model, shrink_paths[1], nn.Conv2d)
+    if (
+        shrink_first.in_channels != concat_width
+        or shrink_final.in_channels != shrink_first.out_channels
+    ):
+        raise RuntimeError("heal_lidar_coalign_shrinker_contract")
+    if require_original_widths and (
+        shrink_first.out_channels != 256 or shrink_final.out_channels != 256
+    ):
+        raise RuntimeError("heal_lidar_coalign_shrinker_original_width")
+    feature_width = int(shrink_final.out_channels)
+    for head_path in ("cls_head", "reg_head", "dir_head"):
+        head = _require_module(model, head_path, nn.Conv2d)
+        if head.in_channels != feature_width:
+            raise RuntimeError(f"heal_lidar_coalign_head_input:{head_path}")
+        fixed_contracts[head_path] = int(head.out_channels)
+    domains.extend((
+        _domain(
+            root=shrink_paths[0],
+            width=int(shrink_first.out_channels),
+            members=(
+                (shrink_paths[0], "out", "root_output"),
+                (shrink_paths[1], "in", "shrinker_second_conv_input"),
+            ),
+            domain_kind="shrinker_hidden_width",
+        ),
+        _domain(
+            root=shrink_paths[1],
+            width=feature_width,
+            members=(
+                (shrink_paths[1], "out", "root_output"),
+                ("cls_head", "in", "fixed_detection_head_input"),
+                ("reg_head", "in", "fixed_detection_head_input"),
+                ("dir_head", "in", "fixed_detection_head_input"),
+            ),
+            domain_kind="coalign_detection_feature_width",
+        ),
+    ))
+    scale_audit = _coalign_attention_scale_audit(model)
+    if not scale_audit["passed"]:
+        raise RuntimeError(
+            f"heal_lidar_coalign_attention_scale_mismatch:{scale_audit}"
+        )
+    return HealLidarBaselinePruningTopology(
+        family_id="heal_lidar_coalign",
+        backbone_conv_paths=tuple(all_conv_paths),
+        backbone_bn_paths=tuple(all_bn_paths),
+        deblock_conv_paths=tuple(deblock_paths),
+        shrinker_conv_paths=shrink_paths,
+        feature_width=feature_width,
+        concat_width=concat_width,
+        domain_specs=tuple(domains),
+        fixed_output_contracts=fixed_contracts,
+        original_contract_verified=bool(require_original_widths),
+    )
+
+
 def validate_heal_lidar_baseline_pruning_topology(
     model: nn.Module,
     family: str | ModelFamilyAudit,
@@ -188,6 +464,11 @@ def validate_heal_lidar_baseline_pruning_topology(
     """
 
     family_id = _family_id(family)
+    if family_id == "heal_lidar_coalign":
+        return _validate_heal_lidar_coalign_pruning_topology(
+            model,
+            require_original_widths=require_original_widths,
+        )
     if type(model).__name__ != "HeterModelBaseline":
         raise RuntimeError("heal_lidar_pruning_topology_model_type")
     backbone = _require_module(model, "backbone_m1", nn.Module)
@@ -512,6 +793,10 @@ def materialize_heal_lidar_baseline(
         attfusion_scale_audit = _synchronize_attfusion_scale(
             result["model"], realized_width
         )
+    elif family_id == "heal_lidar_coalign":
+        attfusion_scale_audit = _synchronize_coalign_attention_scales(
+            result["model"]
+        )
     physical_topology = validate_heal_lidar_baseline_pruning_topology(
         result["model"], family_id, require_original_widths=False
     )
@@ -519,6 +804,8 @@ def materialize_heal_lidar_baseline(
     replayed = replay_pruning(model, result["plan"], in_place=False).model
     if family_id == "heal_lidar_attfusion":
         _synchronize_attfusion_scale(replayed, physical_topology.feature_width)
+    elif family_id == "heal_lidar_coalign":
+        _synchronize_coalign_attention_scales(replayed)
     incompatible = replayed.load_state_dict(result["model"].state_dict(), strict=True)
     if incompatible.missing_keys or incompatible.unexpected_keys:
         raise RuntimeError("heal_lidar_strict_replay_reload_failed")

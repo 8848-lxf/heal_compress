@@ -92,13 +92,73 @@ def _model_name(family_id: str) -> str:
         "heal_lidar_disco": "lidar_disco",
         "heal_lidar_attfusion": "lidar_attfuse",
         "heal_lidar_cobevt": "lidar_cobevt",
+        "heal_lidar_coalign": "lidar_coalign",
     }
     if family_id not in names:
         raise RuntimeError(f"unsupported_heal_lidar_baseline_context_family:{family_id}")
     return names[family_id]
 
 
-def _select_runtime_traced_atomic_units(trace_result: Any) -> list[Any]:
+def _coalign_intentionally_inactive_weighted_modules(model: torch.nn.Module) -> tuple[str, ...]:
+    if type(model).__name__ != "HeterModelBaselineMs":
+        return ()
+    return tuple(sorted(
+        name
+        for name, module in model.named_modules()
+        if name.startswith("backbone.resnet.layer0.")
+        and isinstance(module, torch.nn.Conv2d)
+    ))
+
+
+def _filter_coalign_runtime_trace(trace_result: Any, model: torch.nn.Module) -> tuple[str, ...]:
+    """Remove only the six checkpoint modules intentionally skipped by CoAlign.
+
+    ``HeterModelBaselineMs.forward`` explicitly omits the fusion backbone's
+    first residual layer because scale-0 is supplied by ``backbone_m1``.
+    Keeping those dormant tensors in runtime precision inventory would create
+    genes that can never map to ONNX.  Any *other* uncalled weighted module is
+    still a hard error.
+    """
+
+    inactive = _coalign_intentionally_inactive_weighted_modules(model)
+    inactive_set = set(inactive)
+    trace_result.module_inventory = [
+        row for row in trace_result.module_inventory
+        if str(row.module_path) not in inactive_set
+    ]
+    called = {
+        str(row.module_path) for row in trace_result.module_call_trace
+        if str(row.module_path) not in inactive_set
+    }
+    weighted = {
+        str(row.module_path) for row in trace_result.module_inventory
+        if bool(getattr(row, "weighted", False))
+    }
+    missing = sorted(weighted - called)
+    if missing:
+        raise RuntimeError(
+            f"heal_lidar_coalign_unexpected_uncalled_weighted_modules:{missing}"
+        )
+    coverage = trace_result.trace_coverage
+    coverage.weighted_modules_total = len(weighted)
+    coverage.weighted_modules_called = len(weighted)
+    coverage.weighted_module_coverage = 1.0
+    coverage.coverage_notes = list(coverage.coverage_notes) + [
+        "CoAlign fusion-backbone layer0 is intentionally dormant; the real "
+        "forward starts from backbone_m1 scale-0 and executes layer1/layer2."
+    ]
+    trace_result.trace_hash = canonical_json_hash({
+        "trace": {**trace_result.to_dict(), "trace_hash": ""},
+        "intentionally_inactive_weighted_modules": list(inactive),
+    })
+    return inactive
+
+
+def _select_runtime_traced_atomic_units(
+    trace_result: Any,
+    *,
+    family_id: str,
+) -> list[Any]:
     """Select every tracer-legal weighted output unit without path whitelists."""
 
     weighted = {
@@ -116,6 +176,16 @@ def _select_runtime_traced_atomic_units(trace_result: Any) -> list[Any]:
             continue
         if not list(getattr(unit, "root_indices", []) or []):
             continue
+        if family_id == "heal_lidar_coalign":
+            root = str(getattr(unit, "root_module_path", ""))
+            safe_root = root.startswith((
+                "backbone_m1.resnet.layer0.",
+                "backbone.resnet.layer1.",
+                "backbone.resnet.layer2.",
+                "shrink_conv.layers.0.double_conv.",
+            ))
+            if not safe_root:
+                continue
         unit_id = str(getattr(unit, "stable_id", ""))
         if not unit_id or unit_id.startswith("unit"):
             raise RuntimeError(f"invalid_runtime_atomic_prune_unit_id:{unit_id}")
@@ -173,10 +243,18 @@ def build_heal_lidar_baseline_context(
         family_id=family_id,
         forward_smoke=True,
     )
-    if bundle.uncalled_weighted_modules:
+    intentionally_inactive_weighted = (
+        _coalign_intentionally_inactive_weighted_modules(bundle.model)
+        if family_id == "heal_lidar_coalign"
+        else ()
+    )
+    unexpected_uncalled = sorted(
+        set(bundle.uncalled_weighted_modules) - set(intentionally_inactive_weighted)
+    )
+    if unexpected_uncalled:
         raise RuntimeError(
             f"heal_lidar_baseline_runtime_weighted_coverage_incomplete:"
-            f"{bundle.uncalled_weighted_modules}"
+            f"{unexpected_uncalled}"
         )
     requested_policy_name = str(search_space_policy).strip().lower()
     policy_name = _DEPRECATED_RUNTIME_POLICY_ALIASES.get(
@@ -196,6 +274,11 @@ def build_heal_lidar_baseline_context(
             config=TraceConfig(fail_on_fx_trace_error=False),
             forward_fn=bundle.adapter.forward_for_task,
         )
+        if family_id == "heal_lidar_coalign":
+            intentionally_inactive_weighted = _filter_coalign_runtime_trace(
+                trace_result,
+                bundle.model,
+            )
         coverage = trace_result.trace_coverage
         if (
             float(coverage.weighted_module_coverage) != 1.0
@@ -207,7 +290,10 @@ def build_heal_lidar_baseline_context(
                 f"{coverage.to_dict()}"
             )
         all_atomic_units = list(trace_result.atomic_prune_units)
-        atomic_units = _select_runtime_traced_atomic_units(trace_result)
+        atomic_units = _select_runtime_traced_atomic_units(
+            trace_result,
+            family_id=family_id,
+        )
         coupled_units = list(trace_result.coupled_channel_units)
     else:
         atomic_units = build_heal_lidar_baseline_atomic_units(bundle.model, bundle.audit)
@@ -445,6 +531,9 @@ def build_heal_lidar_baseline_context(
         "runtime_weighted_module_count": bundle.weighted_modules_total,
         "runtime_weighted_modules_called": list(bundle.weighted_modules_called),
         "uncalled_weighted_modules": list(bundle.uncalled_weighted_modules),
+        "intentionally_inactive_weighted_modules": list(
+            intentionally_inactive_weighted
+        ),
         "atomic_unit_count_total": len(all_atomic_units),
         "atomic_unit_count": len(atomic_units),
         "coupled_channel_unit_count": len(coupled_units),
