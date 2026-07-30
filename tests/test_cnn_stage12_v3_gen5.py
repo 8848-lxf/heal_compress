@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -197,13 +198,13 @@ def _frontier_recovery_prepared():
         def evaluate(candidate):
             phenotype = canonicalize_candidate(candidate, space)
             metrics = bops.evaluate_breakdown(phenotype)
+            deviation = abs(metrics["R_bops_vs_fp32"] - target)
             return {
                 **metrics,
                 "target": target,
-                "bops_feasible": (
-                    abs(metrics["R_bops_vs_fp32"] - target) <= 0.005
-                    or not enforce_bops_hard_gate
-                ),
+                "bops_deviation": deviation,
+                "bops_feasible": deviation <= 0.005,
+                "bops_hard_gate_passed": deviation <= 0.005,
                 "J_total": 0.0,
                 "structural_repair_count": 0,
                 "precision_repair_count": 0,
@@ -251,6 +252,10 @@ def test_cnn_greedy_restores_legal_frontier_and_finite_beam(
     assert winners["0.55"]["capture"]["capture_source"].startswith(
         "target_directed_beam_recovery"
     )
+    assert winners["0.75"]["metrics"]["target"] == 0.75
+    assert winners["0.55"]["metrics"]["target"] == 0.55
+    assert winners["0.75"]["metrics"]["bops_hard_gate_passed"] is True
+    assert winners["0.55"]["metrics"]["bops_hard_gate_passed"] is True
     audit = json.loads(
         (tmp_path / "reports/greedy_search_audit.json").read_text()
     )["activation_taylor_enabled"]
@@ -260,6 +265,181 @@ def test_cnn_greedy_restores_legal_frontier_and_finite_beam(
     assert audit["structure_repair_count"] == 0
     assert audit["precision_repair_count"] == 0
     assert audit["budget_repair_count"] == 0
+
+
+def test_cobevt_fixed500_reuses_hash_bound_static_precision_acceptance(
+    tmp_path: Path,
+) -> None:
+    from search.candidate import CandidateGenotype
+    from search.ga.cnn_stage12_v3 import (
+        GENERATION_WINNER_VALIDATION_SCHEMA,
+        validate_generation_winner,
+    )
+    from search.ga.stage12_v3 import Stage2Result
+
+    candidate = CandidateGenotype(
+        pruning_width_genes={"backbone::out": 12},
+        precision_genes={"conv": "FP32"},
+        meta={"created_by": "test", "repair_count": 0},
+    )
+    complete_hash = "a" * 64
+    source = tmp_path / "stage2"
+    engine = source / "deployment/candidate.plan"
+    engine.parent.mkdir(parents=True)
+    engine.write_bytes(b"cobevt-engine")
+    engine_hash = hashlib.sha256(engine.read_bytes()).hexdigest()
+    (source / "candidate_stage2_result.json").write_text(json.dumps({
+        "candidate_hash": complete_hash,
+        "status": "ok",
+        "physical_acceptance": True,
+        "engine_acceptance": True,
+        "qdq_acceptance": True,
+        "precision_acceptance": True,
+        "merge_acceptance": True,
+        "transformer_attention_fp32_acceptance": True,
+        "transformer_functional_precision_acceptance": True,
+        "requested_int8_count": 1,
+        "realized_int8_count": 1,
+        "engine_path": str(engine),
+        "engine_sha256": engine_hash,
+    }))
+    (source / "strict_stage2_result.json").write_text(json.dumps({
+        "complete_phenotype_hash": complete_hash,
+        "status": "ok",
+        "requested_realized_exact": True,
+    }))
+    (source / "deployment/functional_precision_trt_audit.json").write_text(
+        json.dumps({
+            "passed": True,
+            "conflict_count": 0,
+            "unmapped_count": 0,
+            "fallback_count": 0,
+        })
+    )
+    screening = Stage2Result(
+        complete_phenotype_hash=complete_hash,
+        genotype=candidate,
+        status="ok",
+        map=0.64,
+        p50_ms=5.2,
+        requested_realized_exact=True,
+        evaluated=300,
+        skipped=0,
+        metadata={
+            "artifact_dir": str(source),
+            "engine_hash": engine_hash,
+            "precision_fallback": False,
+        },
+    )
+
+    class MetricsOnlyEvaluator:
+        def reevaluate_existing_candidate_engine(self, *_args, **_kwargs):
+            # This is the real CoBEVT fixed500 payload shape: evaluation
+            # metrics only, without the immutable Stage-2 precision fields.
+            return {
+                "status": "ok",
+                "mAP": 0.645,
+                "forward_p50_ms": 5.0,
+                "num_evaluated_frames": 500,
+                "num_skipped_frames": 0,
+            }
+
+    prepared = SimpleNamespace(
+        space=_space(),
+        spec=SimpleNamespace(model_id="cobevt"),
+    )
+    result = validate_generation_winner(
+        prepared,
+        screening_result=screening,
+        output_root=tmp_path / "run",
+        budget_label="030",
+        generation=0,
+        validation_evaluator=MetricsOnlyEvaluator(),
+    )
+
+    assert result.deployable
+    assert result.requested_realized_exact is True
+    assert result.map == 0.645
+    assert result.evaluated == 500
+    assert result.skipped == 0
+    assert result.metadata["validation_contract_schema"] == (
+        GENERATION_WINNER_VALIDATION_SCHEMA
+    )
+    assert result.metadata["static_deployment_acceptance"] == {
+        "passed": True,
+        "issues": [],
+        "candidate_hash": complete_hash,
+        "engine_path": str(engine),
+        "engine_sha256": engine_hash,
+        "requested_int8_count": 1,
+        "realized_int8_count": 1,
+        "conflict_count": 0,
+        "unmapped_count": 0,
+        "fallback_count": 0,
+    }
+
+
+def test_cobevt_fixed500_fails_closed_on_engine_hash_mismatch(
+    tmp_path: Path,
+) -> None:
+    from search.ga.cnn_stage12_v3 import _cobevt_static_stage2_acceptance
+    from search.ga.stage12_v3 import Stage2Result
+    from search.candidate import CandidateGenotype
+
+    candidate = CandidateGenotype(
+        pruning_width_genes={"backbone::out": 12},
+        precision_genes={"conv": "FP32"},
+    )
+    complete_hash = "b" * 64
+    source = tmp_path / "stage2"
+    engine = source / "deployment/candidate.plan"
+    engine.parent.mkdir(parents=True)
+    engine.write_bytes(b"actual-engine")
+    bad_hash = "0" * 64
+    (source / "candidate_stage2_result.json").write_text(json.dumps({
+        "candidate_hash": complete_hash,
+        "status": "ok",
+        "physical_acceptance": True,
+        "engine_acceptance": True,
+        "qdq_acceptance": True,
+        "precision_acceptance": True,
+        "merge_acceptance": True,
+        "transformer_attention_fp32_acceptance": True,
+        "transformer_functional_precision_acceptance": True,
+        "requested_int8_count": 0,
+        "realized_int8_count": 0,
+        "engine_path": str(engine),
+        "engine_sha256": bad_hash,
+    }))
+    (source / "strict_stage2_result.json").write_text(json.dumps({
+        "complete_phenotype_hash": complete_hash,
+    }))
+    (source / "deployment/functional_precision_trt_audit.json").write_text(
+        json.dumps({
+            "passed": True,
+            "conflict_count": 0,
+            "unmapped_count": 0,
+            "fallback_count": 0,
+        })
+    )
+    screening = Stage2Result(
+        complete_hash,
+        candidate,
+        "ok",
+        0.6,
+        5.0,
+        True,
+        300,
+        0,
+        {"artifact_dir": str(source), "engine_hash": bad_hash},
+    )
+
+    audit = _cobevt_static_stage2_acceptance(
+        screening_result=screening,
+        source=source,
+    )
+    assert audit["passed"] is False
+    assert "engine_sha256_mismatch" in audit["issues"]
 
 
 def test_cnn_greedy_frontier_and_recovery_are_deterministic(

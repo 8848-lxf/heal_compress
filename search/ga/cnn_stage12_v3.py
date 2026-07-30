@@ -9,6 +9,7 @@ retaining their already-audited model loaders and TensorRT evaluators.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 import random
@@ -66,6 +67,9 @@ STAGE2_SCREENING_PROTOCOL = "top5_fixed300_warmup100_screening"
 GENERATION_WINNER_FRAMES = 500
 GENERATION_WINNER_WARMUP_FRAMES = 200
 GENERATION_WINNER_PROTOCOL = "generation_winner_fixed500_warmup200"
+GENERATION_WINNER_VALIDATION_SCHEMA = (
+    "cnn-generation-winner-validation-static-stage2-contract-v2"
+)
 EVALUATION_MANIFEST_FRAMES = GENERATION_WINNER_FRAMES
 EVALUATION_MANIFEST_WARMUP_FRAMES = GENERATION_WINNER_WARMUP_FRAMES
 
@@ -1117,13 +1121,24 @@ def greedy_anchors(
         winner_hash = str(pool[0][2]["complete_phenotype_hash"])
         winner_capture_details[target] = capture_details[target][winner_hash]
     write_csv(output_root / "reports/greedy_budget_capture.csv", capture_rows)
+    winner_evaluators = {
+        target: prepared.evaluator(
+            target=target,
+            enforce_bops_hard_gate=False,
+        )
+        for target in winners
+    }
     write_json(
         output_root / "reports/greedy_exact_winners.json",
         {
             str(target): {
                 "genotype": candidate.to_dict(),
                 "identity": phenotype_identity(candidate, prepared.space),
-                "metrics": evaluator(candidate),
+                # Target-dependent fields such as BOPS deviation and hard-gate
+                # status must be recomputed for the budget owning this anchor.
+                # The shared trajectory evaluator is intentionally bound to the
+                # lowest target and therefore cannot be serialized here.
+                "metrics": winner_evaluators[target](candidate),
                 "capture": {
                     key: winner_capture_details[target][key]
                     for key in (
@@ -1451,6 +1466,114 @@ def create_real_evaluator(
     )
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _cobevt_static_stage2_acceptance(
+    *,
+    screening_result: Stage2Result,
+    source: Path,
+) -> dict[str, Any]:
+    """Re-audit immutable CoBEVT deployment facts for fixed500 reuse.
+
+    The fixed500 worker evaluates an already-built engine and intentionally
+    returns only accuracy/latency fields. Precision, Q/DQ and Transformer
+    protection are immutable properties of the screening engine, so they are
+    loaded from the Stage-2 artifact after binding candidate identity and the
+    engine SHA256. Missing or inconsistent evidence fails closed.
+    """
+
+    issues: list[str] = []
+    candidate_path = source / "candidate_stage2_result.json"
+    strict_path = source / "strict_stage2_result.json"
+    functional_path = source / "deployment/functional_precision_trt_audit.json"
+    if not candidate_path.is_file():
+        issues.append("candidate_stage2_result_missing")
+    if not strict_path.is_file():
+        issues.append("strict_stage2_result_missing")
+    if not functional_path.is_file():
+        issues.append("functional_precision_trt_audit_missing")
+    if issues:
+        return {"passed": False, "issues": issues}
+
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    strict = json.loads(strict_path.read_text(encoding="utf-8"))
+    functional = json.loads(functional_path.read_text(encoding="utf-8"))
+    expected_hash = str(screening_result.complete_phenotype_hash)
+    if str(candidate.get("candidate_hash", "")) != expected_hash:
+        issues.append("candidate_hash_mismatch")
+    if str(strict.get("complete_phenotype_hash", "")) != expected_hash:
+        issues.append("strict_stage2_hash_mismatch")
+    if not screening_result.deployable:
+        issues.append("screening_result_not_deployable")
+    if not screening_result.requested_realized_exact:
+        issues.append("screening_requested_realized_not_exact")
+    if str(candidate.get("status", "")) != "ok":
+        issues.append("candidate_stage2_status_not_ok")
+    for field in (
+        "physical_acceptance",
+        "engine_acceptance",
+        "qdq_acceptance",
+        "precision_acceptance",
+        "merge_acceptance",
+        "transformer_attention_fp32_acceptance",
+        "transformer_functional_precision_acceptance",
+    ):
+        if not bool(candidate.get(field, False)):
+            issues.append(f"{field}_failed")
+    requested = int(candidate.get("requested_int8_count", -1))
+    realized = int(candidate.get("realized_int8_count", -2))
+    if requested < 0 or requested != realized:
+        issues.append("requested_realized_int8_count_mismatch")
+    if not bool(functional.get("passed", False)):
+        issues.append("functional_precision_audit_failed")
+    for field in ("conflict_count", "unmapped_count", "fallback_count"):
+        if int(functional.get(field, -1)) != 0:
+            issues.append(f"functional_{field}_nonzero")
+
+    engine_path = Path(str(candidate.get("engine_path", "")))
+    expected_engine_hash = str(
+        candidate.get("engine_sha256", "")
+        or screening_result.metadata.get("engine_hash", "")
+    )
+    screening_engine_hash = str(
+        screening_result.metadata.get("engine_hash", "")
+    )
+    actual_engine_hash = ""
+    if not engine_path.is_file():
+        issues.append("screening_engine_missing")
+    else:
+        try:
+            engine_path.resolve().relative_to(source.resolve())
+        except ValueError:
+            issues.append("screening_engine_outside_source_artifact")
+        actual_engine_hash = _sha256_file(engine_path)
+    if len(expected_engine_hash) != 64:
+        issues.append("expected_engine_hash_missing")
+    if screening_engine_hash and screening_engine_hash != expected_engine_hash:
+        issues.append("screening_engine_hash_mismatch")
+    if actual_engine_hash and actual_engine_hash != expected_engine_hash:
+        issues.append("engine_sha256_mismatch")
+
+    return {
+        "passed": not issues,
+        "issues": issues,
+        "candidate_hash": expected_hash,
+        "engine_path": str(engine_path),
+        "engine_sha256": actual_engine_hash,
+        "requested_int8_count": requested,
+        "realized_int8_count": realized,
+        "conflict_count": int(functional.get("conflict_count", -1)),
+        "unmapped_count": int(functional.get("unmapped_count", -1)),
+        "fallback_count": int(functional.get("fallback_count", -1)),
+    }
+
+
 def validate_generation_winner(
     prepared: PreparedCNNFormalSearch,
     *,
@@ -1480,17 +1603,21 @@ def validate_generation_winner(
             raise RuntimeError(
                 f"cnn_generation_winner_cache_protocol_mismatch:{complete_hash}"
             )
-        return Stage2Result(
-            complete_hash,
-            screening_result.genotype,
-            str(payload["status"]),
-            payload.get("mAP"),
-            payload.get("p50_ms"),
-            bool(payload["requested_realized_exact"]),
-            int(payload["evaluated"]),
-            int(payload["skipped"]),
-            metadata,
-        )
+        if (
+            str(metadata.get("validation_contract_schema", ""))
+            == GENERATION_WINNER_VALIDATION_SCHEMA
+        ):
+            return Stage2Result(
+                complete_hash,
+                screening_result.genotype,
+                str(payload["status"]),
+                payload.get("mAP"),
+                payload.get("p50_ms"),
+                bool(payload["requested_realized_exact"]),
+                int(payload["evaluated"]),
+                int(payload["skipped"]),
+                metadata,
+            )
     destination.mkdir(parents=True, exist_ok=True)
     try:
         if not screening_result.deployable:
@@ -1508,25 +1635,26 @@ def validate_generation_winner(
             candidate_hash=complete_hash,
         )
         evaluated, skipped = CNNRealStage2Evaluator._counts(raw)
-        exact = bool(
-            raw.get("status") == "ok"
-            and (
-                prepared.spec.model_id == "pyramid"
-                or (
-                    raw.get("precision_acceptance", False)
-                    and raw.get("merge_acceptance", False)
-                    and (
-                        prepared.spec.model_id != "cobevt"
-                        or (
-                            raw.get("transformer_attention_fp32_acceptance", False)
-                            and raw.get(
-                                "transformer_functional_precision_acceptance", False
-                            )
-                        )
+        static_acceptance: dict[str, Any] | None = None
+        if prepared.spec.model_id == "cobevt":
+            static_acceptance = _cobevt_static_stage2_acceptance(
+                screening_result=screening_result,
+                source=source,
+            )
+            exact = bool(
+                raw.get("status") == "ok" and static_acceptance["passed"]
+            )
+        else:
+            exact = bool(
+                raw.get("status") == "ok"
+                and (
+                    prepared.spec.model_id == "pyramid"
+                    or (
+                        raw.get("precision_acceptance", False)
+                        and raw.get("merge_acceptance", False)
                     )
                 )
             )
-        )
         ok = bool(
             raw.get("status") == "ok"
             and exact
@@ -1549,11 +1677,22 @@ def validate_generation_winner(
                 "artifact_dir": str(destination),
                 "source_artifact_dir": str(source),
                 "screening_result": stage2_payload(screening_result),
-                "engine_hash": raw.get("engine_hash", raw.get("engine_sha256", "")),
+                "engine_hash": (
+                    raw.get("engine_hash", raw.get("engine_sha256", ""))
+                    or (
+                        static_acceptance.get("engine_sha256", "")
+                        if static_acceptance
+                        else screening_result.metadata.get("engine_hash", "")
+                    )
+                ),
                 "engine_rebuilt_for_validation": False,
                 "evaluation_frames": GENERATION_WINNER_FRAMES,
                 "evaluation_warmup_frames": GENERATION_WINNER_WARMUP_FRAMES,
                 "evaluation_protocol": GENERATION_WINNER_PROTOCOL,
+                "validation_contract_schema": (
+                    GENERATION_WINNER_VALIDATION_SCHEMA
+                ),
+                "static_deployment_acceptance": static_acceptance,
                 "precision_fallback": False,
                 "raw": raw,
             },
@@ -1575,6 +1714,9 @@ def validate_generation_winner(
                 "evaluation_frames": GENERATION_WINNER_FRAMES,
                 "evaluation_warmup_frames": GENERATION_WINNER_WARMUP_FRAMES,
                 "evaluation_protocol": GENERATION_WINNER_PROTOCOL,
+                "validation_contract_schema": (
+                    GENERATION_WINNER_VALIDATION_SCHEMA
+                ),
                 "precision_fallback": False,
             },
         )
