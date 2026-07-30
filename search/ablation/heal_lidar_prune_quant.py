@@ -39,6 +39,28 @@ SUPPORTED_FAMILIES = (
     "heal_lidar_disco",
 )
 HEAL_LIDAR_AUXILIARY_PRECISION_KEY = "heal_lidar_auxiliary_precision"
+HEAL_RUNTIME_GRAPH_POLICY = "heal_runtime_graph_v1"
+LEGACY_FAMILY_STATIC_POLICY = "legacy_family_static_dependency_closure_v1"
+SUPPORTED_SEARCH_SPACE_POLICIES = {
+    HEAL_RUNTIME_GRAPH_POLICY,
+    LEGACY_FAMILY_STATIC_POLICY,
+}
+
+
+def _search_space_policy(
+    report: Mapping[str, Any],
+    *,
+    require_explicit: bool,
+) -> str:
+    value = str(report.get("search_space_policy", "")).strip().lower()
+    if not value and not require_explicit:
+        value = LEGACY_FAMILY_STATIC_POLICY
+    if value not in SUPPORTED_SEARCH_SPACE_POLICIES:
+        raise RuntimeError(
+            "heal_lidar_ablation_search_space_policy_missing_or_unsupported:"
+            f"{value or '<missing>'}"
+        )
+    return value
 
 
 def _read_json(path: str | Path) -> dict[str, Any]:
@@ -150,6 +172,13 @@ def collect_authoritative_family_candidates(
         greedy_context.get("checkpoint_hash", "")
     ):
         raise RuntimeError("heal_lidar_ablation_checkpoint_mismatch_between_methods")
+    ga_policy = _search_space_policy(ga_context, require_explicit=False)
+    greedy_policy = _search_space_policy(greedy_context, require_explicit=False)
+    if ga_policy != greedy_policy:
+        raise RuntimeError(
+            "heal_lidar_ablation_search_space_policy_mismatch_between_methods:"
+            f"{ga_policy}:{greedy_policy}"
+        )
 
     rows: list[dict[str, Any]] = []
     for record_path in sorted(ga.glob("round_*/round_best_candidate.json")):
@@ -168,6 +197,7 @@ def collect_authoritative_family_candidates(
                 "budget": budget,
                 "actual_bops": actual,
                 "candidate_hash": str(record["candidate_hash"]),
+                "source_search_space_policy": ga_policy,
                 "source_record": str(record_path.resolve()),
                 **accepted,
             }
@@ -198,6 +228,7 @@ def collect_authoritative_family_candidates(
                 "budget": budget,
                 "actual_bops": actual,
                 "candidate_hash": str(record["candidate_hash"]),
+                "source_search_space_policy": greedy_policy,
                 "source_record": str(greedy_results_path.resolve()),
                 **accepted,
             }
@@ -245,7 +276,11 @@ def collect_formal_family_candidates(
         raise ValueError(f"unsupported_heal_lidar_ablation_family:{family_id}")
     repo = Path(repository_root).resolve()
     root = Path(formal_root).resolve()
-    _require_family_run(root, family_id=family_id)
+    formal_context = _require_family_run(root, family_id=family_id)
+    formal_policy = _search_space_policy(
+        formal_context,
+        require_explicit=True,
+    )
     result_path = root / "reports/formal_ga_results.json"
     if not result_path.is_file():
         raise RuntimeError(f"heal_lidar_formal_results_missing:{result_path}")
@@ -303,6 +338,7 @@ def collect_formal_family_candidates(
                     "actual_bops": float(budget),
                     "actual_bops_source": "pending_exact_phenotype_recompute",
                     "candidate_hash": candidate_hash,
+                    "source_search_space_policy": formal_policy,
                     "source_record": str(result_path.resolve()),
                     **accepted,
                 }
@@ -387,6 +423,14 @@ def build_family_ablation_matrix(
     rows: list[dict[str, Any]] = []
     for raw_source in sources:
         source = dict(raw_source)
+        search_space_policy = str(
+            source.get("source_search_space_policy", "")
+        ).strip().lower()
+        if search_space_policy not in SUPPORTED_SEARCH_SPACE_POLICIES:
+            raise RuntimeError(
+                "heal_lidar_ablation_source_search_space_policy_invalid:"
+                f"{search_space_policy or '<missing>'}"
+            )
         phenotype = CandidatePhenotype.from_dict(source["phenotype"])
         source_id = (
             f"{source['family_id']}__{source['method']}__bops_{float(source['budget']):.2f}"
@@ -413,6 +457,7 @@ def build_family_ablation_matrix(
                 {
                     "phenotype_signature": ablation_config_signature(derived),
                     "heal_lidar_auxiliary_precision": auxiliary_precision,
+                    "search_space_policy": search_space_policy,
                 }
             )
             row_id = f"{source_id}__{variant}"
@@ -427,6 +472,7 @@ def build_family_ablation_matrix(
                     "candidate_hash": source["candidate_hash"],
                     "source_artifact_dir": source["artifact_dir"],
                     "source_phenotype_hash": source["phenotype_hash"],
+                    "source_search_space_policy": search_space_policy,
                     "phenotype": derived.to_dict(),
                     "phenotype_hash": canonical_json_hash(derived.to_dict()),
                     "deployment_config_signature": signature,

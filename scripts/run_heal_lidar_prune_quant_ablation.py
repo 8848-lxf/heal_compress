@@ -27,6 +27,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from search.ablation.heal_lidar_prune_quant import (  # noqa: E402
+    HEAL_RUNTIME_GRAPH_POLICY,
+    LEGACY_FAMILY_STATIC_POLICY,
+    SUPPORTED_SEARCH_SPACE_POLICIES,
     build_family_ablation_matrix,
     collect_authoritative_family_candidates,
     collect_formal_family_candidates,
@@ -98,6 +101,50 @@ def _logical_gpu_id(physical_gpu: int) -> int:
     return 0
 
 
+def _manifest_search_space_policy(manifest: dict[str, Any]) -> str:
+    """Resolve one deployment policy for every derived P/Q engine.
+
+    Formal P+Q engines are built from the runtime tracer search space.  The
+    counterfactual P-only/Q-only builders must recreate that same context;
+    falling back to the legacy family-named fusion-island policy changes the
+    ONNX/QDQ contract and makes the decomposition incomparable.
+    """
+
+    explicit = str(manifest.get("search_space_policy", "")).strip().lower()
+    row_policies = {
+        str(row.get("source_search_space_policy", "")).strip().lower()
+        for row in list(manifest.get("rows") or [])
+        if str(row.get("source_search_space_policy", "")).strip()
+    }
+    if explicit:
+        row_policies.add(explicit)
+    if not row_policies:
+        # Backward-compatible inference is allowed only from an unambiguous
+        # serialized precision-policy contract.  No silent legacy fallback.
+        for row in list(manifest.get("rows") or []):
+            phenotype_path = Path(str(row.get("phenotype_path", "")))
+            if not phenotype_path.is_file():
+                continue
+            precision_policy = str(
+                _read_json(phenotype_path).get("precision_policy_version", "")
+            ).lower()
+            if "runtime-tensor-flow-adaptive-merge" in precision_policy:
+                row_policies.add(HEAL_RUNTIME_GRAPH_POLICY)
+            elif "heal-lidar-explicit-qdq-fp16-fusion-island" in precision_policy:
+                row_policies.add(LEGACY_FAMILY_STATIC_POLICY)
+    if len(row_policies) != 1:
+        raise RuntimeError(
+            "heal_lidar_ablation_search_space_policy_ambiguous:"
+            f"{sorted(row_policies)}"
+        )
+    policy = next(iter(row_policies))
+    if policy not in SUPPORTED_SEARCH_SPACE_POLICIES:
+        raise RuntimeError(
+            f"heal_lidar_ablation_search_space_policy_unsupported:{policy}"
+        )
+    return policy
+
+
 def _prepare(args: argparse.Namespace) -> dict[str, Any]:
     run_dir = args.run_dir.resolve()
     if run_dir.exists() and any(run_dir.iterdir()):
@@ -126,6 +173,15 @@ def _prepare(args: argparse.Namespace) -> dict[str, Any]:
             tolerance=float(args.bops_tolerance),
         )
     matrix = build_family_ablation_matrix(sources)
+    search_space_policies = {
+        str(row["source_search_space_policy"]) for row in matrix
+    }
+    if len(search_space_policies) != 1:
+        raise RuntimeError(
+            "heal_lidar_ablation_source_search_space_policy_ambiguous:"
+            f"{sorted(search_space_policies)}"
+        )
+    search_space_policy = next(iter(search_space_policies))
     serialized_rows = []
     for row in matrix:
         payload = dict(row)
@@ -146,10 +202,11 @@ def _prepare(args: argparse.Namespace) -> dict[str, Any]:
         )
         serialized_rows.append(payload)
     manifest = {
-        "schema_version": "heal-lidar-family-prune-quant-ablation-v1",
+        "schema_version": "heal-lidar-family-prune-quant-ablation-v2",
         "created_at": datetime.now().astimezone().isoformat(),
         "run_dir": str(run_dir),
         "family_id": family_id,
+        "search_space_policy": search_space_policy,
         "config_path": str(args.config.resolve()),
         "config_sha256": _sha256(args.config),
         "formal_root": (
@@ -195,6 +252,7 @@ def _build_context(
     *,
     config: dict[str, Any],
     row_id: str,
+    search_space_policy: str,
 ) -> Any:
     model = dict(config.get("model") or {})
     runtime = dict(config.get("runtime") or {})
@@ -231,6 +289,7 @@ def _build_context(
         max_agents=int(model.get("max_agents", 2)),
         minimum_retained_ratio=float(pruning.get("minimum_retained_ratio", 0.10)),
         dense_alignment=int(pruning.get("dense_channel_alignment", 4)),
+        search_space_policy=str(search_space_policy),
     )
 
 
@@ -356,7 +415,12 @@ def _build_one(args: argparse.Namespace) -> dict[str, Any]:
     if existing is not None:
         return existing
     config = _load_config(args.config)
-    context = _build_context(args, config=config, row_id=args.row_id)
+    context = _build_context(
+        args,
+        config=config,
+        row_id=args.row_id,
+        search_space_policy=_manifest_search_space_policy(manifest),
+    )
     evaluator = _new_evaluator(
         args, config=config, context=context, runtime_id=args.row_id
     )
@@ -414,6 +478,7 @@ def _build_all(args: argparse.Namespace) -> dict[str, Any]:
         args,
         config=config,
         row_id=f"build_all_gpu_{int(args.gpu_id)}",
+        search_space_policy=_manifest_search_space_policy(manifest),
     )
     if needs_resource_refresh:
         manifest = _refresh_exact_resources(

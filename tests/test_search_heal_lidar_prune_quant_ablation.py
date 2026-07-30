@@ -44,6 +44,7 @@ def test_family_ablation_matrix_preserves_one_axis_and_deduplicates_builds() -> 
             "budget": budget,
             "actual_bops": budget,
             "candidate_hash": method,
+            "source_search_space_policy": "heal_runtime_graph_v1",
             "artifact_dir": f"/{method}",
             "phenotype": phenotype.to_dict(),
             "phenotype_hash": "source-phenotype",
@@ -65,6 +66,10 @@ def test_family_ablation_matrix_preserves_one_axis_and_deduplicates_builds() -> 
     assert by_key[("ga", "quant_only")]["requires_engine_build"] is True
     assert by_key[("greedy", "quant_only")]["requires_engine_build"] is False
     assert all(row["requires_fresh_evaluation"] for row in rows)
+    assert all(
+        row["source_search_space_policy"] == "heal_runtime_graph_v1"
+        for row in rows
+    )
 
     prune_only = by_key[("ga", "prune_only")]["phenotype"]
     assert prune_only["pruned_unit_ids"] == ["unit::0"]
@@ -152,6 +157,11 @@ def test_collect_family_candidates_uses_ga_stage2_and_greedy_stage2_full(tmp_pat
     ]
     assert all(Path(row["engine_path"]).name == "candidate.plan" for row in rows)
     assert all(row["stage2_result"]["status"] == "ok" for row in rows)
+    assert all(
+        row["source_search_space_policy"]
+        == "legacy_family_static_dependency_closure_v1"
+        for row in rows
+    )
 
 
 def test_collect_formal_family_candidates_uses_current_joint_result_layout(
@@ -165,7 +175,12 @@ def test_collect_formal_family_candidates_uses_current_joint_result_layout(
     root = tmp_path / "formal"
     _write_json(
         root / "context_report.json",
-        {"family_id": family, "fixed_k": 29696, "checkpoint_hash": "checkpoint"},
+        {
+            "family_id": family,
+            "fixed_k": 29696,
+            "checkpoint_hash": "checkpoint",
+            "search_space_policy": "heal_runtime_graph_v1",
+        },
     )
     phenotype = _phenotype(pruned=["unit::0"], precision="INT8")
     results = {}
@@ -193,6 +208,10 @@ def test_collect_formal_family_candidates_uses_current_joint_result_layout(
     ]
     assert all(
         row["actual_bops_source"] == "pending_exact_phenotype_recompute"
+        for row in rows
+    )
+    assert all(
+        row["source_search_space_policy"] == "heal_runtime_graph_v1"
         for row in rows
     )
 
@@ -235,12 +254,17 @@ def test_build_all_reuses_one_context_and_safely_resumes(tmp_path: Path, monkeyp
     )
     _write_json(
         run_dir / "ablation_manifest.json",
-        {"family_id": "heal_lidar_fcooper", "rows": rows},
+        {
+            "family_id": "heal_lidar_fcooper",
+            "search_space_policy": "heal_runtime_graph_v1",
+            "rows": rows,
+        },
     )
-    calls = {"context": 0, "evaluator": 0, "build": 0}
+    calls = {"context": 0, "evaluator": 0, "build": 0, "policies": []}
 
-    def fake_context(*_args, **_kwargs):
+    def fake_context(*_args, **kwargs):
         calls["context"] += 1
+        calls["policies"].append(kwargs["search_space_policy"])
         return object()
 
     class FakeEvaluator:
@@ -280,7 +304,12 @@ def test_build_all_reuses_one_context_and_safely_resumes(tmp_path: Path, monkeyp
     assert first["completed_owner_count"] == 2
     assert second["status"] == "complete"
     assert second["initial_resume_hit_count"] == 2
-    assert calls == {"context": 1, "evaluator": 1, "build": 2}
+    assert calls == {
+        "context": 1,
+        "evaluator": 1,
+        "build": 2,
+        "policies": ["heal_runtime_graph_v1"],
+    }
     progress = json.loads(
         (run_dir / "build_all_gpu_4_progress.json").read_text(encoding="utf-8")
     )
@@ -300,3 +329,40 @@ def test_ablation_builder_maps_exact_physical_binding_to_logical_zero(
 
     with pytest.raises(RuntimeError, match="requires_exact_gpu_binding"):
         _logical_gpu_id(5)
+
+
+def test_ablation_manifest_infers_runtime_policy_without_legacy_fallback(
+    tmp_path: Path,
+) -> None:
+    from scripts.run_heal_lidar_prune_quant_ablation import (
+        _manifest_search_space_policy,
+    )
+
+    phenotype = _phenotype(pruned=[], precision="FP16").to_dict()
+    phenotype["precision_policy_version"] = (
+        "runtime-tensor-flow-adaptive-merge-precision-groups-v1"
+    )
+    phenotype_path = tmp_path / "phenotype.json"
+    _write_json(phenotype_path, phenotype)
+
+    assert _manifest_search_space_policy({
+        "rows": [{"phenotype_path": str(phenotype_path)}],
+    }) == "heal_runtime_graph_v1"
+
+
+def test_ablation_manifest_rejects_mixed_source_policies() -> None:
+    import pytest
+
+    from scripts.run_heal_lidar_prune_quant_ablation import (
+        _manifest_search_space_policy,
+    )
+
+    with pytest.raises(RuntimeError, match="policy_ambiguous"):
+        _manifest_search_space_policy({
+            "search_space_policy": "heal_runtime_graph_v1",
+            "rows": [{
+                "source_search_space_policy": (
+                    "legacy_family_static_dependency_closure_v1"
+                ),
+            }],
+        })
