@@ -82,7 +82,9 @@ def score_atomic_units_for_fixed_ranking(
         affected_parameters = 0
         for parameter_name, rows in sorted(by_parameter.items()):
             parameter = parameters.get(parameter_name)
-            gradient = statistics.gradients.get(parameter_name)
+            gradient = statistics.absolute_gradients.get(parameter_name)
+            if gradient is None:
+                gradient = statistics.gradients.get(parameter_name)
             fisher = statistics.fisher_diag.get(parameter_name)
             if parameter is None:
                 missing.setdefault(unit_id, []).append(f"parameter:{parameter_name}")
@@ -100,9 +102,11 @@ def score_atomic_units_for_fixed_ranking(
             selected_weight = weight[removed]
             selected_gradient = gradient[removed]
             selected_fisher = fisher[removed]
+            if not bool(torch.isfinite(selected_gradient).all()) or not bool(torch.isfinite(selected_fisher).all()):
+                raise RuntimeError(f"domain_importance_nonfinite_statistics:{parameter_name}")
             first_total += float((selected_gradient * selected_weight).abs().sum().detach().cpu())
             second_total += 0.5 * float(
-                (selected_fisher * selected_weight.square()).sum().detach().cpu()
+                (selected_fisher * selected_weight.square()).abs().sum().detach().cpu()
             )
             affected_parameters += 1
             affected_elements += count
@@ -120,7 +124,8 @@ def score_atomic_units_for_fixed_ranking(
         raise RuntimeError(f"domain_importance_missing_statistics:{missing}")
     score_map = {record.unit_id: record.joint_second_order for record in records}
     manifest_payload = {
-        "formula": "sum(abs(g*(-w)) + 0.5*E[g^2]*(-w)^2)",
+        "formula": "sum_elementwise(abs(g*(-w)) + 0.5*abs(E[g^2]*(-w)^2))_then_parameter_unit_aggregation",
+        "elementwise_abs_before_reduction": True,
         "ranking_is_pruning_only": True,
         "precision_gene_independent": True,
         "statistics_manifest_hash": statistics.manifest_hash,
