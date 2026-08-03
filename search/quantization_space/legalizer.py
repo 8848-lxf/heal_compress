@@ -18,21 +18,30 @@ def legalize_group_precision_genes(
     realized: dict[str, str] = {}
     fallback: dict[str, dict[str, str]] = {}
     for group in sorted(groups, key=lambda row: row.ordering):
-        req = normalize_precision(precision_genes.get(group.group_id, default_precision), default=default_precision)
-        requested[group.group_id] = req
         if group.protected:
             legal = normalize_precision(group.metadata.get("default_precision", default_precision), default=default_precision)
             if legal not in group.allowed_precisions:
                 legal = "FP16" if "FP16" in group.allowed_precisions else group.allowed_precisions[0]
+            # A missing protected group is a constant contract, not an
+            # implicit request that later needs precision repair.
+            req = normalize_precision(
+                precision_genes.get(group.group_id, legal), default=legal
+            )
             reason = group.protection_reason or "protected_precision_group"
-        elif req in group.allowed_precisions:
-            legal = req
-            reason = ""
         else:
-            legal = normalize_precision(group.metadata.get("default_precision", default_precision), default=default_precision)
-            if legal not in group.allowed_precisions:
-                legal = "FP16" if "FP16" in group.allowed_precisions else group.allowed_precisions[0]
-            reason = f"requested_precision_not_allowed:{req}"
+            req = normalize_precision(
+                precision_genes.get(group.group_id, default_precision),
+                default=default_precision,
+            )
+            if req in group.allowed_precisions:
+                legal = req
+                reason = ""
+            else:
+                legal = normalize_precision(group.metadata.get("default_precision", default_precision), default=default_precision)
+                if legal not in group.allowed_precisions:
+                    legal = "FP16" if "FP16" in group.allowed_precisions else group.allowed_precisions[0]
+                reason = f"requested_precision_not_allowed:{req}"
+        requested[group.group_id] = req
         realized[group.group_id] = legal
         if legal != req or reason:
             fallback[group.group_id] = {

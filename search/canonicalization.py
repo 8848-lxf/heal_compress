@@ -1,4 +1,9 @@
-"""Repair, precision legalization, and canonical phenotype construction."""
+"""Strict genotype validation and canonical phenotype construction.
+
+Search operators are expected to be legal by construction.  The historical
+``repair_genotype`` public name remains for compatibility, but a domain-width
+or variable-precision value is never snapped to another search state.
+"""
 
 from __future__ import annotations
 
@@ -50,8 +55,27 @@ class SearchSpaceSpec:
     @property
     def precision_gene_ids(self) -> list[str]:
         if self.quantization_groups:
-            return [group.group_id for group in self.quantization_groups]
+            # Protected and single-state groups are deployment constants, not
+            # mutable loci.  They are materialized while constructing the
+            # phenotype and therefore cannot be "repaired" after GA/Greedy
+            # proposes an illegal QK/LayerNorm/residual precision.
+            return [
+                group.group_id
+                for group in self.quantization_groups
+                if not group.protected and len(set(group.allowed_precisions)) > 1
+            ]
         return list(self.precision_layer_ids)
+
+    @property
+    def constant_precision_group_ids(self) -> list[str]:
+        if not self.quantization_groups:
+            return []
+        variable = set(self.precision_gene_ids)
+        return [
+            group.group_id
+            for group in self.quantization_groups
+            if group.group_id not in variable
+        ]
 
     @property
     def pruning_gene_ids(self) -> list[str]:
@@ -65,7 +89,13 @@ class SearchSpaceSpec:
 
 
 def repair_genotype(genotype: CandidateGenotype, space: SearchSpaceSpec) -> CandidateGenotype:
-    """Repair raw genes without collapsing unknowns into persistent identity."""
+    """Validate and canonicalize a search genotype without changing its phenotype.
+
+    Missing loci receive their documented baseline value.  Explicit unknown,
+    protected, single-state, illegal-width, or disallowed precision loci fail
+    closed instead of being rewritten.  Consequently any returned genotype is
+    phenotype-equivalent to the submitted search decisions.
+    """
 
     pruning = {}
     if not space.pruning_domains:
@@ -83,17 +113,45 @@ def repair_genotype(genotype: CandidateGenotype, space: SearchSpaceSpec) -> Cand
         # redundant all-keep values from entering hash/GA bookkeeping.
         pruning = {}
     if space.quantization_groups:
+        variable_ids = set(space.precision_gene_ids)
+        explicit_ids = set(genotype.precision_genes)
+        non_variable = sorted(explicit_ids - variable_ids)
+        if non_variable:
+            raise ValueError(
+                "non_variable_precision_genes_must_not_enter_genotype:"
+                f"{non_variable}"
+            )
         legalization = legalize_group_precision_genes(
             genotype.precision_genes,
             space.quantization_groups,
             default_precision=space.default_precision,
         )
-        precision = dict(legalization.stage1_legalized_group_profile)
+        precision = {
+            group_id: legalization.stage1_legalized_group_profile[group_id]
+            for group_id in space.precision_gene_ids
+        }
+        changed = {
+            group_id: {
+                "requested_precision": genotype.precision_genes.get(
+                    group_id, space.default_precision
+                ),
+                "realized_precision": precision[group_id],
+            }
+            for group_id in space.precision_gene_ids
+            if group_id in genotype.precision_genes
+            and genotype.precision_genes[group_id] != precision[group_id]
+        }
+        if changed:
+            raise ValueError(f"variable_precision_gene_requires_repair:{changed}")
         meta = {
             **dict(genotype.meta),
             "requested_group_profile": dict(legalization.requested_group_profile),
             "stage1_legalized_group_profile": dict(legalization.stage1_legalized_group_profile),
             "precision_fallback_report": dict(legalization.fallback_report),
+            "constant_precision_group_profile": {
+                group_id: legalization.stage1_legalized_group_profile[group_id]
+                for group_id in space.constant_precision_group_ids
+            },
         }
     else:
         precision = {

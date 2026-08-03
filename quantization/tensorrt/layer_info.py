@@ -55,7 +55,20 @@ def is_weighted_compute_layer(row: Mapping[str, Any]) -> bool:
     """Return whether TensorRT metadata describes a weighted compute layer."""
 
     kind = str(row.get("LayerType") or row.get("type") or "").lower()
-    return any(token in kind for token in ("conv", "gemm", "matmul", "matrix", "fully"))
+    weighted_tokens = ("conv", "gemm", "matmul", "matrix", "fully")
+    if any(token in kind for token in weighted_tokens):
+        return True
+    if "fusion" not in kind:
+        return False
+    # TensorRT may fuse an explicit-Q/DQ Linear, its output Cast, bias and
+    # activation into one layer whose public LayerType is merely ``fusion``.
+    # Do not accept every fusion as weighted compute: require the selected
+    # tactic itself to identify a GEMM/MatMul/Conv kernel.  This preserves the
+    # exact canonical identity check while recognizing a real fused INT8 GEMM.
+    tactic = str(
+        row.get("TacticName") or row.get("tactic") or row.get("Tactic") or ""
+    ).lower()
+    return any(token in tactic for token in weighted_tokens)
 
 
 def precision_name(row: Mapping[str, Any]) -> str:

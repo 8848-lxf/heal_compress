@@ -10,6 +10,7 @@ from ..candidate import CandidatePhenotype
 from .bops_proxy import BOPSProxy
 from .fisher_proxy import FisherTaylorProxy
 from .joint_weight_taylor import JointWeightTaylorProxy
+from .joint_weight_activation_taylor import JointWeightActivationTaylorProxy
 from .normalization import NormalizationStats
 from .size_proxy import SizeProxy
 from .sqnr_proxy import SQNRProxy
@@ -103,6 +104,7 @@ class ProxyObjective:
         size: SizeProxy | None = None,
         bops: BOPSProxy | None = None,
         joint_weight_taylor: JointWeightTaylorProxy | None = None,
+        joint_weight_activation_taylor: JointWeightActivationTaylorProxy | None = None,
         *,
         normalization: NormalizationStats | None = None,
         config: ProxyObjectiveConfig | None = None,
@@ -112,18 +114,29 @@ class ProxyObjective:
         self.size = size or SizeProxy(layer_parameter_counts={})
         self.bops = bops or BOPSProxy(layer_ops={})
         self.joint_weight_taylor = joint_weight_taylor
+        self.joint_weight_activation_taylor = joint_weight_activation_taylor
         self.normalization = normalization or NormalizationStats()
         self.config = config or ProxyObjectiveConfig()
 
     def evaluate(self, phenotype: CandidatePhenotype, *, legal: bool = True) -> dict[str, Any]:
         if not legal:
             return {"F1": self.config.illegal_score, "legal": False}
-        joint_mode = self.config.objective_mode == "joint_weight_taylor_hard_bops"
+        activation_joint_mode = self.config.objective_mode == "joint_weight_activation_taylor_hard_bops"
+        joint_mode = self.config.objective_mode in {
+            "joint_weight_taylor_hard_bops",
+            "joint_weight_activation_taylor_hard_bops",
+        }
         if joint_mode:
-            if self.joint_weight_taylor is None:
-                raise RuntimeError("joint_weight_taylor_proxy_missing")
-            joint_metrics = dict(self.joint_weight_taylor.evaluate_breakdown(phenotype))
-            fisher = float(joint_metrics["L_joint_weight_taylor"])
+            if activation_joint_mode:
+                if self.joint_weight_activation_taylor is None:
+                    raise RuntimeError("joint_weight_activation_taylor_proxy_missing")
+                joint_metrics = dict(self.joint_weight_activation_taylor.evaluate_breakdown(phenotype))
+                fisher = float(joint_metrics["L_joint_weight_activation_taylor"])
+            else:
+                if self.joint_weight_taylor is None:
+                    raise RuntimeError("joint_weight_taylor_proxy_missing")
+                joint_metrics = dict(self.joint_weight_taylor.evaluate_breakdown(phenotype))
+                fisher = float(joint_metrics["L_joint_weight_taylor"])
             sqnr = 0.0
         else:
             joint_metrics = {}
@@ -155,7 +168,12 @@ class ProxyObjective:
         if self.config.bops_threshold is not None:
             penalty += float(self.config.lambda_bops) * bops_penalty
         if joint_mode:
-            raw_score = float(joint_metrics["L_joint_weight_taylor"])
+            raw_score = float(
+                joint_metrics.get(
+                    "L_joint_weight_activation_taylor",
+                    joint_metrics.get("L_joint_weight_taylor", float("inf")),
+                )
+            )
             raw_score += (
                 float(self.config.parameter_retention_tiebreak_epsilon)
                 * parameter_retention
@@ -186,6 +204,9 @@ class ProxyObjective:
             "R_size_vs_fp16_deploy": float(size_metrics.get("R_size_vs_fp16_deploy", size)),
             "R_size_vs_fp32": float(size_metrics.get("R_size_vs_fp32", size)),
             "R_size_reference": "original_fp32",
+            "mixed_weight_size_bytes": float(
+                size_metrics.get("size_bits_total", 0.0)
+            ) / 8.0,
             "R_parameter_retention": parameter_retention,
             "parameter_pruning_rate": float(
                 size_metrics.get("parameter_pruning_rate", 1.0 - parameter_retention)
@@ -204,6 +225,7 @@ class ProxyObjective:
             "int8_macs_ratio": float(bops_metrics.get("int8_macs_ratio", 0.0)),
             "bops_fp16_baseline": float(bops_metrics.get("bops_fp16_baseline", 0.0)),
             "bops_fp32_baseline": float(bops_metrics.get("bops_fp32_baseline", 0.0)),
+            "bops_breakdown": list(bops_metrics.get("breakdown", [])),
             "constraint_penalty": float(penalty),
             "bops_violation": float(bops_violation),
             "bops_abs_delta": (

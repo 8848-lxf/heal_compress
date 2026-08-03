@@ -32,9 +32,38 @@ def _bops(metrics: dict[str, Any]) -> float:
 def _loss(metrics: dict[str, Any]) -> float:
     return float(
         metrics.get(
-            "L_joint_weight_taylor",
-            metrics.get("proxy_score_raw", metrics.get("F1", float("inf"))),
+            "L_joint_weight_activation_taylor",
+            metrics.get(
+                "L_joint_weight_taylor",
+                metrics.get("proxy_score_raw", metrics.get("F1", float("inf"))),
+            ),
         )
+    )
+
+
+def _finite_metric(metrics: dict[str, Any], *names: str) -> float:
+    """Return the first finite ranking metric, or infinity when unavailable."""
+
+    for name in names:
+        raw = metrics.get(name)
+        if raw is None:
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            return value
+    return float("inf")
+
+
+def _secondary_cost_key(metrics: dict[str, Any]) -> tuple[float, float, float]:
+    """Deployment tie-break: latency, physical parameters, mixed weights."""
+
+    return (
+        _finite_metric(metrics, "latency_proxy_ms", "R_latency_proxy"),
+        _finite_metric(metrics, "R_parameter_retention"),
+        _finite_metric(metrics, "mixed_weight_size_bytes", "R_size_vs_fp32"),
     )
 
 
@@ -45,10 +74,14 @@ class GreedySearchConfig:
     maximum_steps: int = 10000
     precision_order: tuple[str, ...] = ("FP32", "FP16", "INT8")
     parameter_retention_tiebreak: bool = True
+    marginal_score_relative_epsilon: float = 1.0e-12
+    marginal_score_absolute_epsilon: float = 1.0e-12
     bops_tolerance_abs: float = 0.005
     budget_recovery_beam_width: int = 8
     budget_recovery_seed_pool_size: int = 32
     budget_recovery_max_depth: int = 64
+    run_to_exhaustion: bool = False
+    enable_budget_recovery: bool = True
 
     def __post_init__(self) -> None:
         targets = tuple(sorted({float(value) for value in self.bops_targets}))
@@ -68,6 +101,10 @@ class GreedySearchConfig:
             raise ValueError("greedy_budget_recovery_seed_pool_smaller_than_beam")
         if int(self.budget_recovery_max_depth) <= 0:
             raise ValueError("greedy_budget_recovery_max_depth_must_be_positive")
+        if float(self.marginal_score_relative_epsilon) < 0.0:
+            raise ValueError("greedy_marginal_score_relative_epsilon_must_be_nonnegative")
+        if float(self.marginal_score_absolute_epsilon) < 0.0:
+            raise ValueError("greedy_marginal_score_absolute_epsilon_must_be_nonnegative")
 
 
 @dataclass(frozen=True)
@@ -87,6 +124,9 @@ class GreedyStep:
     candidate_hash: str
     neighbor_count: int
     metrics: dict[str, Any] = field(default_factory=dict)
+    action_domain_type: str = ""
+    action_family: str = ""
+    action_module_path: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -104,6 +144,9 @@ class GreedyStep:
             "marginal_loss_per_bops": self.marginal_loss_per_bops,
             "candidate_hash": self.candidate_hash,
             "neighbor_count": self.neighbor_count,
+            "action_domain_type": self.action_domain_type,
+            "action_family": self.action_family,
+            "action_module_path": self.action_module_path,
             "metrics": dict(self.metrics),
         }
 
@@ -123,8 +166,11 @@ class GreedySearchResult:
     budget_recovery_evaluated_neighbor_count: int
     budget_recovery_reports: dict[float, dict[str, Any]]
     bops_tolerance_abs: float
+    run_to_exhaustion: bool
+    budget_recovery_enabled: bool
 
     def to_dict(self) -> dict[str, Any]:
+        activation_taylor = "L_joint_weight_activation_taylor" in self.initial_metrics
         return {
             "initial_candidate": self.initial_candidate.to_dict(),
             "initial_metrics": dict(self.initial_metrics),
@@ -157,16 +203,38 @@ class GreedySearchResult:
             },
             "search_semantics": {
                 "action_set": "one_adjacent_legal_domain_width_or_precision_downgrade",
+                "domain_action_types": [
+                    "cnn_channel",
+                    "grouped_conv_channel",
+                    "attention_dh",
+                    "ffn_hidden",
+                ],
                 "selection": "minimum_incremental_joint_taylor_loss_per_positive_BOPS_reduction",
                 "neighbor_costs_recomputed_after_every_step": True,
-                "activation_taylor_included": False,
+                "activation_taylor_included": activation_taylor,
+                "near_equal_score_tiebreak": [
+                    "lower_latency_proxy",
+                    "larger_parameter_compression",
+                    "lower_mixed_weight_size",
+                    "underrepresented_domain_type",
+                    "deterministic_domain_and_candidate_hash",
+                ],
                 "budget_capture": (
                     "lowest_joint_taylor_loss_among_all_evaluated_one-action_neighbors_"
                     "with_abs(R_BOPS-target)<=bops_tolerance_abs"
                 ),
                 "missing_budget_recovery": (
                     "deterministic_target_directed_beam_over_legal_adjacent_actions"
+                    if self.budget_recovery_enabled
+                    else "disabled; hard-gate/capture only, no budget projection"
                 ),
+                "run_to_exhaustion": bool(self.run_to_exhaustion),
+                "actual_repair": {
+                    "structural": 0,
+                    "precision": 0,
+                    "budget_projection": 0,
+                    "canonicalization_is_not_repair": True,
+                },
                 "bops_tolerance_abs": float(self.bops_tolerance_abs),
                 "stage2_policy": "only_unique_final_candidate_per_budget_full_validation",
             },
@@ -254,6 +322,11 @@ class GreedyBudgetSearch:
                     {
                         "kind": "domain_width",
                         "gene_id": domain.domain_id,
+                        "domain_type": str(getattr(domain, "domain_type", domain.kind)),
+                        "family": str(getattr(domain, "family", "")),
+                        "module_path": str(
+                            getattr(domain, "module_path", domain.root_module_path)
+                        ),
                         "previous": width,
                         "selected": selected,
                     },
@@ -280,6 +353,9 @@ class GreedyBudgetSearch:
                     {
                         "kind": "precision",
                         "gene_id": gene_id,
+                        "domain_type": "precision",
+                        "family": "",
+                        "module_path": "",
                         "previous": current_precision,
                         "selected": selected,
                     },
@@ -376,6 +452,7 @@ class GreedyBudgetSearch:
                 )
                 candidate_key = (
                     candidate_loss,
+                    *_secondary_cost_key(metrics),
                     parameter_retention
                     if self.config.parameter_retention_tiebreak
                     else 0.0,
@@ -386,6 +463,7 @@ class GreedyBudgetSearch:
                     incumbent_metrics = budget_metrics[target]
                     incumbent_key = (
                         _loss(incumbent_metrics),
+                        *_secondary_cost_key(incumbent_metrics),
                         float(incumbent_metrics.get("R_parameter_retention", 1.0))
                         if self.config.parameter_retention_tiebreak
                         else 0.0,
@@ -408,9 +486,15 @@ class GreedyBudgetSearch:
 
         update_budget_frontier(current, current_metrics, source="initial_candidate")
         steps: list[GreedyStep] = []
+        selected_action_type_counts: dict[str, int] = {}
         seen = {_identity(current)}
         evaluated_neighbors = 0
-        termination = "minimum_target_reached" if _bops(current_metrics) <= min(targets_desc) else ""
+        termination = (
+            "minimum_target_reached"
+            if not self.config.run_to_exhaustion
+            and _bops(current_metrics) <= min(targets_desc)
+            else ""
+        )
         while not termination and len(steps) < int(self.config.maximum_steps):
             neighbors = [
                 (candidate, action)
@@ -441,25 +525,13 @@ class GreedyBudgetSearch:
                     continue
                 marginal = loss_after - loss_before
                 ratio = marginal / reduction
-                parameter_retention_tie = float(
-                    metrics.get("R_parameter_retention", 1.0)
-                )
-                key = (
-                    ratio,
-                    loss_after,
-                    parameter_retention_tie
-                    if self.config.parameter_retention_tiebreak
-                    else 0.0,
-                    _identity(candidate),
-                )
                 feasible_rows.append(
-                    (key, candidate, action, metrics, reduction, marginal, ratio)
+                    (candidate, action, metrics, reduction, marginal, ratio)
                 )
             if not feasible_rows:
                 termination = "no_positive_bops_reduction_action"
                 break
             for (
-                _row_key,
                 frontier_candidate,
                 _frontier_action,
                 frontier_metrics,
@@ -472,17 +544,50 @@ class GreedyBudgetSearch:
                     frontier_metrics,
                     source="primary_evaluated_neighbor_frontier",
                 )
+            best_ratio = min(row[5] for row in feasible_rows)
+            score_tolerance = max(
+                float(self.config.marginal_score_absolute_epsilon),
+                abs(best_ratio) * float(self.config.marginal_score_relative_epsilon),
+            )
+            near_best_rows = [
+                row for row in feasible_rows if row[5] <= best_ratio + score_tolerance
+            ]
+
+            def action_tiebreak(row: tuple[Any, ...]) -> tuple[Any, ...]:
+                candidate, action, metrics, _reduction, _marginal, ratio = row
+                action_type = str(action.get("domain_type", action.get("kind", "")))
+                latency, parameter_retention, mixed_weight_size = _secondary_cost_key(
+                    metrics
+                )
+                return (
+                    latency,
+                    parameter_retention
+                    if self.config.parameter_retention_tiebreak
+                    else 0.0,
+                    mixed_weight_size,
+                    selected_action_type_counts.get(action_type, 0),
+                    _loss(metrics),
+                    ratio,
+                    str(action.get("gene_id", "")),
+                    _identity(candidate),
+                )
+
             (
-                _key,
                 selected_candidate,
                 selected_action,
                 selected_metrics,
                 reduction,
                 marginal,
                 ratio,
-            ) = min(feasible_rows, key=lambda row: row[0])
+            ) = min(near_best_rows, key=action_tiebreak)
             candidate_id = _identity(selected_candidate)
             seen.add(candidate_id)
+            action_type = str(
+                selected_action.get("domain_type", selected_action.get("kind", ""))
+            )
+            selected_action_type_counts[action_type] = (
+                selected_action_type_counts.get(action_type, 0) + 1
+            )
             step = GreedyStep(
                 step_index=len(steps) + 1,
                 action_kind=str(selected_action["kind"]),
@@ -499,6 +604,9 @@ class GreedyBudgetSearch:
                 candidate_hash=candidate_id,
                 neighbor_count=len(neighbors),
                 metrics=dict(selected_metrics),
+                action_domain_type=action_type,
+                action_family=str(selected_action.get("family", "")),
+                action_module_path=str(selected_action.get("module_path", "")),
             )
             steps.append(step)
             current = selected_candidate
@@ -508,7 +616,10 @@ class GreedyBudgetSearch:
                 current_metrics,
                 source="primary_selected_path",
             )
-            if _bops(current_metrics) <= min(targets_desc):
+            if (
+                not self.config.run_to_exhaustion
+                and _bops(current_metrics) <= min(targets_desc)
+            ):
                 termination = "minimum_target_reached"
         if not termination:
             termination = "maximum_steps_reached"
@@ -576,6 +687,16 @@ class GreedyBudgetSearch:
 
         for target in targets_desc:
             if target in budget_candidates:
+                continue
+            if not self.config.enable_budget_recovery:
+                recovery_reports[target] = {
+                    "status": "budget_recovery_disabled",
+                    "depth": 0,
+                    "evaluated_neighbor_count": 0,
+                    "beam_width": 0,
+                    "maximum_depth": 0,
+                    "stop_reason": "hard_gate_capture_only_no_budget_projection",
+                }
                 continue
             seeds = select_recovery_beam(
                 list(recovery_seed_pools[target].values())
@@ -677,4 +798,6 @@ class GreedyBudgetSearch:
             budget_recovery_evaluated_neighbor_count=recovery_evaluated_neighbors,
             budget_recovery_reports=recovery_reports,
             bops_tolerance_abs=float(self.config.bops_tolerance_abs),
+            run_to_exhaustion=bool(self.config.run_to_exhaustion),
+            budget_recovery_enabled=bool(self.config.enable_budget_recovery),
         )

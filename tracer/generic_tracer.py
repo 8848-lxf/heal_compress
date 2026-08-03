@@ -65,6 +65,7 @@ class GenericTracer:
         ("torch.tensor_split", torch, "tensor_split"),
         ("torch.bmm", torch, "bmm"),
         ("torch.matmul", torch, "matmul"),
+        ("torch.einsum", torch, "einsum"),
         ("F.relu", F, "relu"),
         ("F.softmax", F, "softmax"),
         ("F.sigmoid", F, "sigmoid"),
@@ -77,6 +78,7 @@ class GenericTracer:
         "sum", "mean", "__getitem__",
         "split", "chunk",
         "__add__", "__radd__", "__iadd__", "__mul__", "__rmul__",
+        "__matmul__", "__rmatmul__",
     )
 
     def __init__(
@@ -184,11 +186,13 @@ class GenericTracer:
     @contextmanager
     def _patched_ops(self) -> Iterator[None]:
         patches: List[Tuple[Any, str, Any]] = []
+        global_patches: List[Tuple[Dict[str, Any], str, Any]] = []
 
         def patch(obj: Any, attr: str, replacement: Any) -> None:
             patches.append((obj, attr, getattr(obj, attr)))
             setattr(obj, attr, replacement)
 
+        callable_replacements: Dict[int, Callable] = {}
         for op_name, obj, attr in self.TORCH_FUNCTIONS:
             original = getattr(obj, attr, None)
             if original is None:
@@ -201,7 +205,34 @@ class GenericTracer:
                     return result
                 return wrapper
 
-            patch(obj, attr, make(op_name, original))
+            replacement = make(op_name, original)
+            callable_replacements[id(original)] = replacement
+            patch(obj, attr, replacement)
+
+        # HEAL modules commonly use ``from torch import einsum`` (and similar
+        # aliases).  Replacing ``torch.einsum`` alone does not affect those
+        # already-bound globals, which previously made real CoBEVT matmuls
+        # disappear from the runtime trace.  Patch only globals whose object
+        # identity exactly matches a function above, and restore every entry in
+        # ``finally`` so tracing remains read-only from the model's perspective.
+        global_namespaces: Dict[int, Dict[str, Any]] = {}
+        callables: List[Callable[..., Any]] = []
+        for module in self.model.modules():
+            callables.append(module.forward)
+        if self.forward_fn is not None:
+            callables.append(self.forward_fn)
+        for callable_obj in callables:
+            function = getattr(callable_obj, "__func__", callable_obj)
+            namespace = getattr(function, "__globals__", None)
+            if isinstance(namespace, dict):
+                global_namespaces[id(namespace)] = namespace
+        for namespace in global_namespaces.values():
+            for name, value in list(namespace.items()):
+                replacement = callable_replacements.get(id(value))
+                if replacement is None:
+                    continue
+                global_patches.append((namespace, name, value))
+                namespace[name] = replacement
 
         for attr in self.TENSOR_METHODS:
             original = getattr(torch.Tensor, attr)
@@ -218,6 +249,8 @@ class GenericTracer:
         try:
             yield
         finally:
+            for namespace, name, original in reversed(global_patches):
+                namespace[name] = original
             for obj, attr, original in reversed(patches):
                 setattr(obj, attr, original)
 

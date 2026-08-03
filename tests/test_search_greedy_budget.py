@@ -134,7 +134,7 @@ def test_greedy_search_respects_protected_precision_group() -> None:
         config=GreedySearchConfig(bops_targets=(0.125,)),
     ).run(evaluate)
 
-    assert result.initial_candidate.precision_genes == {"pg::conv": "FP16"}
+    assert result.initial_candidate.precision_genes == {}
     assert all(step.action_kind != "precision" for step in result.steps)
 
 

@@ -226,6 +226,121 @@ def test_adaptive_mixed_merge_promotes_only_at_merge_edges(tmp_path) -> None:
     assert all(row["cast_dtype"] == "FP16" for row in casts)
 
 
+def test_merge_audit_is_linear_on_reconvergent_dag(tmp_path) -> None:
+    """A diamond-heavy ONNX graph must not trigger per-merge graph walks."""
+
+    import time
+
+    import numpy as np
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    from quantization.config import QDQConfig
+    from quantization.precision.qdq_inserter import insert_explicit_qdq
+    from quantization.types import (
+        CanonicalPrecisionEntry,
+        CanonicalPrecisionMappingResult,
+    )
+
+    depth = 26
+    nodes = [
+        helper.make_node("Conv", ["x", "up.weight"], ["level_0"], name="weighted_upstream")
+    ]
+    current = "level_0"
+    for level in range(1, depth + 1):
+        left = f"level_{level}_left"
+        right = f"level_{level}_right"
+        output = f"level_{level}"
+        nodes.extend(
+            [
+                helper.make_node("Identity", [current], [left], name=f"identity_{level}_left"),
+                helper.make_node("Identity", [current], [right], name=f"identity_{level}_right"),
+                helper.make_node("Add", [left, right], [output], name=f"diamond_add_{level}"),
+            ]
+        )
+        current = output
+    nodes.append(
+        helper.make_node(
+            "Conv", [current, "down.weight"], ["y"], name="weighted_downstream"
+        )
+    )
+    graph = helper.make_graph(
+        nodes,
+        "reconvergent_merge_audit",
+        [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4, 2, 2])],
+        [helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4, 2, 2])],
+        [
+            numpy_helper.from_array(
+                np.ones((4, 4, 1, 1), dtype=np.float32), name="up.weight"
+            ),
+            numpy_helper.from_array(
+                np.ones((4, 4, 1, 1), dtype=np.float32), name="down.weight"
+            ),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+    source = tmp_path / "reconvergent.onnx"
+    destination = tmp_path / "reconvergent_qdq.onnx"
+    onnx.save(model, source)
+    mapping = CanonicalPrecisionMappingResult(
+        entries=[
+            CanonicalPrecisionEntry(
+                "up",
+                "weighted_upstream",
+                "up_group",
+                "fp32",
+                "fp32",
+                weight_initializer="up.weight",
+                onnx_op_type="Conv",
+            ),
+            CanonicalPrecisionEntry(
+                "down",
+                "weighted_downstream",
+                "down_group",
+                "fp32",
+                "fp32",
+                weight_initializer="down.weight",
+                onnx_op_type="Conv",
+            ),
+        ]
+    )
+
+    started = time.monotonic()
+    result = insert_explicit_qdq(
+        source,
+        destination,
+        mapping,
+        scales={},
+        config=QDQConfig(
+            allowed_precisions=("fp32", "fp16"),
+            require_calibration_scales=False,
+            insert_activation_output_qdq=False,
+            explicit_fp16_compute_casts=False,
+            explicit_fp32_compute_casts=False,
+        ),
+    )
+    elapsed = time.monotonic() - started
+
+    audit = result.calibration_metadata["merge_quantization_audit"]
+    assert len(audit) == depth
+    assert elapsed < 5.0
+    assert all(
+        {
+            producer["canonical_node"]
+            for branch in row["input_branches"]
+            for producer in branch["nearest_weighted_producers"]
+        }
+        == {"weighted_upstream"}
+        for row in audit
+    )
+    assert all(
+        {consumer["canonical_node"] for consumer in row["downstream_weighted_layers"]}
+        == {"weighted_downstream"}
+        for row in audit
+    )
+
+
 def _int64_shape_where_fixture():
     import numpy as np
     import onnx

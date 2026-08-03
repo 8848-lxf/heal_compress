@@ -13,6 +13,7 @@ from search.adapters.pruning_adapter import FormalPruningAdapter
 from search.adapters.quantization_adapter import FormalQuantizationAdapter
 from search.adapters.tracer_adapter import FormalTracerAdapter
 from search.candidate import CandidatePhenotype, PrecisionDecision
+from search.model_family import evaluation as model_family_evaluation
 from search.stage2 import trt_modelopt
 
 
@@ -216,7 +217,69 @@ def test_modelopt_trt_build_worker_uses_conda_run_python(tmp_path: Path, monkeyp
     assert result["status"] == "ok"
     assert calls["cmd"][:6] == ["bash", "-lc", "activate-modelopt", "modelopt-python", "modelopt", "-m"]
     assert calls["env_kwargs"]["cuda_visible_devices"] == 2
+    pythonpath_entries = [str(value) for value in calls["env_kwargs"]["pythonpath_entries"]]
+    assert str(Path(trt_modelopt.__file__).resolve().parents[2]) in pythonpath_entries
+    alias = tmp_path / "build/python_package/heal_compress"
+    assert alias.is_symlink()
+    assert alias.resolve() == Path(trt_modelopt.__file__).resolve().parents[2]
+    assert str(tmp_path / "build/python_package") in pythonpath_entries
+    assert Path(calls["env_kwargs"]["pythonpath_entries"][0]) == tmp_path / "build/python_package"
+    request = json.loads((tmp_path / "build/trt_build_request.json").read_text())
+    assert Path(request["python_package_root"]) == tmp_path / "build/python_package"
+    assert "/home/lixingfeng/UniAD_examine/heal_compress" not in pythonpath_entries
     assert calls["run_kwargs"]["env"]["CUDA_VISIBLE_DEVICES"] == "2"
+
+
+def test_model_family_evaluation_worker_uses_isolated_worktree_alias(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    calls: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        model_family_evaluation,
+        "modelopt_python_command",
+        lambda conda_env: ["modelopt-python", conda_env],
+    )
+
+    def fake_env(**kwargs: Any) -> dict[str, str]:
+        calls["env_kwargs"] = kwargs
+        return {"CUDA_VISIBLE_DEVICES": str(kwargs["cuda_visible_devices"])}
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls["cmd"] = cmd
+        request = json.loads(Path(cmd[-1]).read_text(encoding="utf-8"))
+        calls["request"] = request
+        Path(request["output_path"]).write_text(
+            json.dumps({"status": "ok"}), encoding="utf-8"
+        )
+        return subprocess.CompletedProcess(cmd, 0, stdout="worker-ok")
+
+    monkeypatch.setattr(model_family_evaluation, "modelopt_subprocess_env", fake_env)
+    monkeypatch.setattr(model_family_evaluation.subprocess, "run", fake_run)
+    output = tmp_path / "evaluation"
+    result = model_family_evaluation.evaluate_v2xvit_engine_modelopt(
+        engine_path=tmp_path / "candidate.plan",
+        model_config=tmp_path / "config.yaml",
+        heal_root=tmp_path / "HEAL",
+        output_dir=output,
+        tensorrt_root=tmp_path / "TensorRT",
+        plugin_path=tmp_path / "plugin.so",
+        eval_manifest_path=tmp_path / "manifest.json",
+        physical_gpu_id=0,
+        fixed_k=32,
+    )
+
+    repo_root = Path(model_family_evaluation.__file__).resolve().parents[2]
+    alias = output / "python_package/heal_compress"
+    assert result["status"] == "ok"
+    assert alias.is_symlink() and alias.resolve() == repo_root
+    assert Path(calls["request"]["repo_root"]) == repo_root
+    pythonpath_entries = [
+        str(value) for value in calls["env_kwargs"]["pythonpath_entries"]
+    ]
+    assert str(output / "python_package") in pythonpath_entries
+    assert str(repo_root) in pythonpath_entries
+    assert "/home/lixingfeng/UniAD_examine/heal_compress" not in pythonpath_entries
 
 
 def test_modelopt_subprocess_env_pins_conda_cuda_and_compilers(tmp_path: Path, monkeypatch: Any) -> None:

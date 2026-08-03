@@ -204,8 +204,18 @@ class GeneticSearchEngine:
                     float(scored[0][2].get("bops_violation", 0.0)),
                     float(
                         scored[0][2].get(
-                            "L_joint_weight_taylor", scored[0][1]
+                            "L_joint_weight_activation_taylor",
+                            scored[0][2].get(
+                                "L_joint_weight_taylor", scored[0][1]
+                            ),
                         )
+                    ),
+                    float(
+                        scored[0][2].get(
+                            "latency_proxy_ms",
+                            scored[0][2].get("R_latency_proxy", float("inf")),
+                        )
+                        or float("inf")
                     ),
                     float(scored[0][2].get("R_parameter_retention", 1.0)),
                 )

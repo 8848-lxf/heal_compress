@@ -178,40 +178,53 @@ def _audit_merge_boundaries(
             "legalized_precision": entry.realized_request_precision,
         }
 
-    def nearest_upstream(tensor_name: str, seen: set[str] | None = None) -> list[dict[str, Any]]:
-        seen = set(seen or ())
-        if tensor_name in seen:
-            return []
-        seen.add(tensor_name)
-        producer = producers.get(str(tensor_name))
-        if producer is None:
-            return []
-        payload = entry_payload(producer)
+    # Compute nearest weighted relations once for the entire DAG.  The former
+    # implementation launched a fresh recursive/full-graph walk for every
+    # branch of every merge.  Besides being O(merge_count * graph_size), its
+    # recursive ``set(seen)`` copy allowed reconvergent shape subgraphs to be
+    # revisited along every sibling path.  CoBEVT's exported graph has several
+    # thousand heavily reconvergent nodes and exposed this as a >20 minute
+    # audit.  ONNX checker requires nodes to be topologically sorted, so a
+    # forward and reverse dynamic-programming pass provides the same nearest
+    # weighted boundary semantics in linear graph passes.
+    upstream_by_tensor: dict[str, dict[str, dict[str, Any]]] = {}
+    for node in model.graph.node:
+        payload = entry_payload(node)
         if payload is not None:
-            return [payload]
-        result = []
-        for input_name in producer.input:
-            if str(input_name) in initializers:
+            nearest = {str(payload["canonical_node"]): payload}
+        else:
+            nearest = {}
+            for input_name in node.input:
+                source = str(input_name)
+                if source in initializers:
+                    continue
+                nearest.update(upstream_by_tensor.get(source, {}))
+        for output_name in node.output:
+            upstream_by_tensor[str(output_name)] = dict(nearest)
+
+    downstream_by_tensor: dict[str, dict[str, dict[str, Any]]] = {}
+    for node in reversed(model.graph.node):
+        payload = entry_payload(node)
+        if payload is not None:
+            nearest = {str(payload["canonical_node"]): payload}
+        else:
+            nearest = {}
+            for output_name in node.output:
+                nearest.update(downstream_by_tensor.get(str(output_name), {}))
+        for input_name in node.input:
+            source = str(input_name)
+            if source in initializers:
                 continue
-            result.extend(nearest_upstream(str(input_name), seen))
-        unique = {row["canonical_node"]: row for row in result}
-        return [unique[key] for key in sorted(unique)]
+            downstream_by_tensor.setdefault(source, {}).update(nearest)
+
+    def nearest_upstream(tensor_name: str) -> list[dict[str, Any]]:
+        found = upstream_by_tensor.get(str(tensor_name), {})
+        return [found[key] for key in sorted(found)]
 
     def nearest_downstream(tensor_names: list[str]) -> list[dict[str, Any]]:
-        queue = list(tensor_names)
-        seen: set[str] = set()
         found: dict[str, dict[str, Any]] = {}
-        while queue:
-            tensor_name = queue.pop(0)
-            if tensor_name in seen:
-                continue
-            seen.add(tensor_name)
-            for consumer in consumers.get(tensor_name, []):
-                payload = entry_payload(consumer)
-                if payload is not None:
-                    found[payload["canonical_node"]] = payload
-                else:
-                    queue.extend(str(output) for output in consumer.output)
+        for tensor_name in tensor_names:
+            found.update(downstream_by_tensor.get(str(tensor_name), {}))
         return [found[key] for key in sorted(found)]
     rows: list[dict[str, Any]] = []
     adaptive_targets = {

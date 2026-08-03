@@ -20,9 +20,15 @@ class SizeProxy:
         model: Any | None = None,
         layer_parameter_counts: dict[str, int] | None = None,
         unit_to_parameter_slices: dict[str, list[ParameterSlice]] | None = None,
+        default_precision: str = "FP16",
+        include_constant_parameters_in_size: bool = False,
     ) -> None:
         self.model = model
         self.unit_to_parameter_slices = unit_to_parameter_slices or {}
+        self.default_precision = str(default_precision).upper()
+        self.include_constant_parameters_in_size = bool(
+            include_constant_parameters_in_size
+        )
         self.base_parameter_count = 0
         if layer_parameter_counts is None and model is not None:
             layer_parameter_counts = {
@@ -38,6 +44,9 @@ class SizeProxy:
             self.base_parameter_count = sum(self.layer_parameter_counts.values()) or 1
         self.base_bits = sum(count * 32 for count in self.layer_parameter_counts.values()) or 1
         self.base_fp16_bits = sum(count * 16 for count in self.layer_parameter_counts.values()) or 1
+        if self.include_constant_parameters_in_size:
+            self.base_bits = self.base_parameter_count * 32
+            self.base_fp16_bits = self.base_parameter_count * 16
 
     def evaluate(self, phenotype: CandidatePhenotype) -> float:
         return float(self.evaluate_breakdown(phenotype)["R_size_vs_fp32"])
@@ -49,7 +58,9 @@ class SizeProxy:
             parameter_count_after = 0
             parameter_count_before = 0
             for layer, shape in shapes.items():
-                precision = phenotype.realized_precision_profile.get(layer, "FP16")
+                precision = phenotype.realized_precision_profile.get(
+                    layer, self.default_precision
+                )
                 total_bits += int(shape.parameter_count_after) * BIT_WIDTHS.get(str(precision).upper(), 16)
                 parameter_count_after += int(shape.parameter_count_after)
                 parameter_count_before += int(shape.parameter_count_before)
@@ -61,6 +72,10 @@ class SizeProxy:
                 0,
                 int(self.base_parameter_count) - int(parameter_count_before),
             )
+            if self.include_constant_parameters_in_size:
+                total_bits += constant_parameter_count * BIT_WIDTHS.get(
+                    self.default_precision, 32
+                )
             parameter_count_after += constant_parameter_count
             parameter_retention = float(
                 parameter_count_after / max(self.base_parameter_count, 1)
@@ -79,7 +94,9 @@ class SizeProxy:
             }
         total = 0
         for layer, count in self.layer_parameter_counts.items():
-            precision = phenotype.realized_precision_profile.get(layer, "FP16")
+            precision = phenotype.realized_precision_profile.get(
+                layer, self.default_precision
+            )
             total += int(count) * BIT_WIDTHS.get(str(precision).upper(), 16)
         return {
             "R_size_vs_fp32": float(total / self.base_bits),

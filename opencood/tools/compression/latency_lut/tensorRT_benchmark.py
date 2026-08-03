@@ -278,6 +278,38 @@ def benchmark_key(
             backend=backend,
         )
 
+    # Resolve runtime prerequisites before exporting a subgraph.  This keeps a
+    # missing TensorRT executable (or plugin) distinguishable from an ONNX/QDQ
+    # contract failure and avoids writing an artifact that cannot be consumed.
+    # Dry runs intentionally remain export-only and therefore do not require
+    # either runtime dependency.
+    resolved_plugin_path = None
+    trtexec = None
+    if not dry_run and backend == "tensorrt":
+        if key.plugin_flag or key.block_type == "plugin":
+            resolved_plugin_path = _resolve_pointpillar_plugin(plugin_path)
+            if not resolved_plugin_path:
+                return _zero_record(
+                    key,
+                    warmup=warmup,
+                    repeat=repeat,
+                    timing_method="unavailable",
+                    status="skipped_plugin_not_available",
+                    error_message=f"{key.plugin_name or 'TensorRT plugin'} shared library was not found.",
+                    backend=backend,
+                )
+        trtexec = _resolve_trtexec(trtexec_path)
+        if not trtexec:
+            return _zero_record(
+                key,
+                warmup=warmup,
+                repeat=repeat,
+                timing_method="unavailable",
+                status="skipped_trtexec_not_found",
+                error_message=f"trtexec not found: {trtexec_path or 'PATH'}",
+                backend=backend,
+            )
+
     exported: dict[str, Any] | None = None
     try:
         exported = export_minimal_subgraph(key, onnx_root, dry_run=dry_run)
@@ -305,33 +337,9 @@ def benchmark_key(
                 onnx_hash=onnx_hash,
                 backend=backend,
             )
-        resolved_plugin_path = None
-        if key.plugin_flag or key.block_type == "plugin":
-            resolved_plugin_path = _resolve_pointpillar_plugin(plugin_path)
-            if not resolved_plugin_path:
-                return _zero_record(
-                    key,
-                    warmup=warmup,
-                    repeat=repeat,
-                    timing_method="unavailable",
-                    status="skipped_plugin_not_available",
-                    error_message=f"{key.plugin_name or 'TensorRT plugin'} shared library was not found.",
-                    onnx_hash=onnx_hash,
-                    backend=backend,
-                    export=exported,
-                )
-        trtexec = _resolve_trtexec(trtexec_path)
-        if not trtexec:
-            return _zero_record(
-                key,
-                warmup=warmup,
-                repeat=repeat,
-                timing_method="unavailable",
-                status="skipped_trtexec_not_found",
-                error_message=f"trtexec not found: {trtexec_path or 'PATH'}",
-                onnx_hash=onnx_hash,
-                backend=backend,
-            )
+        # ``trtexec`` was resolved above for real TensorRT runs.  The assertion
+        # documents the ordering contract without inventing a fallback path.
+        assert trtexec is not None
 
         engine_path = engine_root / f"{key.stable_hash()}.engine"
         log_path = logs_root / f"{key.stable_hash()}.log"

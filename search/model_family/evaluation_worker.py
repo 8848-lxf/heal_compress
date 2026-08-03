@@ -31,11 +31,18 @@ def main(argv: list[str] | None = None) -> int:
     request = json.loads(Path(args.request).read_text(encoding="utf-8"))
     output = Path(request["output_path"])
     try:
+        repo_root = Path(str(request["repo_root"])).resolve()
+        python_package_root = Path(str(request["python_package_root"])).resolve()
+        package_alias = python_package_root / "heal_compress"
+        if not package_alias.is_symlink() or package_alias.resolve() != repo_root:
+            raise RuntimeError(
+                f"evaluation_package_alias_invalid:{package_alias}:{repo_root}"
+            )
         for path in (
-            "/home/lixingfeng/UniAD_examine",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
+            str(python_package_root),
+            str(repo_root),
+            str(repo_root.parent),
             "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine/heal_compress/tests",
         ):
             if path not in sys.path:
                 sys.path.insert(0, path)
