@@ -338,7 +338,7 @@ def test_v2xvit_ffn_domain_width_materializes_exact_ranked_mask() -> None:
     domains = build_ranked_v2xvit_ffn_domains(units, scores)
     assert len(domains) == 1
     domain = domains[0]
-    assert domain.legal_widths == (64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256)
+    assert domain.legal_widths == tuple(range(64, 257, 4))
     space = SearchSpaceSpec(
         pruning_unit_ids=[row.stable_id for row in units],
         precision_layer_ids=[],

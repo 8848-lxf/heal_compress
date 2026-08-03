@@ -47,7 +47,7 @@ def _weight_axis(module: nn.Module) -> int:
     return 0
 
 
-def _legal_aligned_widths(width: int, *, alignment: int = 16, floor: int = 64) -> tuple[int, ...]:
+def _legal_aligned_widths(width: int, *, alignment: int = 4, floor: int = 64) -> tuple[int, ...]:
     lower = min(int(width), int(floor))
     values = [value for value in range(lower, int(width) + 1) if value % alignment == 0]
     if int(width) not in values:

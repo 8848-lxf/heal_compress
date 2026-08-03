@@ -149,11 +149,13 @@ def test_shared_parameter_instances_fail_closed_instead_of_becoming_false_genes(
 
 
 def test_attention_and_ffn_legal_width_ladders_include_original() -> None:
-    assert legal_attention_widths(32) == (4, 8, 16, 32)
-    assert legal_attention_widths(24) == (4, 8, 16, 24)
-    assert legal_ffn_widths(1024) == (4, 8, 16, 32, 64, 128, 256, 512, 1024)
-    assert legal_ffn_widths(768)[-2:] == (512, 768)
+    assert legal_attention_widths(32) == tuple(range(4, 33, 4))
+    assert legal_attention_widths(24) == tuple(range(4, 25, 4))
+    assert legal_attention_widths(18) == (*tuple(range(4, 17, 4)), 18)
+    assert legal_ffn_widths(1024) == tuple(range(4, 1025, 4))
+    assert legal_ffn_widths(768)[-2:] == (764, 768)
     assert 512 in legal_ffn_widths(768)
+    assert all(width % 4 == 0 for width in legal_ffn_widths(1024))
 
 
 def test_standard_and_gated_ffn_domains_keep_d_model_fixed() -> None:

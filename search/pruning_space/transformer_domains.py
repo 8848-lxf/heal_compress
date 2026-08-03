@@ -18,7 +18,7 @@ import torch.nn as nn
 from .local_domains import LocalPruningDomain
 
 
-DEPLOYMENT_ATTENTION_WIDTHS = (4, 8, 16, 32, 64, 128)
+TRANSFORMER_WIDTH_ALIGNMENT = 4
 
 
 def _stable_hash(payload: Any) -> str:
@@ -27,50 +27,62 @@ def _stable_hash(payload: Any) -> str:
     ).hexdigest()
 
 
+def _legal_aligned_widths(
+    original_width: int,
+    *,
+    minimum_width: int,
+    alignment: int = TRANSFORMER_WIDTH_ALIGNMENT,
+    label: str,
+) -> tuple[int, ...]:
+    """Return every aligned width plus the identity width.
+
+    The original width is always retained so an unaligned pretrained model
+    still has a lossless identity state.  Every pruned state is aligned.
+    """
+
+    original = int(original_width)
+    alignment = int(alignment)
+    minimum = int(minimum_width)
+    if original <= 0:
+        raise ValueError(f"{label}_original_width_invalid:{original}")
+    if alignment <= 0:
+        raise ValueError(f"{label}_width_alignment_invalid:{alignment}")
+    first = max(alignment, ((minimum + alignment - 1) // alignment) * alignment)
+    values = set(range(first, original + 1, alignment))
+    values.add(original)
+    return tuple(sorted(values))
+
+
 def legal_attention_widths(
     original_d_h: int,
     *,
     minimum_width: int = 4,
-    deployment_widths: Sequence[int] = DEPLOYMENT_ATTENTION_WIDTHS,
+    alignment: int = TRANSFORMER_WIDTH_ALIGNMENT,
 ) -> tuple[int, ...]:
-    """Deployment-friendly widths; this is not a buildability claim."""
+    """All 4-aligned per-head dimensions up to the identity width."""
 
-    original = int(original_d_h)
-    if original <= 0:
-        raise ValueError(f"attention_original_d_h_invalid:{original}")
-    values = {
-        int(value)
-        for value in deployment_widths
-        if int(minimum_width) <= int(value) <= original
-    }
-    values.add(original)
-    return tuple(sorted(values))
+    return _legal_aligned_widths(
+        original_d_h,
+        minimum_width=minimum_width,
+        alignment=alignment,
+        label="attention_d_h",
+    )
 
 
 def legal_ffn_widths(
     original_d_ff: int,
     *,
     minimum_width: int = 4,
-    verified_alignment_widths: Sequence[int] = (64, 128, 256),
+    alignment: int = TRANSFORMER_WIDTH_ALIGNMENT,
 ) -> tuple[int, ...]:
-    """Power-of-two ladder through the full original FFN width."""
+    """All 4-aligned FFN hidden widths up to the identity width."""
 
-    original = int(original_d_ff)
-    if original <= 0:
-        raise ValueError(f"ffn_original_d_ff_invalid:{original}")
-    values = {original}
-    power = 1
-    while power < int(minimum_width):
-        power *= 2
-    while power <= original:
-        values.add(power)
-        power *= 2
-    values.update(
-        int(value)
-        for value in verified_alignment_widths
-        if int(minimum_width) <= int(value) <= original
+    return _legal_aligned_widths(
+        original_d_ff,
+        minimum_width=minimum_width,
+        alignment=alignment,
+        label="ffn_d_ff",
     )
-    return tuple(sorted(values))
 
 
 @dataclass(frozen=True)
@@ -527,6 +539,7 @@ def build_attention_dh_domain(
             "equal_retained_count_per_head": True,
             "shared_qkvo_index": qk == vo,
             "residual_does_not_tie_d_h": True,
+            "width_alignment": TRANSFORMER_WIDTH_ALIGNMENT,
             "adapter": spec.adapter,
         },
         domain_type="attention_dh",
@@ -551,7 +564,9 @@ def build_attention_dh_domain(
         metadata={
             **spec.metadata,
             "softmax_paths": list(spec.softmax_paths),
-            "deployment_widths_are_search_policy_not_buildability": True,
+            "width_alignment": TRANSFORMER_WIDTH_ALIGNMENT,
+            "width_policy": "all_4_multiples_plus_original_identity",
+            "original_width_alignment_exception": bool(spec.original_d_h % TRANSFORMER_WIDTH_ALIGNMENT),
             "diagnostic_identity_ranking": diagnostic_identity,
         },
     )
@@ -616,6 +631,7 @@ def build_ffn_hidden_domain(
             "d_model_fixed": True,
             "gated_coupling": spec.ffn_type == "gated",
             "first_action_removes_at_most_75_percent": True,
+            "width_alignment": TRANSFORMER_WIDTH_ALIGNMENT,
         },
         domain_type="ffn_hidden",
         model=spec.model,
@@ -637,6 +653,9 @@ def build_ffn_hidden_domain(
         metadata={
             **spec.metadata,
             "activation_path": spec.activation_path,
+            "width_alignment": TRANSFORMER_WIDTH_ALIGNMENT,
+            "width_policy": "all_4_multiples_plus_original_identity",
+            "original_width_alignment_exception": bool(spec.original_d_ff % TRANSFORMER_WIDTH_ALIGNMENT),
             "diagnostic_identity_ranking": diagnostic_identity,
         },
     )
@@ -754,7 +773,7 @@ def fixed_transformer_rankings_from_unit_scores(
 
 __all__ = [
     "AttentionInstanceSpec",
-    "DEPLOYMENT_ATTENTION_WIDTHS",
+    "TRANSFORMER_WIDTH_ALIGNMENT",
     "FFNInstanceSpec",
     "SharedTransformerParameterError",
     "assert_independent_transformer_instances",
