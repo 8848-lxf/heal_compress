@@ -633,9 +633,9 @@ def write_completion_verdict(out_dir: Path, *, root_report: dict[str, Any], supp
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
-    parser.add_argument("--model-config", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-    parser.add_argument("--heal-root", default="/home/lixingfeng/UniAD_examine/HEAL")
+    parser.add_argument("--checkpoint", default="${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
+    parser.add_argument("--model-config", default="${MODEL_ROOT}/lidar_pyramid/config.yaml")
+    parser.add_argument("--heal-root", default="../../HEAL")
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--v98-dir", default=str(V98_DEFAULT))
     parser.add_argument("--output-dir", default=str(OUT_DEFAULT))

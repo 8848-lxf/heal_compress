@@ -14,10 +14,10 @@ from typing import Any
 
 
 REPO = Path(__file__).resolve().parents[1]
-CHECKPOINT = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
-CONFIG = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
-MODEL_OPT = Path("/home/lixingfeng/miniconda3/envs/modelopt")
+CHECKPOINT = Path("${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
+CONFIG = Path("${MODEL_ROOT}/lidar_pyramid/config.yaml")
+TRT_ROOT = Path("${TENSORRT_ROOT}")
+MODEL_OPT = Path("${CONDA_BASE}/envs/modelopt")
 LEGACY_ROOT = REPO / "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare"
 
 
@@ -218,7 +218,7 @@ REPO={REPO}
 TRT_ROOT={TRT_ROOT}
 PHYSICAL_GPU=6
 OUTPUT="$REPO/outputs/int8_baseline_equivalence_audit_$(date +%Y%m%d_%H%M%S)"
-source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+source ${CONDA_BASE}/etc/profile.d/conda.sh
 cd "$REPO"
 
 conda activate univ2x-opt

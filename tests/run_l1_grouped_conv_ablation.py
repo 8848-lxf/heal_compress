@@ -26,7 +26,7 @@ from heal_compress.utils.gpu_select import GPUInfo, GPUSelectionError, resolve_g
 from heal_compress.utils.io_utils import ensure_dir, save_json, save_text
 
 
-DEFAULT_CHECKPOINT = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
+DEFAULT_CHECKPOINT = "${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth"
 DEFAULT_EXCLUDE_GPU_IDS = [5, 6, 7]
 DEFAULT_RATIOS = [0.25, 0.50, 0.75]
 DEFAULT_MODES = ["shared_local_mean", "independent_group_topk"]

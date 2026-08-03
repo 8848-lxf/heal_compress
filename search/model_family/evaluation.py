@@ -79,7 +79,7 @@ def evaluate_v2xvit_engine_modelopt(
             str(python_package_root),
             str(repo_root),
             str(repo_root.parent),
-            "/home/lixingfeng/UniAD_examine/HEAL",
+            "../../HEAL",
         ],
         cuda_visible_devices=int(physical_gpu_id),
     )

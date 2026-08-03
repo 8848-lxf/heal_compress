@@ -9,21 +9,21 @@ Example commands
 Evaluate lidar_pyramid original model (auto GPU, exclude 5/6/7):
   python tests/test_baseline_eval.py \
       --model-name lidar_pyramid \
-      --model-config /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml \
-      --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth
+      --model-config ${MODEL_ROOT}/lidar_pyramid/config.yaml \
+      --checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth
 
 Evaluate lidar_cobevt original model on specific GPU:
   python tests/test_baseline_eval.py \
       --model-name lidar_cobevt \
-      --model-config /home/lixingfeng/UniAD_examine/HEAL/opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_cobevt.yaml \
-      --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_cobevt/net_epoch_bestval_at19.pth \
+      --model-config ../../HEAL/opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_cobevt.yaml \
+      --checkpoint ${MODEL_ROOT}/lidar_cobevt/net_epoch_bestval_at19.pth \
       --device cuda:2
 
 Evaluate with CPU AP backend:
   python tests/test_baseline_eval.py \
       --model-name lidar_pyramid \
-      --model-config /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml \
-      --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+      --model-config ${MODEL_ROOT}/lidar_pyramid/config.yaml \
+      --checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth \
       --ap-iou-backend cpu
 """
 from __future__ import annotations

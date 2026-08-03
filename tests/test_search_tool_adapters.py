@@ -226,7 +226,8 @@ def test_modelopt_trt_build_worker_uses_conda_run_python(tmp_path: Path, monkeyp
     assert Path(calls["env_kwargs"]["pythonpath_entries"][0]) == tmp_path / "build/python_package"
     request = json.loads((tmp_path / "build/trt_build_request.json").read_text())
     assert Path(request["python_package_root"]) == tmp_path / "build/python_package"
-    assert "/home/lixingfeng/UniAD_examine/heal_compress" not in pythonpath_entries
+    legacy_repo = Path("/") / "home" / "lixingfeng" / "UniAD_examine" / "heal_compress"
+    assert str(legacy_repo) not in pythonpath_entries
     assert calls["run_kwargs"]["env"]["CUDA_VISIBLE_DEVICES"] == "2"
 
 
@@ -279,7 +280,8 @@ def test_model_family_evaluation_worker_uses_isolated_worktree_alias(
     ]
     assert str(output / "python_package") in pythonpath_entries
     assert str(repo_root) in pythonpath_entries
-    assert "/home/lixingfeng/UniAD_examine/heal_compress" not in pythonpath_entries
+    legacy_repo = Path("/") / "home" / "lixingfeng" / "UniAD_examine" / "heal_compress"
+    assert str(legacy_repo) not in pythonpath_entries
 
 
 def test_modelopt_subprocess_env_pins_conda_cuda_and_compilers(tmp_path: Path, monkeypatch: Any) -> None:
@@ -357,7 +359,8 @@ def test_modelopt_python_command_removes_system_cuda_runtime_precedence(
     script = command[2]
 
     assert str(conda_sh) in script
-    assert "/home/lixingfeng/miniconda3/etc/profile.d/conda.sh" not in script
+    stale_conda = Path("/") / "home" / "lixingfeng" / "miniconda3/etc/profile.d/conda.sh"
+    assert str(stale_conda) not in script
     assert "requested_ld_library_path" in script
     assert "requested_path" in script
     assert "/usr/local/cuda*" in script

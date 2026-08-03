@@ -19,7 +19,7 @@ for path in (REPO.parent, REPO):
         sys.path.insert(0, str(path))
 
 DEFAULT_MODELS = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly"
+    "${MODEL_ROOT}"
 )
 DEFAULT_MANIFEST = (
     REPO
@@ -72,7 +72,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--models-root", type=Path, default=DEFAULT_MODELS)
     parser.add_argument("--eval-manifest", type=Path, default=DEFAULT_MANIFEST)
-    parser.add_argument("--heal-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/HEAL"))
+    parser.add_argument("--heal-root", type=Path, default=Path("../../HEAL"))
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--physical-gpu", type=int, default=7)
     parser.add_argument("--warmup-frames", type=int, default=200)

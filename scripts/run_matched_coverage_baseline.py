@@ -17,16 +17,16 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 CHECKPOINT = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/"
+    "${MODEL_ROOT}/"
     "lidar_pyramid/net_epoch_bestval_at17.pth"
 )
 CONFIG = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/"
+    "${MODEL_ROOT}/"
     "lidar_pyramid/config.yaml"
 )
-HEAL_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL")
-TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
-MODEL_OPT = Path("/home/lixingfeng/miniconda3/envs/modelopt")
+HEAL_ROOT = Path("../../HEAL")
+TRT_ROOT = Path("${TENSORRT_ROOT}")
+MODEL_OPT = Path("${CONDA_BASE}/envs/modelopt")
 PLUGIN = REPO / "quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
 TRAIN200_NPZ = (
     REPO

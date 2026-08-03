@@ -332,8 +332,8 @@ set -euo pipefail
 REPO={root.parents[1]}
 SOURCE={source}
 AUDIT_ROOT="$REPO/outputs/explicit_qdq_root_cause_audit_repro_$(date +%Y%m%d_%H%M%S)"
-CONDA_SH=/home/lixingfeng/miniconda3/etc/profile.d/conda.sh
-TRT_ROOT=/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+CONDA_SH=${CONDA_BASE}/etc/profile.d/conda.sh
+TRT_ROOT=${TENSORRT_ROOT}
 
 cd "$REPO"
 source "$CONDA_SH"

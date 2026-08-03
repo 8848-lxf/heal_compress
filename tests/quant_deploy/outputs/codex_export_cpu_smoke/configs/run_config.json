@@ -1,8 +1,0 @@
-{
-  "hypes_yaml": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml",
-  "checkpoint": "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth",
-  "output_root": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_export_cpu_smoke",
-  "device": "cpu",
-  "opset": 17,
-  "max_cav": 2
-}

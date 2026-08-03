@@ -11,8 +11,8 @@ from typing import Any
 import torch
 
 
-DEFAULT_HEAL_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL")
-DEFAULT_CONFIG = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
+DEFAULT_HEAL_ROOT = Path("../../HEAL")
+DEFAULT_CONFIG = Path("${MODEL_ROOT}/lidar_pyramid/config.yaml")
 
 
 @dataclass

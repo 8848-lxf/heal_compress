@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 
 REPO = Path(__file__).resolve().parents[1]
-for path in (REPO.parent, REPO, Path("/home/lixingfeng/UniAD_examine/HEAL")):
+for path in (REPO.parent, REPO, Path("../../HEAL")):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -116,7 +116,7 @@ def main() -> int:
         "--models-root",
         type=Path,
         default=Path(
-            "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/"
+            "../../Auto_Search/original_models/"
             "dairv2s/LiDAROnly"
         ),
     )
@@ -126,7 +126,7 @@ def main() -> int:
     parser.add_argument(
         "--heal-root",
         type=Path,
-        default=Path("/home/lixingfeng/UniAD_examine/HEAL"),
+        default=Path("../../HEAL"),
     )
     parser.add_argument("--models", nargs="*", default=[])
     args = parser.parse_args()

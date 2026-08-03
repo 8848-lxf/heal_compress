@@ -23,12 +23,12 @@ import numpy as np
 
 
 REPO = Path(__file__).resolve().parents[1]
-for entry in (REPO, REPO.parent, Path("/home/lixingfeng/UniAD_examine/HEAL")):
+for entry in (REPO, REPO.parent, Path("../../HEAL")):
     if str(entry) not in sys.path:
         sys.path.insert(0, str(entry))
 
-TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
-MODEL_OPT = Path("/home/lixingfeng/miniconda3/envs/modelopt")
+TRT_ROOT = Path("${TENSORRT_ROOT}")
+MODEL_OPT = Path("${CONDA_BASE}/envs/modelopt")
 PLUGIN = REPO / "quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
 DEFAULT_SOURCE = REPO / "outputs/int8_baseline_equivalence_audit_20260713_021108"
 WEIGHTED_OPS = {"Conv", "ConvTranspose", "Gemm", "MatMul"}

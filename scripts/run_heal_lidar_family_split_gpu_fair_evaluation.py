@@ -37,8 +37,8 @@ from search.integration.heal_lidar_family_fair_evaluation import (  # noqa: E402
 )
 
 
-DEFAULT_HEAL_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL")
-DEFAULT_TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
+DEFAULT_HEAL_ROOT = Path("../../HEAL")
+DEFAULT_TRT_ROOT = Path("${TENSORRT_ROOT}")
 DEFAULT_PLUGIN = (
     REPO_ROOT
     / "quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"

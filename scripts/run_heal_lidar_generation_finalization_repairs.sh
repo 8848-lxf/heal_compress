@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-repo_root="/home/lixingfeng/UniAD_examine/heal_compress"
+repo_root="."
 output_root="${repo_root}/outputs"
-python_bin="/home/lixingfeng/miniconda3/envs/univ2x-opt/bin/python"
+python_bin="${CONDA_BASE}/envs/univ2x-opt/bin/python"
 wait_pid="${HEAL_WAIT_QUEUE_PID:-1000283}"
 run_tag="${HEAL_FINALIZATION_REPAIR_TAG:-$(date +%Y%m%d_%H%M%S)}"
 status_file="${output_root}/h800_heal_lidar_generation_finalization_repair_${run_tag}.status.jsonl"

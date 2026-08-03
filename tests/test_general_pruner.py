@@ -10,17 +10,17 @@
 
 默认测试目标：
     checkpoint:
-        /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth
+        ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth
     prune ratio:
         0.25
     importance mode:
         l1_norm
 
 示例命令 1：TP-style shared local mean
-    cd /home/lixingfeng/UniAD_examine/heal_compress
+    cd .
 
     python tests/test_general_pruner.py \
-        --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+        --checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth \
         --prune-ratio 0.25 \
         --importance-mode l1_norm \
         --selection-mode local_scope \
@@ -34,7 +34,7 @@
 
 示例命令 2：global coupled channel
     python tests/test_general_pruner.py \
-        --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+        --checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth \
         --prune-ratio 0.25 \
         --importance-mode l1_norm \
         --selection-mode global_coupled_channel \
@@ -48,7 +48,7 @@
 
 示例命令 3：independent group top-k
     python tests/test_general_pruner.py \
-        --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+        --checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth \
         --prune-ratio 0.25 \
         --importance-mode l1_norm \
         --selection-mode constrained_global \
@@ -140,9 +140,9 @@ from heal_compress.utils.io_utils import ensure_unique_dir, save_csv, save_json,
 from heal_compress.utils.model_utils import resolve_device
 
 
-DEFAULT_CHECKPOINT = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
-DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"
-DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
+DEFAULT_CHECKPOINT = "${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth"
+DEFAULT_CONFIG = "${MODEL_ROOT}/lidar_pyramid/config.yaml"
+DEFAULT_HEAL_ROOT = "../../HEAL"
 TRANSFORMER_TYPES = set(TRANSFORMER_GROUP_TYPES)
 DEFAULT_SAFE_PROTECTED_PREFIXES = (
     "cls_head",

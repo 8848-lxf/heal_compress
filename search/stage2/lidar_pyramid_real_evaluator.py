@@ -2135,7 +2135,7 @@ class LidarPyramidRealEvaluator:
             engine_path=engine_path,
             checkpoint=self.context.checkpoint_path,
             model_config=self.context.model_config,
-            heal_root="/home/lixingfeng/UniAD_examine/HEAL",
+            heal_root="../../HEAL",
             device=self.context.runtime_device,
             output_dir=output_dir,
             tensorrt_root=self.context.tensorrt.tensorrt_root,

@@ -438,7 +438,7 @@ def _run_formal_signal_maxk_export(
         device="cuda:0",
         max_cav=2,
         opset=17,
-        trt_root=str(trt_root) if trt_root else "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118",
+        trt_root=str(trt_root) if trt_root else "${TENSORRT_ROOT}",
         trtexec_path=None,
         export_sample_split="train",
         max_scan_samples=128,

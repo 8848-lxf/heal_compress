@@ -47,17 +47,6 @@ from search.pruning_space.domain_importance import score_atomic_units_for_fixed_
 from search.stage1.proxy_evaluator import Stage1ProxyEvaluator
 
 
-DEFAULT_CONFIG = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/"
-    "LiDAROnly/lidar_v2xvit/config.yaml"
-)
-DEFAULT_CHECKPOINT = DEFAULT_CONFIG.parent / "net_epoch_bestval_at27.pth"
-DEFAULT_MANIFEST = (
-    REPO_ROOT
-    / "search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json"
-)
-
-
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
@@ -132,12 +121,12 @@ def _greedy_summary(result: Any) -> dict[str, Any]:
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
-    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    parser.add_argument("--heal-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/HEAL"))
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--heal-root", type=Path, default=Path("../../HEAL"))
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--fisher-samples", type=int, default=1)
@@ -147,7 +136,7 @@ def main() -> int:
     parser.add_argument("--formal-bops-target", type=float, default=0.25)
     parser.add_argument("--bops-tolerance", type=float, default=0.005)
     parser.add_argument("--greedy-maximum-steps", type=int, default=128)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     output_dir = args.output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=False)

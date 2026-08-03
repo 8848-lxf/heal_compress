@@ -33,11 +33,11 @@ from search.model_family.model_provider import sha256_file
 
 
 DEFAULT_CONFIG = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/"
+    "../../Auto_Search/original_models/dairv2s/"
     "LiDAROnly/lidar_v2xvit/config.yaml"
 )
 DEFAULT_CHECKPOINT = DEFAULT_CONFIG.parent / "net_epoch_bestval_at27.pth"
-DEFAULT_HEAL_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL")
+DEFAULT_HEAL_ROOT = Path("../../HEAL")
 
 
 def _git_value(*args: str) -> str | None:

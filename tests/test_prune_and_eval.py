@@ -8,10 +8,10 @@
     并对比剪枝前后的 AP 和推理耗时。
 
 示例命令：
-    cd /home/lixingfeng/UniAD_examine/heal_compress
+    cd .
 
     python tests/test_prune_and_eval.py \
-        --original-checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+        --original-checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth \
         --pruned-checkpoint tests/outputs/prune_lidar_pyramid_25_l1/pruned_model.pth \
         --rounds 1 \
         --gup-id auto \
@@ -60,9 +60,9 @@ from heal_compress.utils.io_utils import ensure_unique_dir, save_csv, save_json
 from heal_compress.utils.model_utils import resolve_device
 
 
-DEFAULT_ORIGINAL = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
-DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"
-DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
+DEFAULT_ORIGINAL = "${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth"
+DEFAULT_CONFIG = "${MODEL_ROOT}/lidar_pyramid/config.yaml"
+DEFAULT_HEAL_ROOT = "../../HEAL"
 IOU_THRESHOLDS = (0.03, 0.30, 0.50, 0.70)
 
 

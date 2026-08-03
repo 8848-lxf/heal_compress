@@ -1,2 +1,0 @@
-round_id,model_type,checkpoint,model_size_mb,target_prune_ratio,actual_prune_ratio,gpu_id,gpu_name,dataset_total_frames,actual_frames,missing_frames,total_time_mean_ms,total_time_p50_ms,forward_time_mean_ms,forward_time_p50_ms,postprocess_time_mean_ms,postprocess_time_p50_ms,AP_0_03,AP_0_30,AP_0_50,AP_0_70,first_failure
-1,pruned,tests/outputs/prune_lidar_pyramid_25_l1_20260624_082428/pruned_model.pth,15.306,0.25,0.26580046702609483,0,NVIDIA GeForce RTX 4090,1789,1789,0,27.298,22.474,15.138,11.906,5.007,3.896,0.790529,0.77918,0.744868,0.581129,

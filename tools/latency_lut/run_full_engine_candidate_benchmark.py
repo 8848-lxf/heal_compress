@@ -21,10 +21,10 @@ DEPLOY_MODE = "single_engine_maxK"
 FIXED_K = 29696
 
 
-DEFAULT_CONFIG = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-DEFAULT_CHECKPOINT = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
-DEFAULT_HEAL_REPO = Path("/home/lixingfeng/UniAD_examine/HEAL")
-DEFAULT_TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
+DEFAULT_CONFIG = Path("${MODEL_ROOT}/lidar_pyramid/config.yaml")
+DEFAULT_CHECKPOINT = Path("${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
+DEFAULT_HEAL_REPO = Path("../../HEAL")
+DEFAULT_TRT_ROOT = Path("${TENSORRT_ROOT}")
 DEFAULT_LAYER_MAPPING = Path("configs/latency_lut/full_engine_layer_precision_mapping.yaml")
 DEFAULT_ATOMIC_INVENTORY = Path("outputs/latency_lut/atomic_deployment_unit_inventory_v2.json")
 DEFAULT_SCALE_CACHE = Path("outputs/latency_lut/activation_scale_cache_calib200.json")
@@ -199,7 +199,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--val-subset-size", "--val_subset_size", dest="val_subset_size", type=int, default=50)
     parser.add_argument("--deploy-mode", "--deploy_mode", dest="deploy_mode", default=DEPLOY_MODE)
     parser.add_argument("--fixed-k", "--fixed_k", dest="fixed_k", type=int, default=FIXED_K)
-    parser.add_argument("--trtexec", default="/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/bin/trtexec")
+    parser.add_argument("--trtexec", default="${TENSORRT_ROOT}/targets/x86_64-linux-gnu/bin/trtexec")
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--precision-profile", "--precision_profile", dest="precision_profile", default=None, help="Global full-engine precision for this candidate: FP32/FP16/INT8.")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))

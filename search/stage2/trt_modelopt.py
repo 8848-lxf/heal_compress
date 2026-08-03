@@ -71,8 +71,8 @@ def build_engine_modelopt(
         pythonpath_entries=[
             str(python_package_root),
             str(repo_root),
-            "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine",
+            "../../HEAL",
+            "../..",
         ],
         cuda_visible_devices=gpu_id,
     )

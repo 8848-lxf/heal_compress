@@ -245,11 +245,11 @@ def main(argv: list[str] | None = None) -> int:
     output = Path(request["output_path"])
     output.parent.mkdir(parents=True, exist_ok=True)
     try:
-        sys.path.insert(0, "/home/lixingfeng/UniAD_examine")
-        sys.path.insert(0, "/home/lixingfeng/UniAD_examine/heal_compress")
-        sys.path.insert(0, "/home/lixingfeng/UniAD_examine/HEAL")
-        sys.path.insert(0, "/home/lixingfeng/UniAD_examine/heal_compress/tests")
-        sys.path.insert(0, "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy")
+        sys.path.insert(0, "../..")
+        sys.path.insert(0, ".")
+        sys.path.insert(0, "../../HEAL")
+        sys.path.insert(0, "./tests")
+        sys.path.insert(0, "./tests/quant_deploy")
         plugin_path = request.get("plugin_path")
         if plugin_path:
             ctypes.CDLL(str(plugin_path), mode=ctypes.RTLD_GLOBAL)

@@ -133,7 +133,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--work-dir", "--work_dir", dest="work_dir", default="outputs/latency_lut/layer_width_v5_missing_subgraphs")
     parser.add_argument("--onnx-dir", "--onnx_dir", dest="onnx_dir", default="outputs/latency_lut/layer_width_v5_missing_onnx")
     parser.add_argument("--engine-dir", "--engine_dir", dest="engine_dir", default="outputs/latency_lut/layer_width_v5_missing_engine")
-    parser.add_argument("--trtexec", default="/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/bin/trtexec")
+    parser.add_argument("--trtexec", default="${TENSORRT_ROOT}/targets/x86_64-linux-gnu/bin/trtexec")
     parser.add_argument("--plugin", default=None)
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--warmup", type=int, default=10)

@@ -110,9 +110,9 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
-    parser.add_argument("--model-config", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-    parser.add_argument("--heal-root", default="/home/lixingfeng/UniAD_examine/HEAL")
+    parser.add_argument("--checkpoint", default="${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
+    parser.add_argument("--model-config", default="${MODEL_ROOT}/lidar_pyramid/config.yaml")
+    parser.add_argument("--heal-root", default="../../HEAL")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--output-dir", default="outputs/latency_lut/tp_vs_current_pruner_50pct_v84/current_pruner")

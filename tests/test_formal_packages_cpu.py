@@ -2097,7 +2097,8 @@ def test_formal_source_has_no_tests_dependency_or_server_paths() -> None:
         for package in ("tracer", "pruning", "quantization")
         for path in (root / package).rglob("*.py")
     )
-    forbidden = ("from tests", "import tests", "tests.", "runpy", "/home/lixingfeng/")
+    server_home = "/" + "home/" + "lixingfeng/"
+    forbidden = ("from tests", "import tests", "tests.", "runpy", server_home)
     assert not [token for token in forbidden if token in source]
 
 

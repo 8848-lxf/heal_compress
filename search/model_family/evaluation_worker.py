@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
             str(python_package_root),
             str(repo_root),
             str(repo_root.parent),
-            "/home/lixingfeng/UniAD_examine/HEAL",
+            "../../HEAL",
         ):
             if path not in sys.path:
                 sys.path.insert(0, path)

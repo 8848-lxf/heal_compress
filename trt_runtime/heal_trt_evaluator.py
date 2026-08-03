@@ -17,9 +17,9 @@ from .output_adapter import adapt_outputs_for_postprocess, bind_inputs_for_engin
 from .timing import summarize_latency
 
 
-DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"
-DEFAULT_CHECKPOINT = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
-DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
+DEFAULT_CONFIG = "${MODEL_ROOT}/lidar_pyramid/config.yaml"
+DEFAULT_CHECKPOINT = "${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth"
+DEFAULT_HEAL_ROOT = "../../HEAL"
 IOU_THRESHOLDS = (0.03, 0.30, 0.50, 0.70)
 
 

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=/home/lixingfeng/UniAD_examine/heal_compress
-PYTHON=/home/lixingfeng/anaconda3/envs/modelopt/bin/python
-HEAL_ROOT=/home/lixingfeng/UniAD_examine/HEAL
-TRT_ROOT=/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118
+ROOT=.
+PYTHON=${CONDA_PREFIX}/bin/python
+HEAL_ROOT=../../HEAL
+TRT_ROOT=${TENSORRT_ROOT}
 PLUGIN=$ROOT/quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
 
 OUT=$ROOT/outputs/latency_lut/v12_combined_lut_dataset_300frames
 LOGDIR=$OUT/logs
 
-export PYTHONPATH=/home/lixingfeng/UniAD_examine:$ROOT:$HEAL_ROOT
-export CUDA_HOME=/home/lixingfeng/anaconda3/envs/modelopt
-export LD_LIBRARY_PATH=/home/lixingfeng/anaconda3/envs/modelopt/lib:$TRT_ROOT/lib:${LD_LIBRARY_PATH:-}
+export PYTHONPATH=../..:$ROOT:$HEAL_ROOT
+export CUDA_HOME=${CONDA_PREFIX}
+export LD_LIBRARY_PATH=${CONDA_PREFIX}/lib:$TRT_ROOT/lib:${LD_LIBRARY_PATH:-}
 
 cd "$ROOT"
 mkdir -p "$LOGDIR"

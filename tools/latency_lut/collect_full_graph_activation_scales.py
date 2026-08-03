@@ -25,8 +25,8 @@ def collect_scales(args: argparse.Namespace) -> dict:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-    parser.add_argument("--checkpoint", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
+    parser.add_argument("--config", default="${MODEL_ROOT}/lidar_pyramid/config.yaml")
+    parser.add_argument("--checkpoint", default="${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
     parser.add_argument("--num-frames", type=int, default=200)
     parser.add_argument("--layer-mapping", default=None)
     parser.add_argument("--output", default="outputs/latency_lut/full_graph_activation_scale_cache.json")

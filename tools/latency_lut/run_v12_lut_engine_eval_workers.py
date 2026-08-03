@@ -1077,7 +1077,7 @@ def build_worker_command(args: argparse.Namespace, job: ProfileJob, *, slot_id: 
     env["CUDA_VISIBLE_DEVICES"] = str(gpu)
     trt_root = Path(str(args.trt_root))
     ld_parts = [
-        "/home/lixingfeng/anaconda3/envs/modelopt/lib",
+        "${CONDA_PREFIX}/lib",
         str(trt_root / "lib"),
         str(trt_root / "targets/x86_64-linux-gnu/lib"),
     ]
@@ -1088,7 +1088,7 @@ def build_worker_command(args: argparse.Namespace, job: ProfileJob, *, slot_id: 
     if env.get("PYTHONPATH"):
         pp.append(env["PYTHONPATH"])
     env["PYTHONPATH"] = ":".join(pp)
-    env["CUDA_HOME"] = "/home/lixingfeng/anaconda3/envs/modelopt"
+    env["CUDA_HOME"] = "${CONDA_PREFIX}"
     return cmd, env, log_path
 
 
@@ -1209,14 +1209,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--warmup-frames", type=int, default=100)
     parser.add_argument("--smoke-frames", type=int, default=5)
     parser.add_argument("--ap-thresholds", default="0.03,0.30,0.50,0.70")
-    parser.add_argument("--trt-root", default="/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118")
+    parser.add_argument("--trt-root", default="${TENSORRT_ROOT}")
     parser.add_argument("--trtexec", default="")
     parser.add_argument("--trt-build-timeout-seconds", type=int, default=180)
     parser.add_argument("--fixed-k", "--fixed_k", dest="fixed_k", type=int, default=29696)
     parser.add_argument("--plugin-path", default="quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so")
-    parser.add_argument("--heal-root", default="/home/lixingfeng/UniAD_examine/HEAL")
-    parser.add_argument("--model-config", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-    parser.add_argument("--checkpoint", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
+    parser.add_argument("--heal-root", default="../../HEAL")
+    parser.add_argument("--model-config", default="${MODEL_ROOT}/lidar_pyramid/config.yaml")
+    parser.add_argument("--checkpoint", default="${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--device", default="")
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)

@@ -127,7 +127,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--tensorrt-root",
         type=Path,
-        default=Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118"),
+        default=Path("${TENSORRT_ROOT}"),
     )
     parser.add_argument(
         "--plugin",

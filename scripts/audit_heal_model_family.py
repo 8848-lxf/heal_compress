@@ -35,7 +35,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--heal-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/HEAL"))
+    parser.add_argument("--heal-root", type=Path, default=Path("../../HEAL"))
     parser.add_argument("--family", default="auto")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--forward-smoke", action="store_true")

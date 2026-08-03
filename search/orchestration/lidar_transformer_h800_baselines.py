@@ -20,7 +20,7 @@ from search.model_families.transformer.realized_precision import audit_realized_
 from search.stage2.trt_modelopt import build_engine_modelopt
 
 
-TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
+TRT_ROOT = Path("${TENSORRT_ROOT}")
 TRTEXEC = TRT_ROOT / "targets/x86_64-linux-gnu/bin/trtexec"
 PROFILES = ("B1_TRT_ATTN_FP32", "B2_TRT_STRICT_FP16", "B3_F3")
 

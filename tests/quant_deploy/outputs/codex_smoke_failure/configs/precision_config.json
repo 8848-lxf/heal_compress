@@ -1,9 +1,0 @@
-{
-  "precisions": [
-    "fp32",
-    "fp16",
-    "int8"
-  ],
-  "strict_fp16": false,
-  "no_tf32": true
-}

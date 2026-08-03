@@ -32,9 +32,9 @@ from search.stage2.objective import Stage2ObjectiveConfig  # noqa: E402
 
 DEFAULT_GA = REPO_ROOT / "outputs" / "h800_domain_width_joint_ga_20260716_234248"
 DEFAULT_GREEDY = REPO_ROOT / "outputs" / "h800_domain_width_joint_greedy_20260717_030912"
-DEFAULT_CHECKPOINT = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
-DEFAULT_CONFIG = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-DEFAULT_TRT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
+DEFAULT_CHECKPOINT = Path("${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
+DEFAULT_CONFIG = Path("${MODEL_ROOT}/lidar_pyramid/config.yaml")
+DEFAULT_TRT = Path("${TENSORRT_ROOT}")
 DEFAULT_PLUGIN = REPO_ROOT / "quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
 DEFAULT_CALIBRATION = REPO_ROOT / "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json"
 
@@ -561,7 +561,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--greedy-root", default=str(DEFAULT_GREEDY))
     parser.add_argument("--checkpoint", default=str(DEFAULT_CHECKPOINT))
     parser.add_argument("--model-config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--heal-root", default="/home/lixingfeng/UniAD_examine/HEAL")
+    parser.add_argument("--heal-root", default="../../HEAL")
     parser.add_argument("--tensorrt-root", default=str(DEFAULT_TRT))
     parser.add_argument("--plugin", default=str(DEFAULT_PLUGIN))
     parser.add_argument("--calibration-manifest", default=str(DEFAULT_CALIBRATION))

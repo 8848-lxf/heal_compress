@@ -12,7 +12,7 @@ if(NOT DEFINED TRT_ROOT)
     if(DEFINED ENV{TRT_ROOT})
         set(TRT_ROOT $ENV{TRT_ROOT})
     else()
-        set(TRT_ROOT "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118")
+        set(TRT_ROOT "${TENSORRT_ROOT}")
     endif()
 endif()
 

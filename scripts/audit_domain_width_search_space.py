@@ -91,7 +91,7 @@ def main() -> int:
         checkpoint_path=checkpoint,
         model_config_path=model_config,
         heal_root=runtime_cfg.get(
-            "heal_root", "/home/lixingfeng/UniAD_examine/HEAL"
+            "heal_root", "../../HEAL"
         ),
         tensorrt_root=runtime_cfg["tensorrt_root"],
         plugin_path=runtime_cfg.get("plugin_path"),

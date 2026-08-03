@@ -1,2 +1,0 @@
-round_id,model_type,checkpoint,model_size_mb,target_prune_ratio,actual_prune_ratio,gpu_id,gpu_name,dataset_total_frames,actual_frames,missing_frames,total_time_mean_ms,total_time_p50_ms,forward_time_mean_ms,forward_time_p50_ms,postprocess_time_mean_ms,postprocess_time_p50_ms,AP_0_03,AP_0_30,AP_0_50,AP_0_70,first_failure
-1,pruned,tests/outputs/debug_real_prune_cpu3/pruned_model.pth,18.597,0.25,0.107931666554128,,cpu,1789,1,0,866.117,866.117,772.349,772.349,93.629,93.629,0.8,0.75,0.75,0.693333,

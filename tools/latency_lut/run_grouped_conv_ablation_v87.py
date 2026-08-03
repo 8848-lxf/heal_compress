@@ -602,9 +602,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--checkpoint", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
-    p.add_argument("--model-config", default="/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-    p.add_argument("--heal-root", default="/home/lixingfeng/UniAD_examine/HEAL")
+    p.add_argument("--checkpoint", default="${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
+    p.add_argument("--model-config", default="${MODEL_ROOT}/lidar_pyramid/config.yaml")
+    p.add_argument("--heal-root", default="../../HEAL")
     p.add_argument("--device", default="cuda:0")
     p.add_argument("--warmup", type=int, default=5)
     p.add_argument("--repeat", type=int, default=20)

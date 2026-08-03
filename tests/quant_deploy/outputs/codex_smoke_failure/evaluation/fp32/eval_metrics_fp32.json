@@ -1,4 +1,0 @@
-{
-  "status": "not_run",
-  "reason": "current stage only benchmarks TensorRT engine forward latency"
-}

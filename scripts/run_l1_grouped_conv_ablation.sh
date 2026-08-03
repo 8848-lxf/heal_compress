@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd /home/lixingfeng/UniAD_examine/heal_compress
+cd .
 
 python tests/run_l1_grouped_conv_ablation.py \
-  --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+  --checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth \
   --gpu-id auto \
   --output-root tests/outputs \
   --experiment-name l1_grouped_conv_ablation \

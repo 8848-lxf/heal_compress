@@ -75,14 +75,14 @@ DEFAULT_OUTPUT = (
     / "outputs/formal_pruner_lidar_pyramid_validation_v1/grouped_conv_stage_sensitivity_v2"
 )
 DEFAULT_CONFIG = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/"
+    "../../Auto_Search/original_models/dairv2s/"
     "LiDAROnly/lidar_pyramid/config.yaml"
 )
 DEFAULT_CHECKPOINT = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/"
+    "../../Auto_Search/original_models/dairv2s/"
     "LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
 )
-DEFAULT_HEAL_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL")
+DEFAULT_HEAL_ROOT = Path("../../HEAL")
 
 
 def _plain(value: Any) -> Any:
@@ -1862,9 +1862,9 @@ def _write_actual_commands_markdown(output: Path) -> None:
             "## Verification and audit commands",
             "",
             "```bash",
-            "/home/lixingfeng/anaconda3/envs/modelopt/bin/python -m pytest -q tests/test_grouped_conv_stage_sensitivity_v2.py",
-            "/home/lixingfeng/anaconda3/envs/modelopt/bin/python -m pytest -q tests/test_grouped_conv_stage_sensitivity_v2.py tests/test_formal_lidar_pyramid_experiment_orchestration.py tests/test_formal_packages_cpu.py tests/test_grouped_conv_selection.py tests/test_grouped_conv_independent_topk_v81.py tests/test_taylor_fisher_importance_connection.py",
-            "/home/lixingfeng/anaconda3/envs/modelopt/bin/python -m py_compile tools/experiments/run_grouped_conv_stage_sensitivity.py tools/experiments/grouped_conv_stage_sensitivity/*.py",
+            "${CONDA_PREFIX}/bin/python -m pytest -q tests/test_grouped_conv_stage_sensitivity_v2.py",
+            "${CONDA_PREFIX}/bin/python -m pytest -q tests/test_grouped_conv_stage_sensitivity_v2.py tests/test_formal_lidar_pyramid_experiment_orchestration.py tests/test_formal_packages_cpu.py tests/test_grouped_conv_selection.py tests/test_grouped_conv_independent_topk_v81.py tests/test_taylor_fisher_importance_connection.py",
+            "${CONDA_PREFIX}/bin/python -m py_compile tools/experiments/run_grouped_conv_stage_sensitivity.py tools/experiments/grouped_conv_stage_sensitivity/*.py",
             "git diff --check",
             "git status --short",
             "git diff -- tracer/runtime_graph_builder.py tracer/api.py tracer/generic_tracer.py tracer/coupled_units.py tracer/atomic_units.py pruning/propagation.py pruning/api.py pruning/selection/global_ranking.py",
@@ -2379,9 +2379,9 @@ def run_prepare(args: argparse.Namespace) -> dict[str, Any]:
         "git_status_short": _run_command("git", "status", "--short")["output"],
         "git_diff_check": _run_command("git", "diff", "--check"),
         "python_executable": sys.executable,
-        "requested_python": "/home/lixingfeng/miniconda3/envs/modelopt/bin/python",
+        "requested_python": "${CONDA_BASE}/envs/modelopt/bin/python",
         "requested_python_exists": Path(
-            "/home/lixingfeng/miniconda3/envs/modelopt/bin/python"
+            "${CONDA_BASE}/envs/modelopt/bin/python"
         ).exists(),
         "config_path": str(config_path),
         "config_hash": config_hash,

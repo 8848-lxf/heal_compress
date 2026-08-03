@@ -1,2 +1,0 @@
-precision,engine_path,num_frames,warmup_frames,forward_mean_ms,forward_p50_ms,forward_p90_ms,forward_p95_ms,forward_min_ms,forward_max_ms,fps,engine_size_MB,latency_scope,data_loading_time_ms,data_to_gpu_time_ms,forward_time_ms,postprocess_time_ms,total_time_ms,success,error
-fp32,,1,0,,,,,,,,,engine_forward_only,,,,,,False,skipped because ONNX export failed: Exporting the operator 'aten::affine_grid_generator' to ONNX opset version 17 is not supported. Please feel free to request support or submit a pull request on PyTorch GitHub: https://github.com/pytorch/pytorch/issues.

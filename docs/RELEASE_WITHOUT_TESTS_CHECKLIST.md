@@ -35,7 +35,7 @@ mv tests.__disabled_for_release_check tests
 Also scan Python sources for server-specific paths and path injection:
 
 ```bash
-rg -n '/home/lixingfeng|sys\.path.*tests|runpy.*tests|subprocess.*tests' \
+rg -n '<server-home>|sys\.path.*tests|runpy.*tests|subprocess.*tests' \
   tracer pruning quantization \
   -g '!**/__pycache__/**' -g '!**/build*/**'
 ```

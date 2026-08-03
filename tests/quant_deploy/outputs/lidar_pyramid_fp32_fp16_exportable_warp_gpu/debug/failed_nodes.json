@@ -1,7 +1,0 @@
-[
-  {
-    "line": "[06/25/2026-08:21:55] [E] [TRT] ModelImporter.cpp:961: While parsing node number 672 [Squeeze -> \"/model/encoder_m1/pillar_vfe/Squeeze_output_0\"]:",
-    "number": "672",
-    "op": "Squeeze"
-  }
-]

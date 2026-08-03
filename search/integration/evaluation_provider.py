@@ -77,9 +77,9 @@ def evaluate_engine_modelopt(
         tensorrt_root=root,
         conda_env=conda_env,
         pythonpath_entries=[
-            "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
-            "/home/lixingfeng/UniAD_examine",
+            "../../HEAL",
+            ".",
+            "../..",
         ],
         cuda_visible_devices=cuda_visible_devices,
     )

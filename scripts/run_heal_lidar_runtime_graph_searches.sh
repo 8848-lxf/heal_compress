@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-repo_root="/home/lixingfeng/UniAD_examine/heal_compress"
+repo_root="."
 output_root="${repo_root}/outputs"
-python_bin="/home/lixingfeng/miniconda3/envs/univ2x-opt/bin/python"
+python_bin="${CONDA_BASE}/envs/univ2x-opt/bin/python"
 status_file="${output_root}/h800_heal_lidar_runtime_graph_search_queue.status.jsonl"
 overall_status=0
 

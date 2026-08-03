@@ -10,7 +10,7 @@ from exportable_bev_warp import warp_affine_simple_exportable
 
 
 SOURCE_FIXED_WRAPPER = (
-    "/home/lixingfeng/UniAD_examine/HEAL/prune_model/pyramid-trt/export_dynamic_onnx.py"
+    "../../HEAL/prune_model/pyramid-trt/export_dynamic_onnx.py"
 )
 
 

@@ -3,15 +3,15 @@ set -euo pipefail
 
 RUN_DIR="outputs/latency_lut/v11_mixed_precision_lut_dataset_trt_full"
 LOG_DIR="$RUN_DIR/dual_gpu_worker_logs"
-TRT_ROOT="/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118"
-PLUGIN="/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
+TRT_ROOT="${TENSORRT_ROOT}"
+PLUGIN="./tests/quant_deploy/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
 
 mkdir -p "$LOG_DIR"
 
-export LD_LIBRARY_PATH="$TRT_ROOT/lib:$TRT_ROOT/targets/x86_64-linux-gnu/lib:/home/lixingfeng/anaconda3/envs/modelopt/lib:${LD_LIBRARY_PATH:-}"
-export PYTHONPATH="/home/lixingfeng/UniAD_examine:/home/lixingfeng/UniAD_examine/heal_compress:/home/lixingfeng/UniAD_examine/HEAL:${PYTHONPATH:-}"
+export LD_LIBRARY_PATH="$TRT_ROOT/lib:$TRT_ROOT/targets/x86_64-linux-gnu/lib:${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
+export PYTHONPATH="../..:.:../../HEAL:${PYTHONPATH:-}"
 
-/home/lixingfeng/anaconda3/envs/modelopt/bin/python tools/latency_lut/run_v11_dual_gpu_profile_workers.py \
+${CONDA_PREFIX}/bin/python tools/latency_lut/run_v11_dual_gpu_profile_workers.py \
   --source-dir "$RUN_DIR" \
   --max-subnets 50 \
   --precision-profiles-per-subnet 4 \

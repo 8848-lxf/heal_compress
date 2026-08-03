@@ -1,9 +1,0 @@
-{
-  "success": false,
-  "error": "hypes_yaml is required and does not exist: /tmp/missing_lidar_pyramid.yaml",
-  "export_boundary": "full_model",
-  "opset": 17,
-  "onnx_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/artifacts/onnx/fp32/lidar_pyramid_fp32_dynamic.onnx",
-  "log_path": "/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/codex_smoke_failure/logs/export/export_onnx.log",
-  "traceback": "Traceback (most recent call last):\n  File \"/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/export_lidar_pyramid_onnx.py\", line 276, in export_lidar_pyramid_onnx\n    raise FileNotFoundError(f\"hypes_yaml is required and does not exist: {hypes_yaml}\")\nFileNotFoundError: hypes_yaml is required and does not exist: /tmp/missing_lidar_pyramid.yaml\n"
-}

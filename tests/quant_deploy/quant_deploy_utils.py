@@ -15,15 +15,15 @@ from typing import Any, Iterable, Optional
 SUPPORTED_PRECISIONS = ("fp32", "fp16", "int8")
 DEFAULT_OUTPUT_DIR = Path("tests") / "quant_deploy" / "outputs"
 DEFAULT_CHECKPOINT = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/"
+    "../../Auto_Search/original_models/dairv2s/"
     "LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
 )
 DEFAULT_HYPES_YAML = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/"
+    "../../Auto_Search/original_models/dairv2s/"
     "LiDAROnly/lidar_pyramid/config.yaml"
 )
-DEFAULT_HEAL_REPO = Path("/home/lixingfeng/UniAD_examine/HEAL")
-DEFAULT_TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
+DEFAULT_HEAL_REPO = Path("../../HEAL")
+DEFAULT_TRT_ROOT = Path("${TENSORRT_ROOT}")
 INT8_NOT_IMPLEMENTED_MESSAGE = (
     "INT8 native TensorRT build is enabled with --int8. ModelOpt, explicit Q/DQ, "
     "and custom plugins are intentionally not used in this deployment path."

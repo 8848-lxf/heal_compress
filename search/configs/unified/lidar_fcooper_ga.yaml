@@ -1,0 +1,70 @@
+model:
+  family_id: heal_lidar_fcooper
+  checkpoint: ${MODEL_ROOT}/lidar_fcooper/net_epoch_bestval_at37.pth
+  config: ${MODEL_ROOT}/lidar_fcooper/config.yaml
+  fixed_k: 29696
+  max_agents: 2
+
+runtime:
+  gpu_id: auto
+  heal_root: ../../HEAL
+  tensorrt_root: ${TENSORRT_ROOT}
+  tensorrt_env: modelopt
+  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
+
+output:
+  experiment_name: lidar_fcooper_unified_ga
+  best_engine_dir: best_engines
+  best_engine_publish_mode: hardlink
+
+pruning:
+  gene_type: legal_domain_width
+  fixed_ranking: pruning_only_first_plus_second_order_fisher_taylor
+  minimum_retained_ratio: 0.10
+  dense_channel_alignment: 4
+
+precision:
+  candidates: [FP32, FP16, INT8]
+  default: FP32
+
+proxy:
+  objective_mode: joint_weight_taylor_hard_bops
+  include_activation_taylor: false
+  backend: cuda_batched
+  device: auto
+  batch_size: 128
+  fisher_calibration_batches: 8
+  quant_calibration_batches: 200
+  quant_calibration_npz_manifest: ${CALIBRATION_MANIFEST}
+  bops_constraint_mode: hard_band_feasibility
+  bops_tolerance_abs: 0.005
+
+search:
+  method: ga
+  protocol: strict_stage12_v3
+  seed: 42
+  bops_targets: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
+  initial_population_size: 64
+  population_size: 64
+  offspring_size: 64
+  generations_per_round: 10
+  topk_stage2: 5
+  show_progress: true
+  greedy_frontier_warm_start: true
+  budget_recovery_beam_width: 8
+  budget_recovery_seed_pool_size: 32
+  budget_recovery_max_depth: 64
+
+stage2:
+  num_frames: 500
+  warmup_frames: 200
+  latency_rounds: 3
+  greedy_anchor_accuracy_gate:
+    enabled: true
+    tolerance: 0.005
+    anchor_manifest: ${GREEDY_ANCHOR_MANIFEST}
+
+full_validation:
+  num_frames: 1789
+  warmup_frames: 200
+  latency_rounds: 3

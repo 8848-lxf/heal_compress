@@ -1,13 +1,13 @@
 model:
-  checkpoint: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth
-  config: /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml
+  checkpoint: ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth
+  config: ${MODEL_ROOT}/lidar_pyramid/config.yaml
 
 runtime:
   gpu_id: 6
   exclude_gpu_ids: []
   model_env: univ2x-opt
   tensorrt_env: modelopt
-  tensorrt_root: /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+  tensorrt_root: ${TENSORRT_ROOT}
   plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
 
 output:
@@ -32,7 +32,7 @@ precision:
 proxy:
   fisher_calibration_batches: 0
   quant_calibration_batches: 200
-  quant_calibration_npz_manifest: /home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json
+  quant_calibration_npz_manifest: ./tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json
   quant_activation_calibration_backend: tensorrt_entropy_calibration2
   quant_calibration_force_rebuild: true
 

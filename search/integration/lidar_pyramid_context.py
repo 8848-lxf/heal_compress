@@ -20,10 +20,10 @@ from .model_provider import LidarPyramidModelBundle, load_lidar_pyramid_model
 from .runtime_environment import GPUSelection, TensorRTEnvironment, discover_trt_environment, plugin_hashes, select_gpu
 
 
-DEFAULT_CHECKPOINT = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
-DEFAULT_CONFIG = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-DEFAULT_HEAL_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL")
-DEFAULT_TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118")
+DEFAULT_CHECKPOINT = Path("${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
+DEFAULT_CONFIG = Path("${MODEL_ROOT}/lidar_pyramid/config.yaml")
+DEFAULT_HEAL_ROOT = Path("../../HEAL")
+DEFAULT_TRT_ROOT = Path("${TENSORRT_ROOT}")
 DEFAULT_PLUGIN = Path("quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so")
 
 

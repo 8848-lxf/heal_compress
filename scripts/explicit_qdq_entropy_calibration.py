@@ -17,13 +17,13 @@ import torch
 
 
 REPO = Path(__file__).resolve().parents[1]
-for entry in (REPO, REPO.parent, Path("/home/lixingfeng/UniAD_examine/HEAL")):
+for entry in (REPO, REPO.parent, Path("../../HEAL")):
     if str(entry) not in sys.path:
         sys.path.insert(0, str(entry))
 
-CHECKPOINT = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
-CONFIG = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-HEAL_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL")
+CHECKPOINT = Path("${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
+CONFIG = Path("${MODEL_ROOT}/lidar_pyramid/config.yaml")
+HEAL_ROOT = Path("../../HEAL")
 DEFAULT_SOURCE = REPO / "outputs/int8_baseline_equivalence_audit_20260713_021108"
 
 

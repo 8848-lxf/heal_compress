@@ -1,2 +1,0 @@
-precision,latency_scope,source,error
-fp32,engine_forward_only,skipped,skipped because ONNX export failed: hypes_yaml is required and does not exist: /tmp/missing_lidar_pyramid.yaml

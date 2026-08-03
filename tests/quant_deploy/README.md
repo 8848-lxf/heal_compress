@@ -23,7 +23,7 @@ No ONNX, TensorRT engine, benchmark, calibration, evaluation, log, or summary ou
 Use the server `modelopt` conda environment and TensorRT 10.9 installation:
 
 ```bash
-cd /home/lixingfeng/UniAD_examine/heal_compress
+cd .
 conda activate modelopt
 source tests/quant_deploy/env_modelopt_trt.sh
 ```
@@ -31,7 +31,7 @@ source tests/quant_deploy/env_modelopt_trt.sh
 The environment script sets:
 
 ```text
-TRT_ROOT=/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+TRT_ROOT=${TENSORRT_ROOT}
 PATH=${TRT_ROOT}/bin:${TRT_ROOT}/targets/x86_64-linux-gnu/bin:${PATH}
 LD_LIBRARY_PATH=<nvidia pip libs>:${TRT_ROOT}/lib:${TRT_ROOT}/targets/x86_64-linux-gnu/lib:<torch lib>:${CONDA_PREFIX}/lib:${CONDA_PREFIX}/lib64:${LD_LIBRARY_PATH}
 ```
@@ -123,7 +123,7 @@ Supported export modes are:
 `fixed_static` reuses the fixed-forward idea from:
 
 ```text
-/home/lixingfeng/UniAD_examine/HEAL/prune_model/pyramid-trt/export_dynamic_onnx.py
+../../HEAL/prune_model/pyramid-trt/export_dynamic_onnx.py
 ```
 
 but keeps only the LiDAR path. It statically expands the 3 pyramid levels, avoids list/dict/Sequence outputs, and returns a fixed Tensor tuple. It does not modify HEAL/OpenCOOD source and does not affect PyTorch evaluation.
@@ -157,15 +157,15 @@ Single-agent / `record_len=1` compatibility baseline:
 
 ```bash
 python tests/quant_deploy/run_lidar_pyramid_deploy.py \
-  --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
-  --hypes_yaml /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml \
+  --checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth \
+  --hypes_yaml ${MODEL_ROOT}/lidar_pyramid/config.yaml \
   --output_dir tests/quant_deploy/outputs \
   --run_name lidar_pyramid_fp32_fp16_baseline \
   --precisions fp32 fp16 \
   --num_frames 50 \
   --device cuda:0 \
   --opset 17 \
-  --trt_root /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118 \
+  --trt_root ${TENSORRT_ROOT} \
   --bev_warp_export_mode exportable_grid \
   --pillar_vfe_export_fix explicit_squeeze \
   --pyramid_forward_export_mode fixed_static
@@ -175,15 +175,15 @@ Recommended current command:
 
 ```bash
 python tests/quant_deploy/run_lidar_pyramid_deploy.py \
-  --hypes_yaml /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml \
-  --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+  --hypes_yaml ${MODEL_ROOT}/lidar_pyramid/config.yaml \
+  --checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth \
   --output_dir tests/quant_deploy/outputs \
   --run_name lidar_pyramid_fp32_fp16_exportable_warp \
   --precisions fp32 fp16 \
   --device cuda:0 \
   --num_frames 50 \
   --opset 17 \
-  --trt_root /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118 \
+  --trt_root ${TENSORRT_ROOT} \
   --bev_warp_export_mode exportable_grid \
   --pillar_vfe_export_fix explicit_squeeze \
   --pyramid_forward_export_mode padded_agent_static \
@@ -206,8 +206,8 @@ python tests/quant_deploy/compare_lidar_pyramid_agent_export_strategies.py \
 
 ```bash
 python tests/quant_deploy/export_lidar_pyramid_onnx.py \
-  --hypes_yaml /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml \
-  --checkpoint /home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth \
+  --hypes_yaml ${MODEL_ROOT}/lidar_pyramid/config.yaml \
+  --checkpoint ${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth \
   --output_dir tests/quant_deploy/outputs \
   --run_name lidar_pyramid_onnx_exportable_warp \
   --device cuda:0 \
@@ -222,7 +222,7 @@ python tests/quant_deploy/build_lidar_pyramid_trt_engine.py \
   --output_root tests/quant_deploy/outputs/lidar_pyramid_fp32_fp16_exportable_warp \
   --precision fp16 \
   --engine_name_prefix lidar_pyramid_padded_agent_static \
-  --trt_root /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+  --trt_root ${TENSORRT_ROOT}
 
 python tests/quant_deploy/benchmark_lidar_pyramid_trt_engine.py \
   --output_root tests/quant_deploy/outputs/<run_name> \

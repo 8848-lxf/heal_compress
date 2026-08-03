@@ -41,10 +41,10 @@ For the dynamic-N ABI, `getOutputDimensions()` derives output batch `N` from `pa
 Environment:
 
 ```bash
-source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh
+source ${CONDA_BASE}/etc/profile.d/conda.sh
 conda activate modelopt
 export CUDA_VISIBLE_DEVICES=0
-export TRT_ROOT=/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+export TRT_ROOT=${TENSORRT_ROOT}
 export LD_LIBRARY_PATH=$TRT_ROOT/lib:$TRT_ROOT/targets/x86_64-linux-gnu/lib:$LD_LIBRARY_PATH
 ```
 

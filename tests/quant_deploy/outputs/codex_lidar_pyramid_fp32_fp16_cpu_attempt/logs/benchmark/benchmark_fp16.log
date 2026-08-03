@@ -1,1 +1,0 @@
-skipped because ONNX export failed: Exporting the operator 'aten::affine_grid_generator' to ONNX opset version 17 is not supported. Please feel free to request support or submit a pull request on PyTorch GitHub: https://github.com/pytorch/pytorch/issues.

@@ -316,7 +316,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--candidate", required=True)
     parser.add_argument("--plugin", default=None)
     parser.add_argument("--layer-mapping", default=None)
-    parser.add_argument("--trt-root", default="/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
+    parser.add_argument("--trt-root", default="${TENSORRT_ROOT}")
     parser.add_argument("--strongly-typed", action="store_true")
     parser.add_argument("--route", choices=["auto", "strongly_typed", "constraints"], default="auto")
     parser.add_argument("--workspace-mib", type=int, default=4096)

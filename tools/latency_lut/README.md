@@ -32,7 +32,7 @@ python tools/latency_lut/benchmark_subgraph.py \
   --failed-output outputs/latency_lut/failed_keys.jsonl \
   --onnx-dir outputs/latency_lut/subgraphs_onnx \
   --engine-dir outputs/latency_lut/subgraphs_engine \
-  --trtexec /home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/bin/trtexec \
+  --trtexec ${TENSORRT_ROOT}/targets/x86_64-linux-gnu/bin/trtexec \
   --device 0 \
   --module-filter backbone \
   --precision-filter TRT_FP16 TRT_FP32 \

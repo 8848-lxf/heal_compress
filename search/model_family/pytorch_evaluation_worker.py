@@ -134,10 +134,10 @@ def main(argv: list[str] | None = None) -> int:
     output = Path(request["output_path"])
     try:
         for path in (
-            "/home/lixingfeng/UniAD_examine",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
-            "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine/heal_compress/tests",
+            "../..",
+            ".",
+            "../../HEAL",
+            "./tests",
         ):
             if path not in sys.path:
                 sys.path.insert(0, path)

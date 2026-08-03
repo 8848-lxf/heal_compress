@@ -170,9 +170,9 @@ def main(argv: list[str] | None = None) -> int:
         if os.environ.get("CONDA_DEFAULT_ENV") != "univ2x-opt":
             raise RuntimeError("fp32_deployment_worker_requires_univ2x_opt")
         for path in (
-            "/home/lixingfeng/UniAD_examine",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
-            "/home/lixingfeng/UniAD_examine/HEAL",
+            "../..",
+            ".",
+            "../../HEAL",
         ):
             if path not in sys.path:
                 sys.path.insert(0, path)

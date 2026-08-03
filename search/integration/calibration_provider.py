@@ -395,9 +395,9 @@ def build_tensorrt_entropy_calibration_cache_modelopt(
         tensorrt_root=tensorrt_root,
         conda_env=conda_env,
         pythonpath_entries=[
-            "/home/lixingfeng/UniAD_examine/HEAL",
-            "/home/lixingfeng/UniAD_examine/heal_compress",
-            "/home/lixingfeng/UniAD_examine",
+            "../../HEAL",
+            ".",
+            "../..",
         ],
         cuda_visible_devices=int(physical_gpu_id),
     )

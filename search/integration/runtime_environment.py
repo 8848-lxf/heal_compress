@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Any
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODELOPT_SOURCE_ROOTS = (
-    Path("/home/lixingfeng/UniAD_examine/HEAL/prune_model/Model-Optimizer-0.29.0"),
-    Path("/home/lixingfeng/UniAD_examine/Model-Optimizer-0.29.0"),
+    PROJECT_ROOT.parent / "HEAL/prune_model/Model-Optimizer-0.29.0",
+    PROJECT_ROOT.parent / "Model-Optimizer-0.29.0",
 )
 
 
@@ -179,8 +180,12 @@ def resolve_conda_env_prefix(conda_env: str = "modelopt") -> Path:
         [
             home / "anaconda3" / "envs" / env_name,
             home / "miniconda3" / "envs" / env_name,
-            Path("/home/lixingfeng/anaconda3/envs") / env_name,
         ]
+    )
+    candidates.extend(
+        Path(item).expanduser() / env_name
+        for item in os.environ.get("CONDA_ENVS_PATH", "").split(os.pathsep)
+        if item
     )
     for prefix in candidates:
         if (prefix / "bin" / "python").is_file():

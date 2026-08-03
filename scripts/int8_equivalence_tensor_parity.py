@@ -27,14 +27,14 @@ import torch
 
 
 REPO = Path(__file__).resolve().parents[1]
-for entry in (REPO, REPO.parent, Path("/home/lixingfeng/UniAD_examine/HEAL")):
+for entry in (REPO, REPO.parent, Path("../../HEAL")):
     if str(entry) not in sys.path:
         sys.path.insert(0, str(entry))
 
-CHECKPOINT = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth")
-CONFIG = Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml")
-HEAL_ROOT = Path("/home/lixingfeng/UniAD_examine/HEAL")
-TRT_ROOT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
+CHECKPOINT = Path("${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth")
+CONFIG = Path("${MODEL_ROOT}/lidar_pyramid/config.yaml")
+HEAL_ROOT = Path("../../HEAL")
+TRT_ROOT = Path("${TENSORRT_ROOT}")
 TRTEXEC = TRT_ROOT / "targets/x86_64-linux-gnu/bin/trtexec"
 CURRENT_PLUGIN = REPO / "quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
 LEGACY_ROOT = REPO / "tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare"
@@ -82,7 +82,7 @@ def read_json(path: Path, default: Any = None) -> Any:
 
 def require_modelopt() -> dict[str, str]:
     prefix = Path(os.environ.get("CONDA_PREFIX", ""))
-    expected = Path("/home/lixingfeng/miniconda3/envs/modelopt")
+    expected = Path("${CONDA_BASE}/envs/modelopt")
     values = {
         "CONDA_DEFAULT_ENV": os.environ.get("CONDA_DEFAULT_ENV", ""),
         "CONDA_PREFIX": str(prefix),

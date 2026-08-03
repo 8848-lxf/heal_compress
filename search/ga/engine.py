@@ -41,6 +41,8 @@ class GAConfig:
     taylor_absolute_epsilon: float = 1.0e-8
     seeded_initial_population_ratio: float = 0.90
     random_seed: int = 42
+    show_progress: bool = False
+    progress_description: str = "Stage1 GA 世代"
 
 
 class GeneticSearchEngine:
@@ -142,7 +144,20 @@ class GeneticSearchEngine:
         elite_count = max(1, int(round(self.config.population_size * self.config.elite_ratio)))
         gene_count = len(self.space.pruning_gene_ids) + len(self.space.precision_gene_ids)
         self.generation_statistics = []
-        for generation in range(self.config.num_generations):
+        generations: Iterable[int] = range(self.config.num_generations)
+        if self.config.show_progress:
+            try:
+                from tqdm.auto import tqdm
+            except ImportError:
+                pass
+            else:
+                generations = tqdm(
+                    generations,
+                    total=self.config.num_generations,
+                    desc=self.config.progress_description,
+                    unit="代",
+                )
+        for generation in generations:
             scored = []
             if batch_evaluator is not None:
                 batch_result = batch_evaluator(list(population), generation)

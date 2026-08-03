@@ -45,6 +45,10 @@ from ..stage1.repair_selection import select_repaired_stage2_topk
 from ..stage1.topk_selector import ProxyCandidateRecord, TopKConfig, select_stage1_topk
 from ..stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
 from ..stage2.generation_results import write_generation_stage2_results
+from ..stage2.greedy_anchor_gate import (
+    build_greedy_anchor_manifest,
+    gate_rows_from_search_config,
+)
 from ..stage2.objective import Stage2ObjectiveConfig
 from ..stage2.repaired_topk_manifest import write_repaired_topk_manifest
 from ..stage2.round_results import write_round_stage2_results
@@ -235,8 +239,8 @@ class LidarPyramidTwoStageSearch:
             checkpoint_path=self.checkpoint,
             output_dir=run_dir,
             model_config_path=model_cfg.get("config") or model_cfg.get("hypes_yaml"),
-            heal_root=runtime.get("heal_root", "/home/lixingfeng/UniAD_examine/HEAL"),
-            tensorrt_root=runtime.get("tensorrt_root", "/home/lixingfeng/UniAD_examine/HEAL/prune_model/TensorRT-10.9_x86_cu118"),
+            heal_root=runtime.get("heal_root", "../../HEAL"),
+            tensorrt_root=runtime.get("tensorrt_root", "${TENSORRT_ROOT}"),
             plugin_path=runtime.get("plugin_path"),
             gpu_id=str(runtime.get("gpu_id", "auto")),
             exclude_gpu_ids=[int(v) for v in runtime.get("exclude_gpu_ids", [5, 6, 7])],
@@ -643,7 +647,7 @@ class LidarPyramidTwoStageSearch:
                     checkpoint_path=context.checkpoint_path,
                     model_config_path=context.model_config,
                     heal_root=runtime.get(
-                        "heal_root", "/home/lixingfeng/UniAD_examine/HEAL"
+                        "heal_root", "../../HEAL"
                     ),
                     device=f"cuda:{gpu_id}",
                     trace=False,
@@ -939,6 +943,14 @@ class LidarPyramidTwoStageSearch:
                             if evaluation_mode == "screening_500":
                                 screening_cache[candidate_id] = dict(row)
         rows = [rows_by_index[index] for index in range(len(selected))]
+        if evaluation_mode == "screening_500":
+            if round_index is None:
+                raise RuntimeError("stage2_accuracy_gate_requires_round_index")
+            rows = gate_rows_from_search_config(
+                rows,
+                search_config=self.config,
+                round_index=int(round_index),
+            )
         _write_json(
             round_dir / "stage2_parallel_schedule.json",
             {
@@ -1140,6 +1152,10 @@ class LidarPyramidTwoStageSearch:
                 "unique_candidate_count": len(by_candidate_hash),
                 "engine_build_policy": "one_unique_candidate_per_budget_identity",
             },
+        )
+        _write_json(
+            greedy_dir / "anchor_manifest.json",
+            build_greedy_anchor_manifest(budget_rows),
         )
         if best is not None:
             _write_json(greedy_dir / "best_candidate.json", best)
@@ -1777,6 +1793,10 @@ class LidarPyramidTwoStageSearch:
                         search_cfg.get("seeded_initial_population_ratio", 0.90)
                     ),
                     random_seed=int(search_cfg.get("seed", 42)) + round_index,
+                    show_progress=bool(search_cfg.get("show_progress", True)),
+                    progress_description=(
+                        f"Stage1 GA 轮次 {round_index + 1}/{outer_rounds}"
+                    ),
                 ),
             )
 

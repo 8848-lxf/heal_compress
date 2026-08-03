@@ -29,9 +29,9 @@ for _p in (_UNIAD, _ROOT):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-DEFAULT_CHECKPOINT = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
-DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"
-DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
+DEFAULT_CHECKPOINT = "${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth"
+DEFAULT_CONFIG = "${MODEL_ROOT}/lidar_pyramid/config.yaml"
+DEFAULT_HEAL_ROOT = "../../HEAL"
 DEFAULT_OUT = "outputs/latency_lut/grouped_conv_ablation_v88_full_model"
 
 MAIN_RATIOS = [0.25, 0.50, 0.75]

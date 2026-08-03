@@ -69,7 +69,8 @@ def write_generation_stage2_results(
         )
     elif selected_count == 1:
         row = rows[0]
-        if str(row.get("status", "")) == "ok":
+        gate_passed = row.get("accuracy_gate_passed") is not False
+        if str(row.get("status", "")) == "ok" and gate_passed:
             winner = {
                 **row,
                 "evaluation_500_skipped": True,
@@ -78,9 +79,19 @@ def write_generation_stage2_results(
             status = "single_candidate_direct_winner"
             reason = ""
         else:
-            failures.append(row)
+            rejection = (
+                [str(row.get("accuracy_gate_rejection", "accuracy_gate_failed"))]
+                if not gate_passed
+                else []
+            )
+            failures.append({**row, "generation_admission_rejection": rejection})
             status = "no_deployable_stage2_candidate"
-            reason = str(row.get("failure_reason", row.get("status", "deployment_failed")))
+            reason = str(
+                row.get(
+                    "accuracy_gate_rejection",
+                    row.get("failure_reason", row.get("status", "deployment_failed")),
+                )
+            )
     else:
         admitted: list[dict[str, Any]] = []
         for row in rows:
@@ -107,6 +118,10 @@ def write_generation_stage2_results(
                 rejection_reasons.append(f"skipped_frames_{skipped}_expected_0")
             if not math.isfinite(f2):
                 rejection_reasons.append("finite_F2_required")
+            if row.get("accuracy_gate_passed") is False:
+                rejection_reasons.append(
+                    str(row.get("accuracy_gate_rejection", "accuracy_gate_failed"))
+                )
             if rejection_reasons:
                 failures.append(
                     {

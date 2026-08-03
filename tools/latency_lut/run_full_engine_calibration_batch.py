@@ -288,7 +288,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-pairwise", "--num_pairwise", dest="num_pairwise", type=int, default=10)
     parser.add_argument("--num-random", "--num_random", dest="num_random", type=int, default=10)
     parser.add_argument("--val-subset-size", "--val_subset_size", dest="val_subset_size", type=int, default=50)
-    parser.add_argument("--trtexec", default="/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/bin/trtexec")
+    parser.add_argument("--trtexec", default="${TENSORRT_ROOT}/targets/x86_64-linux-gnu/bin/trtexec")
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--limit", type=int, default=None)

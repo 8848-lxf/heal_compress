@@ -36,7 +36,7 @@ def plain(value: Any) -> Any:
 def probe(engine_path: Path, plugin_path: Path) -> dict[str, Any]:
     import tensorrt as trt
 
-    expected = Path("/home/lixingfeng/miniconda3/envs/modelopt")
+    expected = Path("${CONDA_BASE}/envs/modelopt")
     prefix = Path(os.environ.get("CONDA_PREFIX", ""))
     environment = {
         "CONDA_DEFAULT_ENV": os.environ.get("CONDA_DEFAULT_ENV", ""),

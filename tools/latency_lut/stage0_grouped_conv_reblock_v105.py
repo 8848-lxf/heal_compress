@@ -31,9 +31,9 @@ from tools.latency_lut.select_idle_gpu_for_latency import (  # noqa: E402
 )
 
 
-DEFAULT_CHECKPOINT = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"
-DEFAULT_CONFIG = "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"
-DEFAULT_HEAL_ROOT = "/home/lixingfeng/UniAD_examine/HEAL"
+DEFAULT_CHECKPOINT = "${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pth"
+DEFAULT_CONFIG = "${MODEL_ROOT}/lidar_pyramid/config.yaml"
+DEFAULT_HEAL_ROOT = "../../HEAL"
 
 
 def write_json(path: Path, payload: Any) -> None:

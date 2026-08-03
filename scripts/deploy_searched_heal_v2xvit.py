@@ -19,21 +19,6 @@ for value in (REPO.parent, REPO):
     if str(value) not in sys.path:
         sys.path.insert(0, str(value))
 
-DEFAULT_CONFIG = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/"
-    "LiDAROnly/lidar_v2xvit/config.yaml"
-)
-DEFAULT_CHECKPOINT = DEFAULT_CONFIG.parent / "net_epoch_bestval_at27.pth"
-DEFAULT_MANIFEST = REPO / "search/model_family/manifests/heal_lidar_v2xvit_train200_fixed_k.json"
-DEFAULT_SEARCH = (
-    REPO
-    / "outputs/h800_heal_v2xvit_ga_greedy_smoke_authoritative_20260717_133212/greedy_smoke.json"
-)
-DEFAULT_SEARCH_SPACE = DEFAULT_SEARCH.parent / "search_space.json"
-DEFAULT_TRT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
-DEFAULT_PLUGIN = REPO / "quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
-
-
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
@@ -119,18 +104,18 @@ def _evaluation_manifest(bundle: Any, output: Path, *, warmup: int, frames: int)
     return path
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
-    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    parser.add_argument("--search-artifact", type=Path, default=DEFAULT_SEARCH)
-    parser.add_argument("--search-space", type=Path, default=DEFAULT_SEARCH_SPACE)
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--search-artifact", type=Path, required=True)
+    parser.add_argument("--search-space", type=Path, required=True)
     parser.add_argument("--search-target", type=float, default=0.25)
     parser.add_argument("--candidate-hash", default="")
-    parser.add_argument("--heal-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/HEAL"))
-    parser.add_argument("--tensorrt-root", type=Path, default=DEFAULT_TRT)
-    parser.add_argument("--plugin", type=Path, default=DEFAULT_PLUGIN)
+    parser.add_argument("--heal-root", type=Path, default=Path("../../HEAL"))
+    parser.add_argument("--tensorrt-root", type=Path, required=True)
+    parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--physical-gpu", type=int, default=6)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -138,7 +123,7 @@ def main() -> int:
     parser.add_argument("--warmup-frames", type=int, default=5)
     parser.add_argument("--latency-rounds", type=int, default=1)
     parser.add_argument("--opset", type=int, default=17)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if os.environ.get("CONDA_DEFAULT_ENV") != "univ2x-opt":
         raise RuntimeError(f"v2xvit_deployment_requires_univ2x_opt:{os.environ.get('CONDA_DEFAULT_ENV', '')}")

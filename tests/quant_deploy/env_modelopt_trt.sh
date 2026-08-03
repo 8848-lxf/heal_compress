@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-export TRT_ROOT=/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118
+export TRT_ROOT=${TENSORRT_ROOT}
 
 export PATH=${TRT_ROOT}/bin:${TRT_ROOT}/targets/x86_64-linux-gnu/bin:${PATH}
 

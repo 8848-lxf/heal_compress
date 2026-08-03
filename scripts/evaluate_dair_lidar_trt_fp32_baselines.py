@@ -14,9 +14,9 @@ from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_MODELS = Path(
-    "/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly"
+    "${MODEL_ROOT}"
 )
-DEFAULT_TRT = Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118")
+DEFAULT_TRT = Path("${TENSORRT_ROOT}")
 DEFAULT_PLUGIN = REPO / "quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
 
 
@@ -33,7 +33,7 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--models", nargs="*", default=[])
     parser.add_argument("--physical-gpu", type=int, default=7)
-    parser.add_argument("--heal-root", type=Path, default=Path("/home/lixingfeng/UniAD_examine/HEAL"))
+    parser.add_argument("--heal-root", type=Path, default=Path("../../HEAL"))
     parser.add_argument("--tensorrt-root", type=Path, default=DEFAULT_TRT)
     parser.add_argument("--plugin", type=Path, default=DEFAULT_PLUGIN)
     parser.add_argument("--warmup-frames", type=int, default=200)

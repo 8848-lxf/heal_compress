@@ -3,6 +3,10 @@
 # ==============================
 
 outputs/
+**/outputs/
+output/
+search_results/
+best_engines/
 tests/outputs/
 tests/quant_deploy/outputs/
 
@@ -35,6 +39,10 @@ tests/quant_deploy/outputs/
 *.npz
 *.npy
 *.bin
+*.pkl
+*.pickle
+*.jsonl
+*.log
 
 # ==============================
 # Python
@@ -62,3 +70,6 @@ tests_back/
 heal_tests/
 .gitignore.bak.*
 quantization/plugins/pointpillar_scatter_trt/build_contaminated_*/
+
+# Local continuity notes are intentionally kept outside public commits.
+docs/codex_handoffs/

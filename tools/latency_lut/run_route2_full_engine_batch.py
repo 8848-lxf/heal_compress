@@ -154,10 +154,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument("--conda-sh", "--conda_sh", dest="conda_sh", default="/home/lixingfeng/miniconda3/etc/profile.d/conda.sh")
+    parser.add_argument("--conda-sh", "--conda_sh", dest="conda_sh", default="${CONDA_BASE}/etc/profile.d/conda.sh")
     parser.add_argument("--conda-env", "--conda_env", dest="conda_env", default="modelopt")
-    parser.add_argument("--trt-lib", "--trt_lib", dest="trt_lib", default="/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/lib")
-    parser.add_argument("--trtexec", default="/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118/targets/x86_64-linux-gnu/bin/trtexec")
+    parser.add_argument("--trt-lib", "--trt_lib", dest="trt_lib", default="${TENSORRT_ROOT}/targets/x86_64-linux-gnu/lib")
+    parser.add_argument("--trtexec", default="${TENSORRT_ROOT}/targets/x86_64-linux-gnu/bin/trtexec")
     return parser.parse_args()
 
 
