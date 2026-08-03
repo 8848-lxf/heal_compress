@@ -12,6 +12,45 @@ from pathlib import Path
 from typing import Any
 
 
+DEFAULT_MODELOPT_SOURCE_ROOTS = (
+    Path("/home/lixingfeng/UniAD_examine/HEAL/prune_model/Model-Optimizer-0.29.0"),
+    Path("/home/lixingfeng/UniAD_examine/Model-Optimizer-0.29.0"),
+)
+
+
+def resolve_modelopt_source_root(tensorrt_root: str | Path | None = None) -> Path:
+    """Resolve the audited vendored ModelOpt 0.29 source, or fail closed."""
+
+    candidates: list[Path] = []
+    explicit = os.environ.get("MODELOPT_SOURCE_ROOT", "").strip()
+    if explicit:
+        candidates.append(Path(explicit))
+    if tensorrt_root is not None:
+        candidates.append(
+            Path(tensorrt_root).expanduser().resolve().parent
+            / "Model-Optimizer-0.29.0"
+        )
+    candidates.extend(DEFAULT_MODELOPT_SOURCE_ROOTS)
+    for root in candidates:
+        resolved = root.expanduser().resolve()
+        if (resolved / "modelopt" / "__init__.py").is_file():
+            return resolved
+    raise RuntimeError(
+        "modelopt_0_29_source_missing:" + ":".join(str(path) for path in candidates)
+    )
+
+
+def ensure_modelopt_source_available(tensorrt_root: str | Path | None = None) -> Path:
+    """Make the audited vendored ModelOpt source importable in this process."""
+
+    root = resolve_modelopt_source_root(tensorrt_root)
+    value = str(root)
+    if value not in sys.path:
+        sys.path.insert(0, value)
+    os.environ["MODELOPT_SOURCE_ROOT"] = value
+    return root
+
+
 @dataclass(frozen=True)
 class GPUSelection:
     gpu_id_arg: str
@@ -176,10 +215,16 @@ def modelopt_python_command(conda_env: str = "modelopt") -> list[str]:
     compiler/CUDA entry to that environment before executing Python.
     """
 
+    prefix = resolve_conda_env_prefix(conda_env)
+    conda_root = prefix.parents[1] if prefix.parent.name == "envs" else prefix.parent
+    conda_sh = conda_root / "etc" / "profile.d" / "conda.sh"
+    if not conda_sh.is_file():
+        raise RuntimeError(f"conda_activation_script_missing:{conda_sh}")
+
     script = (
         "requested_path=\"${PATH:-}\"; "
         "requested_ld_library_path=\"${LD_LIBRARY_PATH:-}\"; "
-        "source /home/lixingfeng/miniconda3/etc/profile.d/conda.sh; "
+        f"source {str(conda_sh)!r}; "
         "conda activate \"$1\"; "
         "clean_path=\"$CONDA_PREFIX/bin\"; "
         "IFS=':' read -r -a requested_path_entries <<< \"$requested_path\"; "

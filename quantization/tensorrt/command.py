@@ -34,6 +34,24 @@ def build_trt_command(
     """Generate a canonical layer-constrained trtexec command without running it."""
 
     policy = config or TensorRTBuildConfig()
+    if policy.production_mode and not policy.strongly_typed:
+        raise TensorRTConfigurationError("production_requires_strongly_typed")
+    if policy.strongly_typed:
+        if policy.production_mode and (policy.enable_fp16 or policy.enable_int8):
+            raise TensorRTConfigurationError(
+                "strongly_typed_forbids_implicit_precision_flags"
+            )
+        if policy.production_mode and str(policy.precision_constraints).lower() not in {"", "none"}:
+            raise TensorRTConfigurationError(
+                "strongly_typed_forbids_precision_constraints"
+            )
+        if policy.production_mode and str(policy.plugin_boundary_dtype).lower() not in {
+            "fp16",
+            "fp32",
+        }:
+            raise TensorRTConfigurationError(
+                "strongly_typed_plugin_boundary_must_be_fp16_or_fp32"
+            )
     if not precision_mapping.entries:
         raise TensorRTConfigurationError("canonical precision mapping is empty")
     canonical_names = [row.canonical_node_name for row in precision_mapping.entries]
@@ -42,14 +60,14 @@ def build_trt_command(
     invalid = [
         row.realized_request_precision
         for row in precision_mapping.entries
-        if row.realized_request_precision not in {"fp32", "fp16", "int8"}
+        if row.realized_request_precision not in {"fp32", "fp16", "bf16", "fp8", "int8"}
     ]
     if invalid:
         raise TensorRTConfigurationError(f"unsupported realized precisions: {sorted(set(invalid))}")
     invalid_outputs = [
         row.realized_output_precision
         for row in precision_mapping.entries
-        if row.realized_output_precision and row.realized_output_precision not in {"fp32", "fp16", "int8"}
+        if row.realized_output_precision and row.realized_output_precision not in {"fp32", "fp16", "bf16", "fp8", "int8"}
     ]
     if invalid_outputs:
         raise TensorRTConfigurationError(f"unsupported realized output precisions: {sorted(set(invalid_outputs))}")
@@ -97,7 +115,7 @@ def build_trt_command(
         raise TensorRTConfigurationError("auxiliary precision constraints overlap canonical constraints")
     invalid_auxiliary = sorted(
         {str(value) for value in [*auxiliary_precisions.values(), *auxiliary_outputs.values()]}
-        - {"fp32", "fp16", "int8"}
+        - {"fp32", "fp16", "bf16", "fp8", "int8"}
     )
     if invalid_auxiliary:
         raise TensorRTConfigurationError(f"unsupported auxiliary precisions: {invalid_auxiliary}")
