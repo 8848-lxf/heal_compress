@@ -47,8 +47,8 @@ def combine_precision_action_risk(
 
 
 def _relative_equal(left: float, right: float, tolerance: float) -> bool:
-    scale = max(abs(left), abs(right), 1.0e-30)
-    return abs(left - right) / scale < float(tolerance)
+    threshold = max(1.0e-12, float(tolerance) * max(abs(left), abs(right)))
+    return abs(left - right) <= threshold
 
 
 def absolute_fp32_retention(bops: Mapping[str, Any]) -> float:
@@ -84,6 +84,7 @@ def select_budget_winner(
         key=lambda row: (
             abs(float(row["current_retention"]) - float(target)),
             -float(row["R_parameter_retention"]),
+            -float(row.get("mixed_weight_retention", 0.0)),
             str(row["candidate_hash"]),
         )
     )
@@ -404,6 +405,249 @@ def run_conservative_joint_greedy(
     }
 
 
+def run_conservative_joint_greedy_multi_budget(
+    space: SearchSpaceSpec,
+    *,
+    structural_proxy: Any,
+    weight_proxy: Any,
+    activation_proxy: Any,
+    bops_evaluator: Any,
+    size_evaluator: Any,
+    targets: Sequence[float] = (0.30, 0.25, 0.20, 0.15, 0.10, 0.05),
+    tolerance_abs: float = 0.005,
+    epsilon: float = 1.0e-12,
+    maximum_steps: int = 10000,
+) -> dict[str, Any]:
+    """Run one monotonic trajectory and capture every requested budget band."""
+
+    normalized_targets = tuple(sorted({float(value) for value in targets}, reverse=True))
+    if not normalized_targets or any(not 0.0 < value < 1.0 for value in normalized_targets):
+        raise ValueError("conservative_multi_budget_targets_invalid")
+    engine = GreedyBudgetSearch(
+        space,
+        config=GreedySearchConfig(
+            bops_targets=normalized_targets,
+            bops_tolerance_abs=float(tolerance_abs),
+            maximum_steps=int(maximum_steps),
+            run_to_exhaustion=True,
+            enable_budget_recovery=False,
+        ),
+    )
+    current = engine._initial_candidate()
+    current_phenotype = canonicalize_candidate(current, space)
+    baseline_bops = bops_evaluator(current_phenotype)
+    current_bops = float(baseline_bops["bops_total"])
+    if current_bops <= 0.0 or not math.isfinite(current_bops):
+        raise RuntimeError("conservative_multi_budget_baseline_bops_invalid")
+    cumulative_struct = 0.0
+    cumulative_wq = 0.0
+    cumulative_aq = 0.0
+    trace: list[dict[str, Any]] = []
+    bands: dict[float, dict[str, dict[str, Any]]] = {
+        target: {} for target in normalized_targets
+    }
+    selected_path: list[dict[str, Any]] = []
+    selected_hashes = [candidate_hash(current_phenotype, space)]
+    termination = ""
+
+    for step in range(1, int(maximum_steps) + 1):
+        neighbors = engine._neighbors(current)
+        if not neighbors:
+            termination = "no_remaining_legal_action"
+            break
+        action_rows: list[dict[str, Any]] = []
+        for successor, action in neighbors:
+            phenotype = canonicalize_candidate(successor, space)
+            bops = bops_evaluator(phenotype)
+            after = float(bops["bops_total"])
+            delta_bops = current_bops - after
+            if delta_bops <= float(epsilon) or not math.isfinite(delta_bops):
+                continue
+            if action["kind"] == "domain_width":
+                risk = structural_proxy.pruning_action_breakdown(
+                    current_phenotype, phenotype
+                )
+                delta_struct = float(risk["delta_J_struct"])
+                delta_wq = 0.0
+                delta_aq = 0.0
+            elif action["kind"] == "precision":
+                weight = weight_proxy.weight_quantization_action_breakdown(
+                    current_phenotype, phenotype
+                )
+                activation = activation_proxy.quantization_action_breakdown(
+                    current_phenotype,
+                    phenotype,
+                    changed_gene_id=str(action["gene_id"]),
+                )
+                risk = combine_precision_action_risk(weight, activation)
+                delta_struct = 0.0
+                delta_wq = float(risk["delta_J_WQ"])
+                delta_aq = float(risk["delta_J_AQ"])
+            else:
+                raise RuntimeError(f"conservative_multi_budget_action_unsupported:{action}")
+            delta_action = delta_struct + delta_wq + delta_aq
+            if delta_action < 0.0 or not math.isfinite(delta_action):
+                raise RuntimeError("conservative_multi_budget_action_risk_invalid")
+            utility = delta_action / max(delta_bops, float(epsilon))
+            if not math.isfinite(utility):
+                raise RuntimeError("conservative_multi_budget_utility_nonfinite")
+            retention = absolute_fp32_retention(bops)
+            phenotype_hash = candidate_hash(phenotype, space)
+            matched_targets = tuple(
+                target
+                for target in normalized_targets
+                if abs(retention - target) <= float(tolerance_abs)
+            )
+            action_rows.append(
+                {
+                    "step": step,
+                    "action_type": action["kind"],
+                    "domain_layer": str(action["gene_id"]),
+                    "domain_type": str(action.get("domain_type", "")),
+                    "module_path": str(action.get("module_path", "")),
+                    "delta_J_struct": delta_struct,
+                    "delta_J_WQ": delta_wq,
+                    "delta_J_AQ": delta_aq,
+                    "delta_J_action": delta_action,
+                    "delta_BOPS": delta_bops,
+                    "utility": utility,
+                    "BOPS_before": current_bops,
+                    "BOPS_after": after,
+                    "current_retention": retention,
+                    "R_bops_vs_fp32": retention,
+                    "R_bops_reference": "original_fp32",
+                    "cumulative_total_taylor": cumulative_struct
+                    + cumulative_wq
+                    + cumulative_aq
+                    + delta_action,
+                    "cumulative_structural_taylor": cumulative_struct + delta_struct,
+                    "cumulative_weight_quant_taylor": cumulative_wq + delta_wq,
+                    "cumulative_activation_quant_taylor": cumulative_aq + delta_aq,
+                    "candidate_hash": phenotype_hash,
+                    "physical_hash": _stable_mapping_hash(successor.pruning_width_genes),
+                    "precision_hash": _stable_mapping_hash(successor.precision_genes),
+                    "phenotype_hash": phenotype_hash,
+                    "matched_budget_targets": matched_targets,
+                    "selected": False,
+                    "global_rank": 0,
+                    "structural_repair_count": 0,
+                    "precision_repair_count": 0,
+                    "budget_projection_count": 0,
+                    "candidate": successor,
+                    "phenotype": phenotype,
+                    "bops_breakdown": bops,
+                    "risk": risk,
+                }
+            )
+        if not action_rows:
+            termination = "no_positive_bops_reduction_action"
+            break
+        action_rows.sort(
+            key=lambda row: (
+                float(row["utility"]),
+                str(row["domain_layer"]),
+                str(row["candidate_hash"]),
+            )
+        )
+        selected = action_rows[0]
+        selected["selected"] = True
+        for rank, row in enumerate(action_rows, start=1):
+            row["global_rank"] = rank
+            if row["matched_budget_targets"] or row is selected:
+                sizes = size_evaluator(row["phenotype"])
+                row["R_parameter_retention"] = float(sizes["R_parameter_retention"])
+                row["parameter_count"] = float(sizes["parameter_count_after"])
+                row["mixed_weight_size_bytes"] = float(sizes["size_bits_total"]) / 8.0
+                row["mixed_weight_retention"] = float(sizes["R_size_vs_fp32"])
+            else:
+                row["R_parameter_retention"] = float("nan")
+                row["parameter_count"] = float("nan")
+                row["mixed_weight_size_bytes"] = float("nan")
+                row["mixed_weight_retention"] = float("nan")
+            public = {
+                key: value
+                for key, value in row.items()
+                if key not in {"candidate", "phenotype", "bops_breakdown", "risk"}
+            }
+            trace.append(public)
+            for target in row["matched_budget_targets"]:
+                value = {
+                    **row,
+                    "budget_target": target,
+                    "BOPS_deviation": abs(float(row["current_retention"]) - target),
+                    "pruned_unit_count": len(row["phenotype"].pruned_unit_ids),
+                    "int8_count": sum(
+                        precision == "INT8"
+                        for precision in row["phenotype"].realized_precision_profile.values()
+                    ),
+                    "attention_ffn_width_sum": sum(
+                        int(width)
+                        for domain_id, width in row["candidate"].pruning_width_genes.items()
+                        if domain_id.startswith("attention_dh::")
+                        or domain_id.startswith("ffn_hidden::")
+                    ),
+                }
+                incumbent = bands[target].get(str(row["candidate_hash"]))
+                if incumbent is None or float(value["cumulative_total_taylor"]) < float(
+                    incumbent["cumulative_total_taylor"]
+                ):
+                    bands[target][str(row["candidate_hash"])] = value
+        selected_path.append(
+            {
+                key: value
+                for key, value in selected.items()
+                if key not in {"candidate", "phenotype", "bops_breakdown", "risk"}
+            }
+        )
+        current = selected["candidate"]
+        current_phenotype = selected["phenotype"]
+        current_bops = float(selected["BOPS_after"])
+        cumulative_struct += float(selected["delta_J_struct"])
+        cumulative_wq += float(selected["delta_J_WQ"])
+        cumulative_aq += float(selected["delta_J_AQ"])
+        selected_hashes.append(str(selected["candidate_hash"]))
+        if (
+            all(bands[target] for target in normalized_targets)
+            and float(selected["current_retention"])
+            < min(normalized_targets) - float(tolerance_abs)
+        ):
+            termination = "all_budgets_captured_and_path_below_minimum_band"
+            break
+    else:
+        termination = "maximum_steps_reached"
+
+    missing = [target for target in normalized_targets if not bands[target]]
+    if missing:
+        raise RuntimeError(f"conservative_multi_budget_band_empty:{missing}")
+    winners = {
+        target: select_budget_winner(list(bands[target].values()), target=target)
+        for target in normalized_targets
+    }
+    return {
+        "targets": normalized_targets,
+        "winners": winners,
+        "budget_candidates": {
+            target: list(bands[target].values()) for target in normalized_targets
+        },
+        "trace": trace,
+        "selected_path": selected_path,
+        "selected_candidate_hashes": selected_hashes,
+        "selected_step_count": len(selected_path),
+        "visited_action_count": len(trace),
+        "budget_band_candidate_counts": {
+            target: len(bands[target]) for target in normalized_targets
+        },
+        "budget_reached": {target: True for target in normalized_targets},
+        "termination_reason": termination,
+        **empty_search_loop_runtime_audit(),
+        "activation_taylor_used_for_fitness": True,
+        "joint_taylor_used_for_fitness": False,
+        "cross_residual_used_for_fitness": False,
+        "elementwise_abs_before_reduction": True,
+        "repair_count": 0,
+    }
+
+
 def _stable_mapping_hash(value: Mapping[str, Any]) -> str:
     import hashlib
     import json
@@ -430,6 +674,7 @@ __all__ = [
     "combine_precision_action_risk",
     "empty_search_loop_runtime_audit",
     "run_conservative_joint_greedy",
+    "run_conservative_joint_greedy_multi_budget",
     "select_budget_winner",
     "select_stage2_budget_pool",
 ]
