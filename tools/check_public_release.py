@@ -10,7 +10,15 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FORBIDDEN_PARTS = {"outputs", "output", "best_engines", "codex_handoffs", "_001"}
+FORBIDDEN_PARTS = {
+    "docs",
+    "outputs",
+    "output",
+    "search_results",
+    "best_engines",
+    "codex_handoffs",
+    "_001",
+}
 FORBIDDEN_SUFFIXES = {
     ".bin",
     ".cache",
@@ -31,7 +39,7 @@ FORBIDDEN_SUFFIXES = {
 }
 FORBIDDEN_PATH_PREFIXES = tuple(
     "/" + name + "/" for name in ("home", "data", "root")
-)
+) + ("/" + "path" + "/" + "to",)
 
 
 def release_files(root: Path) -> list[Path]:

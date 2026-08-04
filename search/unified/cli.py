@@ -21,7 +21,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--heal-root", type=Path)
     parser.add_argument("--tensorrt-root", type=Path)
     parser.add_argument("--calibration-manifest", type=Path)
+    parser.add_argument("--evaluation-manifest", type=Path)
     parser.add_argument("--greedy-anchor-manifest", type=Path)
+    parser.add_argument("--baseline-engine", type=Path)
+    parser.add_argument("--plugin", type=Path)
+    parser.add_argument("--physical-gpu", type=int)
     parser.add_argument("--search-method", choices=("ga", "greedy"))
     parser.add_argument(
         "--activation-taylor",
@@ -59,9 +63,17 @@ def main(argv: list[str] | None = None) -> int:
         "proxy.quant_calibration_npz_manifest": (
             str(args.calibration_manifest) if args.calibration_manifest else None
         ),
+        "stage2.evaluation_manifest": (
+            str(args.evaluation_manifest) if args.evaluation_manifest else None
+        ),
         "stage2.greedy_anchor_accuracy_gate.anchor_manifest": (
             str(args.greedy_anchor_manifest) if args.greedy_anchor_manifest else None
         ),
+        "baselines.strict_fp32_engine": (
+            str(args.baseline_engine) if args.baseline_engine else None
+        ),
+        "runtime.plugin_path": str(args.plugin) if args.plugin else None,
+        "runtime.physical_gpu": args.physical_gpu,
         "search.method": args.search_method,
         "proxy.include_activation_taylor": (
             args.activation_taylor == "on" if args.activation_taylor else None

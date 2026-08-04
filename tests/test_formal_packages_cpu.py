@@ -954,7 +954,7 @@ def test_fp16_merge_output_contract_marks_only_nearest_weighted_producers(tmp_pa
         qdq_onnx,
         tmp_path / "merge.plan",
         resolved,
-        config=TensorRTBuildConfig(trtexec_path=Path("/opt/tensorrt/bin/trtexec")),
+        config=TensorRTBuildConfig(trtexec_path=tmp_path / "tensorrt/bin/trtexec"),
     )
     joined = " ".join(command.command)
     assert "residual_add:fp16" in joined
@@ -1657,7 +1657,7 @@ def test_trt_command_generation_uses_canonical_names_without_execution(tmp_path:
         ]
     )
     config = TensorRTBuildConfig(
-        trtexec_path=Path("/opt/tensorrt/bin/trtexec"),
+        trtexec_path=tmp_path / "tensorrt/bin/trtexec",
         workspace_mib=512,
         shape_profiles={
             "voxel_features": {"min": (1, 32, 4), "opt": (4, 32, 4), "max": (8, 32, 4)}
@@ -1693,7 +1693,7 @@ def test_trt_command_separates_int8_compute_from_fp16_merge_output(tmp_path: Pat
         tmp_path / "model.onnx",
         tmp_path / "model.engine",
         mapping,
-        config=TensorRTBuildConfig(trtexec_path=Path("/opt/tensorrt/bin/trtexec")),
+        config=TensorRTBuildConfig(trtexec_path=tmp_path / "tensorrt/bin/trtexec"),
     )
     joined = " ".join(result.command)
     assert f"--layerPrecisions={name}:int8" in joined
@@ -1722,7 +1722,7 @@ def test_strongly_typed_trt_command_omits_weak_precision_hints(tmp_path: Path) -
         tmp_path / "model.plan",
         mapping,
         config=TensorRTBuildConfig(
-            trtexec_path=Path("/opt/tensorrt/bin/trtexec"),
+            trtexec_path=tmp_path / "tensorrt/bin/trtexec",
             strongly_typed=True,
         ),
     )

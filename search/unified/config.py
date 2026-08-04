@@ -134,11 +134,21 @@ def _validate_protocol(payload: dict[str, Any], *, allow_unresolved: bool) -> Fa
         raise ValueError(
             "greedy_anchor_accuracy_tolerance_must_be_in_closed_interval_0_0_005"
         )
-    if gate["enabled"] and method == "ga" and not gate.get("anchor_manifest"):
+    integrated_anchor = bool(search.get("integrated_greedy_anchor", False))
+    if (
+        gate["enabled"]
+        and method == "ga"
+        and not integrated_anchor
+        and not gate.get("anchor_manifest")
+    ):
         if not allow_unresolved:
             raise ValueError("greedy_anchor_manifest_required_for_formal_ga")
     stage2["greedy_anchor_accuracy_gate"] = gate
     payload["stage2"] = stage2
+
+    if family.family_id == "heal_lidar_v2xvit" and not allow_unresolved:
+        if not stage2.get("evaluation_manifest"):
+            raise ValueError("v2xvit_evaluation_manifest_required_for_formal_search")
 
     output = dict(payload.get("output", {}) or {})
     output.setdefault("best_engine_dir", "best_engines")

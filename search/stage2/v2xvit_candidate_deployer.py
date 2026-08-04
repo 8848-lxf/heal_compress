@@ -423,6 +423,7 @@ def export_build_candidate(
     result.update(
         {
             "status": "ok" if deployment_audit["requested_realized_exact"] else "precision_conflict",
+            "engine_path": str(engine.resolve()),
             "engine_sha256": file_sha256(engine),
             "engine_size_bytes": engine.stat().st_size,
             "requested_realized_exact": deployment_audit["requested_realized_exact"],

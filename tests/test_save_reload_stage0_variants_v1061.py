@@ -29,8 +29,8 @@ class TinyReloadModel(nn.Module):
         return self.conv(x)
 
 
-def test_artifact_path_generation() -> None:
-    paths = artifact_paths_for_variant(Path("/tmp/out"), "stage0_reblock8_no_prune")
+def test_artifact_path_generation(tmp_path: Path) -> None:
+    paths = artifact_paths_for_variant(tmp_path / "out", "stage0_reblock8_no_prune")
 
     assert paths["model_object"].name == "stage0_reblock8_no_prune_model_object.pth"
     assert paths["state_dict_manifest"].name == "stage0_reblock8_no_prune_state_dict_with_manifest.pth"

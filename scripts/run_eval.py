@@ -3,10 +3,10 @@
 
 Usage:
     python scripts/run_eval.py \
-        --checkpoint /path/to/pruned_model.pth \
-        --heal-config /path/to/heal_config.yaml \
-        --export-script /path/to/export_dynamic_onnx.py \
-        --example-npz /path/to/frame_000000.npz \
+        --checkpoint ../models/pruned_model.pth \
+        --heal-config ../models/heal_config.yaml \
+        --export-script ../HEAL/tools/export_dynamic_onnx.py \
+        --example-npz ../calibration/frame_000000.npz \
         --output-dir ./eval_results/
 """
 

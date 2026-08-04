@@ -7,7 +7,9 @@ model:
 
 runtime:
   gpu_id: auto
-  heal_root: ../../HEAL
+  device: cuda:0
+  physical_gpu: 0
+  heal_root: ../HEAL
   tensorrt_root: ${TENSORRT_ROOT}
   tensorrt_env: modelopt
   plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
@@ -52,19 +54,20 @@ search:
   topk_stage2: 5
   show_progress: true
   greedy_frontier_warm_start: true
+  integrated_greedy_anchor: true
   budget_recovery_beam_width: 8
   budget_recovery_seed_pool_size: 32
   budget_recovery_max_depth: 64
 
 stage2:
   backend: v2xvit_deployment_closed
+  evaluation_manifest: ${EVALUATION_MANIFEST}
   num_frames: 500
   warmup_frames: 200
   latency_rounds: 3
   greedy_anchor_accuracy_gate:
     enabled: true
     tolerance: 0.005
-    anchor_manifest: ${GREEDY_ANCHOR_MANIFEST}
 
 full_validation:
   num_frames: 1789

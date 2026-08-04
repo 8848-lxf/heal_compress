@@ -119,7 +119,9 @@ def test_resume_reuses_real_eval_cache(tmp_path: Path) -> None:
     assert calls["stage2"] == 1
 
 
-def test_real_evaluator_reuses_single_fp32_accuracy_and_latency_reference() -> None:
+def test_real_evaluator_reuses_single_fp32_accuracy_and_latency_reference(
+    tmp_path: Path,
+) -> None:
     from search.stage2.lidar_pyramid_real_evaluator import LidarPyramidRealEvaluator
 
     evaluator = object.__new__(LidarPyramidRealEvaluator)
@@ -135,7 +137,7 @@ def test_real_evaluator_reuses_single_fp32_accuracy_and_latency_reference() -> N
         raise AssertionError(precision)
 
     evaluator.evaluate_original_baseline = fake_baseline  # type: ignore[method-assign]
-    evaluator.run_dir = Path("/tmp/nonexistent")
+    evaluator.run_dir = tmp_path / "nonexistent"
 
     baseline = evaluator._stage2_reference_baseline()
 

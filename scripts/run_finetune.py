@@ -4,11 +4,11 @@
 Usage:
     python scripts/run_finetune.py \
         --config configs/default_config.yaml \
-        --checkpoint /path/to/model.pth \
-        --heal-config /path/to/heal_config.yaml \
-        --export-script /path/to/export_dynamic_onnx.py \
+        --checkpoint ../models/model.pth \
+        --heal-config ../models/heal_config.yaml \
+        --export-script ../HEAL/tools/export_dynamic_onnx.py \
         --subnet-config ./search_results/best_subnet_config.json \
-        --calibration-npz /path/to/calib_npz/ \
+        --calibration-npz ../calibration/calib_npz/ \
         --output-dir ./finetune_results/
 
 Flow:

@@ -4,10 +4,10 @@
 Usage:
     python scripts/run_search.py \
         --config configs/default_config.yaml \
-        --checkpoint /path/to/model.pth \
-        --heal-config /path/to/heal_config.yaml \
-        --export-script /path/to/export_dynamic_onnx.py \
-        --calibration-npz /path/to/frame_000000.npz \
+        --checkpoint ../models/model.pth \
+        --heal-config ../models/heal_config.yaml \
+        --export-script ../HEAL/tools/export_dynamic_onnx.py \
+        --calibration-npz ../calibration/frame_000000.npz \
         --output-dir ./search_results/
 
 Flow:

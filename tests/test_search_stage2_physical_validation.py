@@ -163,21 +163,21 @@ def test_physical_selection_key_includes_frozen_group_maps() -> None:
     assert _physical_selection_key(first, "ckpt") != _physical_selection_key(second, "ckpt")
 
 
-def test_tensorrt_cache_identity_ignores_volatile_environment() -> None:
+def test_tensorrt_cache_identity_ignores_volatile_environment(tmp_path: Path) -> None:
     from search.integration.runtime_environment import TensorRTEnvironment
     from search.stage2.lidar_pyramid_real_evaluator import _tensorrt_cache_identity
 
     first = TensorRTEnvironment(
-        Path("/opt/TensorRT"),
-        Path("/opt/TensorRT/bin/trtexec"),
-        Path("/tmp/plugin.so"),
+        tmp_path / "TensorRT",
+        tmp_path / "TensorRT/bin/trtexec",
+        tmp_path / "plugin.so",
         conda_env="modelopt",
         env={"PWD": "/workspace/a", "PATH": "/a/bin", "LD_LIBRARY_PATH": "/a/lib"},
     )
     second = TensorRTEnvironment(
-        Path("/opt/TensorRT"),
-        Path("/opt/TensorRT/bin/trtexec"),
-        Path("/tmp/plugin.so"),
+        tmp_path / "TensorRT",
+        tmp_path / "TensorRT/bin/trtexec",
+        tmp_path / "plugin.so",
         conda_env="modelopt",
         env={"PWD": "/workspace/b", "PATH": "/b/bin", "LD_LIBRARY_PATH": "/b/lib"},
     )
@@ -200,9 +200,9 @@ def test_original_baseline_reuses_existing_eval_when_cache_key_is_new(tmp_path: 
         eval_manifest_hash="manifest",
         physical_gpu_id=0,
         tensorrt=TensorRTEnvironment(
-            Path("/opt/TensorRT"),
-            Path("/opt/TensorRT/bin/trtexec"),
-            Path("/tmp/plugin.so"),
+            tmp_path / "TensorRT",
+            tmp_path / "TensorRT/bin/trtexec",
+            tmp_path / "plugin.so",
             conda_env="modelopt",
             env={"PATH": "/volatile"},
         ),

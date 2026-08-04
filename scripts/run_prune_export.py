@@ -5,11 +5,11 @@ Usage:
     python scripts/run_prune_export.py \
         --config configs/default_config.yaml \
         --checkpoint ./finetune_results/proxy_model_finetuned.pth \
-        --heal-config /path/to/heal_config.yaml \
-        --export-script /path/to/export_dynamic_onnx.py \
+        --heal-config ../models/heal_config.yaml \
+        --export-script ../HEAL/tools/export_dynamic_onnx.py \
         --subnet-config ./search_results/best_subnet_config.json \
         --groups ./search_results/coupled_channel_groups.json \
-        --example-npz /path/to/frame_000000.npz \
+        --example-npz ../calibration/frame_000000.npz \
         --output-dir ./deploy/
 
 Flow:

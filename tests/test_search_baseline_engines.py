@@ -6,13 +6,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
-def test_strict_fp32_build_config_disables_tf32_fp16_and_int8() -> None:
+def test_strict_fp32_build_config_disables_tf32_fp16_and_int8(tmp_path: Path) -> None:
     from search.baselines.original_engines import make_baseline_trt_build_config
 
     config = make_baseline_trt_build_config(
         "strict_fp32",
-        trtexec_path=Path("/opt/trtexec"),
-        plugin_path=Path("/tmp/plugin.so"),
+        trtexec_path=tmp_path / "trtexec",
+        plugin_path=tmp_path / "plugin.so",
         shape_profiles={"x": {"min": (1,), "opt": (1,), "max": (1,)}},
     )
 

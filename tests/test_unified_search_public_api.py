@@ -77,6 +77,30 @@ def test_all_four_families_dispatch_the_unified_backend_contract(
     assert calls == [row.family_id for row in registered_families()]
 
 
+def test_v2xvit_default_backend_is_a_real_registered_executor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from search.orchestration.v2xvit_formal_search import V2XViTFormalSearch
+
+    config = load_search_config(
+        PROJECT_ROOT / "search/configs/unified/lidar_v2xvit_ga.yaml",
+        allow_unresolved=True,
+    )
+
+    def fake_run(instance: V2XViTFormalSearch) -> dict[str, object]:
+        engine = instance.output_root / "v2xvit.plan"
+        engine.write_bytes(b"formal-v2xvit-executor")
+        return {"status": "ok", "best": {"engine_path": str(engine)}}
+
+    monkeypatch.setattr(V2XViTFormalSearch, "run", fake_run)
+    result = UnifiedSearchRunner(
+        config,
+        output_root=tmp_path / "v2xvit",
+    ).run()
+    assert result["status"] == "ok"
+    assert result["best_engine_publication"]["status"] == "published"
+
+
 def test_stage1_activation_taylor_is_explicitly_switchable() -> None:
     disabled = Stage1TaylorEvaluator(
         structural_proxy=lambda _value: {"J_struct": 1.0},

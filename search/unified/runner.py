@@ -92,11 +92,12 @@ class UnifiedSearchRunner:
         model = dict(payload.get("model", {}) or {})
         family_id = config.family.family_id
         if config.family.runner_kind == "v2xvit_framework":
-            raise RuntimeError(
-                "v2xvit_real_backend_requires_registered_executor; "
-                "the public Stage1/Stage2 contracts are available under search.ga, "
-                "search.proxy and search.stage2"
-            )
+            from ..orchestration.v2xvit_formal_search import V2XViTFormalSearch
+
+            return V2XViTFormalSearch(
+                config=config,
+                output_root=output_root,
+            ).run()
         if config.family.runner_kind == "heal_lidar_baseline_two_stage":
             from ..orchestration.heal_lidar_baseline_search import (
                 HealLidarBaselineTwoStageSearch,

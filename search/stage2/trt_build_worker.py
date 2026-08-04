@@ -76,7 +76,7 @@ def _build_environment_manifest(request: dict[str, Any], build: Any) -> dict[str
     outside = {
         name: path
         for name, path in paths.items()
-        if not path or (prefix != Path("/") and prefix not in Path(path).parents)
+        if not path or (prefix.parent != prefix and prefix not in Path(path).parents)
     }
     if prefix.name != "modelopt" or outside:
         raise RuntimeError(

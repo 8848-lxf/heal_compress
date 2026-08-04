@@ -5,8 +5,11 @@
 outputs/
 **/outputs/
 output/
+**/output/
 search_results/
+**/search_results/
 best_engines/
+**/best_engines/
 tests/outputs/
 tests/quant_deploy/outputs/
 
@@ -73,3 +76,6 @@ quantization/plugins/pointpillar_scatter_trt/build_contaminated_*/
 
 # Local continuity notes are intentionally kept outside public commits.
 docs/codex_handoffs/
+
+# Local development documentation is never part of the public repository.
+docs/

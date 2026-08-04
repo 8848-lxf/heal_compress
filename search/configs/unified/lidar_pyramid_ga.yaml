@@ -5,7 +5,7 @@ model:
 
 runtime:
   gpu_id: auto
-  heal_root: ../../HEAL
+  heal_root: ../HEAL
   tensorrt_root: ${TENSORRT_ROOT}
   tensorrt_env: modelopt
   plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
