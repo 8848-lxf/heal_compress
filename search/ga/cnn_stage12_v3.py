@@ -71,6 +71,9 @@ GENERATION_WINNER_WARMUP_FRAMES = 200
 GENERATION_WINNER_PROTOCOL = "generation_winner_fixed500_warmup200"
 EVALUATION_MANIFEST_FRAMES = GENERATION_WINNER_FRAMES
 EVALUATION_MANIFEST_WARMUP_FRAMES = GENERATION_WINNER_WARMUP_FRAMES
+FULL_VALIDATION_FRAMES = 1789
+FULL_VALIDATION_WARMUP_FRAMES = 200
+FULL_VALIDATION_PROTOCOL = "final_winner_fixed1789_warmup200"
 
 
 @dataclass(frozen=True)
@@ -80,33 +83,17 @@ class CNNFormalModelSpec:
     checkpoint: Path
     config: Path
     calibration_manifest: Path
+    heal_root: Path
     strict_fp32_engine: Path | None = None
+    include_activation_taylor: bool = False
+    full_validation_frames: int = FULL_VALIDATION_FRAMES
+    full_validation_warmup_frames: int = FULL_VALIDATION_WARMUP_FRAMES
 
 
-MODEL_SPECS: dict[str, CNNFormalModelSpec] = {
-    "pyramid": CNNFormalModelSpec(
-        model_id="pyramid",
-        family_id="lidar_pyramid",
-        checkpoint=Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/net_epoch_bestval_at17.pth"),
-        config=Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_pyramid/config.yaml"),
-        calibration_manifest=Path("/home/lixingfeng/UniAD_examine/heal_compress/tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json"),
-    ),
-    "disco": CNNFormalModelSpec(
-        model_id="disco",
-        family_id="heal_lidar_disco",
-        checkpoint=Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_disco/net_epoch_bestval_at35.pth"),
-        config=Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_disco/config.yaml"),
-        calibration_manifest=Path("/home/lixingfeng/UniAD_examine/heal_compress/outputs/heal_lidar_baseline_train200_fixedk29696_20260719_1215_v2/calibration_manifest.json"),
-        strict_fp32_engine=Path("/home/lixingfeng/UniAD_examine/heal_compress/outputs/h800_heal_lidar_fixedk29696_fp32_baselines_20260719/lidar_disco/strict_fp32.plan"),
-    ),
-    "fcooper": CNNFormalModelSpec(
-        model_id="fcooper",
-        family_id="heal_lidar_fcooper",
-        checkpoint=Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_fcooper/net_epoch_bestval_at37.pth"),
-        config=Path("/home/lixingfeng/UniAD_examine/Auto_Search/original_models/dairv2s/LiDAROnly/lidar_fcooper/config.yaml"),
-        calibration_manifest=Path("/home/lixingfeng/UniAD_examine/heal_compress/outputs/heal_lidar_baseline_train200_fixedk29696_20260719_1215_v2/calibration_manifest.json"),
-        strict_fp32_engine=Path("/home/lixingfeng/UniAD_examine/heal_compress/outputs/h800_heal_lidar_fixedk29696_fp32_baselines_20260719/lidar_fcooper/strict_fp32.plan"),
-    ),
+MODEL_FAMILIES = {
+    "pyramid": "lidar_pyramid",
+    "disco": "heal_lidar_disco",
+    "fcooper": "heal_lidar_fcooper",
 }
 
 
@@ -215,6 +202,7 @@ class PreparedCNNFormalSearch:
     activation: Any
     gate_mapping: list[dict[str, Any]]
     calibration_sample_count: int
+    include_activation_taylor: bool
 
     def evaluator(
         self,
@@ -233,6 +221,7 @@ class PreparedCNNFormalSearch:
             target=float(target),
             tolerance_abs=0.005,
             enforce_bops_hard_gate=enforce_bops_hard_gate,
+            include_activation_taylor=self.include_activation_taylor,
         )
 
 
@@ -270,13 +259,15 @@ def build_context(
     for path in (spec.checkpoint, spec.config, spec.calibration_manifest, plugin):
         if not path.is_file():
             raise RuntimeError(f"formal_cnn_required_artifact_missing:{path}")
+    if not spec.heal_root.is_dir():
+        raise RuntimeError(f"formal_cnn_heal_root_missing:{spec.heal_root}")
     logical_gpu = logical_cuda_device_index(physical_gpu)
     if spec.model_id == "pyramid":
         return build_lidar_pyramid_context(
             checkpoint_path=spec.checkpoint,
             model_config_path=spec.config,
             output_dir=output_root,
-            heal_root="/home/lixingfeng/UniAD_examine/HEAL",
+            heal_root=spec.heal_root,
             tensorrt_root=tensorrt_root,
             plugin_path=plugin,
             gpu_id=str(logical_gpu),
@@ -287,8 +278,11 @@ def build_context(
             quant_calibration_npz_manifest=spec.calibration_manifest,
             quant_activation_calibration_backend="tensorrt_entropy_calibration2",
             quant_calibration_force_rebuild=True,
-            num_frames=EVALUATION_MANIFEST_FRAMES,
-            warmup_frames=EVALUATION_MANIFEST_WARMUP_FRAMES,
+            num_frames=max(EVALUATION_MANIFEST_FRAMES, spec.full_validation_frames),
+            warmup_frames=max(
+                EVALUATION_MANIFEST_WARMUP_FRAMES,
+                spec.full_validation_warmup_frames,
+            ),
             reset_after_warmup=True,
             default_precision="FP32",
             pruning_gene_type="legal_domain_width",
@@ -299,7 +293,7 @@ def build_context(
         checkpoint_path=spec.checkpoint,
         model_config_path=spec.config,
         output_dir=output_root,
-        heal_root="/home/lixingfeng/UniAD_examine/HEAL",
+        heal_root=spec.heal_root,
         tensorrt_root=tensorrt_root,
         plugin_path=plugin,
         gpu_id=str(logical_gpu),
@@ -310,8 +304,11 @@ def build_context(
         quant_calibration_npz_manifest=spec.calibration_manifest,
         quant_activation_calibration_backend="tensorrt_entropy_calibration2",
         quant_calibration_force_rebuild=True,
-        num_frames=EVALUATION_MANIFEST_FRAMES,
-        warmup_frames=EVALUATION_MANIFEST_WARMUP_FRAMES,
+        num_frames=max(EVALUATION_MANIFEST_FRAMES, spec.full_validation_frames),
+        warmup_frames=max(
+            EVALUATION_MANIFEST_WARMUP_FRAMES,
+            spec.full_validation_warmup_frames,
+        ),
         reset_after_warmup=True,
         default_precision="FP32",
         fixed_k=29696,
@@ -367,6 +364,7 @@ def prepare_search(
         "config_sha256": sha256_file(spec.config),
         "calibration_manifest_sha256": sha256_file(spec.calibration_manifest),
         "taylor_samples": int(taylor_samples),
+        "include_activation_taylor": bool(spec.include_activation_taylor),
         "base_domain_contract_hash": canonical_json_hash([
             {
                 "domain_id": str(domain.domain_id),
@@ -452,13 +450,17 @@ def prepare_search(
         activation_units, group_to_units = build_activation_units(
             context.model, space, transformer_units=()
         )
-        activation = collect_activation_taylor_cache_multi(
-            context.model,
-            activation_units,
-            group_to_units,
-            forward_fn=adapter.forward_for_task,
-            loss_fn=adapter.compute_task_loss,
-            calibration_batches=batches,
+        activation = (
+            collect_activation_taylor_cache_multi(
+                context.model,
+                activation_units,
+                group_to_units,
+                forward_fn=adapter.forward_for_task,
+                loss_fn=adapter.compute_task_loss,
+                calibration_batches=batches,
+            )
+            if spec.include_activation_taylor
+            else None
         )
         temporary_cache = proxy_cache_path.with_suffix(".pt.tmp")
         torch.save(
@@ -512,11 +514,16 @@ def prepare_search(
         activation=activation,
         gate_mapping=gate_mapping,
         calibration_sample_count=int(taylor_samples),
+        include_activation_taylor=bool(spec.include_activation_taylor),
     )
     write_json(
         output_root / "reports/new_ga_proxy_contract.json",
         {
-            "stage1_proxy": "J_struct_gate + J_WQ + J_AQ",
+            "stage1_proxy": (
+                "J_struct_gate + J_WQ + J_AQ"
+                if spec.include_activation_taylor
+                else "J_struct_gate + J_WQ"
+            ),
             "legacy_coupled_weight_taylor_used_for_fitness": False,
             "joint_cross_used_for_fitness": False,
             "sample_first": True,
@@ -526,7 +533,10 @@ def prepare_search(
             "domain_count": len(space.pruning_gene_ids),
             "precision_gene_count": len(space.precision_gene_ids),
             "gate_mapping_count": len(gate_mapping),
-            "activation_mapping_count": len(activation.mapping),
+            "activation_mapping_count": (
+                len(activation.mapping) if activation is not None else 0
+            ),
+            "activation_taylor_included": bool(spec.include_activation_taylor),
             "search_loop_forward_calls": 0,
             "search_loop_backward_calls": 0,
             "search_loop_exports": 0,
@@ -660,11 +670,15 @@ def greedy_anchors(
                 prepared.weight.weight_quantization_action_breakdown(
                     parent_phenotype, successor_phenotype
                 )["delta_J_WQ"]
-            ) + float(
-                prepared.activation.action_breakdown(
-                    parent_phenotype, successor_phenotype
-                )["delta_J_AQ"]
             )
+            if bool(getattr(prepared, "include_activation_taylor", True)):
+                if prepared.activation is None:
+                    raise RuntimeError("formal_cnn_activation_taylor_cache_missing")
+                value += float(
+                    prepared.activation.action_breakdown(
+                        parent_phenotype, successor_phenotype
+                    )["delta_J_AQ"]
+                )
         else:
             raise RuntimeError(f"strict_greedy_unknown_action_type:{action_type}")
         if value < 0.0 or not math.isfinite(value):
@@ -1337,6 +1351,7 @@ class CNNRealStage2Evaluator:
             metadata={
                 "generation": generation,
                 "artifact_dir": str(destination),
+                "engine_path": raw.get("engine_path", ""),
                 "engine_hash": raw.get("engine_hash", raw.get("engine_sha256", "")),
                 "raw_status": raw.get("status"),
                 "failure_reason": raw.get("failure_reason", ""),
@@ -1356,6 +1371,7 @@ def create_real_evaluator(
     output_root: Path,
     num_frames: int = STAGE2_SCREENING_FRAMES,
     warmup_frames: int = STAGE2_SCREENING_WARMUP_FRAMES,
+    latency_rounds: int = 1,
     run_dir_name: str = "stage2_screening_runtime",
 ) -> Any:
     if prepared.spec.model_id == "pyramid":
@@ -1364,7 +1380,7 @@ def create_real_evaluator(
             run_dir=output_root / run_dir_name,
             num_frames=int(num_frames),
             warmup_frames=int(warmup_frames),
-            latency_rounds=1,
+            latency_rounds=int(latency_rounds),
             stage2_config=Stage2ObjectiveConfig(
                 latency_metric="forward_p50_ms",
                 accuracy_reference="original_strict_fp32",
@@ -1379,7 +1395,7 @@ def create_real_evaluator(
         baseline_engine_path=prepared.spec.strict_fp32_engine,
         num_frames=int(num_frames),
         warmup_frames=int(warmup_frames),
-        latency_rounds=1,
+        latency_rounds=int(latency_rounds),
         objective_config=Stage2ObjectiveConfig(
             latency_metric="forward_p50_ms",
             accuracy_reference="original_strict_fp32",
@@ -1556,6 +1572,140 @@ def best_real_candidate(
     return best if best_score < greedy_score else greedy
 
 
+def validate_final_winner(
+    prepared: PreparedCNNFormalSearch,
+    *,
+    winner: Stage2Result,
+    output_root: Path,
+    budget_label: str,
+    validation_evaluator: Any,
+    evaluation_frames: int = FULL_VALIDATION_FRAMES,
+    evaluation_warmup_frames: int = FULL_VALIDATION_WARMUP_FRAMES,
+) -> Stage2Result:
+    """Re-evaluate the selected fixed-500 winner without rebuilding its engine."""
+
+    complete_hash = str(winner.complete_phenotype_hash)
+    destination = output_root / (
+        f"ga/budget_{budget_label}/final_full_validation/{complete_hash}"
+    )
+    result_path = destination / "final_winner_result.json"
+    if result_path.is_file():
+        payload = json.loads(result_path.read_text(encoding="utf-8"))
+        metadata = dict(payload.get("metadata") or {})
+        if (
+            int(metadata.get("evaluation_frames", -1)) != int(evaluation_frames)
+            or int(metadata.get("evaluation_warmup_frames", -1))
+            != int(evaluation_warmup_frames)
+            or str(metadata.get("evaluation_protocol", ""))
+            != FULL_VALIDATION_PROTOCOL
+        ):
+            raise RuntimeError(
+                f"cnn_final_winner_cache_protocol_mismatch:{complete_hash}"
+            )
+        return Stage2Result(
+            complete_hash,
+            winner.genotype,
+            str(payload["status"]),
+            payload.get("mAP"),
+            payload.get("p50_ms"),
+            bool(payload["requested_realized_exact"]),
+            int(payload["evaluated"]),
+            int(payload["skipped"]),
+            metadata,
+        )
+
+    destination.mkdir(parents=True, exist_ok=True)
+    try:
+        if not winner.deployable:
+            raise RuntimeError("cnn_final_winner_fixed500_not_deployable")
+        source = Path(
+            str(
+                winner.metadata.get("source_artifact_dir")
+                or winner.metadata.get("artifact_dir", "")
+            )
+        )
+        if not source.is_dir():
+            raise RuntimeError(f"cnn_final_winner_source_missing:{source}")
+        phenotype = canonicalize_candidate(winner.genotype, prepared.space)
+        raw = validation_evaluator.reevaluate_existing_candidate_engine(
+            phenotype,
+            source_artifact_dir=source,
+            output_dir=destination / "evaluation",
+            candidate_hash=complete_hash,
+        )
+        evaluated, skipped = CNNRealStage2Evaluator._counts(raw)
+        exact = bool(
+            raw.get("status") == "ok"
+            and (
+                prepared.spec.model_id == "pyramid"
+                or (
+                    raw.get("precision_acceptance", False)
+                    and raw.get("merge_acceptance", False)
+                )
+            )
+        )
+        ok = bool(
+            raw.get("status") == "ok"
+            and exact
+            and evaluated == int(evaluation_frames)
+            and skipped == 0
+            and math.isfinite(float(raw.get("mAP")))
+            and math.isfinite(float(raw.get("forward_p50_ms")))
+        )
+        engine_path = (
+            source / "engine.plan"
+            if prepared.spec.model_id == "pyramid"
+            else source / "deployment/candidate.plan"
+        )
+        if not engine_path.is_file():
+            raise RuntimeError(f"cnn_final_winner_engine_missing:{engine_path}")
+        result = Stage2Result(
+            complete_hash,
+            winner.genotype,
+            "ok" if ok else str(raw.get("status", "failed")),
+            float(raw["mAP"]) if ok else None,
+            float(raw["forward_p50_ms"]) if ok else None,
+            exact,
+            evaluated,
+            skipped,
+            {
+                "artifact_dir": str(destination),
+                "source_artifact_dir": str(source),
+                "engine_path": str(engine_path.resolve()),
+                "engine_hash": raw.get(
+                    "engine_hash", raw.get("engine_sha256", "")
+                ),
+                "engine_rebuilt_for_validation": False,
+                "evaluation_frames": int(evaluation_frames),
+                "evaluation_warmup_frames": int(evaluation_warmup_frames),
+                "evaluation_protocol": FULL_VALIDATION_PROTOCOL,
+                "precision_fallback": False,
+                "raw": raw,
+            },
+        )
+    except Exception as exc:
+        result = Stage2Result(
+            complete_hash,
+            winner.genotype,
+            "failed",
+            None,
+            None,
+            False,
+            0,
+            0,
+            {
+                "failure": f"{type(exc).__name__}:{exc}",
+                "engine_rebuilt_for_validation": False,
+                "evaluation_frames": int(evaluation_frames),
+                "evaluation_warmup_frames": int(evaluation_warmup_frames),
+                "evaluation_protocol": FULL_VALIDATION_PROTOCOL,
+                "precision_fallback": False,
+            },
+        )
+    write_json(result_path, stage2_payload(result))
+    return result
+
+
 def run_budget(
     prepared: PreparedCNNFormalSearch,
     *,
@@ -1566,6 +1716,9 @@ def run_budget(
     generations: int,
     real_evaluator: Any,
     validation_evaluator: Any,
+    full_validation_evaluator: Any,
+    full_validation_frames: int = FULL_VALIDATION_FRAMES,
+    full_validation_warmup_frames: int = FULL_VALIDATION_WARMUP_FRAMES,
 ) -> dict[str, Any]:
     label = f"{int(round(target * 100)):03d}"
     stage1 = prepared.evaluator(target=target, enforce_bops_hard_gate=True)
@@ -1653,9 +1806,20 @@ def run_budget(
                 validation_evaluator=validation_evaluator,
             )
         )
-    final = best_real_candidate(
+    fixed500_winner = best_real_candidate(
         [greedy_validated, *generation_winner_validations], greedy_validated
     )
+    final = validate_final_winner(
+        prepared,
+        winner=fixed500_winner,
+        output_root=output_root,
+        budget_label=label,
+        validation_evaluator=full_validation_evaluator,
+        evaluation_frames=int(full_validation_frames),
+        evaluation_warmup_frames=int(full_validation_warmup_frames),
+    )
+    if not final.deployable:
+        raise RuntimeError(f"formal_cnn_final_full_validation_failed:budget_{label}")
     summary = {
         "model": prepared.spec.model_id,
         "target_bops": target,
@@ -1681,6 +1845,11 @@ def run_budget(
         "generation_winner_validations": [
             stage2_payload(row) for row in generation_winner_validations
         ],
+        "final_winner_fixed500": stage2_payload(fixed500_winner),
+        "final_full_validation_frames": int(full_validation_frames),
+        "final_full_validation_warmup_frames": int(
+            full_validation_warmup_frames
+        ),
         "repair_counts": result["formal_ga_repair_counts"],
         "population_size": 64,
         "offspring_size": 64,
@@ -1696,7 +1865,10 @@ __all__ = [
     "CNNFormalModelSpec",
     "EVALUATION_MANIFEST_FRAMES",
     "EVALUATION_MANIFEST_WARMUP_FRAMES",
-    "MODEL_SPECS",
+    "FULL_VALIDATION_FRAMES",
+    "FULL_VALIDATION_PROTOCOL",
+    "FULL_VALIDATION_WARMUP_FRAMES",
+    "MODEL_FAMILIES",
     "PreparedCNNFormalSearch",
     "baseline_genotype",
     "best_real_candidate",
@@ -1709,6 +1881,7 @@ __all__ = [
     "prepare_search",
     "run_budget",
     "stage2_payload",
+    "validate_final_winner",
     "validate_generation_winner",
     "write_csv",
     "write_json",

@@ -58,8 +58,10 @@ Stage 1 只允许 `abs(R_BOPS - target) <= 0.005` 的候选进入排序。Stage 
 | generation 0 | 仅初始化，不计入 10 代 |
 | BOPS 绝对容差上限 | 0.005 |
 | Greedy 精度门容差上限 | 0.005 mAP |
-| Stage 2 默认评估帧 | 500 |
-| 最终验证默认评估帧 | 1789 |
+| CNN 每代 Top-5 筛选 | 300 帧，warmup 100 帧 |
+| CNN 每代胜者复评 | 500 帧，warmup 200 帧 |
+| V2X-ViT 每代 Top-5 筛选 | 500 帧，warmup 200 帧 |
+| 每预算最终胜者验证 | 1789 帧，warmup 200 帧 |
 
 Greedy 使用同一合法邻域和同一代理目标。直接轨迹无法进入预算带时，搜索会使用确定性的合法邻居 beam recovery；不会通过静默投影、通道补齐或事后 BOPS 修复伪造可行候选。
 
@@ -109,7 +111,6 @@ export MODEL_ROOT=../model_zoo
 export TENSORRT_ROOT=../TensorRT-10.9_x86_cu118
 export CALIBRATION_MANIFEST=../calibration/train_manifest.json
 export EVALUATION_MANIFEST=../calibration/validation_manifest.json
-export GREEDY_ANCHOR_MANIFEST=../search_runs/greedy/anchor_manifest.json
 export BASELINE_ENGINE=../model_zoo/baselines/strict_fp32.plan
 ```
 
@@ -141,28 +142,16 @@ search/configs/unified/lidar_v2xvit_ga.yaml
 
 ### Pyramid
 
-先生成 Greedy 锚点，再用锚点启动正式 GA：
+一个命令会先搜索并真实部署验证全部六个 Greedy 锚点；只有六个预算均通过后，才会启动正式 GA：
 
 ```bash
 python -m search.unified \
   --config search/configs/unified/lidar_pyramid_ga.yaml \
-  --search-method greedy \
   --checkpoint ../model_zoo/lidar_pyramid/model.pth \
   --model-config ../model_zoo/lidar_pyramid/config.yaml \
   --heal-root ../HEAL \
   --tensorrt-root ../TensorRT-10.9_x86_cu118 \
   --calibration-manifest ../calibration/pyramid_train.json \
-  --plugin quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so \
-  --output-root ../search_runs/pyramid_greedy
-
-python -m search.unified \
-  --config search/configs/unified/lidar_pyramid_ga.yaml \
-  --checkpoint ../model_zoo/lidar_pyramid/model.pth \
-  --model-config ../model_zoo/lidar_pyramid/config.yaml \
-  --heal-root ../HEAL \
-  --tensorrt-root ../TensorRT-10.9_x86_cu118 \
-  --calibration-manifest ../calibration/pyramid_train.json \
-  --greedy-anchor-manifest ../search_runs/pyramid_greedy/greedy/anchor_manifest.json \
   --plugin quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so \
   --output-root ../search_runs/pyramid_ga
 ```
@@ -179,13 +168,12 @@ python -m search.unified \
   --heal-root ../HEAL \
   --tensorrt-root ../TensorRT-10.9_x86_cu118 \
   --calibration-manifest ../calibration/<family>_train.json \
-  --greedy-anchor-manifest ../search_runs/<family>_greedy/greedy/anchor_manifest.json \
   --baseline-engine ../model_zoo/baselines/<family>_strict_fp32.plan \
   --plugin quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so \
   --output-root ../search_runs/<family>_ga
 ```
 
-锚点需先用同一命令加 `--search-method greedy` 生成。Greedy 与 GA 必须使用同一 checkpoint、模型配置、校准清单、BOPS 目标、评估协议和基线 engine。
+如只需完成六预算 Greedy 锚点搜索与真实部署门，可在同一命令中增加 `--search-method greedy`。该模式不会启动 GA。正式 GA 会在同一运行目录内复用已验证锚点的 engine，不会重复构建。
 
 ### V2X-ViT
 
@@ -207,7 +195,9 @@ python -m search.unified \
 
 V2X-ViT 使用训练清单冻结的 `fixed_K=29696` 容量，动态维度是协作体数量 `N`。PointPillar scatter 插件仍属于正式 engine；每帧原始点数变化不等价于动态 MaxK。预处理后的总 voxel 数超过 `fixed_K` 时必须明确失败，不允许静默截断或跳帧。
 
-评估清单至少应包含 200 个 warmup frame 和 1789 个冻结 evaluation frame。Stage 2 使用其中固定的前 500 帧筛选，每个预算的最终候选复用同一清单完成 1789 帧验证。
+评估清单至少应包含 200 个 warmup frame 和 1789 个冻结 evaluation frame。V2X-ViT 每代 Top-5 新候选使用固定 500 帧评估，每个预算的最终胜者复用同一 engine 完成 1789 帧验证。
+
+Pyramid、DiscoNet 和 F-Cooper 使用三级真实评估协议：每代 Top-5 新候选固定 300 帧筛选，每代胜者复用原 engine 做固定 500 帧复评，最终预算胜者再次复用该 engine 做 1789 帧验证。任一级出现缺帧、跳帧、请求精度与实现精度不一致或 engine 验收失败，当前预算都会失败关闭。
 
 激活 Taylor 可显式切换：
 
@@ -227,11 +217,15 @@ python -m search.unified ... --activation-taylor on
 ├── unified_search_plan.json
 ├── <experiment>/
 │   ├── manifests/
+│   ├── proxy/
 │   ├── greedy/
-│   ├── archives/
-│   ├── stage2/
 │   ├── ga/
-│   └── formal_search_summary.json
+│   │   └── budget_*/
+│   │       ├── stage2_screening_cache/
+│   │       ├── generation_winner_validation/
+│   │       └── final_full_validation/
+│   ├── reports/
+│   └── provenance/
 └── best_engines/<family>/
     ├── best.plan
     └── best_engine_manifest.json
@@ -267,3 +261,13 @@ python tools/check_public_release.py
 - 超过默认大小限制的文件。
 
 完整 GPU 搜索会消耗较长时间并生成大量中间 engine，不属于单元测试。提交前至少必须完成四配置 dry-run、公开卫生检查和与改动范围匹配的 CPU 契约测试。
+
+## 发布边界
+
+正式发布只包含可复现框架，不包含机器状态：
+
+- `docs/` 是本地开发与交接记录，不纳入 Git；
+- `outputs/`、`output/`、`search_results/`、`best_engines/` 及其任意嵌套形式均不纳入 Git；
+- checkpoint、校准数组、ONNX、TensorRT engine、插件构建产物、缓存和日志均不纳入 Git；
+- 路径只由相对配置、环境占位符或 CLI 参数提供，源代码不保存服务器绝对路径；
+- `tools/check_public_release.py` 会基于 Git 待发布文件集合执行失败关闭检查。

@@ -22,7 +22,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--tensorrt-root", type=Path)
     parser.add_argument("--calibration-manifest", type=Path)
     parser.add_argument("--evaluation-manifest", type=Path)
-    parser.add_argument("--greedy-anchor-manifest", type=Path)
     parser.add_argument("--baseline-engine", type=Path)
     parser.add_argument("--plugin", type=Path)
     parser.add_argument("--physical-gpu", type=int)
@@ -65,9 +64,6 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "stage2.evaluation_manifest": (
             str(args.evaluation_manifest) if args.evaluation_manifest else None
-        ),
-        "stage2.greedy_anchor_accuracy_gate.anchor_manifest": (
-            str(args.greedy_anchor_manifest) if args.greedy_anchor_manifest else None
         ),
         "baselines.strict_fp32_engine": (
             str(args.baseline_engine) if args.baseline_engine else None

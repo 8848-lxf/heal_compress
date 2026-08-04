@@ -41,7 +41,7 @@ proxy:
 search:
   method: ga
   protocol: strict_stage12_v3
-  seed: 42
+  seed: 0
   bops_targets: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
   initial_population_size: 64
   population_size: 64
@@ -50,6 +50,7 @@ search:
   topk_stage2: 5
   show_progress: true
   greedy_frontier_warm_start: true
+  integrated_greedy_anchor: true
   budget_recovery_beam_width: 8
   budget_recovery_seed_pool_size: 32
   budget_recovery_max_depth: 64
@@ -61,7 +62,6 @@ stage2:
   greedy_anchor_accuracy_gate:
     enabled: true
     tolerance: 0.005
-    anchor_manifest: ${GREEDY_ANCHOR_MANIFEST}
 
 full_validation:
   num_frames: 1789

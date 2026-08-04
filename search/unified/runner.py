@@ -88,9 +88,6 @@ class UnifiedSearchRunner:
     def _default_backend(
         config: ResolvedSearchConfig, output_root: Path
     ) -> Mapping[str, Any]:
-        payload = config.payload
-        model = dict(payload.get("model", {}) or {})
-        family_id = config.family.family_id
         if config.family.runner_kind == "v2xvit_framework":
             from ..orchestration.v2xvit_formal_search import V2XViTFormalSearch
 
@@ -98,24 +95,9 @@ class UnifiedSearchRunner:
                 config=config,
                 output_root=output_root,
             ).run()
-        if config.family.runner_kind == "heal_lidar_baseline_two_stage":
-            from ..orchestration.heal_lidar_baseline_search import (
-                HealLidarBaselineTwoStageSearch,
-            )
+        from ..orchestration.cnn_formal_search import CNNFormalSearch
 
-            runner_type = HealLidarBaselineTwoStageSearch
-        else:
-            from ..orchestration.lidar_pyramid_search import LidarPyramidTwoStageSearch
-
-            runner_type = LidarPyramidTwoStageSearch
-        runner = runner_type(
-            config=payload,
-            checkpoint=str(model["checkpoint"]),
-            output_root=output_root,
-            resume=None,
-        )
-        result = runner.run()
-        return {**dict(result), "family_id": family_id}
+        return CNNFormalSearch(config=config, output_root=output_root).run()
 
 
 __all__ = ["Backend", "UnifiedSearchRunner"]

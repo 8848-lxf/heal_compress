@@ -55,7 +55,7 @@ def _space():
 
 
 def test_explicit_gen5_contract_does_not_weaken_default_gen10() -> None:
-    from search.ga.stage12_v3 import StrictGAConfig
+    from search.ga.strict_stage12_v3 import StrictGAConfig
 
     assert StrictGAConfig(0.1).generations == 10
     configured = StrictGAConfig(
@@ -68,7 +68,7 @@ def test_explicit_gen5_contract_does_not_weaken_default_gen10() -> None:
 
 def test_cnn_baseline_contains_only_mutable_loci() -> None:
     from search.ga.cnn_stage12_v3 import baseline_genotype
-    from search.ga.stage12_v3 import validate_genotype_schema
+    from search.ga.strict_stage12_v3 import validate_genotype_schema
 
     space = _space()
     candidate = baseline_genotype(space)

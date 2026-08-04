@@ -59,9 +59,13 @@ class BestEnginePublisher:
         family_id: str,
         candidate_id: str = "best",
     ) -> EnginePublication:
+        preferred = _engine_paths(result.get("best", {}))
+        fallback = _engine_paths(
+            {key: value for key, value in result.items() if key != "best"}
+        )
         sources = [
             path.resolve()
-            for path in _engine_paths(result)
+            for path in [*preferred, *fallback]
             if path.is_file() and path.suffix.lower() in _ENGINE_SUFFIXES
         ]
         if not sources:

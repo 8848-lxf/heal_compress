@@ -101,6 +101,85 @@ def test_v2xvit_default_backend_is_a_real_registered_executor(
     assert result["best_engine_publication"]["status"] == "published"
 
 
+@pytest.mark.parametrize(
+    ("template", "family_id", "model_id"),
+    (
+        ("lidar_pyramid_ga.yaml", "lidar_pyramid", "pyramid"),
+        ("lidar_disco_ga.yaml", "heal_lidar_disco", "disco"),
+        ("lidar_fcooper_ga.yaml", "heal_lidar_fcooper", "fcooper"),
+    ),
+)
+def test_cnn_default_backend_dispatches_strict_integrated_formal_runner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    template: str,
+    family_id: str,
+    model_id: str,
+) -> None:
+    import scripts.run_cnn_formal_ga_gen5 as formal_entrypoint
+
+    checkpoint = tmp_path / f"{model_id}.pth"
+    model_config = tmp_path / f"{model_id}.yaml"
+    calibration = tmp_path / "train_calibration.json"
+    baseline = tmp_path / "strict_fp32.plan"
+    plugin = tmp_path / "scatter.so"
+    heal_root = tmp_path / "HEAL"
+    tensorrt_root = tmp_path / "TensorRT"
+    for path in (checkpoint, model_config, calibration, baseline, plugin):
+        path.write_bytes(b"test")
+    heal_root.mkdir()
+    tensorrt_root.mkdir()
+
+    captured = {}
+
+    def fake_run(args) -> int:
+        captured.update(vars(args))
+        report_dir = args.output_root / "reports"
+        report_dir.mkdir(parents=True)
+        engine = args.output_root / "candidate.plan"
+        engine.write_bytes(b"strict-cnn-formal-engine")
+        results = {
+            f"{int(round(float(target) * 100)):03d}": {
+                "target_bops": float(target),
+                "final_winner": {
+                    "complete_phenotype_hash": f"winner-{target}",
+                    "metadata": {"engine_path": str(engine)},
+                },
+            }
+            for target in args.targets.split(",")
+        }
+        (report_dir / "formal_ga_results.json").write_text(
+            json.dumps({"results": results, "failures": []}),
+            encoding="utf-8",
+        )
+        return 0
+
+    monkeypatch.setattr(formal_entrypoint, "run", fake_run)
+    config = load_search_config(
+        PROJECT_ROOT / f"search/configs/unified/{template}",
+        overrides={
+            "model.checkpoint": str(checkpoint),
+            "model.config": str(model_config),
+            "runtime.heal_root": str(heal_root),
+            "runtime.tensorrt_root": str(tensorrt_root),
+            "runtime.plugin_path": str(plugin),
+            "runtime.physical_gpu": 3,
+            "proxy.quant_calibration_npz_manifest": str(calibration),
+            "baselines.strict_fp32_engine": str(baseline),
+        },
+    )
+    result = UnifiedSearchRunner(config, output_root=tmp_path / "run").run()
+
+    assert captured["model"] == model_id
+    assert captured["generations"] == 10
+    assert captured["seed"] == 0
+    assert captured["greedy_only"] is False
+    assert captured["full_validation_frames"] == 1789
+    assert result["family_id"] == family_id
+    assert result["formal_protocol"] == "strict_stage12_v3"
+    assert result["best_engine_publication"]["status"] == "published"
+
+
 def test_stage1_activation_taylor_is_explicitly_switchable() -> None:
     disabled = Stage1TaylorEvaluator(
         structural_proxy=lambda _value: {"J_struct": 1.0},
@@ -195,6 +274,25 @@ def test_best_engine_is_published_to_isolated_directory(tmp_path: Path) -> None:
     )
     assert publication.status == "published"
     assert Path(publication.destination).read_bytes() == source.read_bytes()
+
+
+def test_best_engine_publication_prioritizes_explicit_best_candidate(
+    tmp_path: Path,
+) -> None:
+    other = tmp_path / "budget_005.plan"
+    best = tmp_path / "budget_010.plan"
+    other.write_bytes(b"other-budget")
+    best.write_bytes(b"selected-best")
+    publication = BestEnginePublisher(tmp_path / "published").publish(
+        {
+            "targets": {"005": {"engine_path": str(other)}},
+            "best": {"engine_path": str(best)},
+        },
+        family_id="lidar_pyramid",
+    )
+    assert publication.status == "published"
+    assert Path(publication.source) == best.resolve()
+    assert Path(publication.destination).read_bytes() == b"selected-best"
 
 
 def _strict_space() -> SearchSpaceSpec:

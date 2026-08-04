@@ -21,11 +21,14 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from search.ga.cnn_stage12_v3 import (  # noqa: E402
+    CNNFormalModelSpec,
     CNNRealStage2Evaluator,
+    FULL_VALIDATION_FRAMES,
+    FULL_VALIDATION_WARMUP_FRAMES,
     GENERATION_WINNER_FRAMES,
     GENERATION_WINNER_PROTOCOL,
     GENERATION_WINNER_WARMUP_FRAMES,
-    MODEL_SPECS,
+    MODEL_FAMILIES,
     STAGE2_SCREENING_FRAMES,
     STAGE2_SCREENING_PROTOCOL,
     STAGE2_SCREENING_WARMUP_FRAMES,
@@ -234,7 +237,22 @@ def run(args: argparse.Namespace) -> int:
     continuation_snapshot = None
     if continuation_mode:
         continuation_snapshot = freeze_gen5_continuation_state(root)
-    spec = MODEL_SPECS[args.model]
+    spec = CNNFormalModelSpec(
+        model_id=str(args.model),
+        family_id=MODEL_FAMILIES[str(args.model)],
+        checkpoint=args.checkpoint.expanduser().resolve(),
+        config=args.model_config.expanduser().resolve(),
+        calibration_manifest=args.calibration_manifest.expanduser().resolve(),
+        heal_root=args.heal_root.expanduser().resolve(),
+        strict_fp32_engine=(
+            args.baseline_engine.expanduser().resolve()
+            if args.baseline_engine is not None
+            else None
+        ),
+        include_activation_taylor=bool(args.activation_taylor),
+        full_validation_frames=int(args.full_validation_frames),
+        full_validation_warmup_frames=int(args.full_validation_warmup_frames),
+    )
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -274,6 +292,11 @@ def run(args: argparse.Namespace) -> int:
         "generation_winner_validation_warmup_frames": (
             GENERATION_WINNER_WARMUP_FRAMES
         ),
+        "final_full_validation_frames": int(args.full_validation_frames),
+        "final_full_validation_warmup_frames": int(
+            args.full_validation_warmup_frames
+        ),
+        "activation_taylor_included": bool(args.activation_taylor),
         "seed": 0,
         "targets": list(targets),
         "old_framework_started": False,
@@ -314,6 +337,7 @@ def run(args: argparse.Namespace) -> int:
         output_root=root,
         num_frames=STAGE2_SCREENING_FRAMES,
         warmup_frames=STAGE2_SCREENING_WARMUP_FRAMES,
+        latency_rounds=int(args.stage2_latency_rounds),
         run_dir_name="stage2_screening_runtime",
     )
     validation_evaluator = create_real_evaluator(
@@ -321,7 +345,16 @@ def run(args: argparse.Namespace) -> int:
         output_root=root,
         num_frames=GENERATION_WINNER_FRAMES,
         warmup_frames=GENERATION_WINNER_WARMUP_FRAMES,
+        latency_rounds=int(args.stage2_latency_rounds),
         run_dir_name="generation_winner_validation_runtime",
+    )
+    full_validation_evaluator = create_real_evaluator(
+        prepared,
+        output_root=root,
+        num_frames=int(args.full_validation_frames),
+        warmup_frames=int(args.full_validation_warmup_frames),
+        latency_rounds=int(args.full_validation_latency_rounds),
+        run_dir_name="final_full_validation_runtime",
     )
     results: dict[str, dict] = {}
     failures: list[dict] = []
@@ -355,7 +388,7 @@ def run(args: argparse.Namespace) -> int:
             "candidate_hash": greedy_stage2.complete_phenotype_hash,
             "status": greedy_stage2.status,
             "deployable": greedy_stage2.deployable,
-            "mAP_fixed50": greedy_stage2.map,
+            "mAP_fixed300": greedy_stage2.map,
             "p50_ms": greedy_stage2.p50_ms,
             "requested_realized_exact": greedy_stage2.requested_realized_exact,
             "evaluated": greedy_stage2.evaluated,
@@ -456,6 +489,11 @@ def run(args: argparse.Namespace) -> int:
                 generations=args.generations,
                 real_evaluator=real_evaluator,
                 validation_evaluator=validation_evaluator,
+                full_validation_evaluator=full_validation_evaluator,
+                full_validation_frames=int(args.full_validation_frames),
+                full_validation_warmup_frames=int(
+                    args.full_validation_warmup_frames
+                ),
             )
         except Exception as exc:  # preserve other completed budgets, fail closed per budget
             failure = {
@@ -481,10 +519,10 @@ def run(args: argparse.Namespace) -> int:
             "completed_generations": row["completed_evolution_generations"],
             "stage2_real_evaluation_count": row["stage2_real_evaluation_count"],
             "greedy_hash": greedy["complete_phenotype_hash"],
-            "greedy_map_fixed50": greedy["mAP"],
+            "greedy_map_fixed500": greedy["mAP"],
             "greedy_p50_ms": greedy["p50_ms"],
             "ga_hash": final["complete_phenotype_hash"],
-            "ga_map_fixed50": final["mAP"],
+            "ga_map_fixed1789": final["mAP"],
             "ga_p50_ms": final["p50_ms"],
             "ga_improved_greedy": row["ga_improved_greedy"],
         })
@@ -517,7 +555,11 @@ def run(args: argparse.Namespace) -> int:
         "targets": list(targets),
         "results": results,
         "failures": failures,
-        "full1789_executed": False,
+        "full1789_executed": bool(
+            int(args.full_validation_frames) == FULL_VALIDATION_FRAMES
+            and not failures
+            and len(results) == len(targets)
+        ),
     })
     write_json(root / "reports/final_acceptance.json", {
         "model": args.model,
@@ -550,12 +592,21 @@ def run(args: argparse.Namespace) -> int:
         ),
         "greedy_anchor_gate_completed_before_ga": True,
         "greedy_frontier_recovery_enabled": True,
-        "stage1_proxy": "J_struct_gate + J_WQ + J_AQ",
+        "stage1_proxy": (
+            "J_struct_gate + J_WQ + J_AQ"
+            if args.activation_taylor
+            else "J_struct_gate + J_WQ"
+        ),
+        "activation_taylor_included": bool(args.activation_taylor),
         "repair_enabled": False,
         "budgets_requested": list(targets),
         "budgets_completed": [float(row["target_bops"]) for row in results.values()],
         "failures": failures,
-        "full1789_executed": False,
+        "full1789_executed": bool(
+            int(args.full_validation_frames) == FULL_VALIDATION_FRAMES
+            and not failures
+            and len(results) == len(targets)
+        ),
     })
     gpu_end = query_gpus()
     write_json(root / "provenance/end.json", {
@@ -577,12 +628,28 @@ def run(args: argparse.Namespace) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=tuple(MODEL_SPECS), required=True)
+    parser.add_argument("--model", choices=tuple(MODEL_FAMILIES), required=True)
     parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--model-config", type=Path, required=True)
+    parser.add_argument("--calibration-manifest", type=Path, required=True)
+    parser.add_argument("--heal-root", type=Path, required=True)
+    parser.add_argument("--baseline-engine", type=Path)
     parser.add_argument("--physical-gpu", type=int, required=True)
     parser.add_argument("--generations", type=int, default=5)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--taylor-samples", type=int, default=8)
+    parser.add_argument("--stage2-latency-rounds", type=int, default=3)
+    parser.add_argument(
+        "--full-validation-frames", type=int, default=FULL_VALIDATION_FRAMES
+    )
+    parser.add_argument(
+        "--full-validation-warmup-frames",
+        type=int,
+        default=FULL_VALIDATION_WARMUP_FRAMES,
+    )
+    parser.add_argument("--full-validation-latency-rounds", type=int, default=3)
+    parser.add_argument("--activation-taylor", action="store_true")
     parser.add_argument(
         "--targets", default=",".join(str(value) for value in DEFAULT_TARGETS)
     )
@@ -596,11 +663,7 @@ def main() -> int:
         ),
     )
     parser.add_argument("--plugin", type=Path, required=True)
-    parser.add_argument(
-        "--tensorrt-root",
-        type=Path,
-        default=Path("/home/lixingfeng/UniAD_examine/TensorRT-10.9_x86_cu118"),
-    )
+    parser.add_argument("--tensorrt-root", type=Path, required=True)
     return run(parser.parse_args())
 
 
