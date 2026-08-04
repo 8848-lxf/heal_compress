@@ -65,7 +65,13 @@ def run_strict_formal_ga(
         or {}
     )
     generations = int(search.get("generations_per_round", 10))
-    contract = "formal_gen5" if generations == 5 else "formal_gen10"
+    contract = {
+        1: "formal_smoke_gen1",
+        5: "formal_gen5",
+        10: "formal_gen10",
+    }.get(generations)
+    if contract is None:
+        raise ValueError(f"unsupported_formal_ga_generations:{generations}")
     policy = StrictGAConfig(
         target_bops_retention=float(target),
         tolerance_abs=float(

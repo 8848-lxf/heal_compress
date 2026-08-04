@@ -208,6 +208,19 @@ python -m search.unified ... --activation-taylor on
 
 某模型族未绑定激活统计而选择 `on` 时，程序会失败关闭，不会退化成未声明的代理目标。
 
+可用单预算、单代 smoke 合约贯通真实 Greedy、GA Top-5、TensorRT 和最终验证链路：
+
+```bash
+python -m search.unified \
+  --config search/configs/unified/lidar_v2xvit_ga.yaml \
+  ... \
+  --bops-target 0.10 \
+  --generations 1 \
+  --activation-taylor on
+```
+
+`--generations 1` 明确标记为 `formal_smoke_gen1`，用于最小化真实链路验收，不替代默认的 10 代正式搜索。种群、子代和每代 Stage-2 配额仍固定为 64、64 和 5；BOPS 与 accuracy gate 仍按正式协议失败关闭。
+
 ## 输出契约
 
 所有生成文件只写入 `--output-root` 指定目录。典型结构为：

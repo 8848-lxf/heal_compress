@@ -27,6 +27,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--physical-gpu", type=int)
     parser.add_argument("--search-method", choices=("ga", "greedy"))
     parser.add_argument(
+        "--bops-target",
+        type=float,
+        action="append",
+        dest="bops_targets",
+        help=(
+            "Restrict the run to one or more BOPS retention targets. Repeat the "
+            "option to request multiple targets."
+        ),
+    )
+    parser.add_argument(
+        "--generations",
+        type=int,
+        choices=(1, 5, 10),
+        help=(
+            "Override GA generations. One generation is an explicit pipeline "
+            "smoke contract; formal release searches use five or ten."
+        ),
+    )
+    parser.add_argument(
         "--activation-taylor",
         choices=("on", "off"),
         help="Enable or disable activation-quantization Taylor disturbance in Stage1.",
@@ -71,6 +90,8 @@ def main(argv: list[str] | None = None) -> int:
         "runtime.plugin_path": str(args.plugin) if args.plugin else None,
         "runtime.physical_gpu": args.physical_gpu,
         "search.method": args.search_method,
+        "search.bops_targets": args.bops_targets,
+        "search.generations_per_round": args.generations,
         "proxy.include_activation_taylor": (
             args.activation_taylor == "on" if args.activation_taylor else None
         ),

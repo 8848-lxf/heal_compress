@@ -46,7 +46,11 @@ class StrictGAConfig:
             raise ValueError("formal_ga_bops_tolerance_must_not_exceed_0_005")
         if not 0.0 <= float(self.stage2_accuracy_tolerance) <= 0.005:
             raise ValueError("formal_ga_accuracy_tolerance_must_not_exceed_0_005")
-        contracts = {"formal_gen10": 10, "formal_gen5": 5}
+        contracts = {
+            "formal_gen10": 10,
+            "formal_gen5": 5,
+            "formal_smoke_gen1": 1,
+        }
         expected = contracts.get(str(self.generation_contract))
         if expected is None:
             raise ValueError(
@@ -395,6 +399,30 @@ def rank_stage1(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
         return (left_key > right_key) - (left_key < right_key)
 
     return sorted(feasible, key=functools.cmp_to_key(compare))
+
+
+def stage1_audit_payload(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Return compact JSON-safe evidence for an evaluated Stage-1 candidate."""
+
+    fields = (
+        "complete_phenotype_hash",
+        "physical_structure_hash",
+        "precision_map_hash",
+        "J_struct_gate",
+        "J_WQ",
+        "J_AQ",
+        "J_total",
+        "F1",
+        "R_bops_vs_fp32",
+        "bops_deviation",
+        "bops_feasible",
+        "bops_hard_gate_passed",
+        "R_parameter_retention",
+        "mixed_weight_retention",
+        "activation_taylor_included",
+        "taylor_evaluated_after_bops_hard_gate",
+    )
+    return {field: row[field] for field in fields if field in row}
 
 
 @dataclass(frozen=True)
@@ -808,6 +836,9 @@ class StrictStage12V3Runner:
                 "stage2_new_candidate_hashes": [
                     row.complete_phenotype_hash for row in new_results
                 ],
+                "stage1_new_candidate_rows": [
+                    stage1_audit_payload(row) for row in new_rows
+                ],
                 "generation_winner_hash": (
                     generation_winner.complete_phenotype_hash
                     if generation_winner is not None
@@ -858,6 +889,7 @@ __all__ = [
     "adjacent_mutation",
     "phenotype_identity",
     "rank_stage1",
+    "stage1_audit_payload",
     "same_locus_crossover",
     "score_stage2",
     "select_generation_winner",

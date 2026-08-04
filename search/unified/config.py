@@ -121,8 +121,8 @@ def _validate_protocol(payload: dict[str, Any], *, allow_unresolved: bool) -> Fa
         for key, required in expected.items():
             if int(search.get(key, required)) != required:
                 raise ValueError(f"strict_stage12_v3_{key}_must_equal_{required}")
-        if int(search.get("generations_per_round", 10)) not in {5, 10}:
-            raise ValueError("strict_stage12_v3_generations_must_equal_5_or_10")
+        if int(search.get("generations_per_round", 10)) not in {1, 5, 10}:
+            raise ValueError("strict_stage12_v3_generations_must_equal_1_5_or_10")
     payload["search"] = search
 
     stage2 = dict(payload.get("stage2", {}) or {})

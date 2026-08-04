@@ -7,7 +7,7 @@ import pytest
 
 from search.candidate import CandidateGenotype
 from search.canonicalization import SearchSpaceSpec
-from search.ga.strict_stage12_v3 import StrictGAConfig
+from search.ga.strict_stage12_v3 import StrictGAConfig, stage1_audit_payload
 from search.pruning_space.local_domains import LocalPruningDomain
 from search.quantization_space.types import QuantizationSearchGroup
 from search.stage2.generation_results import write_generation_stage2_results
@@ -18,6 +18,7 @@ from search.stage2.greedy_anchor_gate import (
     load_greedy_anchor,
 )
 from search.unified.artifacts import BestEnginePublisher
+from search.unified.cli import parse_args
 from search.unified.config import PROJECT_ROOT, load_search_config
 from search.unified.families import registered_families
 from search.unified.formal import build_strict_stage1
@@ -49,6 +50,73 @@ def test_all_four_family_templates_resolve_and_dry_run(tmp_path: Path) -> None:
         assert config.payload["search"]["protocol"] == "strict_stage12_v3"
         assert config.payload["search"]["population_size"] == 64
         assert config.payload["search"]["generations_per_round"] == 10
+
+
+def test_cli_exposes_single_budget_one_generation_smoke_contract() -> None:
+    args = parse_args(
+        [
+            "--config",
+            "search/configs/unified/lidar_v2xvit_ga.yaml",
+            "--bops-target",
+            "0.10",
+            "--generations",
+            "1",
+            "--activation-taylor",
+            "on",
+        ]
+    )
+    assert args.bops_targets == [0.10]
+    assert args.generations == 1
+    assert args.activation_taylor == "on"
+
+    config = load_search_config(
+        PROJECT_ROOT / "search/configs/unified/lidar_v2xvit_ga.yaml",
+        overrides={
+            "search.bops_targets": args.bops_targets,
+            "search.generations_per_round": args.generations,
+            "proxy.include_activation_taylor": True,
+        },
+        allow_unresolved=True,
+    )
+    assert config.payload["search"]["bops_targets"] == [0.10]
+    assert config.payload["search"]["generations_per_round"] == 1
+    assert config.payload["proxy"]["include_activation_taylor"] is True
+    assert config.payload["proxy"]["objective_mode"] == (
+        "joint_weight_activation_taylor_hard_bops"
+    )
+
+    policy = StrictGAConfig(
+        target_bops_retention=0.10,
+        generations=1,
+        generation_contract="formal_smoke_gen1",
+    )
+    assert policy.generations == 1
+
+
+def test_stage1_audit_payload_persists_activation_taylor_without_genotype() -> None:
+    payload = stage1_audit_payload(
+        {
+            "complete_phenotype_hash": "candidate",
+            "J_struct_gate": 1.0,
+            "J_WQ": 2.0,
+            "J_AQ": 3.0,
+            "J_total": 6.0,
+            "R_bops_vs_fp32": 0.1,
+            "bops_feasible": True,
+            "activation_taylor_included": True,
+            "genotype": object(),
+        }
+    )
+    assert payload == {
+        "complete_phenotype_hash": "candidate",
+        "J_struct_gate": 1.0,
+        "J_WQ": 2.0,
+        "J_AQ": 3.0,
+        "J_total": 6.0,
+        "R_bops_vs_fp32": 0.1,
+        "bops_feasible": True,
+        "activation_taylor_included": True,
+    }
 
 
 def test_all_four_families_dispatch_the_unified_backend_contract(

@@ -16,6 +16,7 @@ from ..ga.strict_stage12_v3 import (
     adjacent_mutation,
     phenotype_identity,
     score_stage2,
+    stage1_audit_payload,
 )
 from ..greedy import GreedyBudgetSearch, GreedySearchConfig
 from ..hashing import canonical_json_hash, search_hash
@@ -31,6 +32,10 @@ from ..model_family.search_space import (
     build_v2xvit_quantization_groups,
 )
 from ..proxy.bops_proxy import BOPSProxy
+from ..proxy.conservative_gate_activation_taylor import (
+    build_activation_units,
+    collect_activation_taylor_cache_multi,
+)
 from ..proxy.gpu_batch_proxy import TorchBatchedProxyScorer
 from ..proxy.joint_weight_taylor import JointWeightTaylorProxy
 from ..proxy.normalization import NormalizationStats
@@ -200,6 +205,47 @@ class V2XViTFormalSearch:
                 "scatter_plugin": True,
             },
         )
+        activation_cache = None
+        if bool(proxy_cfg.get("include_activation_taylor", False)):
+            activation_units, group_to_units = build_activation_units(
+                bundle.model,
+                space,
+                transformer_units=(),
+            )
+            activation_cache = collect_activation_taylor_cache_multi(
+                bundle.model,
+                activation_units,
+                group_to_units,
+                forward_fn=bundle.adapter.forward_for_task,
+                loss_fn=bundle.adapter.compute_task_loss,
+                calibration_batches=batches,
+            )
+            _write_json(
+                run_dir / "manifests/activation_taylor_statistics.json",
+                {
+                    "schema_version": "v2xvit-task-perturbation-activation-taylor-v1",
+                    "calibration_manifest_hash": manifest["manifest_hash"],
+                    "sample_count": activation_cache.sample_count,
+                    "mapping": list(activation_cache.mapping),
+                    "transitions": [
+                        {
+                            "unit_id": unit_id,
+                            "current_precision": current,
+                            "next_precision": successor,
+                            "delta_J_AQ": value,
+                        }
+                        for (unit_id, current, successor), value in sorted(
+                            activation_cache.transitions.items()
+                        )
+                    ],
+                    "formula": (
+                        "mean_samples(sum(abs(g_A*delta_A)"
+                        "+0.5*abs(g_A^2*delta_A^2)))"
+                    ),
+                    "elementwise_abs_before_reduction": True,
+                    "statistics_tensors_persisted": False,
+                },
+            )
         _write_json(
             run_dir / "manifests/search_space.json",
             {
@@ -268,6 +314,7 @@ class V2XViTFormalSearch:
         )
         return {
             "bundle": bundle,
+            "activation_cache": activation_cache,
             "batches": batches,
             "bops": bops,
             "checkpoint": checkpoint,
@@ -593,7 +640,7 @@ class V2XViTFormalSearch:
                 baseline=baseline,
                 structure_proxy=state["joint"],
                 weight_proxy=state["joint"],
-                activation_cache=None,
+                activation_cache=state["activation_cache"],
                 bops_evaluator=state["bops"].evaluate_breakdown,
                 size_evaluator=state["size"].evaluate_breakdown,
                 target=target,
@@ -643,6 +690,7 @@ class V2XViTFormalSearch:
                 ),
             )
             target_winners[target] = winner
+            winner_stage1 = stage1_audit_payload(stage1(winner.genotype))
             full_validation = self._full_validate(
                 state, winner, target=target, run_dir=run_dir
             )
@@ -653,6 +701,7 @@ class V2XViTFormalSearch:
                 "termination_reason": formal["termination_reason"],
                 "history": _history_payload(formal["history"]),
                 "winner": _stage2_payload(winner),
+                "winner_stage1": winner_stage1,
                 "full_validation": full_validation,
             }
             _write_json(
