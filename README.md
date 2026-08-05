@@ -41,6 +41,18 @@ flowchart LR
 - `J_WQ`：保留权重从高精度切换到相邻低精度时的量化扰动代价。
 - `J_AQ`：可选的激活 Q/DQ 扰动代价；关闭时严格记为零，开启但缺少统计时失败关闭。
 
+`--activation-taylor on` 同时作用于 Greedy 和 GA；两者共享同一份冻结的
+激活扰动统计与同一个 Stage-1 evaluator，不允许只在 GA 中启用。为避免三项
+数值尺度不同造成某一类动作被系统性偏置，可选用训练校准子集拟合冻结目标：
+
+`J_cal = alpha_s * J_struct / s_struct + alpha_w * J_WQ / s_WQ + alpha_a * J_AQ / s_AQ + alpha_wa * (J_WQ / s_WQ) * (J_AQ / s_AQ)`
+
+其中 `s_*` 只由 fit 候选的 median/IQR 确定，`alpha_*` 使用非负 Huber-NNLS
+拟合。fit 与 validation 候选、Taylor 统计 batch 彼此分离；候选覆盖纯剪枝、
+纯权重量化、纯激活量化和混合扰动。系数在 Greedy 与 GA 启动前冻结，报告同时
+给出校准目标和原始直接相加目标在独立候选上的 Spearman、Top-K 召回率、BOPS
+分桶一致性及候选类型覆盖率。
+
 Stage 1 只允许 `abs(R_BOPS - target) <= 0.005` 的候选进入排序。Stage 2 会物理化结构、导出显式 Q/DQ ONNX、构建 strongly typed TensorRT engine、核对请求/实现精度，并在冻结评估清单上测量 mAP 与时延。GA 候选还必须满足：
 
 `candidate_mAP >= greedy_anchor_mAP - 0.005`
@@ -65,10 +77,23 @@ Stage 1 只允许 `abs(R_BOPS - target) <= 0.005` 的候选进入排序。Stage 
 
 Greedy 使用同一合法邻域和同一代理目标。直接轨迹无法进入预算带时，搜索会使用确定性的合法邻居 beam recovery；不会通过静默投影、通道补齐或事后 BOPS 修复伪造可行候选。
 
+## 耦合搜索空间
+
+结构基因不是独立删除单个参数，而是依照计算图预先构造可物理化的局部宽度域：
+
+- 普通 CNN 通道沿 producer、BN、残差、concat、deblock、检测头等依赖闭包同步裁剪，并按固定 Taylor/Fisher 排序选择保留索引。
+- 分组卷积保持原始 group 数，每个 group 删除相同数量的局部通道；depthwise 和普通 grouped convolution 分别使用各自的合法宽度规则。
+- V2X-ViT attention 固定 head 数，搜索每个 head 的 `d_h`；同一索引在 Q/K/V、输出投影输入以及 HGT relation-attention/relation-message 张量上耦合裁剪。
+- Transformer FFN 搜索 `d_ff`，第一层输出、第二层输入及对应 bias 使用同一固定重要性顺序同步裁剪；embedding、残差和 LayerNorm 宽度保持受保护。
+
+精度基因按部署闭包后的加权层组定义，可选 FP32、FP16 和经代表性训练清单校准的 INT8。候选只有在实体参数形状、显式 Q/DQ、strongly typed TensorRT 层精度与请求完全一致时才可进入真实子网反馈；不允许用未导出的伪精度或 fallback 结果冒充逐层混合位宽搜索。
+
 ## 目录
 
 ```text
 heal_compress/
+├── carla_integration/         # DAIR 对齐采集、坐标变换与外置 scatter 评测
+├── configs/carla/             # 五场景无泄漏 CARLA 配置模板
 ├── pruning/                 # 结构化剪枝、依赖与物理化
 ├── quantization/            # 精度映射、显式 Q/DQ、TensorRT 插件
 ├── search/
@@ -208,6 +233,17 @@ python -m search.unified ... --activation-taylor on
 
 某模型族未绑定激活统计而选择 `on` 时，程序会失败关闭，不会退化成未声明的代理目标。
 
+默认使用三项原始值直接相加。启用冻结任务损失校准目标：
+
+```bash
+python -m search.unified ... \
+  --activation-taylor on \
+  --objective-calibration huber-nnls
+```
+
+`huber-nnls` 要求激活 Taylor 已开启。校准样本只能来自训练或独立校准清单，
+不得使用验证集、测试集或 Stage-2 反馈重新拟合系数。
+
 可用单预算、单代 smoke 合约贯通真实 Greedy、GA Top-5、TensorRT 和最终验证链路：
 
 ```bash
@@ -220,6 +256,11 @@ python -m search.unified \
 ```
 
 `--generations 1` 明确标记为 `formal_smoke_gen1`，用于最小化真实链路验收，不替代默认的 10 代正式搜索。种群、子代和每代 Stage-2 配额仍固定为 64、64 和 5；BOPS 与 accuracy gate 仍按正式协议失败关闭。
+
+代理消融可使用 `--generations 3`，对应 `formal_experiment_gen3`。该合约保持
+64 个父代、64 个子代、每代最多 5 个全新 Stage-2 候选以及完整的实体剪枝、
+Q/DQ、TensorRT 和固定清单评估，仅缩短进化代数；它用于同配置比较，不替代
+默认 10 代正式结果。
 
 ## 输出契约
 
@@ -254,6 +295,52 @@ python -m search.unified \
 - TensorRT 与 FP32 必须使用相同帧、后处理、阈值和指标协议。
 - 报告 AP@0.3、AP@0.5、AP@0.7、mAP、固定阈值 precision/recall、forward 延迟及端到端延迟。
 - CARLA actor GT 与 DAIR 人工标注协议不同，跨数据集绝对 mAP 不应直接视为等价。
+
+## CARLA 接入
+
+CARLA 链路将动态体素化、PFN 和 scatter 保留在 TensorRT 外部，候选 engine 从
+稠密 `spatial_features` 与动态协作体 `pairwise_t_matrix` 边界开始。每帧原始
+点数和 voxel 数可以变化，不使用 DAIR 验证集最大值构造固定 `MaxK`，也不静默
+截断。采集器使用相对路面高度做端侧局部高度归一化，并严格执行 CARLA 左手系
+到模型右手系的坐标变换。
+
+启动独立服务并采集冻结的五场景数据：
+
+```bash
+CARLA_ROOT=../Carla/carla scripts/carla/start_carla_h800.sh 4 27910
+python -m carla_integration.collect_scenes \
+  --port 27910 \
+  --config configs/carla/dair_v2x_no_leak_h800_test.yaml \
+  --output ../search_runs/carla_blind_test
+```
+
+强度分位数映射必须只由 DAIR 训练集和独立 CARLA 校准地图冻结。将搜索输出的
+显式 Q/DQ ONNX 改写为外置 scatter 边界后，构建 TensorRT engine，并在同一
+冻结清单上对候选、严格 FP32 TensorRT 和未剪枝 FP32 PyTorch 做配对评估：
+
+```bash
+python -m carla_integration.post_scatter_deploy \
+  ../search_runs/candidate/explicit_qdq.onnx \
+  --output-dir ../search_runs/candidate/carla_deployment \
+  --tensorrt-root ../TensorRT-10.9_x86_cu118 \
+  --physical-gpu 4
+
+python -m carla_integration.offline_evaluate \
+  --data ../search_runs/carla_blind_test \
+  --candidate-engine ../search_runs/candidate/carla_deployment/post_scatter.plan \
+  --baseline-engine ../model_zoo/pyramid/post_scatter_fp32.plan \
+  --checkpoint ../search_runs/candidate/pruned_checkpoint.pth \
+  --fp32-checkpoint ../model_zoo/lidar_pyramid/net_epoch_bestval_at17.pth \
+  --intensity-calibration ../calibration/carla_intensity_train_only.json \
+  --model-config ../model_zoo/lidar_pyramid/config.yaml \
+  --heal-root ../HEAL \
+  --output ../search_runs/carla_candidate_report.json
+```
+
+正式报告必须同时给出 AP@0.3/0.5/0.7、mAP、固定 score floor 的
+precision/recall、模型 forward 和组合端到端时延、相对 FP32 加速比，并记录
+逐帧 voxel 数。天气在 CARLA 0.9.10 中不改变 LiDAR 物理，因此天气分组只用于
+场景覆盖，不能冒充恶劣天气 LiDAR 鲁棒性结论。
 
 ## 测试与发布检查
 

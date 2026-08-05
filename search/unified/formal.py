@@ -67,6 +67,7 @@ def run_strict_formal_ga(
     generations = int(search.get("generations_per_round", 10))
     contract = {
         1: "formal_smoke_gen1",
+        3: "formal_experiment_gen3",
         5: "formal_gen5",
         10: "formal_gen10",
     }.get(generations)

@@ -30,6 +30,7 @@ BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES = (
     *FIXED_K_CALIBRATION_INPUT_NAMES,
     "agent_mask",
 )
+OPTIONAL_CALIBRATION_MANIFEST_INPUT_NAMES = frozenset({"agent_mask"})
 
 
 def _sha256_file(path: Path) -> str:
@@ -66,9 +67,23 @@ def fixed_k_calibration_npz_manifest_identity(
     if str(payload.get("strategy", "")) != "single_engine_maxK":
         raise RuntimeError(f"calibration_npz_strategy_mismatch:{payload.get('strategy')}")
     manifest_input_names = [str(value) for value in payload.get("input_names", [])]
-    if tuple(manifest_input_names) != expected_inputs:
+    if (
+        not manifest_input_names
+        or len(manifest_input_names) != len(set(manifest_input_names))
+    ):
         raise RuntimeError(
-            f"calibration_npz_input_names_mismatch:{manifest_input_names}!={list(expected_inputs)}"
+            f"calibration_npz_manifest_input_names_invalid:{manifest_input_names}"
+        )
+    missing_inputs = sorted(set(expected_inputs) - set(manifest_input_names))
+    unused_inputs = sorted(set(manifest_input_names) - set(expected_inputs))
+    unsupported_inputs = sorted(
+        set(unused_inputs) - OPTIONAL_CALIBRATION_MANIFEST_INPUT_NAMES
+    )
+    if missing_inputs or unsupported_inputs:
+        raise RuntimeError(
+            "calibration_npz_input_names_mismatch:"
+            f"manifest={manifest_input_names}:expected={list(expected_inputs)}:"
+            f"missing={missing_inputs}:unsupported_unused={unsupported_inputs}"
         )
     file_rows = [
         {
@@ -95,6 +110,8 @@ def fixed_k_calibration_npz_manifest_identity(
         "strategy": "single_engine_maxK",
         "calibration_split": "train",
         "input_names": list(expected_inputs),
+        "manifest_input_names": manifest_input_names,
+        "unused_manifest_input_names": unused_inputs,
         "train_dataset_indices": [int(value) for value in payload.get("train_dataset_indices", [])],
         "files": file_rows,
     }
@@ -395,7 +412,9 @@ def build_tensorrt_entropy_calibration_cache_modelopt(
         tensorrt_root=tensorrt_root,
         conda_env=conda_env,
         pythonpath_entries=[
+            "../HEAL",
             "../../HEAL",
+            "..",
             ".",
             "../..",
         ],

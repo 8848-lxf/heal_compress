@@ -163,17 +163,17 @@ def test_v2xvit_audit_exposes_head_ffn_merge_and_plugin_gates() -> None:
     audit = get_model_family("heal_lidar_v2xvit").audit(FakeV2XViT(), _config())
     kinds = {row.domain_kind for row in audit.pruning_domains}
     assert "transformer_ffn_hidden_width" in kinds
-    assert "whole_attention_head_bundle" in kinds
-    assert "whole_heterogeneous_attention_head_bundle" in kinds
+    assert "transformer_attention_per_head_width" in kinds
     assert all(
         row.production_enabled
         for row in audit.pruning_domains
-        if row.domain_kind == "transformer_ffn_hidden_width"
+        if row.domain_kind
+        in {"transformer_ffn_hidden_width", "transformer_attention_per_head_width"}
     )
     assert all(
         not row.production_enabled
         for row in audit.pruning_domains
-        if row.domain_kind != "transformer_ffn_hidden_width"
+        if row.domain_kind == "split_attention_hidden_width"
     )
     assert any(row.merge_kind == "transformer_residual_add" for row in audit.merge_boundaries)
     plugin = audit.plugin_requirements[0]
@@ -422,7 +422,11 @@ def test_v2xvit_search_readiness_blocks_unverified_genes() -> None:
     gated = build_model_family_search_readiness(audit, all_evidence)
     assert "module::backbone_m1.0" in gated.ready_precision_gene_ids
     assert "module::fusion_net.window.to_qkv" not in gated.ready_precision_gene_ids
-    assert gated.ready_pruning_domain_ids == ("ffn_hidden::fusion_net.ff",)
+    assert gated.ready_pruning_domain_ids == (
+        "attention_dh::fusion_net.block.attention",
+        "attention_dh::fusion_net.window",
+        "ffn_hidden::fusion_net.ff",
+    )
     assert gated.joint_search_ready is True
 
 

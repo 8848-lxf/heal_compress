@@ -86,7 +86,9 @@ def evaluate_engine_modelopt(
         tensorrt_root=root,
         conda_env=conda_env,
         pythonpath_entries=[
+            "../HEAL",
             "../../HEAL",
+            "..",
             ".",
             "../..",
         ],

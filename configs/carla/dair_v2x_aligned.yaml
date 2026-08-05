@@ -1,0 +1,87 @@
+schema_version: heal-carla-dair-aligned-v1
+
+simulation:
+  fixed_delta_seconds: 0.1
+  sensor_tick_seconds: 0.1
+  client_timeout_seconds: 30.0
+  warmup_ticks: 15
+  frames_per_scene: 12
+  random_seed: 8848
+  traffic_manager_port_offset: 1000
+
+model_contract:
+  lidar_range: [-102.4, -51.2, -3.5, 102.4, 51.2, 1.5]
+  voxel_size: [0.4, 0.4, 5.0]
+  max_points_per_voxel: 32
+  point_frontend: dynamic_voxel_pfn_scatter_outside_tensorrt
+  tensorrt_inputs: [spatial_features, pairwise_t_matrix]
+
+# DAIR hardware fields follow the published vehicle/infrastructure sensor table.
+# Canonical heights are measured from the local DAIR point clouds used by HEAL.
+lidar_profiles:
+  vehicle:
+    channels: 40
+    rotation_frequency: 10.0
+    horizontal_fov: 360.0
+    upper_fov: 10.0
+    lower_fov: -30.0
+    range_m: 200.0
+    points_per_second: 625000
+    physical_height_m: 1.925
+    canonical_height_m: 1.925
+  infrastructure:
+    channels: 300
+    rotation_frequency: 10.0
+    horizontal_fov: 100.0
+    upper_fov: 10.0
+    lower_fov: -30.0
+    range_m: 280.0
+    # CARLA 0.9.10 emits 360 degrees. 2.052M * 100/360 = 570k effective
+    # points/s in the retained DAIR-like sector.
+    points_per_second: 2052000
+    physical_height_m: 7.5
+    canonical_height_m: 1.675
+
+carla_0_9_10_compatibility:
+  sensor_tick: every_fixed_0_1_second_world_step
+  horizontal_fov: software_azimuth_crop_from_360_degree_scan
+  infrastructure_emitted_points_per_second: 2052000
+  infrastructure_effective_points_per_second_after_crop: 570000
+  angular_density_compensation: emitted_rate_multiplied_by_360_over_100
+
+scenes:
+  - id: town03_clear_low
+    map: Town03
+    weather: ClearNoon
+    ego_spawn_index: 7
+    traffic_vehicles: 12
+    rsu_forward_m: 22.0
+    rsu_lateral_m: 5.0
+  - id: town03_wet_medium
+    map: Town03
+    weather: WetNoon
+    ego_spawn_index: 43
+    traffic_vehicles: 18
+    rsu_forward_m: 18.0
+    rsu_lateral_m: -5.0
+  - id: town04_sunset_highway
+    map: Town04
+    weather: ClearSunset
+    ego_spawn_index: 17
+    traffic_vehicles: 24
+    rsu_forward_m: 30.0
+    rsu_lateral_m: 6.0
+  - id: town05_cloudy_urban
+    map: Town05
+    weather: CloudyNoon
+    ego_spawn_index: 52
+    traffic_vehicles: 20
+    rsu_forward_m: 20.0
+    rsu_lateral_m: -5.0
+  - id: town05_rain_dense
+    map: Town05
+    weather: HardRainNoon
+    ego_spawn_index: 83
+    traffic_vehicles: 28
+    rsu_forward_m: 16.0
+    rsu_lateral_m: 5.0

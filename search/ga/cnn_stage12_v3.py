@@ -46,6 +46,7 @@ from ..proxy.joint_weight_taylor import JointWeightTaylorProxy
 from ..proxy.parameter_slice_resolver import build_unit_parameter_slices
 from ..proxy.runtime_shape_profiler import profile_runtime_layer_shapes
 from ..proxy.size_proxy import SizeProxy
+from ..proxy.task_loss_calibration import fit_task_loss_calibration_for_search
 from ..stage2.heal_lidar_baseline_real_evaluator import (
     HealLidarBaselineCandidateEvaluator,
 )
@@ -86,6 +87,11 @@ class CNNFormalModelSpec:
     heal_root: Path
     strict_fp32_engine: Path | None = None
     include_activation_taylor: bool = False
+    objective_calibration_mode: str = "raw"
+    objective_fit_batches: int = 4
+    objective_validation_batches: int = 4
+    objective_fit_candidates_per_mode: int = 4
+    objective_validation_candidates_per_mode: int = 2
     full_validation_frames: int = FULL_VALIDATION_FRAMES
     full_validation_warmup_frames: int = FULL_VALIDATION_WARMUP_FRAMES
 
@@ -203,6 +209,7 @@ class PreparedCNNFormalSearch:
     gate_mapping: list[dict[str, Any]]
     calibration_sample_count: int
     include_activation_taylor: bool
+    objective_calibration: Any | None = None
 
     def evaluator(
         self,
@@ -222,6 +229,7 @@ class PreparedCNNFormalSearch:
             tolerance_abs=0.005,
             enforce_bops_hard_gate=enforce_bops_hard_gate,
             include_activation_taylor=self.include_activation_taylor,
+            objective_calibration=self.objective_calibration,
         )
 
 
@@ -487,6 +495,7 @@ def prepare_search(
         "activation_taylor_frozen_across_resume": True,
     })
     baseline = baseline_genotype(space)
+    virtual_shape_cache: dict[tuple[str, ...], dict[str, Any]] = {}
     result = PreparedCNNFormalSearch(
         spec=spec,
         context=context,
@@ -497,12 +506,14 @@ def prepare_search(
             unit_to_parameter_slices=slices,
             runtime_shapes=runtime.shapes,
             default_precision="FP32",
+            virtual_shape_cache=virtual_shape_cache,
         ),
         size=SizeProxy(
             context.model,
             unit_to_parameter_slices=slices,
             default_precision="FP32",
             include_constant_parameters_in_size=True,
+            virtual_shape_cache=virtual_shape_cache,
         ),
         structure=FunctionalGateTaylorProxy(gate_scores),
         weight=JointWeightTaylorProxy(
@@ -516,6 +527,77 @@ def prepare_search(
         calibration_sample_count=int(taylor_samples),
         include_activation_taylor=bool(spec.include_activation_taylor),
     )
+    calibration_mode = str(spec.objective_calibration_mode).lower()
+    if calibration_mode == "huber-nnls":
+        if not spec.include_activation_taylor or activation is None:
+            raise RuntimeError(
+                "formal_cnn_task_loss_objective_calibration_requires_activation_taylor"
+            )
+        torch.manual_seed(0)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(0)
+        _dataset, calibration_loader = build_dataset_and_loader(
+            context.model_bundle.adapter,
+            context.model_config,
+            split="train",
+            num_workers=0,
+            visualize=False,
+        )
+        required = (
+            int(taylor_samples)
+            + int(spec.objective_fit_batches)
+            + int(spec.objective_validation_batches)
+        )
+        calibration_cpu = iter_limited(calibration_loader, required)
+        if len(calibration_cpu) != required:
+            raise RuntimeError(
+                f"formal_cnn_objective_calibration_prefix_incomplete:"
+                f"{len(calibration_cpu)}!={required}"
+            )
+        fit_start = int(taylor_samples)
+        validation_start = fit_start + int(spec.objective_fit_batches)
+        fit_batches = DeviceBatchPrefix(
+            calibration_cpu[fit_start:validation_start], device
+        )
+        validation_batches = DeviceBatchPrefix(
+            calibration_cpu[
+                validation_start : validation_start
+                + int(spec.objective_validation_batches)
+            ],
+            device,
+        )
+        objective_activation_units, _objective_group_to_units = (
+            build_activation_units(context.model, space, transformer_units=())
+        )
+        raw_evaluator = result.evaluator(
+            target=0.10, enforce_bops_hard_gate=False
+        )
+        calibration, calibration_report = fit_task_loss_calibration_for_search(
+            context.model,
+            space,
+            baseline,
+            fit_batches,
+            validation_batches,
+            unit_to_parameter_slices=slices,
+            activation_units=objective_activation_units,
+            forward_fn=context.model_bundle.adapter.forward_for_task,
+            loss_fn=context.model_bundle.adapter.compute_task_loss,
+            stage1_evaluator=raw_evaluator,
+            count_per_mode_fit=int(spec.objective_fit_candidates_per_mode),
+            count_per_mode_validation=int(
+                spec.objective_validation_candidates_per_mode
+            ),
+            seed=0,
+        )
+        result.objective_calibration = calibration
+        write_json(
+            output_root / "proxy/task_loss_objective_calibration.json",
+            calibration_report,
+        )
+    elif calibration_mode != "raw":
+        raise ValueError(
+            f"formal_cnn_objective_calibration_mode_unsupported:{calibration_mode}"
+        )
     write_json(
         output_root / "reports/new_ga_proxy_contract.json",
         {
@@ -681,6 +763,10 @@ def greedy_anchors(
                 )
         else:
             raise RuntimeError(f"strict_greedy_unknown_action_type:{action_type}")
+        if getattr(prepared, "objective_calibration", None) is not None:
+            parent_score = float(evaluator(parent)["F1"])
+            successor_score = float(evaluator(successor)["F1"])
+            value = successor_score - parent_score
         if value < 0.0 or not math.isfinite(value):
             raise RuntimeError(f"strict_greedy_negative_or_nonfinite_risk:{locus}")
         return value
@@ -1746,7 +1832,11 @@ def run_budget(
         generations=generations,
         stage2_new_candidate_quota=5,
         random_seed=seed,
-        generation_contract=f"formal_gen{generations}",
+        generation_contract=(
+            "formal_experiment_gen3"
+            if int(generations) == 3
+            else f"formal_gen{generations}"
+        ),
     )
     runner = StrictStage12V3Runner(
         prepared.space,

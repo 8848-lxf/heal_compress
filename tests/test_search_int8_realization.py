@@ -236,6 +236,7 @@ def test_baseline_six_input_npz_calibration_manifest_preserves_agent_mask(tmp_pa
     import json
 
     import numpy as np
+    import pytest
     import torch
 
     from search.integration.calibration_provider import (
@@ -281,6 +282,33 @@ def test_baseline_six_input_npz_calibration_manifest_preserves_agent_mask(tmp_pa
     assert torch.equal(batches[0]["agent_mask"], torch.tensor([[1.0, 0.0]]))
     assert identity["input_names"] == list(BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES)
 
+    dynamic_batches, dynamic_identity = load_fixed_k_calibration_npz_batches(
+        manifest,
+        num_batches=1,
+        fixed_k=fixed_k,
+        device=torch.device("cpu"),
+        input_names=BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES[:-1],
+    )
+    assert tuple(dynamic_batches[0]) == BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES[:-1]
+    assert dynamic_identity["manifest_input_names"] == list(
+        BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES
+    )
+    assert dynamic_identity["unused_manifest_input_names"] == ["agent_mask"]
+
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["input_names"].append("unsupported_debug_tensor")
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="unsupported_unused"):
+        load_fixed_k_calibration_npz_batches(
+            manifest,
+            num_batches=1,
+            fixed_k=fixed_k,
+            device=torch.device("cpu"),
+            input_names=BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES[:-1],
+        )
+    payload["input_names"].pop()
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
     np.savez_compressed(
         sample,
         voxel_features=np.ones((fixed_k, 2, 4), dtype=np.float32),
@@ -294,7 +322,6 @@ def test_baseline_six_input_npz_calibration_manifest_preserves_agent_mask(tmp_pa
     payload["files"][0]["sha256"] = hashlib.sha256(sample.read_bytes()).hexdigest()
     payload["files"][0]["bytes"] = sample.stat().st_size
     manifest.write_text(json.dumps(payload), encoding="utf-8")
-    import pytest
     with pytest.raises(RuntimeError, match="agent_mask_values_invalid"):
         load_fixed_k_calibration_npz_batches(
             manifest,

@@ -551,18 +551,36 @@ def expand_domain_width_genes(
             "retained_width": width,
             "original_width": domain.original_width,
             "width_semantics": domain.width_semantics,
-            "pruned_unit_ids": list(selected),
+            "pruned_unit_count": len(selected),
+            "selection_commitment": _stable_hash(
+                {
+                    "domain_id": domain.domain_id,
+                    "retained_width": width,
+                    "ranking_hash": domain.ranking_hash,
+                }
+            ),
             "ranking_hash": domain.ranking_hash,
             "alignment_repair_applied": False,
             "decoded_width_state": domain.decode_width(width),
         }
     expansion_payload = {
-        "policy_version": "legal-domain-width-fixed-ranking-v1",
+        "policy_version": "legal-domain-width-fixed-ranking-v2",
         "domain_width_profile": legalized,
         "domains": domain_rows,
-        "pruned_unit_ids": sorted(pruned),
+        "pruned_unit_count": len(pruned),
         "group_keep_map_by_scope": group_keep_by_scope,
         "group_prune_map_by_scope": group_prune_by_scope,
     }
-    expansion_payload["domain_width_expansion_hash"] = _stable_hash(expansion_payload)
+    expansion_payload["domain_width_expansion_hash"] = _stable_hash(
+        {
+            "policy_version": expansion_payload["policy_version"],
+            "domain_width_profile": legalized,
+            "domain_selection_commitments": {
+                domain_id: row["selection_commitment"]
+                for domain_id, row in sorted(domain_rows.items())
+            },
+            "group_keep_map_by_scope": group_keep_by_scope,
+            "group_prune_map_by_scope": group_prune_by_scope,
+        }
+    )
     return sorted(pruned), expansion_payload

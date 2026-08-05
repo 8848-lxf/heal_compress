@@ -20,7 +20,7 @@ output:
   best_engine_publish_mode: hardlink
 
 pruning:
-  gene_type: legal_transformer_domain_width
+  gene_type: legal_unified_cnn_attention_ffn_domain_width
   fixed_ranking: pruning_only_first_plus_second_order_fisher_taylor
   minimum_retained_ratio: 0.10
   dense_channel_alignment: 4
@@ -33,6 +33,11 @@ precision:
 proxy:
   objective_mode: joint_weight_taylor_hard_bops
   include_activation_taylor: false
+  objective_calibration: raw
+  objective_fit_batches: 4
+  objective_validation_batches: 4
+  objective_fit_candidates_per_mode: 4
+  objective_validation_candidates_per_mode: 2
   backend: cuda_batched
   device: auto
   batch_size: 128

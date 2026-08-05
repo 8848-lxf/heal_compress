@@ -45,7 +45,7 @@ from search.integration.runtime_environment import query_gpus  # noqa: E402
 
 
 DEFAULT_TARGETS = (0.30, 0.25, 0.20, 0.15, 0.10, 0.05)
-SUPPORTED_GENERATIONS = (5, 10)
+SUPPORTED_GENERATIONS = (1, 3, 5, 10)
 
 
 def sha256_file(path: Path) -> str:
@@ -203,7 +203,7 @@ def run(args: argparse.Namespace) -> int:
     generations = int(args.generations)
     if generations not in SUPPORTED_GENERATIONS:
         raise RuntimeError(
-            f"cnn_formal_ga_requires_5_or_10_generations:{args.generations}"
+            f"cnn_formal_ga_requires_1_3_5_or_10_generations:{args.generations}"
         )
     continuation_mode = bool(generations == 10 and args.resume)
     if continuation_mode and args.model != "pyramid":
@@ -250,6 +250,17 @@ def run(args: argparse.Namespace) -> int:
             else None
         ),
         include_activation_taylor=bool(args.activation_taylor),
+        objective_calibration_mode=str(getattr(args, "objective_calibration", "raw")),
+        objective_fit_batches=int(getattr(args, "objective_fit_batches", 4)),
+        objective_validation_batches=int(
+            getattr(args, "objective_validation_batches", 4)
+        ),
+        objective_fit_candidates_per_mode=int(
+            getattr(args, "objective_fit_candidates_per_mode", 4)
+        ),
+        objective_validation_candidates_per_mode=int(
+            getattr(args, "objective_validation_candidates_per_mode", 2)
+        ),
         full_validation_frames=int(args.full_validation_frames),
         full_validation_warmup_frames=int(args.full_validation_warmup_frames),
     )
@@ -277,7 +288,13 @@ def run(args: argparse.Namespace) -> int:
         "gpu": selected,
         "all_gpus": gpu_rows,
         "framework": "StrictStage12V3Runner",
-        "generation_contract": f"formal_gen{generations}",
+        "generation_contract": (
+            "formal_experiment_gen3"
+            if generations == 3
+            else "formal_smoke_gen1"
+            if generations == 1
+            else f"formal_gen{generations}"
+        ),
         "generations": generations,
         "deterministic_replay_continuation": continuation_mode,
         "continuation_snapshot": continuation_snapshot,
@@ -297,6 +314,7 @@ def run(args: argparse.Namespace) -> int:
             args.full_validation_warmup_frames
         ),
         "activation_taylor_included": bool(args.activation_taylor),
+        "objective_calibration": str(getattr(args, "objective_calibration", "raw")),
         "seed": 0,
         "targets": list(targets),
         "old_framework_started": False,
@@ -650,6 +668,15 @@ def main() -> int:
     )
     parser.add_argument("--full-validation-latency-rounds", type=int, default=3)
     parser.add_argument("--activation-taylor", action="store_true")
+    parser.add_argument(
+        "--objective-calibration", choices=("raw", "huber-nnls"), default="raw"
+    )
+    parser.add_argument("--objective-fit-batches", type=int, default=4)
+    parser.add_argument("--objective-validation-batches", type=int, default=4)
+    parser.add_argument("--objective-fit-candidates-per-mode", type=int, default=4)
+    parser.add_argument(
+        "--objective-validation-candidates-per-mode", type=int, default=2
+    )
     parser.add_argument(
         "--targets", default=",".join(str(value) for value in DEFAULT_TARGETS)
     )

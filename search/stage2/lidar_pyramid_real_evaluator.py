@@ -2135,7 +2135,7 @@ class LidarPyramidRealEvaluator:
             engine_path=engine_path,
             checkpoint=self.context.checkpoint_path,
             model_config=self.context.model_config,
-            heal_root="../../HEAL",
+            heal_root=Path(self.context.model_bundle.adapter.heal_repo),
             device=self.context.runtime_device,
             physical_gpu_id=self.context.physical_gpu_id,
             output_dir=output_dir,

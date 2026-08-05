@@ -3,7 +3,8 @@
 The production exporter remains model-family scoped and does not patch HEAL or
 reuse the lidar_pyramid exporter.  The capabilities below distinguish the
 fixed-K V2X-ViT path validated on H800 from intentionally protected Transformer
-INT8 and attention-pruning features.
+INT8 features.  Attention keeps the head count fixed and searches the coupled
+per-head ``d_h`` width across Q/K/V/O and HGT relation tensors.
 """
 
 from __future__ import annotations
@@ -196,20 +197,22 @@ def _pruning_domains(model: nn.Module) -> list[PruningDomainCapability]:
         elif class_name == "BaseWindowAttention":
             heads = int(getattr(module, "heads", 0))
             if heads > 0:
+                dim_head = int(getattr(module, "to_qkv").out_features // (3 * heads))
                 rows.append(
                     PruningDomainCapability(
-                        domain_id=f"window_attention_heads::{name}",
-                        domain_kind="whole_attention_head_bundle",
+                        domain_id=f"attention_dh::{name}",
+                        domain_kind="transformer_attention_per_head_width",
                         member_modules=(f"{name}.to_qkv", f"{name}.to_out.0"),
-                        original_width=heads,
-                        legal_widths=_head_counts(heads),
-                        ranking_unit="whole_head_joint_taylor",
-                        production_enabled=False,
-                        gate_reason="custom_qkv_chunk_head_materializer_required",
+                        original_width=dim_head,
+                        legal_widths=_legal_aligned_widths(dim_head, floor=4),
+                        ranking_unit="fixed_task_taylor_ordered_per_head_channels",
+                        production_enabled=True,
+                        gate_reason="",
                         constraints={
-                            "dim_head": int(getattr(module, "to_qkv").out_features // (3 * heads)),
-                            "prune_q_k_v_same_head_indices": True,
-                            "update_heads_attribute": True,
+                            "heads_fixed": heads,
+                            "prune_same_channel_in_every_q_k_v_head": True,
+                            "prune_output_projection_inputs": True,
+                            "physical_materializer": "v2xvit_window_attention_dh_v1",
                         },
                     )
                 )
@@ -223,20 +226,24 @@ def _pruning_domains(model: nn.Module) -> list[PruningDomainCapability]:
                 )
                 rows.append(
                     PruningDomainCapability(
-                        domain_id=f"hgt_attention_heads::{name}",
-                        domain_kind="whole_heterogeneous_attention_head_bundle",
+                        domain_id=f"attention_dh::{name}",
+                        domain_kind="transformer_attention_per_head_width",
                         member_modules=members,
-                        original_width=heads,
-                        legal_widths=_head_counts(heads),
-                        ranking_unit="whole_head_joint_taylor_across_agent_types",
-                        production_enabled=False,
-                        gate_reason="custom_hgt_relation_tensor_materializer_required",
+                        original_width=int(getattr(module, "q_linears")[0].out_features // heads),
+                        legal_widths=_legal_aligned_widths(
+                            int(getattr(module, "q_linears")[0].out_features // heads),
+                            floor=4,
+                        ),
+                        ranking_unit="fixed_task_taylor_ordered_per_head_channels_across_agent_types",
+                        production_enabled=True,
+                        gate_reason="",
                         constraints={
+                            "heads_fixed": heads,
                             "couple_all_q_k_v_agent_types": True,
                             "prune_relation_att_both_head_axes": True,
                             "prune_relation_msg_both_head_axes": True,
                             "prune_output_projection_inputs": True,
-                            "update_heads_attribute": True,
+                            "physical_materializer": "v2xvit_hgt_attention_dh_v1",
                         },
                     )
                 )
@@ -409,7 +416,6 @@ class HealLidarV2XViTProvider:
             blockers=(
                 "representative_forward_does_not_cover_all_weighted_agent_type_branches",
                 "hgt_functional_einsum_weights_not_yet_quantizable",
-                "attention_pruning_materializers_not_yet_implemented",
                 "transformer_parameterized_int8_remains_accuracy_protected",
                 "heterogeneous_type_dispatch_only_validated_for_type0_specialization",
             ),
@@ -421,8 +427,12 @@ class HealLidarV2XViTProvider:
                 "relative_position_parameter_count": len(relative_position_parameters),
                 "relative_position_parameters": relative_position_parameters,
                 "torch_pruning_strategy": {
-                    "safe_initial_domains": ["transformer_ffn_hidden_width"],
-                    "attention_head_strategy": "whole_head_bundles_with_custom_HGT_and_QKV_materializers",
+                    "safe_initial_domains": [
+                        "cnn_dependency_closed_channel_width",
+                        "transformer_attention_per_head_width",
+                        "transformer_ffn_hidden_width",
+                    ],
+                    "attention_head_strategy": "fixed_heads_coupled_per_head_dh_with_custom_HGT_and_QKV_materializers",
                     "embedding_width_strategy": "fixed_256_until_full_residual_layernorm_contract_exists",
                     "tp_reference": "Torch-Pruning_1.6_num_heads_prune_num_heads_unwrapped_parameters",
                     "direct_nn_MultiheadAttention_pruner_reusable": False,

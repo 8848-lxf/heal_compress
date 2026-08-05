@@ -75,6 +75,7 @@ def test_stage2_parallel_scheduler_serializes_each_gpu_and_runs_gpus_concurrentl
         run_dir=tmp_path,
         round_dir=round_dir,
         selected=[item(index) for index in range(4)],
+        round_index=0,
     )
     elapsed = time.perf_counter() - started
 

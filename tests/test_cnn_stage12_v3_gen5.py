@@ -92,7 +92,8 @@ def test_cnn_greedy_neighbors_are_decreasing_and_adjacent() -> None:
 def test_cnn_formal_entrypoint_supports_fresh_ten_and_pyramid_replay() -> None:
     source = (__import__("pathlib").Path(__file__).parents[1]
               / "scripts/run_cnn_formal_ga_gen5.py").read_text()
-    assert "requires_5_or_10_generations" in source
+    assert "requires_1_3_5_or_10_generations" in source
+    assert "formal_experiment_gen3" in source
     assert "continuation_mode = bool(generations == 10 and args.resume)" in source
     assert "cnn_gen5_replay_continuation_is_pyramid_only" in source
     assert "freeze_gen5_continuation_state" in source

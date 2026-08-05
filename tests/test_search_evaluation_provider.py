@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 
@@ -126,3 +127,42 @@ def test_shared_manifest_rejects_insufficient_requested_frames() -> None:
             warmup_frames=2,
             evaluation_frames=2,
         )
+
+
+def test_pyramid_evaluator_forwards_context_heal_root(tmp_path, monkeypatch) -> None:
+    from search.stage2 import lidar_pyramid_real_evaluator as real_evaluator
+
+    captured = {}
+
+    def fake_evaluate(**kwargs):
+        captured.update(kwargs)
+        return {"status": "ok", "latency_rows": []}
+
+    heal_root = tmp_path / "HEAL"
+    evaluator = object.__new__(real_evaluator.LidarPyramidRealEvaluator)
+    evaluator.context = SimpleNamespace(
+        checkpoint_path=tmp_path / "model.pth",
+        model_config=tmp_path / "config.yaml",
+        model_bundle=SimpleNamespace(
+            adapter=SimpleNamespace(heal_repo=str(heal_root))
+        ),
+        runtime_device="cuda:0",
+        physical_gpu_id=0,
+        tensorrt=SimpleNamespace(
+            tensorrt_root=tmp_path / "TensorRT",
+            plugin_path=tmp_path / "plugin.so",
+            conda_env="modelopt",
+        ),
+        eval_manifest_path=tmp_path / "eval_manifest.json",
+    )
+    evaluator.num_frames = 5
+    evaluator.warmup_frames = 2
+    evaluator.latency_rounds = 1
+    monkeypatch.setattr(real_evaluator, "evaluate_engine_modelopt", fake_evaluate)
+
+    result = evaluator._evaluate_engine(
+        tmp_path / "engine.plan", tmp_path / "evaluation"
+    )
+
+    assert result["status"] == "ok"
+    assert captured["heal_root"] == Path(heal_root)

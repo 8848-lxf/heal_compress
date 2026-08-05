@@ -40,12 +40,26 @@ def canonical_json_hash(payload: Any) -> str:
 def candidate_hash_payload(phenotype: CandidatePhenotype, space: SearchSpaceSpec) -> dict[str, Any]:
     """Return the exact canonical payload used for candidate identity."""
 
+    width_expansion_hash = str(
+        phenotype.metadata.get("domain_width_expansion_hash", "")
+    )
+    structure_payload = (
+        {
+            "structure_encoding": "domain_width_expansion_commitment_v2",
+            "pruned_unit_count": len(phenotype.pruned_unit_ids),
+            "domain_width_profile": dict(
+                phenotype.metadata.get("domain_width_profile") or {}
+            ),
+            "domain_width_expansion_hash": width_expansion_hash,
+        }
+        if width_expansion_hash
+        else {
+            "structure_encoding": "explicit_pruned_unit_ids_v1",
+            "pruned_unit_ids": sorted(phenotype.pruned_unit_ids),
+        }
+    )
     return {
-        "pruned_unit_ids": sorted(phenotype.pruned_unit_ids),
-        "domain_width_profile": dict(phenotype.metadata.get("domain_width_profile") or {}),
-        "domain_width_expansion_hash": str(
-            phenotype.metadata.get("domain_width_expansion_hash", "")
-        ),
+        **structure_payload,
         "realized_precision_profile": phenotype.realized_precision_profile,
         "pruning_policy_version": phenotype.pruning_policy_version,
         "precision_policy_version": phenotype.precision_policy_version,

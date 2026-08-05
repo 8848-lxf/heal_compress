@@ -1,4 +1,4 @@
-"""Graph-safe structured pruning for HEAL LiDAR F-Cooper and DiscoNet.
+"""Graph-safe structured pruning for HEAL LiDAR CNN backbones.
 
 The two baselines share the same PointPillar/BEV backbone.  Their final feature
 width differs only at fusion: F-Cooper carries one shared channel mask through
@@ -27,6 +27,7 @@ from .contracts import ModelFamilyAudit
 SUPPORTED_HEAL_LIDAR_BASELINE_FAMILIES = (
     "heal_lidar_fcooper",
     "heal_lidar_disco",
+    "heal_lidar_v2xvit",
 )
 
 
@@ -232,7 +233,11 @@ def validate_heal_lidar_baseline_pruning_topology(
             raise RuntimeError(f"heal_lidar_pruning_head_input_mismatch:{head_path}")
         fixed_contracts[head_path] = int(head.out_channels)
 
-    expected_fusion_class = "MaxFusion" if family_id == "heal_lidar_fcooper" else "DiscoFusion"
+    expected_fusion_class = {
+        "heal_lidar_fcooper": "MaxFusion",
+        "heal_lidar_disco": "DiscoFusion",
+        "heal_lidar_v2xvit": "V2XViTFusion",
+    }[family_id]
     fusion = _require_module(model, "fusion_net", nn.Module)
     if type(fusion).__name__ != expected_fusion_class:
         raise RuntimeError(f"heal_lidar_pruning_fusion_type:{type(fusion).__name__}")
@@ -338,7 +343,15 @@ def validate_heal_lidar_baseline_pruning_topology(
         domain_kind=(
             "disconet_shared_fusion_feature_width"
             if family_id == "heal_lidar_disco"
+            else "v2xvit_fixed_transformer_embedding_width"
+            if family_id == "heal_lidar_v2xvit"
             else "fcooper_shared_fusion_feature_width"
+        ),
+        protected=family_id == "heal_lidar_v2xvit",
+        protection_reason=(
+            "v2xvit_embedding_residual_layernorm_and_detection_head_width_fixed_256"
+            if family_id == "heal_lidar_v2xvit"
+            else ""
         ),
     ))
 

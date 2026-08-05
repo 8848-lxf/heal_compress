@@ -39,16 +39,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--generations",
         type=int,
-        choices=(1, 5, 10),
+        choices=(1, 3, 5, 10),
         help=(
             "Override GA generations. One generation is an explicit pipeline "
-            "smoke contract; formal release searches use five or ten."
+            "smoke contract; three is an explicit comparison contract; formal "
+            "release searches use five or ten."
         ),
     )
     parser.add_argument(
         "--activation-taylor",
         choices=("on", "off"),
         help="Enable or disable activation-quantization Taylor disturbance in Stage1.",
+    )
+    parser.add_argument(
+        "--objective-calibration",
+        choices=("raw", "huber-nnls"),
+        help=(
+            "Use the raw Taylor sum or fit/freeze robust non-negative task-loss "
+            "calibration coefficients before Greedy and GA."
+        ),
     )
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args(argv)
@@ -95,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         "proxy.include_activation_taylor": (
             args.activation_taylor == "on" if args.activation_taylor else None
         ),
+        "proxy.objective_calibration": args.objective_calibration,
     }
     config = load_search_config(
         args.config,

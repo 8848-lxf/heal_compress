@@ -22,6 +22,7 @@ class SizeProxy:
         unit_to_parameter_slices: dict[str, list[ParameterSlice]] | None = None,
         default_precision: str = "FP16",
         include_constant_parameters_in_size: bool = False,
+        virtual_shape_cache: dict[tuple[str, ...], dict[str, Any]] | None = None,
     ) -> None:
         self.model = model
         self.unit_to_parameter_slices = unit_to_parameter_slices or {}
@@ -47,13 +48,26 @@ class SizeProxy:
         if self.include_constant_parameters_in_size:
             self.base_bits = self.base_parameter_count * 32
             self.base_fp16_bits = self.base_parameter_count * 16
+        self._virtual_shape_cache = (
+            virtual_shape_cache if virtual_shape_cache is not None else {}
+        )
+
+    def _virtual_shapes(self, phenotype: CandidatePhenotype) -> dict[str, Any]:
+        key = tuple(phenotype.pruned_unit_ids)
+        cached = self._virtual_shape_cache.get(key)
+        if cached is None:
+            cached = resolve_virtual_shapes(
+                self.model, phenotype, self.unit_to_parameter_slices
+            )
+            self._virtual_shape_cache[key] = cached
+        return cached
 
     def evaluate(self, phenotype: CandidatePhenotype) -> float:
         return float(self.evaluate_breakdown(phenotype)["R_size_vs_fp32"])
 
     def evaluate_breakdown(self, phenotype: CandidatePhenotype) -> dict[str, float]:
         if self.model is not None and self.unit_to_parameter_slices:
-            shapes = resolve_virtual_shapes(self.model, phenotype, self.unit_to_parameter_slices)
+            shapes = self._virtual_shapes(phenotype)
             total_bits = 0
             parameter_count_after = 0
             parameter_count_before = 0

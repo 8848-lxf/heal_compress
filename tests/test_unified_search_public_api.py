@@ -93,6 +93,44 @@ def test_cli_exposes_single_budget_one_generation_smoke_contract() -> None:
     assert policy.generations == 1
 
 
+def test_cli_exposes_three_generation_calibrated_comparison_contract() -> None:
+    args = parse_args(
+        [
+            "--config",
+            "search/configs/unified/lidar_v2xvit_ga.yaml",
+            "--generations",
+            "3",
+            "--activation-taylor",
+            "on",
+            "--objective-calibration",
+            "huber-nnls",
+        ]
+    )
+    assert args.generations == 3
+    assert args.objective_calibration == "huber-nnls"
+    policy = StrictGAConfig(
+        target_bops_retention=0.10,
+        generations=3,
+        generation_contract="formal_experiment_gen3",
+    )
+    assert policy.generations == 3
+
+
+def test_calibrated_objective_requires_activation_taylor() -> None:
+    with pytest.raises(
+        ValueError,
+        match="huber_nnls_objective_calibration_requires_activation_taylor",
+    ):
+        load_search_config(
+            PROJECT_ROOT / "search/configs/unified/lidar_pyramid_ga.yaml",
+            overrides={
+                "proxy.include_activation_taylor": False,
+                "proxy.objective_calibration": "huber-nnls",
+            },
+            allow_unresolved=True,
+        )
+
+
 def test_stage1_audit_payload_persists_activation_taylor_without_genotype() -> None:
     payload = stage1_audit_payload(
         {

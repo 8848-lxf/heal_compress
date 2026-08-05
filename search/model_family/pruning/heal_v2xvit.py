@@ -13,6 +13,7 @@ from ...candidate import CandidatePhenotype
 from ...hashing import canonical_json_hash
 from ...proxy.candidate_perturbation import pseudo_quantize_tensor
 from ...pruning_space.local_domains import LocalPruningDomain
+from ...pruning_space.unified_physical_pruner import materialize_unified_widths
 
 
 @dataclass
@@ -216,8 +217,56 @@ def apply_v2xvit_weight_fake_quantization(
     }
 
 
+def materialize_v2xvit_unified_pruning(
+    model: nn.Module,
+    phenotype: CandidatePhenotype,
+    domains: Sequence[LocalPruningDomain],
+    cnn_atomic_units: Sequence[Any],
+) -> V2XViTPhysicalPruningResult:
+    """Materialize CNN, attention ``d_h`` and FFN ``d_ff`` width genes."""
+
+    width_profile = {
+        str(key): int(value)
+        for key, value in dict(
+            phenotype.metadata.get("domain_width_profile") or {}
+        ).items()
+    }
+    expected = {str(domain.domain_id) for domain in domains}
+    if set(width_profile) != expected:
+        raise RuntimeError(
+            "v2xvit_unified_width_profile_mismatch:"
+            f"missing={sorted(expected-set(width_profile))}:"
+            f"extra={sorted(set(width_profile)-expected)}"
+        )
+    result = materialize_unified_widths(
+        model,
+        cnn_atomic_units,
+        domains,
+        width_profile,
+        model_name="heal_lidar_v2xvit",
+    )
+    if not result.report.passed:
+        raise RuntimeError(
+            f"v2xvit_unified_physical_pruning_failed:{result.report.issues}"
+        )
+    snapshot = {
+        "schema_version": "v2xvit-unified-physical-pruning-v1",
+        "pruned_unit_ids": list(phenotype.pruned_unit_ids),
+        "domain_width_profile": width_profile,
+        "report": result.report.to_dict(),
+    }
+    return V2XViTPhysicalPruningResult(
+        model=result.model,
+        snapshot=snapshot,
+        snapshot_hash=canonical_json_hash(snapshot),
+        parameter_count_before=result.report.original_parameter_count,
+        parameter_count_after=result.report.physical_parameter_count,
+    )
+
+
 __all__ = [
     "V2XViTPhysicalPruningResult",
     "apply_v2xvit_weight_fake_quantization",
     "materialize_v2xvit_ffn_pruning",
+    "materialize_v2xvit_unified_pruning",
 ]

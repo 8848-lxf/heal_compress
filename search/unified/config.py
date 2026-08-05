@@ -96,6 +96,26 @@ def _validate_protocol(payload: dict[str, Any], *, allow_unresolved: bool) -> Fa
         if activation_enabled
         else "joint_weight_taylor_hard_bops"
     )
+    calibration_mode = str(proxy.get("objective_calibration", "raw")).lower()
+    if calibration_mode not in {"raw", "huber-nnls"}:
+        raise ValueError(
+            f"unsupported_objective_calibration:{calibration_mode}"
+        )
+    if calibration_mode == "huber-nnls" and not activation_enabled:
+        raise ValueError(
+            "huber_nnls_objective_calibration_requires_activation_taylor"
+        )
+    proxy["objective_calibration"] = calibration_mode
+    calibration_defaults = {
+        "objective_fit_batches": 4,
+        "objective_validation_batches": 4,
+        "objective_fit_candidates_per_mode": 4,
+        "objective_validation_candidates_per_mode": 2,
+    }
+    for key, default in calibration_defaults.items():
+        proxy.setdefault(key, default)
+        if int(proxy[key]) <= 0:
+            raise ValueError(f"{key}_must_be_positive")
     payload["proxy"] = proxy
 
     search.setdefault("show_progress", True)
@@ -121,8 +141,8 @@ def _validate_protocol(payload: dict[str, Any], *, allow_unresolved: bool) -> Fa
         for key, required in expected.items():
             if int(search.get(key, required)) != required:
                 raise ValueError(f"strict_stage12_v3_{key}_must_equal_{required}")
-        if int(search.get("generations_per_round", 10)) not in {1, 5, 10}:
-            raise ValueError("strict_stage12_v3_generations_must_equal_1_5_or_10")
+        if int(search.get("generations_per_round", 10)) not in {1, 3, 5, 10}:
+            raise ValueError("strict_stage12_v3_generations_must_equal_1_3_5_or_10")
     payload["search"] = search
 
     stage2 = dict(payload.get("stage2", {}) or {})

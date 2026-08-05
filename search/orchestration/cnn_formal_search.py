@@ -105,6 +105,19 @@ class CNNFormalSearch:
                 runtime["tensorrt_root"], label="tensorrt_root", file=False
             ),
             activation_taylor=bool(proxy.get("include_activation_taylor", False)),
+            objective_calibration=str(
+                proxy.get("objective_calibration", "raw")
+            ),
+            objective_fit_batches=int(proxy.get("objective_fit_batches", 4)),
+            objective_validation_batches=int(
+                proxy.get("objective_validation_batches", 4)
+            ),
+            objective_fit_candidates_per_mode=int(
+                proxy.get("objective_fit_candidates_per_mode", 4)
+            ),
+            objective_validation_candidates_per_mode=int(
+                proxy.get("objective_validation_candidates_per_mode", 2)
+            ),
             stage2_latency_rounds=int(stage2.get("latency_rounds", 3)),
             full_validation_frames=int(full.get("num_frames", 1789)),
             full_validation_warmup_frames=int(full.get("warmup_frames", 200)),

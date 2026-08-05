@@ -62,10 +62,11 @@ class FunctionalGateTaylorProxy:
         total = 0.0
         count = 0
         domains: dict[str, float] = {}
+        before = set(current.pruned_unit_ids)
+        after = set(successor.pruned_unit_ids)
+        newly_removed = after - before
         for domain_id, row in self.scores.items():
-            before = set(current.pruned_unit_ids)
-            after = set(successor.pruned_unit_ids)
-            units = sorted((after - before) & set(row.unit_scores))
+            units = sorted(newly_removed & set(row.unit_scores))
             value = sum(float(row.unit_scores[u]) for u in units)
             total += value
             count += len(units)

@@ -49,6 +49,7 @@ class StrictGAConfig:
         contracts = {
             "formal_gen10": 10,
             "formal_gen5": 5,
+            "formal_experiment_gen3": 3,
             "formal_smoke_gen1": 1,
         }
         expected = contracts.get(str(self.generation_contract))
@@ -114,12 +115,20 @@ def phenotype_identity(
 ) -> dict[str, str]:
     validate_genotype_schema(genotype, space)
     phenotype = canonicalize_candidate(genotype, space)
+    width_expansion_hash = str(
+        phenotype.metadata.get("domain_width_expansion_hash", "")
+    )
     return {
         "canonical_structure_hash": _stable_hash(genotype.pruning_width_genes),
         "physical_structure_hash": _stable_hash(
             {
                 "widths": genotype.pruning_width_genes,
-                "pruned_units": phenotype.pruned_unit_ids,
+                "domain_width_expansion_hash": width_expansion_hash,
+                **(
+                    {}
+                    if width_expansion_hash
+                    else {"pruned_units": phenotype.pruned_unit_ids}
+                ),
             }
         ),
         "precision_map_hash": _stable_hash({
@@ -228,6 +237,7 @@ class UnifiedTaylorStage1Evaluator:
         tolerance_abs: float = 0.005,
         enforce_bops_hard_gate: bool = True,
         include_activation_taylor: bool = True,
+        objective_calibration: Any | None = None,
     ) -> None:
         validate_genotype_schema(baseline, space)
         self.space = space
@@ -241,6 +251,7 @@ class UnifiedTaylorStage1Evaluator:
         self.tolerance_abs = float(tolerance_abs)
         self.enforce_bops_hard_gate = bool(enforce_bops_hard_gate)
         self.include_activation_taylor = bool(include_activation_taylor)
+        self.objective_calibration = objective_calibration
         if not 0.0 <= self.tolerance_abs <= 0.005:
             raise ValueError("stage1_bops_tolerance_must_not_exceed_0_005")
         if self.include_activation_taylor and activation_cache is None:
@@ -248,6 +259,11 @@ class UnifiedTaylorStage1Evaluator:
         self._baseline_phenotype = canonicalize_candidate(baseline, space)
         self._groups = {str(row.group_id): row for row in space.quantization_groups}
         self._cache: dict[str, dict[str, Any]] = {}
+        self._structure_score_cache: dict[tuple[tuple[str, int], ...], float] = {}
+        self._weight_action_cache: dict[
+            tuple[tuple[tuple[str, int], ...], str, str, str], float
+        ] = {}
+        self._activation_action_cache: dict[tuple[str, str, str], float] = {}
 
     def __call__(self, genotype: CandidateGenotype) -> dict[str, Any]:
         validate_genotype_schema(genotype, self.space)
@@ -299,10 +315,15 @@ class UnifiedTaylorStage1Evaluator:
             meta={"created_by": "stage1_structure_state"},
         )
         structure_phenotype = canonicalize_candidate(structure_state, self.space)
-        structural = self.structure_proxy.pruning_action_breakdown(
-            self._baseline_phenotype, structure_phenotype
-        )
-        j_struct = float(structural["delta_J_prune"])
+        structure_key = tuple(sorted(genotype.pruning_width_genes.items()))
+        cached_structure = self._structure_score_cache.get(structure_key)
+        if cached_structure is None:
+            structural = self.structure_proxy.pruning_action_breakdown(
+                self._baseline_phenotype, structure_phenotype
+            )
+            cached_structure = float(structural["delta_J_prune"])
+            self._structure_score_cache[structure_key] = cached_structure
+        j_struct = cached_structure
         j_wq = 0.0
         j_aq = 0.0
         current = structure_state
@@ -326,20 +347,52 @@ class UnifiedTaylorStage1Evaluator:
                     meta={"created_by": "stage1_adjacent_precision_accumulation"},
                 )
                 successor_phenotype = canonicalize_candidate(successor, self.space)
-                j_wq += float(
-                    self.weight_proxy.weight_quantization_action_breakdown(
-                        current_phenotype, successor_phenotype
-                    )["delta_J_WQ"]
+                weight_key = (
+                    structure_key,
+                    locus,
+                    str(states[position - 1]),
+                    str(states[position]),
                 )
-                if self.include_activation_taylor:
-                    j_aq += float(
-                        self.activation_cache.action_breakdown(
+                weight_value = self._weight_action_cache.get(weight_key)
+                if weight_value is None:
+                    weight_value = float(
+                        self.weight_proxy.weight_quantization_action_breakdown(
                             current_phenotype, successor_phenotype
-                        )["delta_J_AQ"]
+                        )["delta_J_WQ"]
                     )
+                    self._weight_action_cache[weight_key] = weight_value
+                j_wq += weight_value
+                if self.include_activation_taylor:
+                    activation_key = (
+                        locus,
+                        str(states[position - 1]),
+                        str(states[position]),
+                    )
+                    activation_value = self._activation_action_cache.get(
+                        activation_key
+                    )
+                    if activation_value is None:
+                        activation_value = float(
+                            self.activation_cache.action_breakdown(
+                                current_phenotype, successor_phenotype
+                            )["delta_J_AQ"]
+                        )
+                        self._activation_action_cache[
+                            activation_key
+                        ] = activation_value
+                    j_aq += activation_value
                 current = successor
                 current_phenotype = successor_phenotype
-        j_total = j_struct + j_wq + j_aq
+        j_total_raw = j_struct + j_wq + j_aq
+        j_total = (
+            float(
+                self.objective_calibration.score(
+                    j_struct=j_struct, j_wq=j_wq, j_aq=j_aq
+                )
+            )
+            if self.objective_calibration is not None
+            else j_total_raw
+        )
         if not math.isfinite(j_total) or min(j_struct, j_wq, j_aq) < 0.0:
             raise RuntimeError("ga_stage1_taylor_invalid")
         size = dict(self.size_evaluator(candidate_phenotype))
@@ -349,6 +402,8 @@ class UnifiedTaylorStage1Evaluator:
             "J_WQ": j_wq,
             "J_AQ": j_aq,
             "J_total": j_total,
+            "J_total_raw_sum": j_total_raw,
+            "objective_calibrated": self.objective_calibration is not None,
             "F1": j_total,
             "R_bops_vs_fp32": retention,
             "bops_deviation": deviation,
@@ -412,6 +467,8 @@ def stage1_audit_payload(row: Mapping[str, Any]) -> dict[str, Any]:
         "J_WQ",
         "J_AQ",
         "J_total",
+        "J_total_raw_sum",
+        "objective_calibrated",
         "F1",
         "R_bops_vs_fp32",
         "bops_deviation",

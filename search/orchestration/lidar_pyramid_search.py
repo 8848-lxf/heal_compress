@@ -1708,6 +1708,7 @@ class LidarPyramidTwoStageSearch:
                         run_dir=run_dir,
                         round_dir=round_dir,
                         selected=resumed_selected,
+                        round_index=round_index,
                     )
                     evaluated_rows.extend(resumed_rows)
                     write_round_stage2_results(
@@ -2444,6 +2445,7 @@ class LidarPyramidTwoStageSearch:
                     run_dir=run_dir,
                     round_dir=round_dir,
                     selected=selected,
+                    round_index=round_index,
                 )
                 evaluated_rows.extend(round_stage2_rows)
                 write_round_stage2_results(

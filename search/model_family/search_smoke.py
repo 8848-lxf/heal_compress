@@ -33,6 +33,7 @@ def load_v2xvit_manifest_batches(
     sample_count: int,
     device: torch.device,
     prefer_two_agents: bool = True,
+    sample_offset: int = 0,
 ) -> tuple[list[Any], list[dict[str, Any]]]:
     from opencood.data_utils.datasets import build_dataset
     from opencood.hypes_yaml import yaml_utils
@@ -45,7 +46,10 @@ def load_v2xvit_manifest_batches(
         samples = [row for row in samples if int(row["record_len"]) == 2] + [
             row for row in samples if int(row["record_len"]) != 2
         ]
-    selected = samples[: int(sample_count)]
+    offset = int(sample_offset)
+    if offset < 0:
+        raise ValueError("v2xvit_manifest_sample_offset_negative")
+    selected = samples[offset : offset + int(sample_count)]
     if len(selected) != int(sample_count):
         raise RuntimeError(
             f"v2xvit_manifest_insufficient_calibration_samples:{len(selected)}<{sample_count}"

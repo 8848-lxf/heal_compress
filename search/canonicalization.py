@@ -51,6 +51,9 @@ class SearchSpaceSpec:
         object.__setattr__(self, "default_precision", normalize_precision(self.default_precision))
         object.__setattr__(self, "builder_flags", dict(self.builder_flags))
         object.__setattr__(self, "plugin_hashes", {str(k): str(v) for k, v in self.plugin_hashes.items()})
+        # Runtime-only memoization. Legal widths and frozen rankings make the
+        # structural expansion a pure function of this tuple.
+        object.__setattr__(self, "_width_expansion_cache", {})
 
     @property
     def precision_gene_ids(self) -> list[str]:
@@ -180,10 +183,20 @@ def canonicalize_candidate(
     profile: dict[str, PrecisionDecision] = {}
     metadata: dict[str, Any] = {"repair_version": "search-repair-v1", **dict(repaired.meta)}
     if space.pruning_domains:
-        pruned_unit_ids, width_metadata = expand_domain_width_genes(
-            repaired.pruning_width_genes,
-            space.pruning_domains,
+        width_key = tuple(
+            (str(domain.domain_id), int(repaired.pruning_width_genes[domain.domain_id]))
+            for domain in space.pruning_domains
         )
+        cached_expansion = space._width_expansion_cache.get(width_key)
+        if cached_expansion is None:
+            expanded_ids, expanded_metadata = expand_domain_width_genes(
+                repaired.pruning_width_genes,
+                space.pruning_domains,
+            )
+            cached_expansion = (tuple(expanded_ids), expanded_metadata)
+            space._width_expansion_cache[width_key] = cached_expansion
+        pruned_unit_ids = list(cached_expansion[0])
+        width_metadata = dict(cached_expansion[1])
         metadata.update(width_metadata)
         metadata["repair_version"] = "domain-width-legal-by-construction-v1"
     else:

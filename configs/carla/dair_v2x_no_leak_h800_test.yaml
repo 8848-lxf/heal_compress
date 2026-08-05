@@ -1,0 +1,85 @@
+schema_version: heal-carla-dair-aligned-v2
+
+simulation:
+  fixed_delta_seconds: 0.1
+  sensor_tick_seconds: 0.1
+  client_timeout_seconds: 30.0
+  warmup_ticks: 15
+  frames_per_scene: 20
+  random_seed: 20260803
+  traffic_manager_port_offset: 1700
+
+model_contract:
+  lidar_range: [-102.4, -51.2, -3.5, 102.4, 51.2, 1.5]
+  voxel_size: [0.4, 0.4, 5.0]
+  max_points_per_voxel: 32
+  point_frontend: dynamic_voxel_pfn_scatter_outside_tensorrt
+  tensorrt_inputs: [spatial_features, pairwise_t_matrix]
+
+lidar_profiles:
+  vehicle:
+    channels: 40
+    rotation_frequency: 10.0
+    horizontal_fov: 360.0
+    upper_fov: 10.0
+    lower_fov: -30.0
+    range_m: 200.0
+    points_per_second: 625000
+    physical_height_m: 1.925
+    canonical_height_m: 1.925
+  infrastructure:
+    channels: 300
+    rotation_frequency: 10.0
+    horizontal_fov: 100.0
+    upper_fov: 10.0
+    lower_fov: -30.0
+    range_m: 280.0
+    points_per_second: 2052000
+    physical_height_m: 7.5
+    canonical_height_m: 1.675
+
+carla_0_9_10_compatibility:
+  sensor_tick: every_fixed_0_1_second_world_step
+  horizontal_fov: software_azimuth_crop_from_360_degree_scan
+  infrastructure_emitted_points_per_second: 2052000
+  infrastructure_effective_points_per_second_after_crop: 570000
+  weather_lidar_effect: none_in_carla_0_9_10
+
+# Town03/04/05 have already been used for H800 development. Town01/02 are
+# locked here before intensity calibration is built and are not source maps.
+scenes:
+  - id: blind_town01_clear_seed0
+    map: Town01
+    weather: ClearNoon
+    ego_spawn_index: 7
+    traffic_vehicles: 18
+    rsu_forward_m: 20.0
+    rsu_lateral_m: 5.0
+  - id: blind_town01_wet_seed1
+    map: Town01
+    weather: WetNoon
+    ego_spawn_index: 28
+    traffic_vehicles: 24
+    rsu_forward_m: 18.0
+    rsu_lateral_m: -5.0
+  - id: blind_town02_clear_seed2
+    map: Town02
+    weather: ClearNoon
+    ego_spawn_index: 11
+    traffic_vehicles: 16
+    rsu_forward_m: 22.0
+    rsu_lateral_m: 5.0
+  - id: blind_town02_sunset_seed3
+    map: Town02
+    weather: ClearSunset
+    ego_spawn_index: 37
+    traffic_vehicles: 22
+    rsu_forward_m: 20.0
+    rsu_lateral_m: -5.0
+  - id: blind_town02_rain_seed4
+    map: Town02
+    weather: HardRainNoon
+    ego_spawn_index: 61
+    traffic_vehicles: 28
+    rsu_forward_m: 16.0
+    rsu_lateral_m: 5.0

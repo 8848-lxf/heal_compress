@@ -43,6 +43,9 @@ class JointWeightTaylorProxy:
         self.epsilon = float(epsilon)
         self.strict = bool(strict)
         self._denominator_by_precision_universe: dict[tuple[str, ...], float] = {}
+        self._quantization_transition_terms: dict[
+            tuple[str, str, str], tuple[torch.Tensor, torch.Tensor]
+        ] = {}
 
     @staticmethod
     def _module_path(parameter_name: str) -> str:
@@ -183,23 +186,33 @@ class JointWeightTaylorProxy:
                 module_path, "FP32"
             )
             next_precision = successor.realized_precision_profile[module_path]
-            current_quantized = pseudo_quantize_tensor(
-                value, current_precision, module=modules.get(module_path)
+            transition_key = (
+                module_path,
+                str(current_precision),
+                str(next_precision),
             )
-            next_quantized = pseudo_quantize_tensor(
-                value, next_precision, module=modules.get(module_path)
+            transition_terms = self._quantization_transition_terms.get(
+                transition_key
             )
+            if transition_terms is None:
+                current_quantized = pseudo_quantize_tensor(
+                    value, current_precision, module=modules.get(module_path)
+                )
+                next_quantized = pseudo_quantize_tensor(
+                    value, next_precision, module=modules.get(module_path)
+                )
+                transition_terms = self._cost_terms(
+                    next_quantized - current_quantized, gradient, fisher
+                )[:2]
+                self._quantization_transition_terms[
+                    transition_key
+                ] = transition_terms
             retained = retained_mask_for_parameter(
                 value, current_slices.get(name, [])
             )
-            delta = torch.where(
-                retained,
-                next_quantized - current_quantized,
-                torch.zeros_like(value),
-            )
-            first, second, _score = self._cost_terms(delta, gradient, fisher)
-            first_total += float(first.sum().detach().cpu())
-            second_total += float(second.sum().detach().cpu())
+            first, second = transition_terms
+            first_total += float(first[retained].sum().detach().cpu())
+            second_total += float(second[retained].sum().detach().cpu())
             element_count += int(retained.sum().detach().cpu())
             tensor_count += 1
         total = first_total + second_total

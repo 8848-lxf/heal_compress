@@ -170,7 +170,15 @@ class GreedySearchResult:
     budget_recovery_enabled: bool
 
     def to_dict(self) -> dict[str, Any]:
-        activation_taylor = "L_joint_weight_activation_taylor" in self.initial_metrics
+        activation_taylor = bool(
+            self.initial_metrics.get(
+                "activation_taylor_included",
+                "L_joint_weight_activation_taylor" in self.initial_metrics,
+            )
+        )
+        objective_calibrated = bool(
+            self.initial_metrics.get("objective_calibrated", False)
+        )
         return {
             "initial_candidate": self.initial_candidate.to_dict(),
             "initial_metrics": dict(self.initial_metrics),
@@ -209,9 +217,10 @@ class GreedySearchResult:
                     "attention_dh",
                     "ffn_hidden",
                 ],
-                "selection": "minimum_incremental_joint_taylor_loss_per_positive_BOPS_reduction",
+                "selection": "minimum_incremental_configured_stage1_objective_per_positive_BOPS_reduction",
                 "neighbor_costs_recomputed_after_every_step": True,
                 "activation_taylor_included": activation_taylor,
+                "objective_calibrated": objective_calibrated,
                 "near_equal_score_tiebreak": [
                     "lower_latency_proxy",
                     "larger_parameter_compression",

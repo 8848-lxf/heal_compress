@@ -26,6 +26,7 @@ class BOPSProxy:
         include_module_paths: Sequence[str] | None = None,
         exclude_module_paths: Sequence[str] = (),
         default_precision: str = "FP16",
+        virtual_shape_cache: dict[tuple[str, ...], dict[str, Any]] | None = None,
     ) -> None:
         self.model = model
         self.unit_to_parameter_slices = unit_to_parameter_slices or {}
@@ -54,6 +55,19 @@ class BOPSProxy:
         self.activation_bits = int(activation_bits)
         self.base_bops = sum(count * 32 * 32 for count in self.layer_ops.values()) or 1
         self.base_fp16_bops = self._base_fp16_bops()
+        self._virtual_shape_cache = (
+            virtual_shape_cache if virtual_shape_cache is not None else {}
+        )
+
+    def _virtual_shapes(self, phenotype: CandidatePhenotype) -> dict[str, Any]:
+        key = tuple(phenotype.pruned_unit_ids)
+        cached = self._virtual_shape_cache.get(key)
+        if cached is None:
+            cached = resolve_virtual_shapes(
+                self.model, phenotype, self.unit_to_parameter_slices
+            )
+            self._virtual_shape_cache[key] = cached
+        return cached
 
     def _base_fp16_bops(self) -> float:
         if self.runtime_shapes:
@@ -69,7 +83,11 @@ class BOPSProxy:
 
     def evaluate_breakdown(self, phenotype: CandidatePhenotype) -> dict[str, Any]:
         if self.runtime_shapes:
-            virtual = resolve_virtual_shapes(self.model, phenotype, self.unit_to_parameter_slices) if self.model is not None and self.unit_to_parameter_slices else {}
+            virtual = (
+                self._virtual_shapes(phenotype)
+                if self.model is not None and self.unit_to_parameter_slices
+                else {}
+            )
             total = 0.0
             int8_macs = 0.0
             total_macs = 0.0
@@ -137,7 +155,7 @@ class BOPSProxy:
             }
         if self.model is not None and self.unit_to_parameter_slices:
             total = 0
-            for layer, shape in resolve_virtual_shapes(self.model, phenotype, self.unit_to_parameter_slices).items():
+            for layer, shape in self._virtual_shapes(phenotype).items():
                 precision = phenotype.realized_precision_profile.get(
                     layer, self.default_precision
                 )

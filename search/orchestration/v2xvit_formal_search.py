@@ -7,9 +7,9 @@ from pathlib import Path
 import random
 from typing import Any, Mapping
 
-from ..cache.proxy_cache import ProxyCache
 from ..candidate import CandidateGenotype
 from ..canonicalization import SearchSpaceSpec, canonicalize_candidate
+from ..adapters.transformer_models import build_transformer_search_components
 from ..ga.strict_stage12_v3 import (
     Stage2Result,
     UnifiedTaylorStage1Evaluator,
@@ -19,32 +19,35 @@ from ..ga.strict_stage12_v3 import (
     stage1_audit_payload,
 )
 from ..greedy import GreedyBudgetSearch, GreedySearchConfig
-from ..hashing import canonical_json_hash, search_hash
+from ..hashing import canonical_json_hash
+from ..model_family.heal_lidar_pruning import (
+    build_heal_lidar_baseline_atomic_units,
+)
 from ..model_family.calibration_manifest import load_v2xvit_train_manifest
 from ..model_family.model_provider import load_heal_model_family
 from ..model_family.search_smoke import (
     collect_v2xvit_manifest_fisher_statistics,
     load_v2xvit_manifest_batches,
 )
-from ..model_family.search_space import (
-    build_ranked_v2xvit_ffn_domains,
-    build_v2xvit_ffn_atomic_units,
-    build_v2xvit_quantization_groups,
-)
+from ..model_family.search_space import build_v2xvit_quantization_groups
 from ..proxy.bops_proxy import BOPSProxy
 from ..proxy.conservative_gate_activation_taylor import (
+    FunctionalGateTaylorProxy,
     build_activation_units,
     collect_activation_taylor_cache_multi,
+    collect_functional_gate_scores_multi,
+    rerank_domains_by_gate_scores,
 )
-from ..proxy.gpu_batch_proxy import TorchBatchedProxyScorer
 from ..proxy.joint_weight_taylor import JointWeightTaylorProxy
-from ..proxy.normalization import NormalizationStats
-from ..proxy.objective import ProxyObjective, ProxyObjectiveConfig
 from ..proxy.parameter_slice_resolver import build_unit_parameter_slices
 from ..proxy.runtime_shape_profiler import profile_runtime_layer_shapes
 from ..proxy.size_proxy import SizeProxy
 from ..pruning_space.domain_importance import score_atomic_units_for_fixed_ranking
-from ..stage1.proxy_evaluator import Stage1ProxyEvaluator
+from ..pruning_space.local_domains import build_local_pruning_domains
+from ..proxy.transformer_parameter_slices import (
+    build_transformer_unit_parameter_slices,
+)
+from ..proxy.task_loss_calibration import fit_task_loss_calibration_for_search
 from ..unified.config import PROJECT_ROOT, ResolvedSearchConfig
 from ..unified.formal import run_strict_formal_ga
 
@@ -168,12 +171,56 @@ class V2XViTFormalSearch:
             forward_fn=bundle.adapter.forward_for_task,
         )
         active_paths = sorted({row.module_path for row in runtime_profile.shapes})
-        atomic_units, _ = build_v2xvit_ffn_atomic_units(bundle.model, bundle.audit)
-        unit_slices = build_unit_parameter_slices(bundle.model, atomic_units)
-        importance, ranking = score_atomic_units_for_fixed_ranking(
-            bundle.model, statistics, unit_slices, strict=True
+        cnn_atomic_units = build_heal_lidar_baseline_atomic_units(
+            bundle.model, "heal_lidar_v2xvit"
         )
-        domains = build_ranked_v2xvit_ffn_domains(atomic_units, importance)
+        cnn_slices = build_unit_parameter_slices(bundle.model, cnn_atomic_units)
+        cnn_importance, cnn_ranking = score_atomic_units_for_fixed_ranking(
+            bundle.model, statistics, cnn_slices, strict=True
+        )
+        cnn_domains = build_local_pruning_domains(
+            cnn_atomic_units,
+            importance_scores=cnn_importance,
+            ranking_method="pruning_only_first_plus_second_order_fisher_taylor",
+            minimum_retained_ratio=float(
+                dict(self.payload.get("pruning", {}) or {}).get(
+                    "minimum_retained_ratio", 0.10
+                )
+            ),
+            dense_alignment=int(
+                dict(self.payload.get("pruning", {}) or {}).get(
+                    "dense_channel_alignment", 4
+                )
+            ),
+        )
+        transformer = build_transformer_search_components(
+            bundle.model,
+            bundle.config,
+            allow_identity_ranking=True,
+            active_module_paths=active_paths,
+        )
+        preliminary_domains = tuple(cnn_domains) + tuple(
+            transformer.transformer_domains
+        )
+        gate_scores, gate_mapping = collect_functional_gate_scores_multi(
+            bundle.model,
+            preliminary_domains,
+            forward_fn=bundle.adapter.forward_for_task,
+            loss_fn=bundle.adapter.compute_task_loss,
+            calibration_batches=batches,
+        )
+        domains = list(
+            rerank_domains_by_gate_scores(preliminary_domains, gate_scores)
+        )
+        transformer_slices = build_transformer_unit_parameter_slices(
+            bundle.model, domains
+        )
+        overlap = set(cnn_slices).intersection(transformer_slices)
+        if overlap:
+            raise RuntimeError(
+                f"v2xvit_cnn_transformer_unit_overlap:{sorted(overlap)}"
+            )
+        unit_slices = {**cnn_slices, **transformer_slices}
         quantization_groups = build_v2xvit_quantization_groups(
             bundle.model,
             bundle.audit,
@@ -181,12 +228,16 @@ class V2XViTFormalSearch:
         )
         capability = torch.cuda.get_device_capability(device)
         space = SearchSpaceSpec(
-            pruning_unit_ids=[row.stable_id for row in atomic_units],
+            pruning_unit_ids=[
+                str(unit_id)
+                for domain in domains
+                for unit_id in domain.ordered_unit_ids
+            ],
             precision_layer_ids=active_paths,
             quantization_groups=tuple(quantization_groups),
             pruning_domains=tuple(domains),
             default_precision="FP32",
-            pruning_policy_version="v2xvit-ffn-legal-domain-width-fixed-ranking-v1",
+            pruning_policy_version="v2xvit-cnn-attention-dh-ffn-dff-fixed-gate-ranking-v1",
             precision_policy_version="v2xvit-deployment-closed-v1",
             trace_snapshot_hash=bundle.audit.to_dict()["audit_hash"],
             calibration_manifest_hash=str(manifest["manifest_hash"]),
@@ -206,12 +257,12 @@ class V2XViTFormalSearch:
             },
         )
         activation_cache = None
+        activation_units, group_to_units = build_activation_units(
+            bundle.model,
+            space,
+            transformer_units=(),
+        )
         if bool(proxy_cfg.get("include_activation_taylor", False)):
-            activation_units, group_to_units = build_activation_units(
-                bundle.model,
-                space,
-                transformer_units=(),
-            )
             activation_cache = collect_activation_taylor_cache_multi(
                 bundle.model,
                 activation_units,
@@ -253,16 +304,30 @@ class V2XViTFormalSearch:
                 "fixed_k": manifest_fixed_k,
                 "domains": [row.to_dict() for row in domains],
                 "quantization_groups": [row.to_dict() for row in quantization_groups],
-                "ranking": ranking,
+                "ranking": {
+                    "cnn_parameter_taylor": cnn_ranking,
+                    "functional_gate_mapping": gate_mapping,
+                },
+                "domain_type_counts": {
+                    kind: sum(row.domain_type == kind for row in domains)
+                    for kind in sorted({row.domain_type for row in domains})
+                },
+                "attention_instance_count": len(transformer.attention_instances),
+                "ffn_instance_count": len(transformer.ffn_instances),
+                "cnn_atomic_unit_count": len(cnn_atomic_units),
             },
         )
-
-        normalization = NormalizationStats()
-        size = SizeProxy(model=bundle.model, unit_to_parameter_slices=unit_slices)
+        virtual_shape_cache: dict[tuple[str, ...], dict[str, Any]] = {}
+        size = SizeProxy(
+            model=bundle.model,
+            unit_to_parameter_slices=unit_slices,
+            virtual_shape_cache=virtual_shape_cache,
+        )
         bops = BOPSProxy(
             model=bundle.model,
             unit_to_parameter_slices=unit_slices,
             runtime_shapes=runtime_profile.shapes,
+            virtual_shape_cache=virtual_shape_cache,
         )
         joint = JointWeightTaylorProxy(
             bundle.model,
@@ -270,59 +335,120 @@ class V2XViTFormalSearch:
             unit_to_parameter_slices=unit_slices,
             strict=True,
         )
-        objective_config = ProxyObjectiveConfig(
-            objective_mode="joint_weight_taylor_hard_bops",
-            bops_threshold=min(float(value) for value in self.payload["search"]["bops_targets"]),
-            bops_constraint_mode="hard_band_feasibility",
-            bops_tolerance_abs=float(proxy_cfg.get("bops_tolerance_abs", 0.005)),
-            parameter_retention_tiebreak_epsilon=0.0,
+        baseline = CandidateGenotype(
+            pruning_width_genes={
+                domain.domain_id: int(domain.original_width) for domain in domains
+            },
+            precision_genes={
+                group.group_id: str(group.allowed_precisions[0])
+                for group in space.quantization_groups
+                if group.group_id in space.precision_gene_ids
+            },
+            meta={"created_by": "v2xvit_formal_baseline"},
         )
-        objective = ProxyObjective(
-            size=size,
-            bops=bops,
-            joint_weight_taylor=joint,
-            normalization=normalization,
-            config=objective_config,
-        )
-        scorer = TorchBatchedProxyScorer.from_components(
-            model=bundle.model,
-            space=space,
-            unit_to_parameter_slices=unit_slices,
-            fisher_statistics=statistics,
-            runtime_shapes=runtime_profile.shapes,
-            normalization=normalization,
-            config=objective_config,
-            device=device,
-            batch_size=int(proxy_cfg.get("batch_size", 128)),
-        )
-        greedy_proxy = Stage1ProxyEvaluator(
+        raw_stage1 = UnifiedTaylorStage1Evaluator(
             space,
-            objective=objective,
-            cache=ProxyCache(run_dir / "archives/proxy_archive.jsonl"),
-            cache_key_fn=lambda phenotype, _space: search_hash(
-                phenotype,
-                trace_hash=space.trace_snapshot_hash,
-                proxy_version="v2xvit-public-formal-joint-weight-taylor-v1",
-                calibration_statistics_version=(
-                    statistics.statistics_version + ":" + statistics.manifest_hash
-                ),
+            baseline=baseline,
+            structure_proxy=FunctionalGateTaylorProxy(gate_scores),
+            weight_proxy=joint,
+            activation_cache=activation_cache,
+            bops_evaluator=bops.evaluate_breakdown,
+            size_evaluator=size.evaluate_breakdown,
+            target=min(float(value) for value in self.payload["search"]["bops_targets"]),
+            tolerance_abs=float(proxy_cfg.get("bops_tolerance_abs", 0.005)),
+            enforce_bops_hard_gate=False,
+            include_activation_taylor=bool(
+                proxy_cfg.get("include_activation_taylor", False)
             ),
-            batch_scorer=scorer,
-            proxy_backend="cuda_batched",
-            proxy_device=device_name,
-            proxy_batch_size=int(proxy_cfg.get("batch_size", 128)),
+        )
+        objective_calibration = None
+        calibration_mode = str(
+            proxy_cfg.get("objective_calibration", "raw")
+        ).lower()
+        if calibration_mode == "huber-nnls":
+            if activation_cache is None:
+                raise RuntimeError(
+                    "v2xvit_task_loss_objective_calibration_requires_activation_taylor"
+                )
+            fit_batch_count = int(proxy_cfg.get("objective_fit_batches", 4))
+            validation_batch_count = int(
+                proxy_cfg.get("objective_validation_batches", 4)
+            )
+            fit_batches, fit_evidence = load_v2xvit_manifest_batches(
+                bundle,
+                manifest,
+                sample_count=fit_batch_count,
+                sample_offset=fisher_samples,
+                device=device,
+            )
+            validation_batches, validation_evidence = load_v2xvit_manifest_batches(
+                bundle,
+                manifest,
+                sample_count=validation_batch_count,
+                sample_offset=fisher_samples + fit_batch_count,
+                device=device,
+            )
+            objective_calibration, calibration_report = (
+                fit_task_loss_calibration_for_search(
+                    bundle.model,
+                    space,
+                    baseline,
+                    fit_batches,
+                    validation_batches,
+                    unit_to_parameter_slices=unit_slices,
+                    activation_units=activation_units,
+                    forward_fn=bundle.adapter.forward_for_task,
+                    loss_fn=bundle.adapter.compute_task_loss,
+                    stage1_evaluator=raw_stage1,
+                    count_per_mode_fit=int(
+                        proxy_cfg.get("objective_fit_candidates_per_mode", 4)
+                    ),
+                    count_per_mode_validation=int(
+                        proxy_cfg.get("objective_validation_candidates_per_mode", 2)
+                    ),
+                    seed=int(dict(self.payload.get("search", {}) or {}).get("seed", 42)),
+                )
+            )
+            calibration_report["fit_sample_evidence"] = fit_evidence
+            calibration_report["validation_sample_evidence"] = validation_evidence
+            _write_json(
+                run_dir / "manifests/task_loss_objective_calibration.json",
+                calibration_report,
+            )
+        elif calibration_mode != "raw":
+            raise ValueError(
+                f"v2xvit_objective_calibration_mode_unsupported:{calibration_mode}"
+            )
+        structure_proxy = raw_stage1.structure_proxy
+        greedy_stage1 = UnifiedTaylorStage1Evaluator(
+            space,
+            baseline=baseline,
+            structure_proxy=structure_proxy,
+            weight_proxy=joint,
+            activation_cache=activation_cache,
+            bops_evaluator=bops.evaluate_breakdown,
+            size_evaluator=size.evaluate_breakdown,
+            target=min(float(value) for value in self.payload["search"]["bops_targets"]),
+            tolerance_abs=float(proxy_cfg.get("bops_tolerance_abs", 0.005)),
+            enforce_bops_hard_gate=False,
+            include_activation_taylor=bool(proxy_cfg.get("include_activation_taylor", False)),
+            objective_calibration=objective_calibration,
         )
         return {
             "bundle": bundle,
             "activation_cache": activation_cache,
             "batches": batches,
+            "baseline": baseline,
             "bops": bops,
+            "cnn_atomic_units": cnn_atomic_units,
             "checkpoint": checkpoint,
             "config_path": config_path,
             "domains": domains,
-            "greedy_proxy": greedy_proxy,
+            "greedy_stage1": greedy_stage1,
             "heal_root": heal_root,
             "joint": joint,
+            "objective_calibration": objective_calibration,
+            "structure": structure_proxy,
             "manifest": manifest,
             "manifest_path": train_manifest_path,
             "size": size,
@@ -341,7 +467,7 @@ class V2XViTFormalSearch:
         from quantization.types import stable_json_hash
         from ..model_family.deployment import build_physical_structure_snapshot_v2
         from ..model_family.evaluation import evaluate_v2xvit_engine_modelopt
-        from ..model_family.pruning import materialize_v2xvit_ffn_pruning
+        from ..model_family.pruning import materialize_v2xvit_unified_pruning
         from ..stage2.v2xvit_candidate_deployer import export_build_candidate
 
         runtime = dict(self.payload.get("runtime", {}) or {})
@@ -359,8 +485,11 @@ class V2XViTFormalSearch:
             / candidate_id[:16]
         )
         try:
-            physical = materialize_v2xvit_ffn_pruning(
-                state["bundle"].model, phenotype, state["domains"]
+            physical = materialize_v2xvit_unified_pruning(
+                state["bundle"].model,
+                phenotype,
+                state["domains"],
+                state["cnn_atomic_units"],
             )
             snapshot = build_physical_structure_snapshot_v2(physical.model)
             shapes = {
@@ -567,9 +696,9 @@ class V2XViTFormalSearch:
                 budget_recovery_max_depth=int(search.get("budget_recovery_max_depth", 64)),
             ),
         ).run(
-            lambda candidates, step: state["greedy_proxy"].evaluate_batch(
-                candidates, generation=step, outer_round=0
-            ).metrics
+            lambda candidates, _step: [
+                state["greedy_stage1"](candidate) for candidate in candidates
+            ]
         )
         _write_json(run_dir / "greedy/search_result.json", greedy.to_dict())
         missing = [target for target in targets if target not in greedy.budget_candidates]
@@ -623,22 +752,10 @@ class V2XViTFormalSearch:
         results: dict[str, Any] = {}
         target_winners: dict[float, Stage2Result] = {}
         for ordinal, target in enumerate(targets):
-            baseline = CandidateGenotype(
-                pruning_width_genes={
-                    domain.domain_id: int(domain.original_width)
-                    for domain in space.pruning_domains
-                },
-                precision_genes={
-                    group.group_id: str(group.allowed_precisions[0])
-                    for group in space.quantization_groups
-                    if group.group_id in space.precision_gene_ids
-                },
-                meta={"created_by": "v2xvit_formal_baseline"},
-            )
             stage1 = UnifiedTaylorStage1Evaluator(
                 space,
-                baseline=baseline,
-                structure_proxy=state["joint"],
+                baseline=state["baseline"],
+                structure_proxy=state["structure"],
                 weight_proxy=state["joint"],
                 activation_cache=state["activation_cache"],
                 bops_evaluator=state["bops"].evaluate_breakdown,
@@ -647,6 +764,7 @@ class V2XViTFormalSearch:
                 tolerance_abs=float(proxy.get("bops_tolerance_abs", 0.005)),
                 enforce_bops_hard_gate=True,
                 include_activation_taylor=bool(proxy.get("include_activation_taylor", False)),
+                objective_calibration=state["objective_calibration"],
             )
             initial = self._initial_population(
                 anchor=anchors[target].genotype,
