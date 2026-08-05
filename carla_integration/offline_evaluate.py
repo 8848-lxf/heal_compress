@@ -22,6 +22,12 @@ MODEL_NAMES = ("candidate", "baseline", "fp32_pytorch")
 PROTOCOLS = ("range_all", "visible_5plus")
 
 
+def _rotated_model_order(frame_index: int) -> Tuple[str, ...]:
+    """Balance per-frame first-call postprocess overhead across backends."""
+    offset = int(frame_index) % len(MODEL_NAMES)
+    return tuple(MODEL_NAMES[offset:] + MODEL_NAMES[:offset])
+
+
 def _percentile(values: Sequence[float], quantile: float) -> float:
     if not values:
         return 0.0
@@ -185,17 +191,24 @@ class UnprunedFP32PostScatter:
             feature = model.backbone_m1({"spatial_features": spatial})[
                 "spatial_features_2d"
             ]
-            feature = model.aligner_m1(feature)
             affine = normalize_pairwise_tfm(
                 pairwise, model.H, model.W, model.fake_voxel_size
             )
-            fused, _ = model.pyramid_backbone.forward_collab(
-                feature,
-                torch.tensor([spatial.shape[0]], device=self.device),
-                affine,
-                ["m1"] * int(spatial.shape[0]),
-                model.cam_crop_info,
-            )
+            record_len = torch.tensor([spatial.shape[0]], device=self.device)
+            if hasattr(model, "pyramid_backbone"):
+                feature = model.aligner_m1(feature)
+                fused, _ = model.pyramid_backbone.forward_collab(
+                    feature,
+                    record_len,
+                    affine,
+                    ["m1"] * int(spatial.shape[0]),
+                    model.cam_crop_info,
+                )
+            else:
+                feature = model.shrinker_m1(feature)
+                if bool(getattr(model, "compress", False)):
+                    feature = model.compressor(feature)
+                fused = model.fusion_net(feature, record_len, affine)
             if model.shrink_flag:
                 fused = model.shrink_conv(fused)
             outputs = {
@@ -349,8 +362,19 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
     current_stream = torch.cuda.current_stream(device)
     for runner in runners.values():
         runner.stream = current_stream
-        if runner.input_names() != ["spatial_features", "pairwise_t_matrix"]:
+        input_names = set(runner.input_names())
+        if input_names not in (
+            {"spatial_features", "pairwise_t_matrix"},
+            {"spatial_features", "pairwise_t_matrix", "agent_mask"},
+        ):
             raise RuntimeError(f"unexpected engine inputs: {runner.input_names()}")
+    candidate_inputs = set(runners["candidate"].input_names())
+    baseline_inputs = set(runners["baseline"].input_names())
+    if candidate_inputs != baseline_inputs:
+        raise RuntimeError(
+            "candidate/baseline post-scatter input mismatch: "
+            f"{sorted(candidate_inputs)} != {sorted(baseline_inputs)}"
+        )
 
     data_root = arguments.data.expanduser().resolve()
     manifest_path = data_root / "manifest.json"
@@ -412,6 +436,12 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
                 "spatial_features": spatial,
                 "pairwise_t_matrix": pairwise,
             }
+            if "agent_mask" in candidate_inputs:
+                inputs["agent_mask"] = torch.ones(
+                    (1, int(spatial.shape[0])),
+                    dtype=spatial.dtype,
+                    device=device,
+                )
             run_outputs = {}
             frame_forward_ms = {}
             for name in ENGINE_NAMES:
@@ -426,7 +456,8 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
                     forward_latencies[name].append(frame_forward_ms[name])
             gt_by_protocol = _ground_truth_protocols(payload, device)
             model_rows = {}
-            for name in MODEL_NAMES:
+            postprocess_order = _rotated_model_order(frame_index)
+            for name in postprocess_order:
                 boxes, scores, post_ms = _postprocess(
                     postprocessor, anchors, run_outputs[name], device
                 )
@@ -469,6 +500,7 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
                 "voxelize_cpu_ms": voxelize_ms,
                 "pfn_scatter_gpu_ms": frontend_ms,
                 "models": model_rows,
+                "postprocess_order": list(postprocess_order),
             }
         )
 
@@ -554,6 +586,7 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
             else "frozen_dair_train_quantile_map"
         ),
         "metric_protocols": list(PROTOCOLS),
+        "postprocess_timing_order": "deterministic_round_robin_per_frame",
         "intensity_calibration": {
             "path": str(calibration_path),
             "sha256": _sha256(calibration_path),

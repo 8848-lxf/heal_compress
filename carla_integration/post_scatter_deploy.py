@@ -32,19 +32,34 @@ def _trtexec(tensorrt_root: Path) -> Path:
     raise FileNotFoundError(f"trtexec not found below {tensorrt_root}")
 
 
-def post_scatter_shape_profiles() -> Mapping[str, Mapping[str, tuple[int, ...]]]:
-    return {
+def post_scatter_shape_profiles(
+    input_names: Sequence[str] = ("spatial_features", "pairwise_t_matrix"),
+) -> Mapping[str, Mapping[str, tuple[int, ...]]]:
+    names = set(input_names)
+    uses_agent_mask = "agent_mask" in names
+    min_agents = 2 if uses_agent_mask else 1
+    profiles: dict[str, Mapping[str, tuple[int, ...]]] = {
         "spatial_features": {
-            "min": (1, 64, 256, 512),
+            "min": (min_agents, 64, 256, 512),
             "opt": (2, 64, 256, 512),
             "max": (2, 64, 256, 512),
         },
         "pairwise_t_matrix": {
-            "min": (1, 1, 1, 4, 4),
+            "min": (1, min_agents, min_agents, 4, 4),
             "opt": (1, 2, 2, 4, 4),
             "max": (1, 2, 2, 4, 4),
         },
     }
+    if uses_agent_mask:
+        profiles["agent_mask"] = {
+            "min": (1, 2),
+            "opt": (1, 2),
+            "max": (1, 2),
+        }
+    missing = names - set(profiles)
+    if missing:
+        raise ValueError(f"unsupported post-scatter inputs: {sorted(missing)}")
+    return profiles
 
 
 def build_command(
@@ -53,8 +68,9 @@ def build_command(
     onnx_path: Path,
     engine_path: Path,
     layer_info_path: Path,
+    input_names: Sequence[str] = ("spatial_features", "pairwise_t_matrix"),
 ) -> list[str]:
-    profiles = post_scatter_shape_profiles()
+    profiles = post_scatter_shape_profiles(input_names)
     command = [
         str(trtexec),
         f"--onnx={onnx_path}",
@@ -88,7 +104,10 @@ def _onnx_audit(path: Path) -> dict[str, Any]:
         for node in model.graph.node
     )
     issues = []
-    if set(input_names) != {"spatial_features", "pairwise_t_matrix"}:
+    allowed_inputs = {"spatial_features", "pairwise_t_matrix", "agent_mask"}
+    if not {"spatial_features", "pairwise_t_matrix"}.issubset(input_names):
+        issues.append(f"required_inputs_missing:{sorted(input_names)}")
+    if not set(input_names).issubset(allowed_inputs):
         issues.append(f"unexpected_inputs:{sorted(input_names)}")
     if scatter_count:
         issues.append(f"scatter_nodes_present:{scatter_count}")
@@ -135,6 +154,7 @@ def build_post_scatter_engine(
         onnx_path=post_scatter_onnx,
         engine_path=engine,
         layer_info_path=layer_info,
+        input_names=onnx_audit["input_names"],
     )
     env = dict(os.environ)
     env["CUDA_VISIBLE_DEVICES"] = str(int(physical_gpu))
@@ -169,7 +189,7 @@ def build_post_scatter_engine(
         "trtexec_log": str(log),
         "trtexec_returncode": completed.returncode,
         "physical_gpu": int(physical_gpu),
-        "shape_profiles": post_scatter_shape_profiles(),
+        "shape_profiles": post_scatter_shape_profiles(onnx_audit["input_names"]),
         "strongly_typed": True,
         "plugin_required": False,
         "boundary_rewrite": boundary,

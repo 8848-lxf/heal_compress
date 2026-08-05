@@ -12,6 +12,12 @@ from typing import Any, Dict, Iterable, List, Mapping, Sequence, Set
 SCATTER_OP = "PointPillarScatterTRT"
 SPATIAL_FEATURES = "spatial_features"
 PAIRWISE = "pairwise_t_matrix"
+POINT_FRONTEND_INPUTS = {
+    "voxel_features",
+    "voxel_coords",
+    "voxel_num_points",
+    "valid_voxel_mask",
+}
 
 
 def _sha256(path: Path) -> str:
@@ -74,10 +80,11 @@ def externalize_scatter(
         )
     scatter_output = str(scatter_nodes[0].output[0])
     graph_outputs = [str(value.name) for value in model.graph.output]
+    original_inputs = {str(value.name): value for value in model.graph.input}
     required = _required_node_indices(
         model.graph.node,
         graph_outputs,
-        boundaries={scatter_output, PAIRWISE},
+        boundaries={scatter_output, *original_inputs},
     )
     kept_nodes = [
         node for index, node in enumerate(model.graph.node) if index in required
@@ -86,8 +93,7 @@ def externalize_scatter(
         raise RuntimeError("scatter node remained reachable after boundary rewrite")
     _rename_node_inputs(kept_nodes, scatter_output, SPATIAL_FEATURES)
 
-    pairwise_inputs = [value for value in model.graph.input if value.name == PAIRWISE]
-    if len(pairwise_inputs) != 1:
+    if PAIRWISE not in original_inputs:
         raise ValueError(f"expected exactly one {PAIRWISE} graph input")
     spatial_input = helper.make_tensor_value_info(
         SPATIAL_FEATURES,
@@ -98,6 +104,19 @@ def externalize_scatter(
     referenced = {
         name for node in kept_nodes for name in node.input if name
     }
+    retained_external_inputs = [
+        value
+        for value in model.graph.input
+        if value.name in referenced and value.name not in POINT_FRONTEND_INPUTS
+    ]
+    retained_external_names = {value.name for value in retained_external_inputs}
+    if PAIRWISE not in retained_external_names:
+        raise RuntimeError("pairwise_t_matrix is not reachable after boundary rewrite")
+    leaked_frontend_inputs = sorted(referenced & POINT_FRONTEND_INPUTS)
+    if leaked_frontend_inputs:
+        raise RuntimeError(
+            f"fixed-K frontend inputs remained reachable: {leaked_frontend_inputs}"
+        )
     initializers = [
         initializer
         for initializer in model.graph.initializer
@@ -107,7 +126,8 @@ def externalize_scatter(
     unresolved = sorted(
         referenced
         - initializer_names
-        - {SPATIAL_FEATURES, PAIRWISE}
+        - {SPATIAL_FEATURES}
+        - retained_external_names
         - {name for node in kept_nodes for name in node.output if name}
     )
     if unresolved:
@@ -124,7 +144,7 @@ def externalize_scatter(
     graph = helper.make_graph(
         kept_nodes,
         model.graph.name + "_external_scatter",
-        [spatial_input, pairwise_inputs[0]],
+        [spatial_input, *retained_external_inputs],
         list(model.graph.output),
         initializer=initializers,
         value_info=value_info,
@@ -159,11 +179,13 @@ def externalize_scatter(
         "retained_node_count": len(kept_nodes),
         "inputs": {
             SPATIAL_FEATURES: ["num_agents", channels, height, width],
-            PAIRWISE: [1, "num_agents", "num_agents", 4, 4],
+            **{value.name: "retained_from_source" for value in retained_external_inputs},
         },
         "outputs": graph_outputs,
         "removed_fixed_k_inputs": sorted(
-            value.name for value in model.graph.input if value.name != PAIRWISE
+            value.name
+            for value in model.graph.input
+            if value.name not in retained_external_names
         ),
         "scatter_nodes_after_rewrite": sum(
             node.op_type == SCATTER_OP for node in kept_nodes

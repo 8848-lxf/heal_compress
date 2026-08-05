@@ -27,3 +27,12 @@ def test_post_scatter_trtexec_command_is_strongly_typed_and_plugin_free():
     assert not any("voxel" in item for item in command)
     assert any(item.startswith("--minShapes=") for item in command)
     assert any(item.startswith("--maxShapes=") for item in command)
+
+
+def test_v2xvit_post_scatter_profiles_retain_agent_mask():
+    profiles = post_scatter_shape_profiles(
+        ("spatial_features", "pairwise_t_matrix", "agent_mask")
+    )
+    assert profiles["agent_mask"]["opt"] == (1, 2)
+    assert profiles["spatial_features"]["min"][0] == 2
+    assert profiles["pairwise_t_matrix"]["min"][:3] == (1, 2, 2)

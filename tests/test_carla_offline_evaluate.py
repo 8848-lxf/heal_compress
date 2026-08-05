@@ -1,6 +1,7 @@
 from carla_integration.offline_evaluate import (
     _distribution,
     _postprocess_outputs_fp32,
+    _rotated_model_order,
     mathematical_voxel_capacity,
 )
 
@@ -32,3 +33,22 @@ def test_mixed_precision_detection_heads_are_normalized_for_postprocess():
     normalized = _postprocess_outputs_fp32(outputs)
     assert set(normalized) == set(outputs)
     assert all(value.dtype == torch.float32 for value in normalized.values())
+
+
+def test_postprocess_order_rotates_first_call_overhead():
+    assert _rotated_model_order(0) == (
+        "candidate",
+        "baseline",
+        "fp32_pytorch",
+    )
+    assert _rotated_model_order(1) == (
+        "baseline",
+        "fp32_pytorch",
+        "candidate",
+    )
+    assert _rotated_model_order(2) == (
+        "fp32_pytorch",
+        "candidate",
+        "baseline",
+    )
+    assert _rotated_model_order(3) == _rotated_model_order(0)
