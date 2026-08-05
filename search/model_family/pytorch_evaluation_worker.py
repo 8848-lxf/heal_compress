@@ -6,6 +6,7 @@ import argparse
 from collections import Counter, OrderedDict
 import hashlib
 import json
+import random
 from pathlib import Path
 import statistics
 import subprocess
@@ -14,6 +15,7 @@ import time
 import traceback
 from typing import Any
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
@@ -84,6 +86,20 @@ def _distribution(values: list[float], prefix: str) -> dict[str, Any]:
 
 def _worker_init(_worker_id: int) -> None:
     torch.set_num_threads(1)
+    worker_seed = int(torch.initial_seed() % (2**32))
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
+
+
+def _seed_evaluation(seed: int) -> torch.Generator:
+    value = int(seed)
+    random.seed(value)
+    np.random.seed(value % (2**32))
+    torch.manual_seed(value)
+    torch.cuda.manual_seed_all(value)
+    generator = torch.Generator()
+    generator.manual_seed(value)
+    return generator
 
 
 def _gpu_process_snapshot() -> dict[str, Any]:
@@ -135,6 +151,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         for path in (
             "../..",
+            "..",
             ".",
             "../../HEAL",
             "./tests",
@@ -159,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
             torch.set_num_interop_threads(1)
         except RuntimeError:
             pass
+        evaluation_seed = int(request.get("evaluation_seed", 0))
+        dataloader_generator = _seed_evaluation(evaluation_seed)
 
         config = Path(request["config_path"]).resolve()
         checkpoint = Path(request["checkpoint_path"]).resolve()
@@ -193,6 +212,38 @@ def main(argv: list[str] | None = None) -> int:
 
         model, checkpoint_audit = _strict_model(config, checkpoint, heal_root, device)
         dataset = build_dataset(hypes, visualize=True, train=False)
+        voxelization_backend = str(
+            request.get("voxelization_backend", "gpu")
+        ).lower()
+        if voxelization_backend not in {"cpu", "gpu"}:
+            raise RuntimeError(
+                f"unsupported_voxelization_backend:{voxelization_backend}"
+            )
+        modality = str(request.get("modality", "m1"))
+        gpu_voxelizer = None
+        if voxelization_backend == "gpu":
+            from point_frontend.gpu_voxelization import (
+                DeterministicGpuVoxelizer,
+                defer_dataset_voxelization,
+                voxelize_ego_batch,
+            )
+
+            deferred_contract = defer_dataset_voxelization(
+                dataset, hypes, modality=modality
+            )
+            gpu_voxelizer = DeterministicGpuVoxelizer.from_hypes(
+                hypes, device, modality=modality
+            )
+            voxelization_contract = {
+                **deferred_contract,
+                **gpu_voxelizer.runtime_contract(),
+            }
+        else:
+            voxelization_contract = {
+                "backend": "heal_spconv_point_to_voxel_cpu_in_dataloader",
+                "cpu_voxelization_in_dataloader": True,
+                "modality": modality,
+            }
         workers = int(request.get("dataloader_num_workers", 8))
         loader_kwargs: dict[str, Any] = {
             "batch_size": 1,
@@ -200,6 +251,7 @@ def main(argv: list[str] | None = None) -> int:
             "num_workers": workers,
             "collate_fn": dataset.collate_batch_test,
             "pin_memory": workers > 0,
+            "generator": dataloader_generator,
         }
         if workers:
             loader_kwargs.update(
@@ -221,6 +273,8 @@ def main(argv: list[str] | None = None) -> int:
         postprocess_times: list[float] = []
         total_times: list[float] = []
         transfer_times: list[float] = []
+        voxelization_times: list[float] = []
+        composed_times: list[float] = []
         evaluated: list[str] = []
         warmed: list[str] = []
         skipped: list[str] = []
@@ -240,6 +294,11 @@ def main(argv: list[str] | None = None) -> int:
                         raise RuntimeError("empty_batch")
                     batch, transfer_ms = _timed(lambda: _move(raw_batch, device), device)
                     ego = batch["ego"]
+                    voxelization_ms = 0.0
+                    if gpu_voxelizer is not None:
+                        _, voxelization_ms = voxelize_ego_batch(
+                            ego, gpu_voxelizer, modality=modality
+                        )
                     with torch.inference_mode():
                         outputs, forward_ms = _timed(lambda: model(ego), device)
 
@@ -266,7 +325,11 @@ def main(argv: list[str] | None = None) -> int:
                     forward_times.append(forward_ms)
                     postprocess_times.append(postprocess_ms)
                     transfer_times.append(transfer_ms)
+                    voxelization_times.append(voxelization_ms)
                     total_times.append(forward_ms + postprocess_ms)
+                    composed_times.append(
+                        transfer_ms + voxelization_ms + forward_ms + postprocess_ms
+                    )
                     if len(evaluated) % 100 == 0:
                         print(
                             json.dumps(
@@ -309,6 +372,8 @@ def main(argv: list[str] | None = None) -> int:
             **_distribution(postprocess_times, "postprocess"),
             **_distribution(total_times, "model_postprocess"),
             **_distribution(transfer_times, "host_to_device"),
+            **_distribution(voxelization_times, "voxelization_gpu"),
+            **_distribution(composed_times, "composed_total"),
             "num_warmup_frames": len(warmed),
             "num_evaluated_frames": len(evaluated),
             "num_skipped_frames": len(skipped),
@@ -319,6 +384,9 @@ def main(argv: list[str] | None = None) -> int:
             "eval_manifest_path": str(manifest_path),
             "eval_manifest_hash": str(manifest.get("manifest_hash", "")),
             "dataloader_num_workers": workers,
+            "voxelization_backend": voxelization_backend,
+            "evaluation_seed": evaluation_seed,
+            "voxelization_contract": voxelization_contract,
             "cuda_postprocess_audit": cuda_postprocess,
             "checkpoint_audit": checkpoint_audit,
             "config_path": str(config),

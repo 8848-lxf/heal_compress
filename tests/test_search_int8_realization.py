@@ -525,6 +525,7 @@ def test_evaluation_worker_expands_runner_profile_to_latency_breakdown() -> None
         warmup=False,
         input_prepare_ms=1.25,
         host_to_device_ms=0.75,
+        voxelization_gpu_ms=0.5,
         profile={
             "total_runner_ms": 4.5,
             "execute_async_ms": 2.0,
@@ -546,12 +547,14 @@ def test_evaluation_worker_expands_runner_profile_to_latency_breakdown() -> None
     assert row["forward_ms"] == 4.5
     assert row["input_prepare_ms"] == 1.25
     assert row["host_to_device_ms"] == 0.75
+    assert row["voxelization_gpu_ms"] == 0.5
     assert row["shape_binding_ms"] == pytest.approx(0.6)
     assert row["buffer_allocation_ms"] == 0.0
     assert row["execute_async_ms"] == 2.0
     assert row["device_sync_ms"] == 0.5
     assert row["postprocess_ms"] == 3.0
     assert row["total_ms"] == 7.5
+    assert row["composed_total_ms"] == 10.0
 
 
 def test_evaluation_worker_reports_latency_distribution_tail_and_cv() -> None:

@@ -39,6 +39,10 @@ def main() -> int:
     parser.add_argument("--warmup-frames", type=int, default=200)
     parser.add_argument("--num-frames", type=int, default=1789)
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument(
+        "--voxelization-backend", choices=("gpu", "cpu"), default="gpu"
+    )
+    parser.add_argument("--evaluation-seed", type=int, default=0)
     args = parser.parse_args()
     if os.environ.get("CONDA_DEFAULT_ENV") != "univ2x-opt":
         raise RuntimeError("trt_fp32_baseline_orchestrator_requires_univ2x_opt")
@@ -73,6 +77,8 @@ def main() -> int:
             "warmup_frames": int(args.warmup_frames),
             "num_frames": int(args.num_frames),
             "dataloader_num_workers": int(args.workers),
+            "voxelization_backend": str(args.voxelization_backend),
+            "evaluation_seed": int(args.evaluation_seed),
             "latency_rounds": 1,
         }
         request_path = destination / "request.json"

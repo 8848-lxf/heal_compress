@@ -15,6 +15,11 @@ from typing import Any, Dict, Iterable, Mapping, MutableMapping, Sequence, Tuple
 
 import numpy as np
 
+from point_frontend.gpu_voxelization import (
+    DeterministicGpuVoxelizer,
+    mathematical_voxel_capacity,
+)
+
 
 IOU_THRESHOLDS = (0.30, 0.50, 0.70)
 ENGINE_NAMES = ("candidate", "baseline")
@@ -67,24 +72,23 @@ def _mask_ego(points: np.ndarray) -> np.ndarray:
     return points[~mask]
 
 
-def mathematical_voxel_capacity(lidar_range: Sequence[float], voxel_size: Sequence[float]) -> int:
-    extent = np.asarray(lidar_range[3:6], dtype=np.float64) - np.asarray(
-        lidar_range[:3], dtype=np.float64
-    )
-    grid = np.rint(extent / np.asarray(voxel_size, dtype=np.float64)).astype(np.int64)
-    if np.any(grid <= 0):
-        raise ValueError(f"invalid voxel grid: {grid.tolist()}")
-    return int(np.prod(grid, dtype=np.int64))
-
-
 class DynamicPointPillarFrontend:
-    """CPU dynamic voxelization plus the shared FP32 PFN/scatter frontend."""
+    """Selectable CPU/GPU voxelization plus the shared FP32 PFN/scatter frontend."""
 
-    def __init__(self, hypes: Mapping[str, Any], checkpoint: Path, device: Any) -> None:
+    def __init__(
+        self,
+        hypes: Mapping[str, Any],
+        checkpoint: Path,
+        device: Any,
+        *,
+        voxelization_backend: str = "gpu",
+    ) -> None:
         import torch
-        from opencood.data_utils.pre_processor import build_preprocessor
         from opencood.models.heter_encoders import PointPillar
 
+        backend = str(voxelization_backend).lower()
+        if backend not in {"cpu", "gpu"}:
+            raise ValueError(f"unsupported voxelization backend: {backend}")
         modality = hypes["heter"]["modality_setting"]["m1"]
         preprocess_config = copy.deepcopy(modality["preprocess"])
         lidar_range = list(preprocess_config["cav_lidar_range"])
@@ -92,8 +96,17 @@ class DynamicPointPillarFrontend:
         self.per_agent_capacity = mathematical_voxel_capacity(lidar_range, voxel_size)
         # Point2Voxel requires a capacity. The complete voxel grid is a
         # mathematical bound, not a dataset-derived fixed K.
-        preprocess_config["args"]["max_voxel_test"] = self.per_agent_capacity
-        self.preprocessor = build_preprocessor(preprocess_config, train=False)
+        self.preprocessor = None
+        self.gpu_voxelizer = None
+        if backend == "cpu":
+            from opencood.data_utils.pre_processor import build_preprocessor
+
+            preprocess_config["args"]["max_voxel_test"] = self.per_agent_capacity
+            self.preprocessor = build_preprocessor(preprocess_config, train=False)
+        else:
+            self.gpu_voxelizer = DeterministicGpuVoxelizer(
+                preprocess_config, device
+            )
         encoder_config = copy.deepcopy(hypes["model"]["args"]["m1"]["encoder_args"])
         self.encoder = PointPillar(encoder_config)
         payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
@@ -106,6 +119,17 @@ class DynamicPointPillarFrontend:
         self.encoder.load_state_dict(state, strict=True)
         self.encoder.to(device).eval()
         self.device = device
+        self.voxelization_backend = backend
+
+    def runtime_contract(self) -> Mapping[str, Any]:
+        if self.gpu_voxelizer is not None:
+            return self.gpu_voxelizer.runtime_contract()
+        return {
+            "backend": "heal_spconv_point_to_voxel_cpu",
+            "device": "cpu",
+            "per_agent_mathematical_capacity": self.per_agent_capacity,
+            "dataset_derived_max_k": False,
+        }
 
     @staticmethod
     def _seed(sample_id: str) -> int:
@@ -113,32 +137,64 @@ class DynamicPointPillarFrontend:
 
     def encode(
         self, clouds: Sequence[np.ndarray], sample_id: str
-    ) -> Tuple[Any, Mapping[str, Any], float, float]:
+    ) -> Tuple[Any, Mapping[str, Any], Mapping[str, float]]:
         import torch
 
-        started = time.perf_counter()
+        preprocess_started = time.perf_counter()
         rng = np.random.default_rng(self._seed(sample_id))
-        processed = []
-        per_agent_k = []
+        point_rows = []
         point_counts = []
         for points in clouds:
             values = _mask_ego(np.asarray(points, dtype=np.float32))
-            values = values[rng.permutation(values.shape[0])]
+            values = np.ascontiguousarray(values[rng.permutation(values.shape[0])])
             point_counts.append(int(values.shape[0]))
-            item = self.preprocessor.preprocess(values)
-            voxel_count = int(item["voxel_features"].shape[0])
-            if voxel_count >= self.per_agent_capacity:
-                raise RuntimeError(
-                    "voxelizer reached the full mathematical grid capacity; "
-                    f"possible truncation for {sample_id}: K={voxel_count}"
+            point_rows.append(values)
+        point_preprocess_ms = (time.perf_counter() - preprocess_started) * 1000.0
+
+        voxelize_cpu_ms = 0.0
+        voxelize_gpu_ms = 0.0
+        if self.voxelization_backend == "cpu":
+            voxel_started = time.perf_counter()
+            processed = [self.preprocessor.preprocess(values) for values in point_rows]
+            batch = self.preprocessor.collate_batch(processed)
+            voxelize_cpu_ms = (time.perf_counter() - voxel_started) * 1000.0
+            per_agent_k = [int(item["voxel_features"].shape[0]) for item in processed]
+            saturated = [
+                int(
+                    np.count_nonzero(
+                        item["voxel_num_points"]
+                        == int(self.preprocessor.max_points_per_voxel)
+                    )
                 )
-            if voxel_count <= 0:
+                for item in processed
+            ]
+            audit = {
+                "input_point_counts": point_counts,
+                "voxel_counts": per_agent_k,
+                "total_voxel_count": int(sum(per_agent_k)),
+                "saturated_voxel_counts": saturated,
+                "total_saturated_voxel_count": int(sum(saturated)),
+                "per_agent_mathematical_capacity": self.per_agent_capacity,
+            }
+            h2d_started = time.perf_counter()
+            batch = {name: tensor.to(self.device) for name, tensor in batch.items()}
+            torch.cuda.synchronize(self.device)
+            host_to_device_ms = (time.perf_counter() - h2d_started) * 1000.0
+        else:
+            h2d_started = time.perf_counter()
+            gpu_points = [torch.from_numpy(values).to(self.device) for values in point_rows]
+            torch.cuda.synchronize(self.device)
+            host_to_device_ms = (time.perf_counter() - h2d_started) * 1000.0
+            batch, audit, voxelize_gpu_ms = self.gpu_voxelizer.voxelize(gpu_points)
+
+        for voxel_count in audit["voxel_counts"]:
+            if int(voxel_count) > self.per_agent_capacity:
+                raise RuntimeError(
+                    "voxelizer exceeded the mathematical grid capacity for "
+                    f"{sample_id}: K={voxel_count}>{self.per_agent_capacity}"
+                )
+            if int(voxel_count) <= 0:
                 raise RuntimeError(f"empty voxel cloud for {sample_id}")
-            per_agent_k.append(voxel_count)
-            processed.append(item)
-        batch = self.preprocessor.collate_batch(processed)
-        voxelize_ms = (time.perf_counter() - started) * 1000.0
-        batch = {name: tensor.to(self.device) for name, tensor in batch.items()}
 
         start = torch.cuda.Event(enable_timing=True)
         end = torch.cuda.Event(enable_timing=True)
@@ -153,14 +209,22 @@ class DynamicPointPillarFrontend:
             raise RuntimeError(
                 f"scatter agent count mismatch for {sample_id}: {tuple(spatial.shape)}"
             )
-        audit = {
-            "sample_id": sample_id,
-            "input_point_counts_after_ego_mask": point_counts,
-            "voxel_counts": per_agent_k,
-            "total_voxel_count": int(sum(per_agent_k)),
-            "per_agent_mathematical_capacity": self.per_agent_capacity,
+        audit = dict(audit)
+        audit.update(
+            {
+                "sample_id": sample_id,
+                "input_point_counts_after_ego_mask": point_counts,
+                "voxelization_backend": self.voxelization_backend,
+            }
+        )
+        timings = {
+            "point_preprocess_cpu_ms": point_preprocess_ms,
+            "voxelize_cpu_ms": voxelize_cpu_ms,
+            "host_to_device_ms": host_to_device_ms,
+            "voxelize_gpu_ms": voxelize_gpu_ms,
+            "pfn_scatter_gpu_ms": frontend_ms,
         }
-        return spatial.contiguous(), audit, voxelize_ms, frontend_ms
+        return spatial.contiguous(), audit, timings
 
 
 class UnprunedFP32PostScatter:
@@ -343,8 +407,14 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
     hypes["postprocess"]["target_args"]["score_threshold"] = float(
         arguments.score_floor
     )
+    voxelization_backend = str(
+        getattr(arguments, "voxelization_backend", "gpu")
+    ).lower()
     frontend = DynamicPointPillarFrontend(
-        hypes, arguments.checkpoint.expanduser().resolve(), device
+        hypes,
+        arguments.checkpoint.expanduser().resolve(),
+        device,
+        voxelization_backend=voxelization_backend,
     )
     fp32_checkpoint = arguments.fp32_checkpoint.expanduser().resolve()
     fp32_runner = UnprunedFP32PostScatter(hypes, fp32_checkpoint, device)
@@ -422,9 +492,7 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
                     calibration.apply(clouds[0], "vehicle"),
                     calibration.apply(clouds[1], "infrastructure"),
                 ]
-            spatial, audit, voxelize_ms, frontend_ms = frontend.encode(
-                clouds, sample_id
-            )
+            spatial, audit, frontend_timings = frontend.encode(clouds, sample_id)
             pairwise = (
                 torch.from_numpy(payload["pairwise_t_matrix"])
                 .float()
@@ -489,39 +557,62 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
                 for protocol, boxes in gt_by_protocol.items()
             }
         if frame_index >= int(arguments.warmup_frames):
-            latencies["voxelize_cpu_ms"].append(voxelize_ms)
-            latencies["pfn_scatter_gpu_ms"].append(frontend_ms)
+            for key, value in frontend_timings.items():
+                latencies[key].append(float(value))
         voxel_audit.append(audit)
         frame_reports.append(
             {
                 "sample_id": sample_id,
                 "scene_id": scene_id,
                 "gt_counts": gt_counts,
-                "voxelize_cpu_ms": voxelize_ms,
-                "pfn_scatter_gpu_ms": frontend_ms,
+                "frontend_timings_ms": dict(frontend_timings),
                 "models": model_rows,
                 "postprocess_order": list(postprocess_order),
             }
         )
 
     frontend_summary = {
-        "voxelize_cpu_ms": _distribution(latencies["voxelize_cpu_ms"]),
-        "pfn_scatter_gpu_ms": _distribution(latencies["pfn_scatter_gpu_ms"]),
+        key: _distribution(latencies[key])
+        for key in (
+            "point_preprocess_cpu_ms",
+            "voxelize_cpu_ms",
+            "host_to_device_ms",
+            "voxelize_gpu_ms",
+            "pfn_scatter_gpu_ms",
+        )
     }
+    frontend_summary["voxelization_backend"] = voxelization_backend
+    frontend_summary["runtime_contract"] = frontend.runtime_contract()
+    shared_frontend = [
+        sum(values)
+        for values in zip(
+            latencies["point_preprocess_cpu_ms"],
+            latencies["voxelize_cpu_ms"],
+            latencies["host_to_device_ms"],
+            latencies["voxelize_gpu_ms"],
+            latencies["pfn_scatter_gpu_ms"],
+        )
+    ]
+    frontend_summary["total_frontend_ms"] = _distribution(shared_frontend)
     models: Dict[str, Any] = {}
     for name in MODEL_NAMES:
         forward_distribution = _distribution(forward_latencies[name])
         post_distribution = _distribution(post_latencies[name])
         model_path = [
-            pfn + forward
-            for pfn, forward in zip(
-                latencies["pfn_scatter_gpu_ms"], forward_latencies[name]
+            voxel + pfn + forward
+            for voxel, pfn, forward in zip(
+                latencies["voxelize_gpu_ms"],
+                latencies["pfn_scatter_gpu_ms"],
+                forward_latencies[name],
             )
         ]
         composed = [
-            voxel + pfn + forward + post
-            for voxel, pfn, forward, post in zip(
+            point_cpu + voxel_cpu + h2d + voxel_gpu + pfn + forward + post
+            for point_cpu, voxel_cpu, h2d, voxel_gpu, pfn, forward, post in zip(
+                latencies["point_preprocess_cpu_ms"],
                 latencies["voxelize_cpu_ms"],
+                latencies["host_to_device_ms"],
+                latencies["voxelize_gpu_ms"],
                 latencies["pfn_scatter_gpu_ms"],
                 forward_latencies[name],
                 post_latencies[name],
@@ -570,14 +661,17 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
         for scene_id in sorted(scene_stats)
     }
     return {
-        "schema_version": "heal-carla-no-leak-evaluation-v2",
+        "schema_version": "heal-carla-no-leak-evaluation-v3",
         "success": True,
         "data_manifest": str(manifest_path),
         "data_manifest_sha256": _sha256(manifest_path),
         "scene_count": len(manifest["scenes"]),
         "frame_count": len(frames),
         "timed_frame_count": max(0, len(frames) - int(arguments.warmup_frames)),
-        "point_frontend": "dynamic_voxel_pfn_scatter_outside_tensorrt",
+        "point_frontend": (
+            f"{voxelization_backend}_dynamic_voxel_pfn_scatter_outside_tensorrt"
+        ),
+        "voxelization_backend": voxelization_backend,
         "legacy_fixed_k_used": False,
         "score_floor": float(arguments.score_floor),
         "intensity_mode": (
@@ -608,6 +702,7 @@ def evaluate(arguments: argparse.Namespace) -> Mapping[str, Any]:
         "runtime": {
             "torch_version": str(torch.__version__),
             "gpu": str(torch.cuda.get_device_name(device)),
+            "point_frontend": frontend.runtime_contract(),
         },
         "frontend": frontend_summary,
         "voxel_count": {
@@ -637,6 +732,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--warmup-frames", type=int, default=5)
     parser.add_argument("--score-floor", type=float, default=0.02)
+    parser.add_argument(
+        "--voxelization-backend", choices=("gpu", "cpu"), default="gpu"
+    )
     parser.add_argument("--raw-intensity", action="store_true")
     return parser
 

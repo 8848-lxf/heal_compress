@@ -10,10 +10,11 @@ from typing import Any
 from .runtime_environment import modelopt_python_command, modelopt_subprocess_env
 
 
-EVALUATION_PROTOCOL_VERSION = "fixed-shared-manifest-prefix-gpu-postprocess-workers8-v4"
+EVALUATION_PROTOCOL_VERSION = "fixed-shared-manifest-deterministic-gpu-voxel-postprocess-workers8-v6"
 DEFAULT_AP_IOU_BACKEND = "gpu"
 DEFAULT_TORCH_NUM_THREADS = 4
 DEFAULT_DATALOADER_NUM_WORKERS = 8
+DEFAULT_VOXELIZATION_BACKEND = "gpu"
 
 
 def _cuda_visible_and_logical_device(device: str) -> tuple[str | None, str]:
@@ -46,6 +47,8 @@ def evaluate_engine_modelopt(
     require_cuda_postprocess: bool = True,
     torch_num_threads: int = DEFAULT_TORCH_NUM_THREADS,
     dataloader_num_workers: int = DEFAULT_DATALOADER_NUM_WORKERS,
+    voxelization_backend: str = DEFAULT_VOXELIZATION_BACKEND,
+    evaluation_seed: int = 0,
 ) -> dict[str, Any]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -79,6 +82,8 @@ def evaluate_engine_modelopt(
         "require_cuda_postprocess": bool(require_cuda_postprocess),
         "torch_num_threads": max(1, int(torch_num_threads)),
         "dataloader_num_workers": max(0, int(dataloader_num_workers)),
+        "voxelization_backend": str(voxelization_backend),
+        "evaluation_seed": int(evaluation_seed),
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
     root = Path(tensorrt_root)

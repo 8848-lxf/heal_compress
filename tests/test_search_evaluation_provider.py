@@ -45,11 +45,13 @@ def test_evaluation_provider_requests_gpu_postprocess_and_eight_workers(tmp_path
     request = captured["request"]
     assert request["device"] == "cuda:0"
     assert request["physical_device"] == "cuda:6"
-    assert request["evaluation_protocol_version"] == "fixed-shared-manifest-prefix-gpu-postprocess-workers8-v4"
+    assert request["evaluation_protocol_version"] == "fixed-shared-manifest-deterministic-gpu-voxel-postprocess-workers8-v6"
     assert request["ap_iou_backend"] == "gpu"
     assert request["require_cuda_postprocess"] is True
     assert request["dataloader_num_workers"] == 8
     assert request["torch_num_threads"] == 4
+    assert request["voxelization_backend"] == "gpu"
+    assert request["evaluation_seed"] == 0
     assert captured["env"]["OMP_NUM_THREADS"] == "4"
     assert captured["env"]["MKL_NUM_THREADS"] == "4"
 

@@ -78,6 +78,10 @@ def main() -> int:
     parser.add_argument("--warmup-frames", type=int, default=200)
     parser.add_argument("--num-frames", type=int, default=1789)
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument(
+        "--voxelization-backend", choices=("gpu", "cpu"), default="gpu"
+    )
+    parser.add_argument("--evaluation-seed", type=int, default=0)
     parser.add_argument("--models", nargs="*", default=[])
     parser.add_argument("--latency-isolation", default="co_resident_processes_recorded")
     args = parser.parse_args()
@@ -100,6 +104,8 @@ def main() -> int:
         "eval_manifest": str(args.eval_manifest.resolve()),
         "eval_manifest_sha256": _sha256(args.eval_manifest.resolve()),
         "physical_gpu": int(args.physical_gpu),
+        "voxelization_backend": str(args.voxelization_backend),
+        "evaluation_seed": int(args.evaluation_seed),
         "models": models,
     }
     _write_json(output / "model_input_audit.json", audit)
@@ -117,6 +123,8 @@ def main() -> int:
             "warmup_frames": int(args.warmup_frames),
             "num_frames": int(args.num_frames),
             "dataloader_num_workers": int(args.workers),
+            "voxelization_backend": str(args.voxelization_backend),
+            "evaluation_seed": int(args.evaluation_seed),
             "torch_num_threads": 4,
             "conda_env": "univ2x-opt",
             "latency_isolation": str(args.latency_isolation),

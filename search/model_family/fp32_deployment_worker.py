@@ -341,6 +341,10 @@ def main(argv: list[str] | None = None) -> int:
                 latency_rounds=int(request.get("latency_rounds", 1)),
                 eval_manifest_path=request["eval_manifest_path"],
                 dataloader_num_workers=int(request.get("dataloader_num_workers", 8)),
+                voxelization_backend=str(
+                    request.get("voxelization_backend", "gpu")
+                ),
+                evaluation_seed=int(request.get("evaluation_seed", 0)),
             )
         else:
             from search.model_family.evaluation import evaluate_v2xvit_engine_modelopt
@@ -361,6 +365,10 @@ def main(argv: list[str] | None = None) -> int:
                 latency_rounds=int(request.get("latency_rounds", 1)),
                 dataloader_num_workers=int(request.get("dataloader_num_workers", 8)),
                 input_contract=input_contract,
+                voxelization_backend=str(
+                    request.get("voxelization_backend", "gpu")
+                ),
+                evaluation_seed=int(request.get("evaluation_seed", 0)),
             )
         _write_json(output / "evaluation_acceptance.json", evaluation)
         if evaluation.get("status") != "ok":

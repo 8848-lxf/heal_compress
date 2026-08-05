@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import json
+import random
 import statistics
 import sys
 import time
@@ -13,6 +14,7 @@ from collections import Counter, OrderedDict
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
@@ -22,6 +24,22 @@ IOU_THRESHOLDS = (0.30, 0.50, 0.70)
 
 def _dataloader_worker_init(_worker_id: int) -> None:
     torch.set_num_threads(1)
+    worker_seed = int(torch.initial_seed() % (2**32))
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
+
+
+def _seed_evaluation(seed: int) -> torch.Generator:
+    """Freeze HEAL point shuffling and DataLoader worker seeds."""
+
+    value = int(seed)
+    random.seed(value)
+    np.random.seed(value % (2**32))
+    torch.manual_seed(value)
+    torch.cuda.manual_seed_all(value)
+    generator = torch.Generator()
+    generator.manual_seed(value)
+    return generator
 
 
 def _fixed_manifest_subset(
@@ -145,8 +163,10 @@ def _latency_row_from_profile(
     warmup: bool,
     input_prepare_ms: float,
     host_to_device_ms: float,
+    voxelization_gpu_ms: float,
     profile: dict[str, Any],
     postprocess_ms: float | None,
+    voxel_audit: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     forward_ms = _float_profile(profile, "total_runner_ms")
     shape_binding_ms = (
@@ -161,6 +181,7 @@ def _latency_row_from_profile(
         "forward_ms": forward_ms,
         "input_prepare_ms": float(input_prepare_ms),
         "host_to_device_ms": float(host_to_device_ms),
+        "voxelization_gpu_ms": float(voxelization_gpu_ms),
         "shape_binding_ms": float(shape_binding_ms),
         "buffer_allocation_ms": None if reallocated else 0.0,
         "input_buffer_reallocated": bool(profile.get("input_buffer_reallocated")),
@@ -181,6 +202,18 @@ def _latency_row_from_profile(
     if postprocess_ms is not None:
         row["postprocess_ms"] = float(postprocess_ms)
         row["total_ms"] = forward_ms + float(postprocess_ms)
+        row["composed_total_ms"] = (
+            float(host_to_device_ms)
+            + float(voxelization_gpu_ms)
+            + float(input_prepare_ms)
+            + forward_ms
+            + float(postprocess_ms)
+        )
+    if voxel_audit is not None:
+        row["voxel_count"] = int(voxel_audit["total_voxel_count"])
+        row["saturated_voxel_count"] = int(
+            voxel_audit["total_saturated_voxel_count"]
+        )
     return row
 
 
@@ -272,6 +305,8 @@ def main(argv: list[str] | None = None) -> int:
             torch.set_num_interop_threads(1)
         except RuntimeError:
             pass
+        evaluation_seed = int(request.get("evaluation_seed", 0))
+        dataloader_generator = _seed_evaluation(evaluation_seed)
         ap_iou_backend = str(request.get("ap_iou_backend", "gpu")).lower()
         if ap_iou_backend not in {"gpu", "cpu"}:
             raise RuntimeError(f"unsupported_ap_iou_backend:{ap_iou_backend}")
@@ -288,6 +323,37 @@ def main(argv: list[str] | None = None) -> int:
         hypes = adapter._absolutize_dataset_paths(hypes)
         model = adapter.build_model(request["model_config"], request["checkpoint"]).to(device).eval()
         dataset = build_dataset(hypes, visualize=True, train=False)
+        voxelization_backend = str(
+            request.get("voxelization_backend", "gpu")
+        ).lower()
+        if voxelization_backend not in {"cpu", "gpu"}:
+            raise RuntimeError(
+                f"unsupported_voxelization_backend:{voxelization_backend}"
+            )
+        modality = str(request.get("modality", "m1"))
+        gpu_voxelizer = None
+        if voxelization_backend == "gpu":
+            from heal_compress.point_frontend.gpu_voxelization import (
+                DeterministicGpuVoxelizer,
+                defer_dataset_voxelization,
+            )
+
+            deferred_contract = defer_dataset_voxelization(
+                dataset, hypes, modality=modality
+            )
+            gpu_voxelizer = DeterministicGpuVoxelizer.from_hypes(
+                hypes, device, modality=modality
+            )
+            voxelization_contract = {
+                **deferred_contract,
+                **gpu_voxelizer.runtime_contract(),
+            }
+        else:
+            voxelization_contract = {
+                "backend": "heal_spconv_point_to_voxel_cpu_in_dataloader",
+                "cpu_voxelization_in_dataloader": True,
+                "modality": modality,
+            }
         dataloader_num_workers = max(
             0, int(request.get("dataloader_num_workers", request.get("num_workers", 8)))
         )
@@ -297,6 +363,7 @@ def main(argv: list[str] | None = None) -> int:
             "num_workers": dataloader_num_workers,
             "collate_fn": dataset.collate_batch_test,
             "pin_memory": dataloader_num_workers > 0,
+            "generator": dataloader_generator,
         }
         if dataloader_num_workers > 0:
             loader_kwargs.update(
@@ -318,6 +385,10 @@ def main(argv: list[str] | None = None) -> int:
         total_times: list[float] = []
         forward_times: list[float] = []
         post_times: list[float] = []
+        host_to_device_times: list[float] = []
+        input_prepare_times: list[float] = []
+        voxelization_times: list[float] = []
+        composed_times: list[float] = []
         rows: list[dict[str, Any]] = []
         skip_reasons: Counter[str] = Counter()
         actual = 0
@@ -404,12 +475,24 @@ def main(argv: list[str] | None = None) -> int:
                 try:
                     batch, host_to_device_ms = _timed(lambda: _move(batch, device), device)
                     ego = batch["ego"] if isinstance(batch, dict) and "ego" in batch else batch
+                    voxelization_gpu_ms = 0.0
+                    voxel_audit = None
+                    if gpu_voxelizer is not None:
+                        from heal_compress.point_frontend.gpu_voxelization import (
+                            voxelize_ego_batch,
+                        )
+
+                        voxel_audit, voxelization_gpu_ms = voxelize_ego_batch(
+                            ego, gpu_voxelizer, modality=modality
+                        )
                     if output_names is None:
                         with torch.no_grad():
                             raw = model(ego)
                         output_names = [name for name in ("cls_preds", "reg_preds", "dir_preds") if name in raw and torch.is_tensor(raw[name])]
                     tensors_by_name, input_prepare_ms = _timed(
-                        lambda: prepare_signal_maxk_inputs(ego, config=export_config, modality=request.get("modality", "m1")),
+                        lambda: prepare_signal_maxk_inputs(
+                            ego, config=export_config, modality=modality
+                        ),
                         device,
                     )
                     round_outputs = None
@@ -436,8 +519,10 @@ def main(argv: list[str] | None = None) -> int:
                                 warmup=True,
                                 input_prepare_ms=input_prepare_ms,
                                 host_to_device_ms=host_to_device_ms,
+                                voxelization_gpu_ms=voxelization_gpu_ms,
                                 profile=profile,
                                 postprocess_ms=post_ms,
+                                voxel_audit=voxel_audit,
                             )
                         )
                         continue
@@ -456,14 +541,26 @@ def main(argv: list[str] | None = None) -> int:
                     forward_times.append(forward_ms)
                     post_times.append(post_ms)
                     total_times.append(forward_ms + post_ms)
+                    host_to_device_times.append(host_to_device_ms)
+                    input_prepare_times.append(input_prepare_ms)
+                    voxelization_times.append(voxelization_gpu_ms)
+                    composed_times.append(
+                        host_to_device_ms
+                        + voxelization_gpu_ms
+                        + input_prepare_ms
+                        + forward_ms
+                        + post_ms
+                    )
                     rows.append(
                         _latency_row_from_profile(
                             frame_id=frame_id,
                             warmup=False,
                             input_prepare_ms=input_prepare_ms,
                             host_to_device_ms=host_to_device_ms,
+                            voxelization_gpu_ms=voxelization_gpu_ms,
                             profile=profile,
                             postprocess_ms=post_ms,
+                            voxel_audit=voxel_audit,
                         )
                     )
                 except Exception as exc:  # noqa: BLE001
@@ -501,6 +598,12 @@ def main(argv: list[str] | None = None) -> int:
             **_latency_distribution(forward_times, prefix="forward"),
             **_latency_distribution(post_times, prefix="postprocess"),
             **_latency_distribution(total_times, prefix="total"),
+            **_latency_distribution(
+                host_to_device_times, prefix="host_to_device"
+            ),
+            **_latency_distribution(input_prepare_times, prefix="input_prepare"),
+            **_latency_distribution(voxelization_times, prefix="voxelization_gpu"),
+            **_latency_distribution(composed_times, prefix="composed_total"),
             "num_evaluated_frames": actual,
             "num_skipped_frames": int(sum(skip_reasons.values())),
             "skip_reason_counts": dict(skip_reasons),
@@ -528,6 +631,9 @@ def main(argv: list[str] | None = None) -> int:
             "dataloader_num_workers": dataloader_num_workers,
             "dataloader_persistent_workers": dataloader_num_workers > 0,
             "dataloader_prefetch_factor": 2 if dataloader_num_workers > 0 else None,
+            "voxelization_backend": voxelization_backend,
+            "evaluation_seed": evaluation_seed,
+            "voxelization_contract": voxelization_contract,
             "evaluated_frame_ids": evaluated_frame_ids,
             "skipped_frame_ids": skipped_frame_ids,
             "skipped_warmup_frame_ids": skipped_warmup_frame_ids,

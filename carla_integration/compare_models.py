@@ -77,6 +77,7 @@ def aggregate(
         "intensity_mode",
         "metric_protocols",
         "postprocess_timing_order",
+        "voxelization_backend",
     )
     for name, payload in loaded.items():
         mismatches = [
@@ -143,7 +144,7 @@ def aggregate(
             ),
         }
     return {
-        "schema_version": "heal-carla-four-model-comparison-v1",
+        "schema_version": "heal-carla-four-model-comparison-v2",
         "protocol": {
             field: reference.get(field) for field in common_fields
         }
@@ -181,7 +182,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         f"- Score floor: {report['protocol']['score_floor']}; intensity: {report['protocol']['intensity_mode']}.",
         "- CARLA was used for synchronized online sensor capture, followed by same-frame offline perception replay.",
         "- This is not a planner/controller/safety closed-loop evaluation.",
-        "- Dynamic voxelization, PFN, and scatter are outside every CARLA TensorRT engine; no CARLA engine has a fixed-K input.",
+        f"- Voxelization backend: {report['protocol']['voxelization_backend']}; dynamic voxelization, PFN, and scatter are outside every CARLA TensorRT engine.",
         "",
         "## Engine partition contract",
         "",
@@ -208,10 +209,10 @@ def render_markdown(report: Mapping[str, Any]) -> str:
             "",
             "## Latency",
             "",
-            "All values are means in milliseconds. Composed latency is CPU voxelization + GPU PFN/scatter + forward + postprocess; it is not a wall-clock control-loop latency.",
+            "All values are means in milliseconds. Composed latency is CPU point preparation + H2D + GPU voxelization + GPU PFN/scatter + forward + postprocess; it is not a wall-clock control-loop latency.",
             "",
-            "| Model | CPU voxel | PFN/scatter | Candidate forward | Candidate post | Candidate composed | FP32 PyTorch forward | FP32 composed | Forward speedup | Composed speedup |",
-            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "| Model | CPU point prep | H2D | GPU voxel | PFN/scatter | Candidate forward | Candidate post | Candidate composed | FP32 PyTorch forward | FP32 composed | Forward speedup | Composed speedup |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for name, row in report["models"].items():
@@ -221,7 +222,8 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         frontend = carla["frontend"]
         speedup = carla["speedup"]
         lines.append(
-            f"| {name} | {_f(frontend['voxelize_cpu_ms']['mean'])} | {_f(frontend['pfn_scatter_gpu_ms']['mean'])} | "
+            f"| {name} | {_f(frontend['point_preprocess_cpu_ms']['mean'])} | {_f(frontend['host_to_device_ms']['mean'])} | "
+            f"{_f(frontend['voxelize_gpu_ms']['mean'])} | {_f(frontend['pfn_scatter_gpu_ms']['mean'])} | "
             f"{_f(candidate['forward_gpu_ms']['mean'])} | {_f(candidate['postprocess_ms']['mean'])} | "
             f"{_f(candidate['composed_end_to_end_ms']['mean'])} | {_f(fp32['forward_gpu_ms']['mean'])} | "
             f"{_f(fp32['composed_end_to_end_ms']['mean'])} | {_f(speedup['candidate_vs_unpruned_fp32_pytorch_forward_mean'])}x | "
@@ -265,7 +267,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
             "",
             "## Interpretation",
             "",
-            "The compressed engines preserve same-frame CARLA accuracy within a few thousandths of their unpruned FP32 PyTorch references. Forward acceleration is larger than composed acceleration because CPU voxelization and postprocessing are not accelerated by the searched subnet. The postprocessing order is rotated per frame to balance first-call overhead.",
+            "The compressed engines preserve same-frame CARLA accuracy within a few thousandths of their unpruned FP32 PyTorch references. GPU voxelization removes the former CPU hard-voxel bottleneck, while point preparation, transfer, PFN/scatter, and postprocessing remain shared costs. The postprocessing order is rotated per frame to balance first-call overhead.",
             "",
             "F-Cooper retains zero explicit Q/DQ nodes after the post-scatter cut. Its CARLA artifact therefore does not demonstrate post-scatter INT8 execution, even though it is the selected 0.1-BOPS search artifact. This boundary-specific precision realization must remain explicit in any publication claim.",
             "",

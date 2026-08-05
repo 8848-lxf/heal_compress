@@ -139,6 +139,11 @@ export EVALUATION_MANIFEST=../calibration/validation_manifest.json
 export BASELINE_ENGINE=../model_zoo/baselines/strict_fp32.plan
 ```
 
+正式评估默认使用 PyTorch CUDA 张量算子完成确定性硬体素化。原始点云由
+DataLoader 保持为连续 FP32 张量，复制到 GPU 后按唯一 voxel/点序复合键排序，
+每个 voxel 保留输入顺序中的前 N 个点；CARLA 与 DAIR-V2X 共用同一实现。
+`--voxelization-backend cpu` 仅用于回归对照，不是正式性能口径。
+
 ## 统一入口
 
 列出正式支持的模型：
@@ -296,6 +301,39 @@ Q/DQ、TensorRT 和固定清单评估，仅缩短进化代数；它用于同配�
 - 报告 AP@0.3、AP@0.5、AP@0.7、mAP、固定阈值 precision/recall、forward 延迟及端到端延迟。
 - CARLA actor GT 与 DAIR 人工标注协议不同，跨数据集绝对 mAP 不应直接视为等价。
 
+## DAIR-V2X GPU 评估
+
+DAIR-V2X 的候选 TensorRT、严格 FP32 TensorRT 和 FP32 PyTorch 参考评估均默认
+启用 GPU 体素化。每帧先按实际点数生成动态 voxel 张量，再将 voxel 输入
+fail-closed 地适配到训练清单冻结的 `fixed_K=29696`。固定 K 是现有 pre-scatter
+TensorRT engine 的输入合约，不是 CUDA 体素化容量，也不允许用于静默截断；
+体素数超过固定容量时该帧和整次冻结清单评估必须失败。
+
+FP32 PyTorch 和 FP32 TensorRT 基线可显式选择同一后端：
+
+```bash
+python scripts/evaluate_dair_lidar_pytorch_baselines.py \
+  --models-root ../model_zoo/dairv2x \
+  --eval-manifest ../calibration/validation_manifest.json \
+  --heal-root ../HEAL \
+  --output-dir ../search_runs/dair_fp32_pytorch \
+  --physical-gpu 0 \
+  --voxelization-backend gpu
+
+python scripts/evaluate_dair_lidar_trt_fp32_baselines.py \
+  --models-root ../model_zoo/dairv2x \
+  --fixed-k-audit ../calibration/fixed_k_audit.json \
+  --eval-manifest ../calibration/validation_manifest.json \
+  --heal-root ../HEAL \
+  --tensorrt-root ../TensorRT-10.9_x86_cu118 \
+  --output-dir ../search_runs/dair_fp32_tensorrt \
+  --physical-gpu 0 \
+  --voxelization-backend gpu
+```
+
+结果同时记录 H2D、GPU 体素化、fixed-K 输入准备、engine/model forward、GPU
+后处理及组合端到端时延，并写入逐帧 voxel 数与饱和 voxel 数用于审计。
+
 ## CARLA 接入
 
 CARLA 链路将动态体素化、PFN 和 scatter 保留在 TensorRT 外部，候选 engine 从
@@ -334,6 +372,7 @@ python -m carla_integration.offline_evaluate \
   --intensity-calibration ../calibration/carla_intensity_train_only.json \
   --model-config ../model_zoo/lidar_pyramid/config.yaml \
   --heal-root ../HEAL \
+  --voxelization-backend gpu \
   --output ../search_runs/carla_candidate_report.json
 ```
 

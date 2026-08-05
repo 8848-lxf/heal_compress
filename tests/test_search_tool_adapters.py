@@ -275,6 +275,8 @@ def test_model_family_evaluation_worker_uses_isolated_worktree_alias(
     assert result["status"] == "ok"
     assert alias.is_symlink() and alias.resolve() == repo_root
     assert Path(calls["request"]["repo_root"]) == repo_root
+    assert calls["request"]["voxelization_backend"] == "gpu"
+    assert calls["request"]["evaluation_seed"] == 0
     pythonpath_entries = [
         str(value) for value in calls["env_kwargs"]["pythonpath_entries"]
     ]

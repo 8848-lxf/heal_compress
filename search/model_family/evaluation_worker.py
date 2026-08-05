@@ -63,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
             _latency_distribution,
             _mean_profiles,
             _move,
+            _seed_evaluation,
             _timed,
             _verify_cuda_postprocess_backend,
         )
@@ -83,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
             torch.set_num_interop_threads(1)
         except RuntimeError:
             pass
+        evaluation_seed = int(request.get("evaluation_seed", 0))
+        dataloader_generator = _seed_evaluation(evaluation_seed)
         cuda_postprocess = _verify_cuda_postprocess_backend(device)
 
         adapter = HEALLiDARAdapter(
@@ -92,6 +95,38 @@ def main(argv: list[str] | None = None) -> int:
         hypes = yaml_utils.load_yaml(adapter._resolve_heal_path(request["model_config"]))
         hypes = adapter._absolutize_dataset_paths(hypes)
         dataset = build_dataset(hypes, visualize=True, train=False)
+        voxelization_backend = str(
+            request.get("voxelization_backend", "gpu")
+        ).lower()
+        if voxelization_backend not in {"cpu", "gpu"}:
+            raise RuntimeError(
+                f"unsupported_voxelization_backend:{voxelization_backend}"
+            )
+        modality = str(request.get("modality", "m1"))
+        gpu_voxelizer = None
+        if voxelization_backend == "gpu":
+            from heal_compress.point_frontend.gpu_voxelization import (
+                DeterministicGpuVoxelizer,
+                defer_dataset_voxelization,
+                voxelize_ego_batch,
+            )
+
+            deferred_contract = defer_dataset_voxelization(
+                dataset, hypes, modality=modality
+            )
+            gpu_voxelizer = DeterministicGpuVoxelizer.from_hypes(
+                hypes, device, modality=modality
+            )
+            voxelization_contract = {
+                **deferred_contract,
+                **gpu_voxelizer.runtime_contract(),
+            }
+        else:
+            voxelization_contract = {
+                "backend": "heal_spconv_point_to_voxel_cpu_in_dataloader",
+                "cpu_voxelization_in_dataloader": True,
+                "modality": modality,
+            }
         workers = max(0, int(request.get("dataloader_num_workers", 8)))
         loader_kwargs: dict[str, Any] = {
             "batch_size": 1,
@@ -99,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
             "num_workers": workers,
             "collate_fn": dataset.collate_batch_test,
             "pin_memory": workers > 0,
+            "generator": dataloader_generator,
         }
         if workers:
             loader_kwargs.update(
@@ -148,6 +184,10 @@ def main(argv: list[str] | None = None) -> int:
         forward_times: list[float] = []
         post_times: list[float] = []
         total_times: list[float] = []
+        host_to_device_times: list[float] = []
+        input_prepare_times: list[float] = []
+        voxelization_times: list[float] = []
+        composed_times: list[float] = []
         latency_rows: list[dict[str, Any]] = []
         evaluated: list[str] = []
         warmed: list[str] = []
@@ -169,6 +209,12 @@ def main(argv: list[str] | None = None) -> int:
                         raise RuntimeError("empty_batch")
                     batch, h2d_ms = _timed(lambda: _move(batch, device), device)
                     ego = batch["ego"]
+                    voxelization_gpu_ms = 0.0
+                    voxel_audit = None
+                    if gpu_voxelizer is not None:
+                        voxel_audit, voxelization_gpu_ms = voxelize_ego_batch(
+                            ego, gpu_voxelizer, modality=modality
+                        )
                     prepared, prepare_ms = _timed(
                         lambda: prepare_inputs(ego, policy=policy), device
                     )
@@ -203,9 +249,29 @@ def main(argv: list[str] | None = None) -> int:
                             "warmup": role == "warmup",
                             "input_prepare_ms": prepare_ms,
                             "host_to_device_ms": h2d_ms,
+                            "voxelization_gpu_ms": voxelization_gpu_ms,
                             "forward_ms": forward_ms,
                             "postprocess_ms": post_ms,
                             "total_ms": forward_ms + post_ms,
+                            "composed_total_ms": (
+                                h2d_ms
+                                + voxelization_gpu_ms
+                                + prepare_ms
+                                + forward_ms
+                                + post_ms
+                            ),
+                            "voxel_count": (
+                                None
+                                if voxel_audit is None
+                                else int(voxel_audit["total_voxel_count"])
+                            ),
+                            "saturated_voxel_count": (
+                                None
+                                if voxel_audit is None
+                                else int(
+                                    voxel_audit["total_saturated_voxel_count"]
+                                )
+                            ),
                         }
                     )
                     if role == "warmup":
@@ -225,6 +291,16 @@ def main(argv: list[str] | None = None) -> int:
                     forward_times.append(forward_ms)
                     post_times.append(post_ms)
                     total_times.append(forward_ms + post_ms)
+                    host_to_device_times.append(h2d_ms)
+                    input_prepare_times.append(prepare_ms)
+                    voxelization_times.append(voxelization_gpu_ms)
+                    composed_times.append(
+                        h2d_ms
+                        + voxelization_gpu_ms
+                        + prepare_ms
+                        + forward_ms
+                        + post_ms
+                    )
                 except Exception as exc:  # noqa: BLE001
                     reason = f"{type(exc).__name__}:{exc}"
                     skip_reasons[reason] += 1
@@ -251,6 +327,12 @@ def main(argv: list[str] | None = None) -> int:
             **_latency_distribution(forward_times, prefix="forward"),
             **_latency_distribution(post_times, prefix="postprocess"),
             **_latency_distribution(total_times, prefix="total"),
+            **_latency_distribution(
+                host_to_device_times, prefix="host_to_device"
+            ),
+            **_latency_distribution(input_prepare_times, prefix="input_prepare"),
+            **_latency_distribution(voxelization_times, prefix="voxelization_gpu"),
+            **_latency_distribution(composed_times, prefix="composed_total"),
             "num_warmup_frames": len(warmed),
             "num_evaluated_frames": len(evaluated),
             "num_skipped_frames": len(skipped),
@@ -266,6 +348,9 @@ def main(argv: list[str] | None = None) -> int:
             "reset_after_warmup": True,
             "dataloader_num_workers": workers,
             "torch_num_threads": torch_threads,
+            "voxelization_backend": voxelization_backend,
+            "evaluation_seed": evaluation_seed,
+            "voxelization_contract": voxelization_contract,
             "cuda_postprocess_audit": cuda_postprocess,
             "latency_rows": latency_rows,
         }
