@@ -665,20 +665,10 @@ def collect_or_load_qdq_calibration_scales(
             def prepare_fixed_k(ego: Any) -> Mapping[str, torch.Tensor]:
                 return prepare_heal_lidar_baseline_inputs(ego, policy=baseline_policy)
         elif expected_calibration_inputs == FIXED_K_CALIBRATION_INPUT_NAMES:
-            from quantization.config import OnnxExportConfig
-            from quantization.export.heal_lidar_pyramid import prepare_signal_maxk_inputs
-            from search.integration.trt_compatible_export import build_search_trt_compatible_export_module
-
-            export_config = OnnxExportConfig(fixed_k=int(fixed_k), min_agents=1, opt_agents=2, max_agents=2)
-            wrapper = build_search_trt_compatible_export_module(
-                model,
-                output_names=export_config.output_names,
-                fixed_k=export_config.fixed_k,
-                modality="m1",
-            ).to(device).eval()
-
-            def prepare_fixed_k(ego: Any) -> Mapping[str, torch.Tensor]:
-                return prepare_signal_maxk_inputs(ego, config=export_config, modality="m1")
+            raise RuntimeError(
+                "legacy_fixed_k_pyramid_calibration_is_not_available_in_the_"
+                "formal_release; provide the post-scatter calibration_forward_fn"
+            )
         else:
             raise RuntimeError(
                 f"unsupported_qdq_calibration_input_contract:{expected_calibration_inputs}"

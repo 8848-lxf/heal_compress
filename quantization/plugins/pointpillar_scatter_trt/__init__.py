@@ -1,1 +1,0 @@
-"""PointPillarScatterTRT plugin source mirror."""

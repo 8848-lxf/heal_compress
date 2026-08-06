@@ -324,13 +324,11 @@ class HealLidarBaselineRealEvaluator:
             plugin_path=None,
             eval_manifest_path=self.config.eval_manifest_path,
             physical_gpu_id=int(self.config.physical_gpu_id),
-            fixed_k=None,
             max_agents=int(self.config.max_agents),
             num_frames=int(self.config.num_frames),
             warmup_frames=int(self.config.warmup_frames),
             latency_rounds=int(self.config.latency_rounds),
             dataloader_num_workers=int(self.config.dataloader_num_workers),
-            input_contract=POST_SCATTER_CONTRACT,
             checkpoint_path=(
                 frontend_checkpoint_path or self.config.checkpoint_path
             ),

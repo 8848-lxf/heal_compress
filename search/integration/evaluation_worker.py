@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import ctypes
 import json
 import random
 import statistics
@@ -284,22 +283,22 @@ def main(argv: list[str] | None = None) -> int:
         sys.path.insert(0, "../..")
         sys.path.insert(0, ".")
         sys.path.insert(0, "../../HEAL")
-        sys.path.insert(0, "./tests")
-        sys.path.insert(0, "./tests/quant_deploy")
+        sys.path.insert(0, str(Path(request["heal_root"]).resolve()))
         from deploy.post_scatter import POST_SCATTER_CONTRACT
 
         input_contract = str(request.get("input_contract", POST_SCATTER_CONTRACT))
-        plugin_path = request.get("plugin_path")
-        if plugin_path and input_contract != POST_SCATTER_CONTRACT:
-            ctypes.CDLL(str(plugin_path), mode=ctypes.RTLD_GLOBAL)
+        if input_contract != POST_SCATTER_CONTRACT:
+            raise RuntimeError(
+                f"formal_evaluation_requires_post_scatter_contract:{input_contract}"
+            )
+        if request.get("plugin_path"):
+            raise RuntimeError("formal_post_scatter_evaluation_rejects_plugins")
         from opencood.data_utils.datasets import build_dataset
         from opencood.hypes_yaml import yaml_utils
         from opencood.utils import eval_utils
-        from tests.quant_deploy.deployment_equivalence import TensorRTEngineRunner
-        from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
-        from heal_compress.quantization.config import OnnxExportConfig
-        from heal_compress.quantization.export.heal_lidar_pyramid import prepare_signal_maxk_inputs
-        from tests.test_baseline_eval import calculate_tp_fp_for_threshold
+        from trt_runtime.engine_runner import TensorRTEngineRunner
+        from adapters.heal_lidar_adapter import HEALLiDARAdapter
+        from search.integration.detection_metrics import calculate_tp_fp_for_threshold
 
         device = torch.device(request["device"])
         if device.type != "cuda":
@@ -339,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
         modality = str(request.get("modality", "m1"))
         gpu_voxelizer = None
         if voxelization_backend == "gpu":
-            from heal_compress.point_frontend.gpu_voxelization import (
+            from point_frontend.gpu_voxelization import (
                 DeterministicGpuVoxelizer,
                 defer_dataset_voxelization,
             )
@@ -387,26 +386,16 @@ def main(argv: list[str] | None = None) -> int:
             if runner.engine.get_tensor_mode(runner.engine.get_tensor_name(index))
             == runner.trt.TensorIOMode.INPUT
         }
-        if input_contract == POST_SCATTER_CONTRACT:
-            from heal_compress.point_frontend.post_scatter_runtime import (
-                ExternalPointPillarFrontend,
-            )
+        from point_frontend.post_scatter_runtime import (
+            ExternalPointPillarFrontend,
+        )
 
-            external_frontend = ExternalPointPillarFrontend(
-                hypes,
-                request["frontend_checkpoint"],
-                device,
-                modality=modality,
-            )
-            export_config = None
-        else:
-            external_frontend = None
-            export_config = OnnxExportConfig(
-                fixed_k=int(request.get("fixed_k", 29696)),
-                min_agents=1,
-                opt_agents=2,
-                max_agents=2,
-            )
+        external_frontend = ExternalPointPillarFrontend(
+            hypes,
+            request["frontend_checkpoint"],
+            device,
+            modality=modality,
+        )
         result_stat = {thr: {"tp": [], "fp": [], "gt": 0, "score": []} for thr in IOU_THRESHOLDS}
         total_times: list[float] = []
         forward_times: list[float] = []
@@ -505,7 +494,7 @@ def main(argv: list[str] | None = None) -> int:
                     voxelization_gpu_ms = 0.0
                     voxel_audit = None
                     if gpu_voxelizer is not None:
-                        from heal_compress.point_frontend.gpu_voxelization import (
+                        from point_frontend.gpu_voxelization import (
                             voxelize_ego_batch,
                         )
 
@@ -517,24 +506,16 @@ def main(argv: list[str] | None = None) -> int:
                             raw = model(ego)
                         output_names = [name for name in ("cls_preds", "reg_preds", "dir_preds") if name in raw and torch.is_tensor(raw[name])]
                     pfn_scatter_gpu_ms = 0.0
-                    if external_frontend is not None:
-                        spatial, pfn_scatter_gpu_ms = external_frontend.encode(ego)
-                        tensors_by_name, input_prepare_ms = _timed(
-                            lambda: external_frontend.engine_inputs(
-                                ego,
-                                spatial,
-                                input_names=engine_input_names,
-                                max_agents=2,
-                            ),
-                            device,
-                        )
-                    else:
-                        tensors_by_name, input_prepare_ms = _timed(
-                            lambda: prepare_signal_maxk_inputs(
-                                ego, config=export_config, modality=modality
-                            ),
-                            device,
-                        )
+                    spatial, pfn_scatter_gpu_ms = external_frontend.encode(ego)
+                    tensors_by_name, input_prepare_ms = _timed(
+                        lambda: external_frontend.engine_inputs(
+                            ego,
+                            spatial,
+                            input_names=engine_input_names,
+                            max_agents=2,
+                        ),
+                        device,
+                    )
                     round_outputs = None
                     round_profiles: list[dict[str, Any]] = []
                     for _round_idx in range(latency_rounds):
@@ -680,13 +661,9 @@ def main(argv: list[str] | None = None) -> int:
             "evaluation_seed": evaluation_seed,
             "voxelization_contract": voxelization_contract,
             "input_contract": input_contract,
-            "fixed_k": None if external_frontend is not None else export_config.fixed_k,
-            "runtime_max_k_dependency": external_frontend is None,
-            "point_frontend": (
-                "dynamic_gpu_voxelization_pfn_scatter_outside_tensorrt"
-                if external_frontend is not None
-                else "legacy_fixed_k_inside_tensorrt"
-            ),
+            "fixed_k": None,
+            "runtime_max_k_dependency": False,
+            "point_frontend": "dynamic_gpu_voxelization_pfn_scatter_outside_tensorrt",
             "evaluated_frame_ids": evaluated_frame_ids,
             "skipped_frame_ids": skipped_frame_ids,
             "skipped_warmup_frame_ids": skipped_warmup_frame_ids,

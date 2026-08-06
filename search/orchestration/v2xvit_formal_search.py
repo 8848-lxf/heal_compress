@@ -557,13 +557,11 @@ class V2XViTFormalSearch:
                     stage2["evaluation_manifest"], label="evaluation_manifest"
                 ),
                 physical_gpu_id=int(runtime.get("physical_gpu", 0)),
-                fixed_k=None,
                 max_agents=int(model_cfg.get("max_agents", 2)),
                 num_frames=int(stage2.get("num_frames", 500)),
                 warmup_frames=int(stage2.get("warmup_frames", 200)),
                 latency_rounds=int(stage2.get("latency_rounds", 3)),
                 dataloader_num_workers=int(stage2.get("dataloader_num_workers", 8)),
-                input_contract=POST_SCATTER_CONTRACT,
                 checkpoint_path=Path(build["pruned_checkpoint_path"]),
             )
             if evaluation.get("status") != "ok":
@@ -644,13 +642,11 @@ class V2XViTFormalSearch:
                 manifest_value, label="full_evaluation_manifest"
             ),
             physical_gpu_id=int(runtime.get("physical_gpu", 0)),
-            fixed_k=None,
             max_agents=int(model_cfg.get("max_agents", 2)),
             num_frames=int(full.get("num_frames", 1789)),
             warmup_frames=int(full.get("warmup_frames", 200)),
             latency_rounds=int(full.get("latency_rounds", 3)),
             dataloader_num_workers=int(full.get("dataloader_num_workers", 8)),
-            input_contract=POST_SCATTER_CONTRACT,
             checkpoint_path=Path(frontend_checkpoint),
         )
         if evaluation.get("status") != "ok":

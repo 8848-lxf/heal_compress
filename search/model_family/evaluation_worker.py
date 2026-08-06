@@ -1,10 +1,9 @@
-"""TensorRT AP/latency worker for the HEAL LiDAR V2X-ViT fixed-K contract."""
+"""TensorRT AP/latency worker for the formal HEAL post-scatter contract."""
 
 from __future__ import annotations
 
 import argparse
 from collections import Counter, OrderedDict
-import ctypes
 import json
 from pathlib import Path
 import sys
@@ -49,15 +48,18 @@ def main(argv: list[str] | None = None) -> int:
         from deploy.post_scatter import POST_SCATTER_CONTRACT
 
         input_contract = str(request.get("input_contract", POST_SCATTER_CONTRACT))
-        plugin_path = str(request.get("plugin_path", ""))
-        if plugin_path and input_contract != POST_SCATTER_CONTRACT:
-            ctypes.CDLL(plugin_path, mode=ctypes.RTLD_GLOBAL)
+        if input_contract != POST_SCATTER_CONTRACT:
+            raise RuntimeError(
+                f"formal_family_evaluation_requires_post_scatter:{input_contract}"
+            )
+        if request.get("plugin_path"):
+            raise RuntimeError("formal_post_scatter_family_evaluation_rejects_plugins")
 
         from opencood.data_utils.datasets import build_dataset
         from opencood.hypes_yaml import yaml_utils
         from opencood.utils import eval_utils
-        from tests.quant_deploy.deployment_equivalence import TensorRTEngineRunner
-        from tests.test_baseline_eval import calculate_tp_fp_for_threshold
+        from trt_runtime.engine_runner import TensorRTEngineRunner
+        from search.integration.detection_metrics import calculate_tp_fp_for_threshold
         from heal_compress.adapters.heal_lidar_adapter import HEALLiDARAdapter
         from search.integration.evaluation_worker import (
             IOU_THRESHOLDS,
@@ -69,12 +71,6 @@ def main(argv: list[str] | None = None) -> int:
             _seed_evaluation,
             _timed,
             _verify_cuda_postprocess_backend,
-        )
-        from search.model_family.export import (
-            HealLidarBaselineExportPolicy,
-            HealV2XViTExportPolicy,
-            prepare_heal_lidar_baseline_inputs,
-            prepare_v2xvit_fixed_k_inputs,
         )
 
         device = torch.device(str(request["device"]))
@@ -155,40 +151,20 @@ def main(argv: list[str] | None = None) -> int:
             if runner.engine.get_tensor_mode(runner.engine.get_tensor_name(index))
             == runner.trt.TensorIOMode.INPUT
         }
-        external_frontend = None
-        if input_contract == POST_SCATTER_CONTRACT:
-            from heal_compress.point_frontend.post_scatter_runtime import (
-                ExternalPointPillarFrontend,
-            )
+        from heal_compress.point_frontend.post_scatter_runtime import (
+            ExternalPointPillarFrontend,
+        )
 
-            checkpoint_path = str(request.get("checkpoint_path", ""))
-            if not checkpoint_path:
-                raise RuntimeError("post_scatter_frontend_checkpoint_missing")
-            external_frontend = ExternalPointPillarFrontend(
-                hypes,
-                checkpoint_path,
-                device,
-                modality=modality,
-            )
-            policy = None
-            prepare_inputs = None
-            output_names = ("cls_preds", "reg_preds", "dir_preds")
-        elif input_contract == "heal_lidar_baseline_fixed_k":
-            policy = HealLidarBaselineExportPolicy(
-                fixed_k=int(request["fixed_k"]),
-                max_agents=int(request.get("max_agents", 2)),
-            )
-            prepare_inputs = prepare_heal_lidar_baseline_inputs
-            output_names = policy.output_names
-        elif input_contract == "heal_v2xvit_fixed_k":
-            policy = HealV2XViTExportPolicy(
-                fixed_k=int(request["fixed_k"]),
-                max_agents=int(request.get("max_agents", 2)),
-            )
-            prepare_inputs = prepare_v2xvit_fixed_k_inputs
-            output_names = policy.output_names
-        else:
-            raise RuntimeError(f"unsupported_fixed_k_input_contract:{input_contract}")
+        checkpoint_path = str(request.get("checkpoint_path", ""))
+        if not checkpoint_path:
+            raise RuntimeError("post_scatter_frontend_checkpoint_missing")
+        external_frontend = ExternalPointPillarFrontend(
+            hypes,
+            checkpoint_path,
+            device,
+            modality=modality,
+        )
+        output_names = ("cls_preds", "reg_preds", "dir_preds")
         manifest_path = Path(request["eval_manifest_path"])
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         warmup_ids = [str(value) for value in manifest.get("warmup_frame_ids", [])]
@@ -245,21 +221,16 @@ def main(argv: list[str] | None = None) -> int:
                             ego, gpu_voxelizer, modality=modality
                         )
                     pfn_scatter_ms = 0.0
-                    if external_frontend is not None:
-                        spatial, pfn_scatter_ms = external_frontend.encode(ego)
-                        prepared, prepare_ms = _timed(
-                            lambda: external_frontend.engine_inputs(
-                                ego,
-                                spatial,
-                                input_names=engine_input_names,
-                                max_agents=int(request.get("max_agents", 2)),
-                            ),
-                            device,
-                        )
-                    else:
-                        prepared, prepare_ms = _timed(
-                            lambda: prepare_inputs(ego, policy=policy), device
-                        )
+                    spatial, pfn_scatter_ms = external_frontend.encode(ego)
+                    prepared, prepare_ms = _timed(
+                        lambda: external_frontend.engine_inputs(
+                            ego,
+                            spatial,
+                            input_names=engine_input_names,
+                            max_agents=int(request.get("max_agents", 2)),
+                        ),
+                        device,
+                    )
                     outputs = None
                     profiles = []
                     for _ in range(max(1, int(request.get("latency_rounds", 1)))):
@@ -387,15 +358,11 @@ def main(argv: list[str] | None = None) -> int:
             "evaluated_frame_ids": evaluated,
             "skipped_frame_ids": skipped,
             "skip_reason_counts": dict(skip_reasons),
-            "fixed_k": None if policy is None else policy.fixed_k,
+            "fixed_k": None,
             "max_agents": int(request.get("max_agents", 2)),
             "input_contract": input_contract,
-            "runtime_max_k_dependency": False if policy is None else True,
-            "point_frontend": (
-                "dynamic_gpu_voxelization_pfn_scatter_outside_tensorrt"
-                if policy is None
-                else "legacy_fixed_k_inside_tensorrt"
-            ),
+            "runtime_max_k_dependency": False,
+            "point_frontend": "dynamic_gpu_voxelization_pfn_scatter_outside_tensorrt",
             "eval_manifest_path": str(manifest_path),
             "eval_manifest_hash": str(manifest.get("manifest_hash", "")),
             "reset_after_warmup": True,

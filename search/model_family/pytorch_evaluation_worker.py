@@ -154,7 +154,6 @@ def main(argv: list[str] | None = None) -> int:
             "..",
             ".",
             "../../HEAL",
-            "./tests",
         ):
             if path not in sys.path:
                 sys.path.insert(0, path)
@@ -162,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
         from opencood.data_utils.datasets import build_dataset
         from opencood.hypes_yaml import yaml_utils
         from opencood.utils import eval_utils
-        from tests.test_baseline_eval import calculate_tp_fp_for_threshold
+        from search.integration.detection_metrics import calculate_tp_fp_for_threshold
         from search.integration.evaluation_worker import _verify_cuda_postprocess_backend
 
         if str(request.get("conda_env", "")) != "univ2x-opt":

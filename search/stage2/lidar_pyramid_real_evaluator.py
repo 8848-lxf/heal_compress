@@ -2034,11 +2034,9 @@ class LidarPyramidRealEvaluator:
             plugin_path=None,
             num_frames=self.num_frames,
             warmup_frames=self.warmup_frames,
-            fixed_k=None,
             latency_rounds=self.latency_rounds,
             conda_env=self.context.tensorrt.conda_env,
             eval_manifest_path=self.context.eval_manifest_path,
-            input_contract=POST_SCATTER_CONTRACT,
             checkpoint_path=self.context.checkpoint_path,
         )
         _write_json(output_dir / "evaluation.json", result)

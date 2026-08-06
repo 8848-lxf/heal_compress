@@ -698,13 +698,11 @@ def evaluate_existing_family_engine(
             plugin_path=None,
             eval_manifest_path=eval_manifest_path,
             physical_gpu_id=int(gpu_id),
-            fixed_k=None,
             max_agents=int(max_agents),
             num_frames=int(num_frames),
             warmup_frames=int(warmup_frames),
             latency_rounds=int(latency_rounds),
             dataloader_num_workers=8,
-            input_contract=POST_SCATTER_CONTRACT,
             checkpoint_path=frontend_checkpoint,
             voxelization_backend="gpu",
         )

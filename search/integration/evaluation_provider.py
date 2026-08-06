@@ -12,7 +12,6 @@ from deploy.post_scatter import POST_SCATTER_CONTRACT
 from .runtime_environment import modelopt_python_command, modelopt_subprocess_env
 
 
-EVALUATION_PROTOCOL_VERSION = "fixed-shared-manifest-deterministic-gpu-voxel-postprocess-workers8-v6"
 DEFAULT_AP_IOU_BACKEND = "gpu"
 DEFAULT_TORCH_NUM_THREADS = 4
 DEFAULT_DATALOADER_NUM_WORKERS = 8
@@ -41,7 +40,6 @@ def evaluate_engine_modelopt(
     plugin_path: str | Path | None,
     num_frames: int,
     warmup_frames: int,
-    fixed_k: int | None = None,
     latency_rounds: int = 1,
     conda_env: str = "modelopt",
     eval_manifest_path: str | Path | None = None,
@@ -51,7 +49,6 @@ def evaluate_engine_modelopt(
     dataloader_num_workers: int = DEFAULT_DATALOADER_NUM_WORKERS,
     voxelization_backend: str = DEFAULT_VOXELIZATION_BACKEND,
     evaluation_seed: int = 0,
-    input_contract: str = POST_SCATTER_CONTRACT,
     checkpoint_path: str | Path | None = None,
 ) -> dict[str, Any]:
     destination = Path(output_dir)
@@ -79,14 +76,12 @@ def evaluate_engine_modelopt(
         "num_frames": int(num_frames),
         "warmup_frames": int(warmup_frames),
         "latency_rounds": int(latency_rounds),
-        "fixed_k": int(fixed_k) if fixed_k is not None else None,
-        "input_contract": str(input_contract),
+        "fixed_k": None,
+        "input_contract": POST_SCATTER_CONTRACT,
         "frontend_checkpoint": str(checkpoint_path or checkpoint),
         "eval_manifest_path": str(eval_manifest_path) if eval_manifest_path else "",
         "evaluation_protocol_version": (
             "heal-post-scatter-dynamic-gpu-voxel-pfn-scatter-external-v1"
-            if str(input_contract) == POST_SCATTER_CONTRACT
-            else EVALUATION_PROTOCOL_VERSION
         ),
         "ap_iou_backend": str(ap_iou_backend),
         "require_cuda_postprocess": bool(require_cuda_postprocess),

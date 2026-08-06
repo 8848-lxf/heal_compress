@@ -107,7 +107,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Two-stage structured pruning + mixed precision GA search.")
     parser.add_argument("--config", required=True)
     parser.add_argument("--checkpoint", default=None)
-    parser.add_argument("--output-root", default="tests/outputs")
+    parser.add_argument("--output-root", required=True)
     parser.add_argument("--gpu-id", default=None)
     parser.add_argument("--search-method", choices=("ga", "greedy"), default=None)
     parser.add_argument("--exclude-gpu-ids", default=None)

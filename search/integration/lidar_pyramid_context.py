@@ -32,7 +32,6 @@ DEFAULT_CHECKPOINT = Path("${MODEL_ROOT}/lidar_pyramid/net_epoch_bestval_at17.pt
 DEFAULT_CONFIG = Path("${MODEL_ROOT}/lidar_pyramid/config.yaml")
 DEFAULT_HEAL_ROOT = Path("../../HEAL")
 DEFAULT_TRT_ROOT = Path("${TENSORRT_ROOT}")
-DEFAULT_PLUGIN = Path("quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so")
 
 
 @dataclass

@@ -22,13 +22,11 @@ def evaluate_v2xvit_engine_modelopt(
     plugin_path: str | Path | None,
     eval_manifest_path: str | Path,
     physical_gpu_id: int,
-    fixed_k: int | None = None,
     max_agents: int = 2,
     num_frames: int = 20,
     warmup_frames: int = 5,
     latency_rounds: int = 1,
     dataloader_num_workers: int = 8,
-    input_contract: str = POST_SCATTER_CONTRACT,
     checkpoint_path: str | Path | None = None,
     voxelization_backend: str = "gpu",
     evaluation_seed: int = 0,
@@ -55,7 +53,7 @@ def evaluate_v2xvit_engine_modelopt(
         package_alias.symlink_to(repo_root, target_is_directory=True)
     request_path = destination / "evaluation_request.json"
     output_path = destination / "evaluation.json"
-    if str(input_contract) == POST_SCATTER_CONTRACT and checkpoint_path is None:
+    if checkpoint_path is None:
         raise RuntimeError("post_scatter_evaluation_requires_frontend_checkpoint")
     request = {
         "repo_root": str(repo_root),
@@ -77,9 +75,9 @@ def evaluate_v2xvit_engine_modelopt(
         "num_frames": int(num_frames),
         "warmup_frames": int(warmup_frames),
         "latency_rounds": int(latency_rounds),
-        "fixed_k": int(fixed_k) if fixed_k is not None else None,
+        "fixed_k": None,
         "max_agents": int(max_agents),
-        "input_contract": str(input_contract),
+        "input_contract": POST_SCATTER_CONTRACT,
         "voxelization_backend": str(voxelization_backend),
         "evaluation_seed": int(evaluation_seed),
         "eval_manifest_path": str(Path(eval_manifest_path).resolve()),
@@ -87,8 +85,6 @@ def evaluate_v2xvit_engine_modelopt(
         "torch_num_threads": 4,
         "evaluation_protocol_version": (
             "heal-post-scatter-dynamic-gpu-voxel-pfn-scatter-external-v1"
-            if str(input_contract) == POST_SCATTER_CONTRACT
-            else "heal-v2xvit-fixed-manifest-deterministic-gpu-voxel-postprocess-workers8-v3"
         ),
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
