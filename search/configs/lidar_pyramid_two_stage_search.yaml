@@ -10,7 +10,6 @@ runtime:
   tensorrt_env: modelopt
   tensorrt_root: ${TENSORRT_ROOT}
   heal_root: ../../HEAL
-  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
 
 search:
   seed: 42
@@ -37,6 +36,7 @@ precision:
 proxy:
   fisher_calibration_batches: 8
   quant_calibration_batches: 200
+  quant_activation_calibration_backend: modelopt_histogram_entropy
   alpha_fisher: 1.0
   beta_sqnr: 1.0
   gamma_size: 1.0

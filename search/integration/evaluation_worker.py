@@ -166,6 +166,7 @@ def _latency_row_from_profile(
     voxelization_gpu_ms: float,
     profile: dict[str, Any],
     postprocess_ms: float | None,
+    pfn_scatter_gpu_ms: float = 0.0,
     voxel_audit: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     forward_ms = _float_profile(profile, "total_runner_ms")
@@ -182,6 +183,7 @@ def _latency_row_from_profile(
         "input_prepare_ms": float(input_prepare_ms),
         "host_to_device_ms": float(host_to_device_ms),
         "voxelization_gpu_ms": float(voxelization_gpu_ms),
+        "pfn_scatter_gpu_ms": float(pfn_scatter_gpu_ms),
         "shape_binding_ms": float(shape_binding_ms),
         "buffer_allocation_ms": None if reallocated else 0.0,
         "input_buffer_reallocated": bool(profile.get("input_buffer_reallocated")),
@@ -205,6 +207,7 @@ def _latency_row_from_profile(
         row["composed_total_ms"] = (
             float(host_to_device_ms)
             + float(voxelization_gpu_ms)
+            + float(pfn_scatter_gpu_ms)
             + float(input_prepare_ms)
             + forward_ms
             + float(postprocess_ms)
@@ -283,8 +286,11 @@ def main(argv: list[str] | None = None) -> int:
         sys.path.insert(0, "../../HEAL")
         sys.path.insert(0, "./tests")
         sys.path.insert(0, "./tests/quant_deploy")
+        from deploy.post_scatter import POST_SCATTER_CONTRACT
+
+        input_contract = str(request.get("input_contract", POST_SCATTER_CONTRACT))
         plugin_path = request.get("plugin_path")
-        if plugin_path:
+        if plugin_path and input_contract != POST_SCATTER_CONTRACT:
             ctypes.CDLL(str(plugin_path), mode=ctypes.RTLD_GLOBAL)
         from opencood.data_utils.datasets import build_dataset
         from opencood.hypes_yaml import yaml_utils
@@ -375,12 +381,32 @@ def main(argv: list[str] | None = None) -> int:
             )
         loader = DataLoader(dataset, **loader_kwargs)
         runner = TensorRTEngineRunner(request["engine_path"], device)
-        export_config = OnnxExportConfig(
-            fixed_k=int(request.get("fixed_k", 29696)),
-            min_agents=1,
-            opt_agents=2,
-            max_agents=2,
-        )
+        engine_input_names = {
+            str(runner.engine.get_tensor_name(index))
+            for index in range(runner.engine.num_io_tensors)
+            if runner.engine.get_tensor_mode(runner.engine.get_tensor_name(index))
+            == runner.trt.TensorIOMode.INPUT
+        }
+        if input_contract == POST_SCATTER_CONTRACT:
+            from heal_compress.point_frontend.post_scatter_runtime import (
+                ExternalPointPillarFrontend,
+            )
+
+            external_frontend = ExternalPointPillarFrontend(
+                hypes,
+                request["frontend_checkpoint"],
+                device,
+                modality=modality,
+            )
+            export_config = None
+        else:
+            external_frontend = None
+            export_config = OnnxExportConfig(
+                fixed_k=int(request.get("fixed_k", 29696)),
+                min_agents=1,
+                opt_agents=2,
+                max_agents=2,
+            )
         result_stat = {thr: {"tp": [], "fp": [], "gt": 0, "score": []} for thr in IOU_THRESHOLDS}
         total_times: list[float] = []
         forward_times: list[float] = []
@@ -388,6 +414,7 @@ def main(argv: list[str] | None = None) -> int:
         host_to_device_times: list[float] = []
         input_prepare_times: list[float] = []
         voxelization_times: list[float] = []
+        pfn_scatter_times: list[float] = []
         composed_times: list[float] = []
         rows: list[dict[str, Any]] = []
         skip_reasons: Counter[str] = Counter()
@@ -489,12 +516,25 @@ def main(argv: list[str] | None = None) -> int:
                         with torch.no_grad():
                             raw = model(ego)
                         output_names = [name for name in ("cls_preds", "reg_preds", "dir_preds") if name in raw and torch.is_tensor(raw[name])]
-                    tensors_by_name, input_prepare_ms = _timed(
-                        lambda: prepare_signal_maxk_inputs(
-                            ego, config=export_config, modality=modality
-                        ),
-                        device,
-                    )
+                    pfn_scatter_gpu_ms = 0.0
+                    if external_frontend is not None:
+                        spatial, pfn_scatter_gpu_ms = external_frontend.encode(ego)
+                        tensors_by_name, input_prepare_ms = _timed(
+                            lambda: external_frontend.engine_inputs(
+                                ego,
+                                spatial,
+                                input_names=engine_input_names,
+                                max_agents=2,
+                            ),
+                            device,
+                        )
+                    else:
+                        tensors_by_name, input_prepare_ms = _timed(
+                            lambda: prepare_signal_maxk_inputs(
+                                ego, config=export_config, modality=modality
+                            ),
+                            device,
+                        )
                     round_outputs = None
                     round_profiles: list[dict[str, Any]] = []
                     for _round_idx in range(latency_rounds):
@@ -520,6 +560,7 @@ def main(argv: list[str] | None = None) -> int:
                                 input_prepare_ms=input_prepare_ms,
                                 host_to_device_ms=host_to_device_ms,
                                 voxelization_gpu_ms=voxelization_gpu_ms,
+                                pfn_scatter_gpu_ms=pfn_scatter_gpu_ms,
                                 profile=profile,
                                 postprocess_ms=post_ms,
                                 voxel_audit=voxel_audit,
@@ -544,9 +585,11 @@ def main(argv: list[str] | None = None) -> int:
                     host_to_device_times.append(host_to_device_ms)
                     input_prepare_times.append(input_prepare_ms)
                     voxelization_times.append(voxelization_gpu_ms)
+                    pfn_scatter_times.append(pfn_scatter_gpu_ms)
                     composed_times.append(
                         host_to_device_ms
                         + voxelization_gpu_ms
+                        + pfn_scatter_gpu_ms
                         + input_prepare_ms
                         + forward_ms
                         + post_ms
@@ -558,6 +601,7 @@ def main(argv: list[str] | None = None) -> int:
                             input_prepare_ms=input_prepare_ms,
                             host_to_device_ms=host_to_device_ms,
                             voxelization_gpu_ms=voxelization_gpu_ms,
+                            pfn_scatter_gpu_ms=pfn_scatter_gpu_ms,
                             profile=profile,
                             postprocess_ms=post_ms,
                             voxel_audit=voxel_audit,
@@ -603,6 +647,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             **_latency_distribution(input_prepare_times, prefix="input_prepare"),
             **_latency_distribution(voxelization_times, prefix="voxelization_gpu"),
+            **_latency_distribution(pfn_scatter_times, prefix="pfn_scatter_gpu"),
             **_latency_distribution(composed_times, prefix="composed_total"),
             "num_evaluated_frames": actual,
             "num_skipped_frames": int(sum(skip_reasons.values())),
@@ -634,6 +679,14 @@ def main(argv: list[str] | None = None) -> int:
             "voxelization_backend": voxelization_backend,
             "evaluation_seed": evaluation_seed,
             "voxelization_contract": voxelization_contract,
+            "input_contract": input_contract,
+            "fixed_k": None if external_frontend is not None else export_config.fixed_k,
+            "runtime_max_k_dependency": external_frontend is None,
+            "point_frontend": (
+                "dynamic_gpu_voxelization_pfn_scatter_outside_tensorrt"
+                if external_frontend is not None
+                else "legacy_fixed_k_inside_tensorrt"
+            ),
             "evaluated_frame_ids": evaluated_frame_ids,
             "skipped_frame_ids": skipped_frame_ids,
             "skipped_warmup_frame_ids": skipped_warmup_frame_ids,

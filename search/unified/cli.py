@@ -63,6 +63,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _config_overrides(args: argparse.Namespace) -> dict[str, object | None]:
+    calibration = str(args.calibration_manifest) if args.calibration_manifest else None
+    return {
+        "model.checkpoint": str(args.checkpoint) if args.checkpoint else None,
+        "model.config": str(args.model_config) if args.model_config else None,
+        "runtime.heal_root": str(args.heal_root) if args.heal_root else None,
+        "runtime.tensorrt_root": str(args.tensorrt_root) if args.tensorrt_root else None,
+        "proxy.quant_calibration_npz_manifest": calibration,
+        "proxy.dynamic_calibration_manifest": calibration,
+        "stage2.evaluation_manifest": (
+            str(args.evaluation_manifest) if args.evaluation_manifest else None
+        ),
+        "baselines.strict_fp32_engine": (
+            str(args.baseline_engine) if args.baseline_engine else None
+        ),
+        "runtime.plugin_path": str(args.plugin) if args.plugin else None,
+        "runtime.physical_gpu": args.physical_gpu,
+        "search.method": args.search_method,
+        "search.bops_targets": args.bops_targets,
+        "search.generations_per_round": args.generations,
+        "proxy.include_activation_taylor": (
+            args.activation_taylor == "on" if args.activation_taylor else None
+        ),
+        "proxy.objective_calibration": args.objective_calibration,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.list_families:
@@ -82,33 +109,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.config is None:
         raise SystemExit("--config is required unless --list-families is used")
-    overrides = {
-        "model.checkpoint": str(args.checkpoint) if args.checkpoint else None,
-        "model.config": str(args.model_config) if args.model_config else None,
-        "runtime.heal_root": str(args.heal_root) if args.heal_root else None,
-        "runtime.tensorrt_root": str(args.tensorrt_root) if args.tensorrt_root else None,
-        "proxy.quant_calibration_npz_manifest": (
-            str(args.calibration_manifest) if args.calibration_manifest else None
-        ),
-        "stage2.evaluation_manifest": (
-            str(args.evaluation_manifest) if args.evaluation_manifest else None
-        ),
-        "baselines.strict_fp32_engine": (
-            str(args.baseline_engine) if args.baseline_engine else None
-        ),
-        "runtime.plugin_path": str(args.plugin) if args.plugin else None,
-        "runtime.physical_gpu": args.physical_gpu,
-        "search.method": args.search_method,
-        "search.bops_targets": args.bops_targets,
-        "search.generations_per_round": args.generations,
-        "proxy.include_activation_taylor": (
-            args.activation_taylor == "on" if args.activation_taylor else None
-        ),
-        "proxy.objective_calibration": args.objective_calibration,
-    }
     config = load_search_config(
         args.config,
-        overrides=overrides,
+        overrides=_config_overrides(args),
         allow_unresolved=bool(args.dry_run),
     )
     result = UnifiedSearchRunner(config, output_root=args.output_root).run(

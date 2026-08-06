@@ -2,7 +2,6 @@ model:
   family_id: heal_lidar_disco
   checkpoint: ${MODEL_ROOT}/lidar_disco/net_epoch_bestval_at35.pth
   config: ${MODEL_ROOT}/lidar_disco/config.yaml
-  fixed_k: 29696
   max_agents: 2
 
 runtime:
@@ -10,7 +9,6 @@ runtime:
   heal_root: ../HEAL
   tensorrt_root: ${TENSORRT_ROOT}
   tensorrt_env: modelopt
-  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
 
 output:
   experiment_name: lidar_disco_unified_ga
@@ -36,6 +34,7 @@ proxy:
   fisher_calibration_batches: 8
   quant_calibration_batches: 200
   quant_calibration_npz_manifest: ${CALIBRATION_MANIFEST}
+  quant_activation_calibration_backend: modelopt_histogram_entropy
   bops_constraint_mode: hard_band_feasibility
   bops_tolerance_abs: 0.005
 
@@ -63,9 +62,6 @@ stage2:
   greedy_anchor_accuracy_gate:
     enabled: true
     tolerance: 0.005
-
-baselines:
-  strict_fp32_engine: ${BASELINE_ENGINE}
 
 full_validation:
   num_frames: 1789

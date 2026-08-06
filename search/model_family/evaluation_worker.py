@@ -46,8 +46,11 @@ def main(argv: list[str] | None = None) -> int:
         ):
             if path not in sys.path:
                 sys.path.insert(0, path)
+        from deploy.post_scatter import POST_SCATTER_CONTRACT
+
+        input_contract = str(request.get("input_contract", POST_SCATTER_CONTRACT))
         plugin_path = str(request.get("plugin_path", ""))
-        if plugin_path:
+        if plugin_path and input_contract != POST_SCATTER_CONTRACT:
             ctypes.CDLL(plugin_path, mode=ctypes.RTLD_GLOBAL)
 
         from opencood.data_utils.datasets import build_dataset
@@ -146,19 +149,44 @@ def main(argv: list[str] | None = None) -> int:
             )
         loader = DataLoader(dataset, **loader_kwargs)
         runner = TensorRTEngineRunner(request["engine_path"], device)
-        input_contract = str(request.get("input_contract", "heal_v2xvit_fixed_k"))
-        if input_contract == "heal_lidar_baseline_fixed_k":
+        engine_input_names = {
+            str(runner.engine.get_tensor_name(index))
+            for index in range(runner.engine.num_io_tensors)
+            if runner.engine.get_tensor_mode(runner.engine.get_tensor_name(index))
+            == runner.trt.TensorIOMode.INPUT
+        }
+        external_frontend = None
+        if input_contract == POST_SCATTER_CONTRACT:
+            from heal_compress.point_frontend.post_scatter_runtime import (
+                ExternalPointPillarFrontend,
+            )
+
+            checkpoint_path = str(request.get("checkpoint_path", ""))
+            if not checkpoint_path:
+                raise RuntimeError("post_scatter_frontend_checkpoint_missing")
+            external_frontend = ExternalPointPillarFrontend(
+                hypes,
+                checkpoint_path,
+                device,
+                modality=modality,
+            )
+            policy = None
+            prepare_inputs = None
+            output_names = ("cls_preds", "reg_preds", "dir_preds")
+        elif input_contract == "heal_lidar_baseline_fixed_k":
             policy = HealLidarBaselineExportPolicy(
                 fixed_k=int(request["fixed_k"]),
                 max_agents=int(request.get("max_agents", 2)),
             )
             prepare_inputs = prepare_heal_lidar_baseline_inputs
+            output_names = policy.output_names
         elif input_contract == "heal_v2xvit_fixed_k":
             policy = HealV2XViTExportPolicy(
                 fixed_k=int(request["fixed_k"]),
                 max_agents=int(request.get("max_agents", 2)),
             )
             prepare_inputs = prepare_v2xvit_fixed_k_inputs
+            output_names = policy.output_names
         else:
             raise RuntimeError(f"unsupported_fixed_k_input_contract:{input_contract}")
         manifest_path = Path(request["eval_manifest_path"])
@@ -187,6 +215,7 @@ def main(argv: list[str] | None = None) -> int:
         host_to_device_times: list[float] = []
         input_prepare_times: list[float] = []
         voxelization_times: list[float] = []
+        pfn_scatter_times: list[float] = []
         composed_times: list[float] = []
         latency_rows: list[dict[str, Any]] = []
         evaluated: list[str] = []
@@ -215,9 +244,22 @@ def main(argv: list[str] | None = None) -> int:
                         voxel_audit, voxelization_gpu_ms = voxelize_ego_batch(
                             ego, gpu_voxelizer, modality=modality
                         )
-                    prepared, prepare_ms = _timed(
-                        lambda: prepare_inputs(ego, policy=policy), device
-                    )
+                    pfn_scatter_ms = 0.0
+                    if external_frontend is not None:
+                        spatial, pfn_scatter_ms = external_frontend.encode(ego)
+                        prepared, prepare_ms = _timed(
+                            lambda: external_frontend.engine_inputs(
+                                ego,
+                                spatial,
+                                input_names=engine_input_names,
+                                max_agents=int(request.get("max_agents", 2)),
+                            ),
+                            device,
+                        )
+                    else:
+                        prepared, prepare_ms = _timed(
+                            lambda: prepare_inputs(ego, policy=policy), device
+                        )
                     outputs = None
                     profiles = []
                     for _ in range(max(1, int(request.get("latency_rounds", 1)))):
@@ -227,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
                     engine_outputs = outputs or {}
                     output_dict = {
                         name: engine_outputs[name].float()
-                        for name in policy.output_names
+                        for name in output_names
                     }
 
                     def postprocess() -> Any:
@@ -250,12 +292,14 @@ def main(argv: list[str] | None = None) -> int:
                             "input_prepare_ms": prepare_ms,
                             "host_to_device_ms": h2d_ms,
                             "voxelization_gpu_ms": voxelization_gpu_ms,
+                            "pfn_scatter_gpu_ms": pfn_scatter_ms,
                             "forward_ms": forward_ms,
                             "postprocess_ms": post_ms,
                             "total_ms": forward_ms + post_ms,
                             "composed_total_ms": (
                                 h2d_ms
                                 + voxelization_gpu_ms
+                                + pfn_scatter_ms
                                 + prepare_ms
                                 + forward_ms
                                 + post_ms
@@ -294,9 +338,11 @@ def main(argv: list[str] | None = None) -> int:
                     host_to_device_times.append(h2d_ms)
                     input_prepare_times.append(prepare_ms)
                     voxelization_times.append(voxelization_gpu_ms)
+                    pfn_scatter_times.append(pfn_scatter_ms)
                     composed_times.append(
                         h2d_ms
                         + voxelization_gpu_ms
+                        + pfn_scatter_ms
                         + prepare_ms
                         + forward_ms
                         + post_ms
@@ -332,6 +378,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             **_latency_distribution(input_prepare_times, prefix="input_prepare"),
             **_latency_distribution(voxelization_times, prefix="voxelization_gpu"),
+            **_latency_distribution(pfn_scatter_times, prefix="pfn_scatter_gpu"),
             **_latency_distribution(composed_times, prefix="composed_total"),
             "num_warmup_frames": len(warmed),
             "num_evaluated_frames": len(evaluated),
@@ -340,9 +387,15 @@ def main(argv: list[str] | None = None) -> int:
             "evaluated_frame_ids": evaluated,
             "skipped_frame_ids": skipped,
             "skip_reason_counts": dict(skip_reasons),
-            "fixed_k": policy.fixed_k,
-            "max_agents": policy.max_agents,
+            "fixed_k": None if policy is None else policy.fixed_k,
+            "max_agents": int(request.get("max_agents", 2)),
             "input_contract": input_contract,
+            "runtime_max_k_dependency": False if policy is None else True,
+            "point_frontend": (
+                "dynamic_gpu_voxelization_pfn_scatter_outside_tensorrt"
+                if policy is None
+                else "legacy_fixed_k_inside_tensorrt"
+            ),
             "eval_manifest_path": str(manifest_path),
             "eval_manifest_hash": str(manifest.get("manifest_hash", "")),
             "reset_after_warmup": True,

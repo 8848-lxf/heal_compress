@@ -14,6 +14,14 @@ from typing import Any
 
 import torch
 
+from deploy.post_scatter import (
+    POST_SCATTER_CONTRACT,
+    audit_post_scatter_onnx,
+    export_post_scatter_onnx,
+    post_scatter_shape_profiles,
+    prepare_post_scatter_inputs,
+)
+
 from ..adapters.pruning_adapter import FormalPruningAdapter
 from ..cache.artifact_cache import ArtifactCache
 from ..cache.real_eval_cache import RealEvalCache
@@ -21,12 +29,7 @@ from ..candidate import CandidatePhenotype
 from ..hashing import canonical_json_hash, deployment_hash, eval_hash, physical_hash
 from ..integration.calibration_provider import (
     QDQ_CALIBRATION_SEMANTICS_VERSION,
-    TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION,
-    build_tensorrt_entropy_calibration_cache_modelopt,
     collect_or_load_qdq_calibration_scales,
-    fixed_k_calibration_npz_manifest_identity,
-    qdq_scales_from_tensorrt_entropy_cache,
-    save_calibration_scales,
 )
 from ..integration.data_provider import load_split_frame_ids
 from ..integration.evaluation_provider import (
@@ -36,7 +39,7 @@ from ..integration.evaluation_provider import (
     evaluate_engine_modelopt,
 )
 from ..integration.lidar_pyramid_context import LidarPyramidSearchContext
-from ..integration.trt_compatible_export import build_search_trt_compatible_export_module, make_pointpillar_domain_compatible
+from ..integration.trt_compatible_export import build_search_post_scatter_export_module
 from ..pruning_space.action_codec import selected_actions_from_genes
 from ..pruning_space.grouped_bundle_adapter import request_from_pruning_actions
 from ..baselines.original_engines import (
@@ -373,16 +376,6 @@ def _load_origin_map_result(path: str | Path) -> Any:
         for row in payload.get("functional_compute_groups", [])
     ]
     return OnnxOriginMapResult(**payload)
-
-
-def _shape_profiles(fixed_k: int = 29696) -> dict[str, dict[str, tuple[int, ...]]]:
-    return {
-        "pairwise_t_matrix": {"min": (1, 1, 1, 4, 4), "opt": (1, 2, 2, 4, 4), "max": (1, 2, 2, 4, 4)},
-        "valid_voxel_mask": {"min": (fixed_k,), "opt": (fixed_k,), "max": (fixed_k,)},
-        "voxel_coords": {"min": (fixed_k, 4), "opt": (fixed_k, 4), "max": (fixed_k, 4)},
-        "voxel_features": {"min": (fixed_k, 32, 4), "opt": (fixed_k, 32, 4), "max": (fixed_k, 32, 4)},
-        "voxel_num_points": {"min": (fixed_k,), "opt": (fixed_k,), "max": (fixed_k,)},
-    }
 
 
 def _param_count(model: torch.nn.Module) -> int:
@@ -1276,7 +1269,7 @@ class LidarPyramidRealEvaluator:
                 tensorrt_version=self.context.search_space.tensorrt_version,
                 gpu_compute_capability=self.context.search_space.gpu_compute_capability,
                 builder_flags=self.context.search_space.builder_flags,
-                optimization_profiles=_shape_profiles(),
+                optimization_profiles=post_scatter_shape_profiles(),
                 plugin_hashes=self.context.search_space.plugin_hashes,
                 quantization_contract_hash=quantization_contract_hash,
             )
@@ -1464,20 +1457,21 @@ class LidarPyramidRealEvaluator:
 
     def _export_qdq(self, phenotype: CandidatePhenotype, physical: dict[str, Any], output_dir: Path) -> dict[str, Any]:
         try:
-            from quantization.api import apply_fp16_merge_output_contract, build_canonical_precision_mapping, export_pruned_signal_maxk_onnx, insert_explicit_qdq, prepare_signal_maxk_inputs
-            from quantization.config import CalibrationConfig, CanonicalNamingConfig, OnnxExportConfig, QDQConfig
+            from quantization.api import apply_fp16_merge_output_contract, build_canonical_precision_mapping, insert_explicit_qdq
+            from quantization.config import CalibrationConfig, CanonicalNamingConfig, QDQConfig
             from quantization.types import CanonicalPrecisionMappingResult, PrecisionAssignment, PrecisionProfileResult
         except ImportError:
-            from heal_compress.quantization.api import apply_fp16_merge_output_contract, build_canonical_precision_mapping, export_pruned_signal_maxk_onnx, insert_explicit_qdq, prepare_signal_maxk_inputs
-            from heal_compress.quantization.config import CalibrationConfig, CanonicalNamingConfig, OnnxExportConfig, QDQConfig
+            from heal_compress.quantization.api import apply_fp16_merge_output_contract, build_canonical_precision_mapping, insert_explicit_qdq
+            from heal_compress.quantization.config import CalibrationConfig, CanonicalNamingConfig, QDQConfig
             from heal_compress.quantization.types import CanonicalPrecisionMappingResult, PrecisionAssignment, PrecisionProfileResult
 
-        qcfg = OnnxExportConfig(fixed_k=29696, min_agents=1, opt_agents=2, max_agents=2)
+        output_names = ("cls_preds", "reg_preds", "dir_preds")
         # PyTorch 2.0's legacy ONNX exporter mutates process-global state and
         # is not thread safe. Keep only export/cache publication serialized;
         # calibration, TensorRT build and evaluation remain cross-GPU parallel.
         with _ONNX_EXPORT_LOCK:
-            cached = self.artifacts.get_onnx(str(physical["physical_hash"]))
+            onnx_cache_key = f"{physical['physical_hash']}::{POST_SCATTER_CONTRACT}"
+            cached = self.artifacts.get_onnx(onnx_cache_key)
             cached_onnx = Path(str(cached.get("onnx_path", ""))) if cached else Path()
             cached_origin = Path(str(cached.get("origin_map", ""))) if cached else Path()
             cached_hash = str(cached.get("onnx_sha256", "")) if cached else ""
@@ -1496,19 +1490,22 @@ class LidarPyramidRealEvaluator:
                 export = SimpleNamespace(onnx_path=str(target_onnx), origin_map=_load_origin_map_result(cached_origin))
                 _write_json(output_dir / "onnx_cache_hit.json", {"physical_hash": physical["physical_hash"], "onnx_sha256": cached_hash})
             else:
-                wrapper = build_search_trt_compatible_export_module(
+                wrapper = build_search_post_scatter_export_module(
                     physical["model"],
-                    output_names=qcfg.output_names,
-                    fixed_k=qcfg.fixed_k,
+                    output_names=output_names,
                     modality="m1",
                 ).to(self.context.runtime_device).eval()
-                inputs = prepare_signal_maxk_inputs(self.context.trace_example_inputs, config=qcfg, modality="m1")
-                export = export_pruned_signal_maxk_onnx(
+                inputs = prepare_post_scatter_inputs(
+                    physical["model"],
+                    self.context.trace_example_inputs,
+                    modality="m1",
+                    include_agent_mask=False,
+                )
+                export = export_post_scatter_onnx(
                     wrapper,
                     inputs,
                     output_dir / "exported.onnx",
-                    physical["snapshot"],
-                    config=qcfg,
+                    output_names=output_names,
                     naming_config=CanonicalNamingConfig(),
                     report_path=output_dir / "onnx_export_report.json",
                 )
@@ -1520,7 +1517,7 @@ class LidarPyramidRealEvaluator:
             _write_json(output_dir / "origin_map.json", origin_map.to_dict())
             if not cache_valid:
                 self.artifacts.put_onnx(
-                    str(physical["physical_hash"]),
+                    onnx_cache_key,
                     {
                         "onnx_path": str(output_dir / "pruned_fp32.onnx"),
                         "onnx_sha256": _file_hash(output_dir / "pruned_fp32.onnx"),
@@ -1637,31 +1634,18 @@ class LidarPyramidRealEvaluator:
         int8_modules = sorted(row.module_path for row in mapping.entries if row.realized_request_precision == "int8")
         scales: dict[str, Any] = {}
         calibration_seed = 20260713
-        calibration_npz_manifest = getattr(self.context, "quant_calibration_npz_manifest", None)
-        calibration_input_identity: dict[str, Any] = {}
-        if int8_modules and calibration_npz_manifest is not None:
-            calibration_input_identity = fixed_k_calibration_npz_manifest_identity(
-                calibration_npz_manifest,
-                num_batches=self.context.quant_calibration_batches,
-                fixed_k=29696,
-            )
-            train_indices = list(calibration_input_identity.get("train_dataset_indices", []))
-            train_frame_ids = [
-                str(train_indices[index]) if index < len(train_indices) else f"npz:{index:06d}"
-                for index in range(self.context.quant_calibration_batches)
-            ]
-            calibration_order = "npz_manifest_file_order"
-        else:
-            train_frame_ids = load_split_frame_ids(
-                self.context.model_bundle.adapter,
-                self.context.model_config,
-                split="train",
-            )[: self.context.quant_calibration_batches]
-            calibration_order = "dataset_manifest_order_shuffle_false"
-            calibration_input_identity = {
-                "source": "dataset_manifest_with_seeded_train_augmentation",
-                "sample_count": len(train_frame_ids),
-            }
+        # Post-scatter calibration observes the real PyTorch graph on frozen
+        # train samples. Fixed-K tensor manifests belong to the legacy engine.
+        train_frame_ids = load_split_frame_ids(
+            self.context.model_bundle.adapter,
+            self.context.model_config,
+            split="train",
+        )[: self.context.quant_calibration_batches]
+        calibration_order = "dataset_manifest_order_shuffle_false"
+        calibration_input_identity: dict[str, Any] = {
+            "source": "dataset_manifest_with_seeded_train_augmentation",
+            "sample_count": len(train_frame_ids),
+        }
         if int8_modules and len(train_frame_ids) != self.context.quant_calibration_batches:
             raise RuntimeError(
                 f"insufficient_train_calibration_manifest_frames:{len(train_frame_ids)}<{self.context.quant_calibration_batches}"
@@ -1675,30 +1659,14 @@ class LidarPyramidRealEvaluator:
         calibration_backend = str(
             getattr(self.context, "quant_activation_calibration_backend", "modelopt_histogram_entropy")
         ).lower()
-        calibration_semantics = (
-            TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION
-            if calibration_backend in {
-                "external_tensorrt_entropy_cache_exact_match",
-                "tensorrt_entropy_calibration2",
-            }
-            else QDQ_CALIBRATION_SEMANTICS_VERSION
-        )
-        activation_calibration_method = (
-            "tensorrt_entropy_calibration2"
-            if calibration_backend in {
-                "external_tensorrt_entropy_cache_exact_match",
-                "tensorrt_entropy_calibration2",
-            }
-            else "entropy"
-        )
-        histogram_bins: int | None = (
-            None
-            if calibration_backend in {
-                "external_tensorrt_entropy_cache_exact_match",
-                "tensorrt_entropy_calibration2",
-            }
-            else 2048
-        )
+        if int8_modules and calibration_backend != "modelopt_histogram_entropy":
+            raise RuntimeError(
+                "post_scatter_calibration_requires_modelopt_histogram_entropy:"
+                f"requested={calibration_backend}"
+            )
+        calibration_semantics = QDQ_CALIBRATION_SEMANTICS_VERSION
+        activation_calibration_method = "entropy"
+        histogram_bins = 2048
         calibration_identity = {
             "modules": int8_modules,
             "semantics": calibration_semantics,
@@ -1709,7 +1677,9 @@ class LidarPyramidRealEvaluator:
             "activation_calibration_backend": calibration_backend,
             "activation_calibration_method": activation_calibration_method,
             "histogram_bins": histogram_bins,
-            "fixed_k": 29696,
+            "fixed_k": None,
+            "input_contract": POST_SCATTER_CONTRACT,
+            "runtime_max_k_dependency": False,
             "calibration_seed": calibration_seed,
             "calibration_frame_manifest_hash": calibration_frame_manifest_hash,
             "calibration_input_manifest_sha256": calibration_input_identity.get("manifest_sha256", ""),
@@ -1721,114 +1691,28 @@ class LidarPyramidRealEvaluator:
             / "calibration"
             / f"{physical['physical_hash']}_{canonical_json_hash(calibration_identity)}.json"
         )
-        calibration_backend_result: dict[str, Any] = {}
-        calibration_compatibility: dict[str, Any] = {}
         if int8_modules:
-            if calibration_backend == "external_tensorrt_entropy_cache_exact_match":
-                external_cache = getattr(
-                    self.context,
-                    "quant_activation_calibration_cache_path",
-                    None,
-                )
-                if external_cache is None or not Path(external_cache).is_file():
-                    raise RuntimeError(
-                        f"external_tensorrt_entropy_cache_missing:{external_cache}"
-                    )
-                calibration_backend_result = {
-                    "status": "ok",
-                    "external_reference_cache": True,
-                    "calibration_cache_path": str(Path(external_cache).resolve()),
-                    "calibration_cache_sha256": _file_hash(Path(external_cache)),
-                    "calibration_cache_reused_as_reference": True,
-                    "tensor_matching": "exact_name_only",
-                }
-                scales, scale_details = qdq_scales_from_tensorrt_entropy_cache(
-                    onnx_path=export.onnx_path,
-                    origin_map=origin_map,
-                    module_paths=int8_modules,
-                    cache_path=external_cache,
-                    weight_granularity=qdq_config.weight_granularity,
-                    activation_scale_source=(
-                        "legacy_single_engine_maxK_fixedK29696_train200_"
-                        "TensorRT_EntropyCalibration2_exact_tensor_match"
-                    ),
-                )
-                save_calibration_scales(
-                    calibration_cache_path,
-                    scales,
-                    {
-                        **scale_details,
-                        "frame_count": self.context.quant_calibration_batches,
-                        "fixed_k": 29696,
-                        "external_reference_cache": True,
-                        "calibration_input_provenance": calibration_input_identity,
-                    },
-                )
-            elif calibration_backend == "tensorrt_entropy_calibration2":
-                calibration_onnx = output_dir / "calibration_trt_compatible.onnx"
-                calibration_compatibility = make_pointpillar_domain_compatible(
-                    export.onnx_path,
-                    calibration_onnx,
-                )
-                _write_json(
-                    output_dir / "calibration_onnx_domain_compatibility_report.json",
-                    calibration_compatibility,
-                )
-                calibration_backend_result = build_tensorrt_entropy_calibration_cache_modelopt(
-                    onnx_path=calibration_onnx,
-                    calibration_npz_manifest=calibration_npz_manifest,
-                    output_dir=output_dir / "tensorrt_entropy_calibration",
-                    tensorrt_root=self.context.tensorrt.tensorrt_root,
-                    plugin_path=self.context.tensorrt.plugin_path,
-                    physical_gpu_id=self.context.physical_gpu_id,
-                    num_batches=self.context.quant_calibration_batches,
-                    fixed_k=29696,
-                    conda_env=self.context.tensorrt.conda_env,
-                    force_rebuild=bool(self.context.quant_calibration_force_rebuild),
-                )
-                scales, scale_details = qdq_scales_from_tensorrt_entropy_cache(
-                    onnx_path=export.onnx_path,
-                    origin_map=origin_map,
-                    module_paths=int8_modules,
-                    cache_path=calibration_backend_result["calibration_cache_path"],
-                    weight_granularity=qdq_config.weight_granularity,
-                )
-                save_calibration_scales(
-                    calibration_cache_path,
-                    scales,
-                    {
-                        **scale_details,
-                        "frame_count": self.context.quant_calibration_batches,
-                        "fixed_k": 29696,
-                        "calibration_input_provenance": calibration_input_identity,
-                        "calibration_backend_result_hash": canonical_json_hash(
-                            calibration_backend_result
-                        ),
-                    },
-                )
-            elif calibration_backend == "modelopt_histogram_entropy":
-                scales = collect_or_load_qdq_calibration_scales(
-                    model=physical["model"],
-                    adapter=self.context.model_bundle.adapter,
-                    model_config_path=self.context.model_config,
-                    module_paths=int8_modules,
-                    device=torch.device(self.context.runtime_device),
-                    cache_path=calibration_cache_path,
-                    num_batches=self.context.quant_calibration_batches,
-                    onnx_path=export.onnx_path,
-                    origin_map=origin_map,
-                    weight_granularity=qdq_config.weight_granularity,
-                    activation_calibration_method="entropy",
-                    histogram_bins=2048,
-                    fixed_k=29696,
-                    calibration_frame_ids=train_frame_ids,
-                    calibration_seed=calibration_seed,
-                    calibration_npz_manifest=calibration_npz_manifest,
-                )
-            else:
-                raise RuntimeError(
-                    f"unsupported_quant_activation_calibration_backend:{calibration_backend}"
-                )
+            scales = collect_or_load_qdq_calibration_scales(
+                model=physical["model"],
+                adapter=self.context.model_bundle.adapter,
+                model_config_path=self.context.model_config,
+                module_paths=int8_modules,
+                device=torch.device(self.context.runtime_device),
+                cache_path=calibration_cache_path,
+                num_batches=self.context.quant_calibration_batches,
+                onnx_path=export.onnx_path,
+                origin_map=origin_map,
+                weight_granularity=qdq_config.weight_granularity,
+                activation_calibration_method="entropy",
+                histogram_bins=2048,
+                calibration_frame_ids=train_frame_ids,
+                calibration_seed=calibration_seed,
+                calibration_npz_manifest=None,
+                calibration_forward_fn=lambda inner_model, batch: self.context.model_bundle.adapter.forward_for_task(
+                    inner_model, batch
+                ),
+                calibration_input_contract=POST_SCATTER_CONTRACT,
+            )
         for row in mapping.entries:
             if row.realized_request_precision == "int8" and row.realized_output_precision == "fp16":
                 scale = scales.get(row.module_path)
@@ -1848,7 +1732,9 @@ class LidarPyramidRealEvaluator:
                 "activation_calibration_backend": calibration_backend,
                 "activation_calibration_method": activation_calibration_method,
                 "histogram_bins": histogram_bins,
-                "fixed_k": 29696,
+                "fixed_k": None,
+                "input_contract": POST_SCATTER_CONTRACT,
+                "runtime_max_k_dependency": False,
                 "calibration_seed": calibration_seed,
                 "calibration_frame_ids": train_frame_ids,
                 "calibration_frame_manifest_hash": calibration_frame_manifest_hash,
@@ -1856,8 +1742,8 @@ class LidarPyramidRealEvaluator:
                 "calibration_input_provenance": calibration_input_identity,
                 "calibration_cache_path": str(calibration_cache_path),
                 "calibration_identity": calibration_identity,
-                "calibration_backend_result": calibration_backend_result,
-                "calibration_onnx_compatibility": calibration_compatibility,
+                "calibration_backend_result": {},
+                "calibration_onnx_compatibility": {},
             },
         )
         _write_json(output_dir / "calibration_scales.json", scales)
@@ -1926,8 +1812,13 @@ class LidarPyramidRealEvaluator:
         _write_json(output_dir / "quantization_group_contracts.json", group_contracts)
         if not (output_dir / "pruned_qdq.onnx").exists():
             shutil.copyfile(output_dir / "qdq.onnx", output_dir / "pruned_qdq.onnx")
-        compatibility = make_pointpillar_domain_compatible(output_dir / "qdq.onnx", output_dir / "qdq_trt_compatible.onnx")
-        _write_json(output_dir / "onnx_domain_compatibility_report.json", compatibility)
+        shutil.copyfile(output_dir / "qdq.onnx", output_dir / "qdq_trt_compatible.onnx")
+        compatibility = audit_post_scatter_onnx(output_dir / "qdq_trt_compatible.onnx")
+        _write_json(output_dir / "post_scatter_onnx_acceptance.json", compatibility)
+        if not compatibility["passed"]:
+            raise RuntimeError(
+                f"pyramid_post_scatter_qdq_rejected:{compatibility['issues']}"
+            )
         _write_json(output_dir / "qdq_report.json", qdq.to_dict())
         group_macs = {group.group_id: float(group.baseline_macs) for group in self.context.search_space.quantization_groups}
         total_group_macs = sum(group_macs.values()) or 1.0
@@ -1969,14 +1860,14 @@ class LidarPyramidRealEvaluator:
             build_config = make_baseline_trt_build_config(
                 baseline_precision,
                 trtexec_path=self.context.tensorrt.trtexec_path,
-                plugin_path=self.context.tensorrt.plugin_path,
-                shape_profiles=_shape_profiles(),
+                plugin_path=None,
+                shape_profiles=post_scatter_shape_profiles(),
             )
         else:
             build_config = TensorRTBuildConfig(
                 trtexec_path=self.context.tensorrt.trtexec_path,
-                plugin_path=self.context.tensorrt.plugin_path,
-                shape_profiles=_shape_profiles(),
+                plugin_path=None,
+                shape_profiles=post_scatter_shape_profiles(),
                 enable_fp16=True,
                 enable_int8=any(row.realized_request_precision == "int8" for row in qdq["precision_mapping"].entries),
                 no_tf32=True,
@@ -1984,7 +1875,7 @@ class LidarPyramidRealEvaluator:
                 skip_inference=True,
                 export_layer_info=True,
                 strongly_typed=True,
-                policy_version="search-candidate-explicit-qdq-strongly-typed-v2",
+                policy_version="search-candidate-post-scatter-explicit-qdq-strongly-typed-v1",
             )
         engine_path = output_dir / "engine.plan"
         trt_build_onnx = qdq.get("trt_build_onnx", qdq["qdq_onnx"])
@@ -2140,13 +2031,15 @@ class LidarPyramidRealEvaluator:
             physical_gpu_id=self.context.physical_gpu_id,
             output_dir=output_dir,
             tensorrt_root=self.context.tensorrt.tensorrt_root,
-            plugin_path=self.context.tensorrt.plugin_path,
+            plugin_path=None,
             num_frames=self.num_frames,
             warmup_frames=self.warmup_frames,
-            fixed_k=29696,
+            fixed_k=None,
             latency_rounds=self.latency_rounds,
             conda_env=self.context.tensorrt.conda_env,
             eval_manifest_path=self.context.eval_manifest_path,
+            input_contract=POST_SCATTER_CONTRACT,
+            checkpoint_path=self.context.checkpoint_path,
         )
         _write_json(output_dir / "evaluation.json", result)
         self._copy_latency(result, output_dir / "latency.csv")

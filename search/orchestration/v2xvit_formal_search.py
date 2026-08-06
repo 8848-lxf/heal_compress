@@ -7,6 +7,13 @@ from pathlib import Path
 import random
 from typing import Any, Mapping
 
+from deploy.post_scatter import (
+    POST_SCATTER_CONTRACT,
+    filter_post_scatter_module_paths,
+    filter_post_scatter_pruning_units,
+    filter_post_scatter_quantization_groups,
+)
+
 from ..candidate import CandidateGenotype
 from ..canonicalization import SearchSpaceSpec, canonicalize_candidate
 from ..adapters.transformer_models import build_transformer_search_components
@@ -23,7 +30,7 @@ from ..hashing import canonical_json_hash
 from ..model_family.heal_lidar_pruning import (
     build_heal_lidar_baseline_atomic_units,
 )
-from ..model_family.calibration_manifest import load_v2xvit_train_manifest
+from ..model_family.calibration_manifest import load_v2xvit_dynamic_train_manifest
 from ..model_family.model_provider import load_heal_model_family
 from ..model_family.search_smoke import (
     collect_v2xvit_manifest_fisher_statistics,
@@ -128,7 +135,7 @@ class V2XViTFormalSearch:
         config_path = _resolve(model_cfg["config"], label="model_config")
         heal_root = _resolve(runtime["heal_root"], label="heal_root", file=False)
         train_manifest_path = _resolve(
-            proxy_cfg["quant_calibration_npz_manifest"],
+            proxy_cfg["dynamic_calibration_manifest"],
             label="train_calibration_manifest",
         )
         device_name = str(runtime.get("device", "cuda:0"))
@@ -137,14 +144,7 @@ class V2XViTFormalSearch:
             raise RuntimeError("v2xvit_formal_search_requires_cuda")
         torch.cuda.set_device(device)
 
-        manifest = load_v2xvit_train_manifest(train_manifest_path)
-        configured_fixed_k = int(model_cfg.get("fixed_k", 0) or 0)
-        manifest_fixed_k = int(manifest["fixed_k_contract"]["value"])
-        if configured_fixed_k and configured_fixed_k != manifest_fixed_k:
-            raise RuntimeError(
-                "v2xvit_fixed_k_config_manifest_mismatch:"
-                f"{configured_fixed_k}!={manifest_fixed_k}"
-            )
+        manifest = load_v2xvit_dynamic_train_manifest(train_manifest_path)
         bundle = load_heal_model_family(
             config_path=config_path,
             checkpoint_path=checkpoint,
@@ -171,8 +171,10 @@ class V2XViTFormalSearch:
             forward_fn=bundle.adapter.forward_for_task,
         )
         active_paths = sorted({row.module_path for row in runtime_profile.shapes})
-        cnn_atomic_units = build_heal_lidar_baseline_atomic_units(
-            bundle.model, "heal_lidar_v2xvit"
+        cnn_atomic_units = filter_post_scatter_pruning_units(
+            build_heal_lidar_baseline_atomic_units(
+                bundle.model, "heal_lidar_v2xvit"
+            )
         )
         cnn_slices = build_unit_parameter_slices(bundle.model, cnn_atomic_units)
         cnn_importance, cnn_ranking = score_atomic_units_for_fixed_ranking(
@@ -221,10 +223,20 @@ class V2XViTFormalSearch:
                 f"v2xvit_cnn_transformer_unit_overlap:{sorted(overlap)}"
             )
         unit_slices = {**cnn_slices, **transformer_slices}
-        quantization_groups = build_v2xvit_quantization_groups(
-            bundle.model,
-            bundle.audit,
-            active_module_paths=active_paths,
+        quantization_groups = filter_post_scatter_quantization_groups(
+            build_v2xvit_quantization_groups(
+                bundle.model,
+                bundle.audit,
+                active_module_paths=active_paths,
+            )
+        )
+        deployment_active_paths = filter_post_scatter_module_paths(active_paths)
+        deployment_parameter_paths = filter_post_scatter_module_paths(
+            [
+                name
+                for name, module in bundle.model.named_modules()
+                if getattr(module, "weight", None) is not None
+            ]
         )
         capability = torch.cuda.get_device_capability(device)
         space = SearchSpaceSpec(
@@ -233,7 +245,7 @@ class V2XViTFormalSearch:
                 for domain in domains
                 for unit_id in domain.ordered_unit_ids
             ],
-            precision_layer_ids=active_paths,
+            precision_layer_ids=deployment_active_paths,
             quantization_groups=tuple(quantization_groups),
             pruning_domains=tuple(domains),
             default_precision="FP32",
@@ -243,9 +255,10 @@ class V2XViTFormalSearch:
             calibration_manifest_hash=str(manifest["manifest_hash"]),
             onnx_export_config_hash=canonical_json_hash(
                 {
-                    "fixed_k": manifest_fixed_k,
+                    "engine_contract": POST_SCATTER_CONTRACT,
                     "max_agents": int(model_cfg.get("max_agents", 2)),
                     "explicit_qdq": True,
+                    "runtime_max_k_dependency": False,
                 }
             ),
             tensorrt_version="runtime_verified",
@@ -253,7 +266,8 @@ class V2XViTFormalSearch:
             builder_flags={
                 "strongly_typed": True,
                 "explicit_qdq": True,
-                "scatter_plugin": True,
+                "scatter_plugin": False,
+                "point_frontend": "dynamic_voxelization_pfn_scatter_outside_tensorrt",
             },
         )
         activation_cache = None
@@ -301,7 +315,9 @@ class V2XViTFormalSearch:
             run_dir / "manifests/search_space.json",
             {
                 "family_id": "heal_lidar_v2xvit",
-                "fixed_k": manifest_fixed_k,
+                "fixed_k": None,
+                "engine_contract": POST_SCATTER_CONTRACT,
+                "runtime_max_k_dependency": False,
                 "domains": [row.to_dict() for row in domains],
                 "quantization_groups": [row.to_dict() for row in quantization_groups],
                 "ranking": {
@@ -321,12 +337,14 @@ class V2XViTFormalSearch:
         size = SizeProxy(
             model=bundle.model,
             unit_to_parameter_slices=unit_slices,
+            include_module_paths=deployment_parameter_paths,
             virtual_shape_cache=virtual_shape_cache,
         )
         bops = BOPSProxy(
             model=bundle.model,
             unit_to_parameter_slices=unit_slices,
             runtime_shapes=runtime_profile.shapes,
+            include_module_paths=deployment_active_paths,
             virtual_shape_cache=virtual_shape_cache,
         )
         joint = JointWeightTaylorProxy(
@@ -517,12 +535,10 @@ class V2XViTFormalSearch:
                 train200_manifest_path=state["manifest_path"],
                 checkpoint_path=state["checkpoint"],
                 physical_report=physical_report,
-                fixed_k=int(state["manifest"]["fixed_k_contract"]["value"]),
                 physical_gpu=int(runtime.get("physical_gpu", 0)),
                 tensorrt_root=_resolve(
                     runtime["tensorrt_root"], label="tensorrt_root", file=False
                 ),
-                plugin_path=_resolve(runtime["plugin_path"], label="scatter_plugin"),
             )
             if build.get("status") != "ok":
                 raise RuntimeError(
@@ -536,17 +552,19 @@ class V2XViTFormalSearch:
                 tensorrt_root=_resolve(
                     runtime["tensorrt_root"], label="tensorrt_root", file=False
                 ),
-                plugin_path=_resolve(runtime["plugin_path"], label="scatter_plugin"),
+                plugin_path=None,
                 eval_manifest_path=_resolve(
                     stage2["evaluation_manifest"], label="evaluation_manifest"
                 ),
                 physical_gpu_id=int(runtime.get("physical_gpu", 0)),
-                fixed_k=int(state["manifest"]["fixed_k_contract"]["value"]),
+                fixed_k=None,
                 max_agents=int(model_cfg.get("max_agents", 2)),
                 num_frames=int(stage2.get("num_frames", 500)),
                 warmup_frames=int(stage2.get("warmup_frames", 200)),
                 latency_rounds=int(stage2.get("latency_rounds", 3)),
                 dataloader_num_workers=int(stage2.get("dataloader_num_workers", 8)),
+                input_contract=POST_SCATTER_CONTRACT,
+                checkpoint_path=Path(build["pruned_checkpoint_path"]),
             )
             if evaluation.get("status") != "ok":
                 raise RuntimeError(
@@ -563,6 +581,7 @@ class V2XViTFormalSearch:
                 skipped=int(evaluation["num_skipped_frames"]),
                 metadata={
                     "engine_path": str(build["engine_path"]),
+                    "pruned_checkpoint_path": str(build["pruned_checkpoint_path"]),
                     "candidate_dir": str(candidate_dir),
                     "target_bops_retention": target,
                 },
@@ -598,6 +617,13 @@ class V2XViTFormalSearch:
         engine_path = str(winner.metadata.get("engine_path", ""))
         if not engine_path:
             raise RuntimeError("v2xvit_full_validation_winner_engine_missing")
+        frontend_checkpoint = str(
+            winner.metadata.get("pruned_checkpoint_path", "")
+        )
+        if not frontend_checkpoint:
+            raise RuntimeError(
+                "v2xvit_full_validation_frontend_checkpoint_missing"
+            )
         manifest_value = full.get("evaluation_manifest") or stage2.get(
             "evaluation_manifest"
         )
@@ -613,17 +639,19 @@ class V2XViTFormalSearch:
             tensorrt_root=_resolve(
                 runtime["tensorrt_root"], label="tensorrt_root", file=False
             ),
-            plugin_path=_resolve(runtime["plugin_path"], label="scatter_plugin"),
+            plugin_path=None,
             eval_manifest_path=_resolve(
                 manifest_value, label="full_evaluation_manifest"
             ),
             physical_gpu_id=int(runtime.get("physical_gpu", 0)),
-            fixed_k=int(state["manifest"]["fixed_k_contract"]["value"]),
+            fixed_k=None,
             max_agents=int(model_cfg.get("max_agents", 2)),
             num_frames=int(full.get("num_frames", 1789)),
             warmup_frames=int(full.get("warmup_frames", 200)),
             latency_rounds=int(full.get("latency_rounds", 3)),
             dataloader_num_workers=int(full.get("dataloader_num_workers", 8)),
+            input_contract=POST_SCATTER_CONTRACT,
+            checkpoint_path=Path(frontend_checkpoint),
         )
         if evaluation.get("status") != "ok":
             raise RuntimeError(

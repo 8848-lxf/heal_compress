@@ -241,7 +241,7 @@ class LidarPyramidTwoStageSearch:
             model_config_path=model_cfg.get("config") or model_cfg.get("hypes_yaml"),
             heal_root=runtime.get("heal_root", "../../HEAL"),
             tensorrt_root=runtime.get("tensorrt_root", "${TENSORRT_ROOT}"),
-            plugin_path=runtime.get("plugin_path"),
+            plugin_path=None,
             gpu_id=str(runtime.get("gpu_id", "auto")),
             exclude_gpu_ids=[int(v) for v in runtime.get("exclude_gpu_ids", [5, 6, 7])],
             tensorrt_env=str(runtime.get("tensorrt_env", "modelopt")),
@@ -1166,11 +1166,32 @@ class LidarPyramidTwoStageSearch:
         objective_mode = str(
             proxy_cfg.get("objective_mode", "legacy_fisher_sqnr_size_bops")
         )
+        from deploy.post_scatter import filter_post_scatter_module_paths
+
+        runtime_paths = filter_post_scatter_module_paths(
+            [row.module_path for row in (runtime_shapes or ())]
+        )
+        parameter_paths = filter_post_scatter_module_paths(
+            [
+                name
+                for name, module in context.model.named_modules()
+                if getattr(module, "weight", None) is not None
+            ]
+        )
         return ProxyObjective(
             fisher=FisherTaylorProxy(context.model, statistics=fisher_stats, unit_to_parameter_names=unit_slices),
             sqnr=SQNRProxy(context.model, unit_to_parameter_slices=unit_slices),
-            size=SizeProxy(context.model, unit_to_parameter_slices=unit_slices),
-            bops=BOPSProxy(context.model, unit_to_parameter_slices=unit_slices, runtime_shapes=runtime_shapes),
+            size=SizeProxy(
+                context.model,
+                unit_to_parameter_slices=unit_slices,
+                include_module_paths=parameter_paths,
+            ),
+            bops=BOPSProxy(
+                context.model,
+                unit_to_parameter_slices=unit_slices,
+                runtime_shapes=runtime_shapes,
+                include_module_paths=runtime_paths,
+            ),
             joint_weight_taylor=(
                 JointWeightTaylorProxy(
                     context.model,

@@ -1,10 +1,10 @@
 """Audited capabilities for HEAL LiDAR-only V2X-ViT models.
 
 The production exporter remains model-family scoped and does not patch HEAL or
-reuse the lidar_pyramid exporter.  The capabilities below distinguish the
-fixed-K V2X-ViT path validated on H800 from intentionally protected Transformer
-INT8 features.  Attention keeps the head count fixed and searches the coupled
-per-head ``d_h`` width across Q/K/V/O and HGT relation tensors.
+reuse the lidar_pyramid exporter. The TensorRT graph starts at dense post-scatter
+BEV features; dynamic voxelization, PFN and scatter remain in the shared GPU
+frontend. Attention keeps the head count fixed and searches the coupled per-head
+``d_h`` width across Q/K/V/O and HGT relation tensors.
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from .contracts import (
     DeploymentOperatorCapability,
     MergeBoundaryCapability,
     ModelFamilyAudit,
-    PluginRequirement,
     PruningDomainCapability,
     WeightedOpCapability,
 )
@@ -78,8 +77,8 @@ def _module_quantization_capability(name: str, module: nn.Module) -> WeightedOpC
     elif "pillar_vfe" in lower:
         allowed = ("FP32", "FP16")
         enabled = False
-        reason = "pillar_vfe_matmul_requires_fixed_k_export_mapping"
-        output_boundary = "post_pfn_norm_relu_max_boundary"
+        reason = "pillar_vfe_is_external_to_post_scatter_tensorrt_engine"
+        output_boundary = "external_dynamic_gpu_frontend"
     elif "fusion_net" in lower:
         allowed = ("FP32", "FP16")
         enabled = False
@@ -302,11 +301,11 @@ def _deployment_operators() -> tuple[DeploymentOperatorCapability, ...]:
             capability_id="pointpillar_scatter",
             op_kinds=("ScatterND", "index_put", "PointPillarScatterTRT"),
             module_paths=("encoder_m1.scatter",),
-            deployment_mode="plugin_required_for_fixed_k_single_engine",
-            precision_policy="FP16_boundary",
-            plugin_key="pointpillar_scatter_trt",
-            production_enabled=True,
-            gate_reason="",
+            deployment_mode="external_dynamic_gpu_frontend_not_in_tensorrt",
+            precision_policy="external_fp32_frontend",
+            plugin_key="",
+            production_enabled=False,
+            gate_reason="outside_post_scatter_engine_contract",
         ),
         DeploymentOperatorCapability(
             capability_id="agent_affine_warp",
@@ -388,26 +387,14 @@ class HealLidarV2XViTProvider:
             pruning_domains=tuple(_pruning_domains(model)),
             merge_boundaries=tuple(_merge_boundaries(model)),
             deployment_operators=_deployment_operators(),
-            plugin_requirements=(
-                PluginRequirement(
-                    plugin_key="pointpillar_scatter_trt",
-                    op_types=("PointPillarScatterTRT",),
-                    required=True,
-                    compatibility_status="validated_v2xvit_fixedk27904_h800_trt10_9",
-                    reusable_implementation="quantization/plugins/pointpillar_scatter_trt",
-                    compatibility_checks=(
-                        "fixed_k_from_frozen_calibration_manifest",
-                        "grid_size_and_feature_width",
-                        "coordinate_layout_and_batch_semantics",
-                        "strongly_typed_fp16_plugin_boundary",
-                        "plugin_compute_capability_and_tensorRT_hash",
-                    ),
-                ),
-            ),
+            plugin_requirements=(),
             input_contract={
                 "max_cav": int(config.get("train_params", {}).get("max_cav", 0)),
                 "configured_max_voxel_test": int(preprocess.get("args", {}).get("max_voxel_test", 0)),
-                "fixed_k_policy": "derive_from_frozen_calibration_manifest_then_freeze",
+                "engine_contract": "heal_post_scatter_dynamic_frontend_v1",
+                "engine_inputs": ["spatial_features", "pairwise_t_matrix", "agent_mask"],
+                "point_frontend": "dynamic_gpu_voxelization_pfn_scatter_outside_tensorrt",
+                "runtime_max_k_dependency": False,
                 "grid_size_xyz": grid_size,
                 "voxel_size": voxel_size,
                 "agent_type_policy": "prove_realized_types_before_export_specialization",

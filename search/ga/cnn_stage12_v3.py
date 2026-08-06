@@ -19,6 +19,8 @@ from typing import Any, Mapping, Sequence
 
 import torch
 
+from deploy.post_scatter import filter_post_scatter_module_paths
+
 from ..candidate import CandidateGenotype
 from ..canonicalization import SearchSpaceSpec, canonicalize_candidate
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
@@ -83,8 +85,8 @@ class CNNFormalModelSpec:
     family_id: str
     checkpoint: Path
     config: Path
-    calibration_manifest: Path
     heal_root: Path
+    calibration_manifest: Path | None = None
     strict_fp32_engine: Path | None = None
     include_activation_taylor: bool = False
     objective_calibration_mode: str = "raw"
@@ -260,11 +262,11 @@ def build_context(
     *,
     output_root: Path,
     physical_gpu: int,
-    plugin: Path,
+    plugin: Path | None,
     tensorrt_root: Path,
     taylor_samples: int,
 ) -> Any:
-    for path in (spec.checkpoint, spec.config, spec.calibration_manifest, plugin):
+    for path in (spec.checkpoint, spec.config):
         if not path.is_file():
             raise RuntimeError(f"formal_cnn_required_artifact_missing:{path}")
     if not spec.heal_root.is_dir():
@@ -277,14 +279,14 @@ def build_context(
             output_dir=output_root,
             heal_root=spec.heal_root,
             tensorrt_root=tensorrt_root,
-            plugin_path=plugin,
+            plugin_path=None,
             gpu_id=str(logical_gpu),
             exclude_gpu_ids=[],
             tensorrt_env="modelopt",
             fisher_calibration_batches=int(taylor_samples),
             quant_calibration_batches=200,
-            quant_calibration_npz_manifest=spec.calibration_manifest,
-            quant_activation_calibration_backend="tensorrt_entropy_calibration2",
+            quant_calibration_npz_manifest=None,
+            quant_activation_calibration_backend="modelopt_histogram_entropy",
             quant_calibration_force_rebuild=True,
             num_frames=max(EVALUATION_MANIFEST_FRAMES, spec.full_validation_frames),
             warmup_frames=max(
@@ -303,14 +305,14 @@ def build_context(
         output_dir=output_root,
         heal_root=spec.heal_root,
         tensorrt_root=tensorrt_root,
-        plugin_path=plugin,
+        plugin_path=None,
         gpu_id=str(logical_gpu),
         exclude_gpu_ids=[],
         tensorrt_env="modelopt",
         fisher_calibration_batches=int(taylor_samples),
         quant_calibration_batches=200,
-        quant_calibration_npz_manifest=spec.calibration_manifest,
-        quant_activation_calibration_backend="tensorrt_entropy_calibration2",
+        quant_calibration_npz_manifest=None,
+        quant_activation_calibration_backend="modelopt_histogram_entropy",
         quant_calibration_force_rebuild=True,
         num_frames=max(EVALUATION_MANIFEST_FRAMES, spec.full_validation_frames),
         warmup_frames=max(
@@ -319,11 +321,10 @@ def build_context(
         ),
         reset_after_warmup=True,
         default_precision="FP32",
-        fixed_k=29696,
         max_agents=2,
         minimum_retained_ratio=0.10,
         dense_alignment=4,
-        require_quant_calibration_manifest=True,
+        require_quant_calibration_manifest=False,
         search_space_policy=HEAL_RUNTIME_GRAPH_POLICY,
     )
 
@@ -333,7 +334,7 @@ def prepare_search(
     *,
     output_root: Path,
     physical_gpu: int,
-    plugin: Path,
+    plugin: Path | None,
     tensorrt_root: Path,
     taylor_samples: int = 8,
 ) -> PreparedCNNFormalSearch:
@@ -353,6 +354,16 @@ def prepare_search(
         forward_fn=context.model_bundle.adapter.forward_for_task,
     )
     write_json(output_root / "proxy/runtime_shapes.json", runtime.to_dict())
+    engine_runtime_paths = filter_post_scatter_module_paths(
+        [shape.module_path for shape in runtime.shapes]
+    )
+    engine_parameter_paths = filter_post_scatter_module_paths(
+        [
+            name
+            for name, module in context.model.named_modules()
+            if getattr(module, "weight", None) is not None
+        ]
+    )
     torch.manual_seed(0)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)
@@ -370,7 +381,8 @@ def prepare_search(
         "model_id": spec.model_id,
         "checkpoint_sha256": sha256_file(spec.checkpoint),
         "config_sha256": sha256_file(spec.config),
-        "calibration_manifest_sha256": sha256_file(spec.calibration_manifest),
+        "calibration_manifest_sha256": "",
+        "calibration_input_contract": "frozen_train_dataset_batches_post_scatter",
         "taylor_samples": int(taylor_samples),
         "include_activation_taylor": bool(spec.include_activation_taylor),
         "base_domain_contract_hash": canonical_json_hash([
@@ -505,6 +517,7 @@ def prepare_search(
             context.model,
             unit_to_parameter_slices=slices,
             runtime_shapes=runtime.shapes,
+            include_module_paths=engine_runtime_paths,
             default_precision="FP32",
             virtual_shape_cache=virtual_shape_cache,
         ),
@@ -513,6 +526,7 @@ def prepare_search(
             unit_to_parameter_slices=slices,
             default_precision="FP32",
             include_constant_parameters_in_size=True,
+            include_module_paths=engine_parameter_paths,
             virtual_shape_cache=virtual_shape_cache,
         ),
         structure=FunctionalGateTaylorProxy(gate_scores),

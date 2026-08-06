@@ -157,7 +157,7 @@ def test_v2xvit_audit_tracks_module_and_functional_weighted_ops() -> None:
     assert by_id["module::cls_head"].production_enabled is False
 
 
-def test_v2xvit_audit_exposes_head_ffn_merge_and_plugin_gates() -> None:
+def test_v2xvit_audit_exposes_head_ffn_merge_and_post_scatter_contract() -> None:
     from search.model_family import get_model_family
 
     audit = get_model_family("heal_lidar_v2xvit").audit(FakeV2XViT(), _config())
@@ -176,18 +176,17 @@ def test_v2xvit_audit_exposes_head_ffn_merge_and_plugin_gates() -> None:
         if row.domain_kind == "split_attention_hidden_width"
     )
     assert any(row.merge_kind == "transformer_residual_add" for row in audit.merge_boundaries)
-    plugin = audit.plugin_requirements[0]
-    assert plugin.plugin_key == "pointpillar_scatter_trt"
-    assert plugin.required is True
+    assert audit.plugin_requirements == ()
     assert audit.input_contract["grid_size_xyz"] == [512, 256, 1]
-    assert plugin.compatibility_status == "validated_v2xvit_fixedk27904_h800_trt10_9"
+    assert audit.input_contract["runtime_max_k_dependency"] is False
+    assert audit.input_contract["engine_contract"] == "heal_post_scatter_dynamic_frontend_v1"
     assert "canonical_onnx_export_not_yet_smoked" not in audit.blockers
     assert "hgt_functional_einsum_weights_not_yet_quantizable" in audit.blockers
     assert all(row.production_enabled for row in audit.merge_boundaries)
     enabled_operators = {
         row.capability_id for row in audit.deployment_operators if row.production_enabled
     }
-    assert "pointpillar_scatter" in enabled_operators
+    assert "pointpillar_scatter" not in enabled_operators
     assert "transformer_attention_einsum" in enabled_operators
 
 
@@ -318,6 +317,49 @@ def test_v2xvit_train_manifest_hash_rejects_sample_tampering() -> None:
         assert str(error) == "v2xvit_train_manifest_hash_mismatch"
     else:
         raise AssertionError("tampered calibration manifest must be rejected")
+
+
+def test_v2xvit_formal_manifest_projects_legacy_selection_without_fixed_k(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    from search.model_family.calibration_manifest import (
+        V2XVIT_DYNAMIC_TRAIN200_SCHEMA,
+        V2XVIT_TRAIN200_SCHEMA,
+        finalize_v2xvit_train_manifest,
+        load_v2xvit_dynamic_train_manifest,
+    )
+
+    legacy = finalize_v2xvit_train_manifest(
+        {
+            "schema_version": V2XVIT_TRAIN200_SCHEMA,
+            "family_id": "heal_lidar_v2xvit",
+            "split": "train",
+            "fixed_k_contract": {"alignment": 256},
+            "input_contract": {"max_agents": 2, "max_points_per_voxel": 32},
+            "samples": [
+                {
+                    "ordinal": index,
+                    "dataset_index": index,
+                    "vehicle_frame_id": f"frame-{index}",
+                    "record_len": 2,
+                    "voxel_count": 1000 + index,
+                    "sample_seed": 20260717 + index,
+                }
+                for index in range(200)
+            ],
+        }
+    )
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps(legacy), encoding="utf-8")
+    dynamic = load_v2xvit_dynamic_train_manifest(path)
+    assert dynamic["schema_version"] == V2XVIT_DYNAMIC_TRAIN200_SCHEMA
+    assert dynamic["runtime_max_k_dependency"] is False
+    assert dynamic["input_contract"]["voxel_capacity"] is None
+    assert "fixed_k_contract" not in dynamic
+    assert all("fixed_k" not in row for row in dynamic["samples"])
+    assert dynamic["source_legacy_manifest"]["manifest_hash"] == legacy["manifest_hash"]
 
 
 def test_v2xvit_ffn_domain_width_materializes_exact_ranked_mask() -> None:

@@ -73,8 +73,6 @@ class CNNFormalSearch:
             if baseline_value
             else None
         )
-        if model_id != "pyramid" and baseline is None:
-            raise RuntimeError(f"cnn_formal_baseline_engine_required:{model_id}")
 
         targets = tuple(
             sorted(
@@ -100,7 +98,7 @@ class CNNFormalSearch:
             targets=",".join(str(value) for value in targets),
             resume=False,
             greedy_only=str(search.get("method", "ga")) == "greedy",
-            plugin=_resolve(runtime["plugin_path"], label="scatter_plugin"),
+            plugin=None,
             tensorrt_root=_resolve(
                 runtime["tensorrt_root"], label="tensorrt_root", file=False
             ),

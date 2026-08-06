@@ -172,18 +172,21 @@ def test_fcooper_audit_lists_every_weighted_op_and_protects_pfn_heads() -> None:
     assert protected["protected_output::cls_head"].legal_widths == (2,)
 
 
-def test_fcooper_max_merge_and_fixed_input_plugin_contract() -> None:
+def test_fcooper_max_merge_and_post_scatter_input_contract() -> None:
     from search.model_family import get_model_family
 
     audit = get_model_family("heal_lidar_fcooper").audit(HeterModelBaseline(MaxFusion()), _config("max"))
     merge = audit.merge_boundaries[0]
     assert merge.merge_kind == "agentwise_max"
     assert merge.policy == "FP16_merge"
-    assert audit.input_contract["fixed_k"] == 29696
+    assert audit.input_contract["runtime_max_k_dependency"] is False
+    assert audit.input_contract["engine_contract"] == "heal_post_scatter_dynamic_frontend_v1"
     assert audit.input_contract["max_agents"] == 2
-    assert audit.plugin_requirements[0].required is True
-    assert audit.plugin_requirements[0].compatibility_status == "verified_fixedk29696_strict_fp32_and_strongly_typed_qdq_h800"
-    assert all(row.production_enabled for row in audit.deployment_operators)
+    assert audit.plugin_requirements == ()
+    operators = {row.capability_id: row for row in audit.deployment_operators}
+    assert operators["pointpillar_scatter"].production_enabled is False
+    assert operators["agent_affine_warp"].production_enabled is True
+    assert operators["agent_feature_fusion"].production_enabled is True
     assert merge.production_enabled is True
     assert audit.blockers == ("baseline_train200_entropy_calibration_and_int8_accuracy_evidence_not_available",)
 

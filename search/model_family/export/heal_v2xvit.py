@@ -58,6 +58,21 @@ class HealV2XViTExportPolicy:
         )
 
 
+@dataclass(frozen=True)
+class HealV2XViTPostScatterPolicy:
+    """Runtime policy for a TensorRT graph with no point-count dimension."""
+
+    max_agents: int = 2
+    modality: str = "m1"
+    output_names: tuple[str, ...] = ("cls_preds", "reg_preds", "dir_preds")
+
+    def __post_init__(self) -> None:
+        if int(self.max_agents) <= 0:
+            raise ValueError("v2xvit_max_agents_must_be_positive")
+        if not self.output_names:
+            raise ValueError("v2xvit_output_names_must_not_be_empty")
+
+
 def _base_grid(
     height: int,
     width: int,
@@ -288,6 +303,59 @@ class HEALLiDARV2XViTFixedK(nn.Module):
         return tuple(outputs[name] for name in self.policy.output_names)
 
 
+class HEALLiDARV2XViTPostScatter(nn.Module):
+    """V2X-ViT graph beginning at the shared dense BEV boundary."""
+
+    def __init__(self, model: nn.Module, policy: HealV2XViTPostScatterPolicy) -> None:
+        super().__init__()
+        self.model = model
+        self.policy = policy
+
+    def forward(
+        self,
+        spatial_features: torch.Tensor,
+        pairwise_t_matrix: torch.Tensor,
+        agent_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
+        modality = self.policy.modality
+        feature = _base_bev_backbone(
+            getattr(self.model, f"backbone_{modality}"), spatial_features
+        )
+        feature = getattr(self.model, f"shrinker_{modality}")(feature)
+        if bool(getattr(self.model, "compress", False)):
+            feature = self.model.compressor(feature)
+        affine = _normalize_pairwise(
+            pairwise_t_matrix,
+            height_m=float(self.model.H),
+            width_m=float(self.model.W),
+            ratio=float(self.model.fake_voxel_size),
+        )
+        height, width = int(feature.shape[-2]), int(feature.shape[-1])
+        prior = feature.new_zeros((self.policy.max_agents, 3, height, width))
+        feature_with_prior = torch.cat((feature, prior), dim=1)
+        feature_with_prior = _warp_exportable(
+            feature_with_prior,
+            affine[0, 0, : self.policy.max_agents],
+            height=height,
+            width=width,
+            align_corners=False,
+        )
+        transformer_input = feature_with_prior.unsqueeze(0).permute(0, 1, 3, 4, 2)
+        fused = _v2xvit_transformer_export(
+            self.model.fusion_net.fusion_net,
+            transformer_input,
+            agent_mask,
+        ).permute(0, 3, 1, 2)
+        if bool(getattr(self.model, "shrink_flag", False)):
+            fused = self.model.shrink_conv(fused)
+        outputs = {
+            "cls_preds": self.model.cls_head(fused),
+            "reg_preds": self.model.reg_head(fused),
+            "dir_preds": self.model.dir_head(fused),
+        }
+        return tuple(outputs[name] for name in self.policy.output_names)
+
+
 def build_heal_v2xvit_export_module(
     model: nn.Module,
     *,
@@ -296,6 +364,16 @@ def build_heal_v2xvit_export_module(
     if str(getattr(model, "ego_modality", policy.modality)) != policy.modality:
         raise RuntimeError("v2xvit_export_modality_mismatch")
     return HEALLiDARV2XViTFixedK(model, policy)
+
+
+def build_heal_v2xvit_post_scatter_export_module(
+    model: nn.Module,
+    *,
+    policy: HealV2XViTPostScatterPolicy,
+) -> HEALLiDARV2XViTPostScatter:
+    if str(getattr(model, "ego_modality", policy.modality)) != policy.modality:
+        raise RuntimeError("v2xvit_export_modality_mismatch")
+    return HEALLiDARV2XViTPostScatter(model, policy)
 
 
 def prepare_v2xvit_fixed_k_inputs(
@@ -342,7 +420,10 @@ def prepare_v2xvit_fixed_k_inputs(
 
 __all__ = [
     "HEALLiDARV2XViTFixedK",
+    "HEALLiDARV2XViTPostScatter",
     "HealV2XViTExportPolicy",
+    "HealV2XViTPostScatterPolicy",
     "build_heal_v2xvit_export_module",
+    "build_heal_v2xvit_post_scatter_export_module",
     "prepare_v2xvit_fixed_k_inputs",
 ]

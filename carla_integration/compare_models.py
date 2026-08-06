@@ -40,6 +40,12 @@ def _search_metrics(path: Path, index: int | None) -> Mapping[str, Any]:
         if index is None:
             raise ValueError(f"search result {path} is an array and requires an index")
         payload = payload[index]
+    if payload.get("fixed_k") is not None:
+        raise ValueError(f"DAIR search result {path} used legacy fixed K")
+    if payload.get("runtime_max_k_dependency") is not False:
+        raise ValueError(f"DAIR search result {path} lacks dynamic frontend evidence")
+    if payload.get("input_contract") != "heal_post_scatter_dynamic_frontend_v1":
+        raise ValueError(f"DAIR search result {path} is not post-scatter")
     return {
         "map": float(payload["mAP"]),
         "ap30": float(payload["AP@0.3"]),
@@ -154,14 +160,14 @@ def aggregate(
             "scope": "online_carla_capture_offline_same_frame_perception_replay",
             "closed_loop_planning_control": False,
             "engine_partition_contract": {
-                "search_stage2": "pre_scatter_fixed_k_29696_with_pfn_and_scatter",
+                "search_stage2": "post_scatter_without_fixed_k_pfn_or_scatter",
                 "carla_deployment": "post_scatter_without_fixed_k_pfn_or_scatter",
-                "separate_engine_artifacts": True,
+                "shared_engine_contract": True,
                 "accuracy_compatibility_requirement": (
                     "identical preprocessing, PFN weights, voxel geometry, feature "
                     "normalization, scatter semantics, and cut-tensor layout"
                 ),
-                "latency_scope_is_identical": False,
+                "latency_scope_is_identical": True,
             },
         },
         "models": models,
@@ -186,9 +192,9 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         "",
         "## Engine partition contract",
         "",
-        "The DAIR Stage-2 audit engine and the CARLA engine are two separately built artifacts derived from the same physical candidate. Stage 2 uses a pre-scatter fixed-K=29696 ABI and includes PFN/scatter so every candidate is audited under one deterministic DAIR contract. CARLA cuts the graph at the dense BEV tensor and moves dynamic voxelization, PFN, and scatter outside TensorRT.",
+        "DAIR Stage 2 and CARLA now use the same post-scatter TensorRT contract. Dynamic GPU voxelization, PFN, and scatter run before the engine in both environments; no engine input has a fixed voxel dimension.",
         "",
-        "The two artifacts are accuracy-compatible only when preprocessing, PFN weights, voxel geometry, feature normalization, scatter behavior, and the cut-tensor layout are identical. Their raw forward latency scopes are not identical: DAIR Stage 2 includes PFN/scatter, while CARLA engine forward starts after scatter. A future fully deployment-aligned search should use the post-scatter boundary in Stage 2 or score frontend and post-scatter latency separately.",
+        "Candidate checkpoint identity binds the external PFN weights to the engine. Preprocessing, voxel geometry, feature normalization, scatter behavior, and the cut-tensor layout remain part of the end-to-end compatibility audit. Engine-only latency excludes the shared frontend in both environments; composed latency reports it separately.",
         "",
         "## CARLA accuracy",
         "",

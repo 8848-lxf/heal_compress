@@ -23,6 +23,8 @@ import subprocess
 import time
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from deploy.post_scatter import POST_SCATTER_CONTRACT
+
 from .runtime_environment import modelopt_python_command
 from ..model_family.evaluation import evaluate_v2xvit_engine_modelopt
 
@@ -103,6 +105,39 @@ def _resolve_engine(row: Mapping[str, Any], build_root: Path) -> Path:
             f"family_ablation_engine_resolution_failed:{artifact}:{existing}"
         )
     return existing[0]
+
+
+def _resolve_frontend_checkpoint(row: Mapping[str, Any], build_root: Path) -> Path:
+    explicit = str(
+        row.get("frontend_checkpoint_path", row.get("checkpoint_path", ""))
+    ).strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        resolved = (path if path.is_absolute() else build_root / path).resolve()
+    else:
+        artifact_value = str(row.get("artifact_dir", "")).strip()
+        if not artifact_value:
+            raise RuntimeError(
+                f"family_ablation_frontend_checkpoint_missing:{row.get('row_id', '')}"
+            )
+        artifact = Path(artifact_value).expanduser()
+        artifact = (artifact if artifact.is_absolute() else build_root / artifact).resolve()
+        candidates = (
+            artifact / "physical/pruned_checkpoint.pth",
+            artifact / "pruned_checkpoint.pth",
+        )
+        existing = [path for path in candidates if path.is_file()]
+        if len(existing) != 1:
+            raise RuntimeError(
+                "family_ablation_frontend_checkpoint_resolution_failed:"
+                f"{artifact}:{existing}"
+            )
+        resolved = existing[0]
+    if not resolved.is_file() or resolved.stat().st_size <= 0:
+        raise RuntimeError(
+            f"family_ablation_frontend_checkpoint_missing_or_empty:{resolved}"
+        )
+    return resolved
 
 
 def lock_engine(
@@ -268,6 +303,7 @@ def build_family_evaluation_inventories(
     *,
     build_root: str | Path,
     baseline_engine_path: str | Path,
+    baseline_checkpoint_path: str | Path,
     family_id: str,
     methods: Sequence[str] = METHODS,
     budgets: Sequence[float] = BUDGETS,
@@ -314,6 +350,15 @@ def build_family_evaluation_inventories(
         )
 
     baseline_lock = lock_engine(baseline_engine_path)
+    baseline_checkpoint = Path(baseline_checkpoint_path).expanduser().resolve()
+    if not baseline_checkpoint.is_file() or baseline_checkpoint.stat().st_size <= 0:
+        raise RuntimeError(
+            f"family_ablation_baseline_checkpoint_missing_or_empty:{baseline_checkpoint}"
+        )
+    baseline_frontend = {
+        "frontend_checkpoint_path": str(baseline_checkpoint),
+        "frontend_checkpoint_sha256": sha256_file(baseline_checkpoint),
+    }
     resolved_precision = {
         str(row.get("row_id", index)): _precision_counts_with_artifacts(
             row, build_root=root
@@ -357,6 +402,7 @@ def build_family_evaluation_inventories(
                 "budget": None,
                 "actual_bops": 1.0,
                 **baseline_lock,
+                **baseline_frontend,
                 "int8_count": 0,
                 "fp16_count": 0,
                 "fp32_count": baseline_weighted_count,
@@ -379,6 +425,7 @@ def build_family_evaluation_inventories(
             engine_lock = lock_engine(
                 _resolve_engine(row, root), expected_sha256=expected_hash
             )
+            frontend_checkpoint = _resolve_frontend_checkpoint(row, root)
             budget = _float_budget(row["budget"])
             variant = str(row["variant"]).lower()
             inventory.append(
@@ -392,6 +439,8 @@ def build_family_evaluation_inventories(
                     "variant": variant,
                     "budget": budget,
                     **engine_lock,
+                    "frontend_checkpoint_path": str(frontend_checkpoint),
+                    "frontend_checkpoint_sha256": sha256_file(frontend_checkpoint),
                     **resolved_precision[resolution_key],
                     **resolved_parameters[resolution_key],
                 }
@@ -500,7 +549,6 @@ def validate_family_evaluation_result(
     num_frames: int,
     warmup_frames: int,
     manifest_hash: str,
-    fixed_k: int,
 ) -> None:
     errors: list[str] = []
     if result.get("status") != "ok":
@@ -517,10 +565,12 @@ def validate_family_evaluation_result(
         errors.append("warmup_not_reset")
     if str(result.get("eval_manifest_hash", "")) != str(manifest_hash):
         errors.append(f"manifest={result.get('eval_manifest_hash')}")
-    if int(result.get("fixed_k", -1)) != int(fixed_k):
+    if result.get("fixed_k") is not None:
         errors.append(f"fixed_k={result.get('fixed_k')}")
-    if str(result.get("input_contract", "")) != "heal_lidar_baseline_fixed_k":
+    if str(result.get("input_contract", "")) != POST_SCATTER_CONTRACT:
         errors.append(f"input_contract={result.get('input_contract')}")
+    if bool(result.get("runtime_max_k_dependency", True)):
+        errors.append("runtime_max_k_dependency")
     if not bool(dict(result.get("cuda_postprocess_audit") or {}).get("passed", False)):
         errors.append("cuda_postprocess_not_passed")
     latency_rows = list(result.get("latency_rows") or [])
@@ -604,12 +654,11 @@ def evaluate_existing_family_engine(
     model_config: str | Path,
     heal_root: str | Path,
     tensorrt_root: str | Path,
-    plugin_path: str | Path,
+    plugin_path: str | Path | None = None,
     eval_manifest_path: str | Path,
     num_frames: int = 1789,
     warmup_frames: int = 200,
     latency_rounds: int = 3,
-    fixed_k: int = 29696,
     max_agents: int = 2,
     evaluator: Callable[..., dict[str, Any]] = evaluate_v2xvit_engine_modelopt,
     snapshotter: Callable[[int], dict[str, Any]] = gpu_snapshot,
@@ -626,6 +675,14 @@ def evaluate_existing_family_engine(
     engine_lock = lock_engine(
         source["engine_path"], expected_sha256=str(source["engine_sha256"])
     )
+    frontend_checkpoint = Path(str(source["frontend_checkpoint_path"])).resolve()
+    frontend_checkpoint_sha256 = sha256_file(frontend_checkpoint)
+    if frontend_checkpoint_sha256 != str(source["frontend_checkpoint_sha256"]):
+        raise RuntimeError(
+            "family_ablation_frontend_checkpoint_hash_mismatch:"
+            f"{frontend_checkpoint}:{source['frontend_checkpoint_sha256']}:"
+            f"{frontend_checkpoint_sha256}"
+        )
     before = snapshotter(int(gpu_id))
     write_json(destination / "gpu_before.json", before)
     started_at = time.time()
@@ -638,16 +695,18 @@ def evaluate_existing_family_engine(
             heal_root=heal_root,
             output_dir=destination,
             tensorrt_root=tensorrt_root,
-            plugin_path=plugin_path,
+            plugin_path=None,
             eval_manifest_path=eval_manifest_path,
             physical_gpu_id=int(gpu_id),
-            fixed_k=int(fixed_k),
+            fixed_k=None,
             max_agents=int(max_agents),
             num_frames=int(num_frames),
             warmup_frames=int(warmup_frames),
             latency_rounds=int(latency_rounds),
             dataloader_num_workers=8,
-            input_contract="heal_lidar_baseline_fixed_k",
+            input_contract=POST_SCATTER_CONTRACT,
+            checkpoint_path=frontend_checkpoint,
+            voxelization_backend="gpu",
         )
     except BaseException as exc:  # cleanup must run before propagation
         evaluation_error = exc
@@ -655,6 +714,10 @@ def evaluate_existing_family_engine(
     cleanup = cleaner(gpu_id=int(gpu_id), before=before, conda_env="modelopt")
     write_json(destination / "gpu_cleanup_audit.json", cleanup)
     verify_engine_lock(engine_lock)
+    if sha256_file(frontend_checkpoint) != frontend_checkpoint_sha256:
+        raise RuntimeError(
+            f"family_ablation_frontend_checkpoint_changed:{frontend_checkpoint}"
+        )
     if evaluation_error is not None:
         raise evaluation_error
     if not bool(cleanup.get("passed", False)):
@@ -664,7 +727,6 @@ def evaluate_existing_family_engine(
         num_frames=num_frames,
         warmup_frames=warmup_frames,
         manifest_hash=manifest_hash,
-        fixed_k=fixed_k,
     )
     metadata = {
         "family_id": source["family_id"],
@@ -677,6 +739,8 @@ def evaluate_existing_family_engine(
         "budget": source.get("budget"),
         "actual_bops": source.get("actual_bops"),
         "engine_sha256": engine_lock["engine_sha256"],
+        "frontend_checkpoint_path": str(source["frontend_checkpoint_path"]),
+        "frontend_checkpoint_sha256": str(source["frontend_checkpoint_sha256"]),
     }
     frame_rows = evaluation_frame_latency_rows(result, metadata=metadata)
     per_frame_path = destination / "per_frame_latency.csv"
@@ -718,7 +782,6 @@ def load_resumable_family_evaluation(
     num_frames: int = 1789,
     warmup_frames: int = 200,
     latency_rounds: int = 3,
-    fixed_k: int = 29696,
 ) -> dict[str, Any]:
     """Load one complete result or fail closed on any partial/stale directory."""
 
@@ -749,6 +812,7 @@ def load_resumable_family_evaluation(
         "item_id": str(source["item_id"]),
         "variant": str(source["variant"]),
         "engine_sha256": str(source["engine_sha256"]),
+        "frontend_checkpoint_sha256": str(source["frontend_checkpoint_sha256"]),
         "eval_manifest_hash": manifest_hash,
         "num_frames": int(num_frames),
         "warmup_frames": int(warmup_frames),
@@ -779,7 +843,6 @@ def load_resumable_family_evaluation(
         num_frames=num_frames,
         warmup_frames=warmup_frames,
         manifest_hash=manifest_hash,
-        fixed_k=fixed_k,
     )
     expected_csv_hash = str(provenance.get("per_frame_csv_sha256", ""))
     actual_csv_hash = sha256_file(required["per_frame"])

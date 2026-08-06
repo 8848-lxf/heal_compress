@@ -11,6 +11,14 @@ from typing import Any, Mapping, Sequence
 import torch
 import torch.nn as nn
 
+from deploy.post_scatter import (
+    POST_SCATTER_CONTRACT,
+    POST_SCATTER_INPUTS_WITH_MASK,
+    export_post_scatter_onnx,
+    prepare_post_scatter_inputs,
+    is_external_frontend_module,
+)
+
 from quantization.config import QDQConfig
 from quantization.export.origin_mapping import apply_canonical_node_names, build_onnx_origin_map
 from quantization.export.signal_maxk import capture_weighted_module_calls
@@ -34,6 +42,7 @@ from .contracts import ModelFamilyAudit
 from .export.heal_lidar_baselines import (
     HealLidarBaselineExportPolicy,
     build_heal_lidar_baseline_export_module,
+    build_heal_lidar_baseline_post_scatter_export_module,
     prepare_heal_lidar_baseline_inputs,
 )
 from .onnx_mapping import ModelFamilyOnnxMapping, ModelFamilyOnnxWeightedEntry
@@ -182,6 +191,16 @@ def build_heal_lidar_baseline_onnx_mapping(
             key=lambda row: (int(row.call_index), int(row.graph_index)),
         )
         if not origins:
+            if is_external_frontend_module(capability.module_path):
+                entries.append(ModelFamilyOnnxWeightedEntry(
+                    canonical_id=capability.canonical_id,
+                    module_path=capability.module_path,
+                    source_kind=capability.source_kind,
+                    mapping_status="externalized_point_frontend",
+                    active=False,
+                    reason="pfn_scatter_runs_outside_tensorrt",
+                ))
+                continue
             unresolved.append({
                 "canonical_id": capability.canonical_id,
                 "module_path": capability.module_path,
@@ -241,7 +260,14 @@ def build_heal_lidar_baseline_onnx_mapping(
             "active_weighted_compute_node_count": sum(row.call_count for row in entries if row.active),
             "realized_graph_mapping_complete": not unresolved,
             "parameter_free_grid_matmul_node_count": len(origin_map.functional_matmul_nodes),
-            "input_contract": "heal_lidar_baseline_fixed_k",
+            "input_contract": (
+                POST_SCATTER_CONTRACT
+                if any(
+                    row.mapping_status == "externalized_point_frontend"
+                    for row in entries
+                )
+                else "heal_lidar_baseline_fixed_k"
+            ),
         },
     )
     if unresolved:
@@ -349,6 +375,75 @@ def export_heal_lidar_baseline_fixed_k_onnx(
         family_mapping=family_mapping,
         input_shapes={name: tuple(int(value) for value in prepared[name].shape) for name in inputs},
         plugin_nodes=plugin_nodes,
+        wrapper_parity=parity,
+    )
+
+
+def export_heal_lidar_baseline_post_scatter_onnx(
+    model: nn.Module,
+    ego_batch: Mapping[str, Any],
+    output_path: str | Path,
+    *,
+    audit: ModelFamilyAudit,
+    policy: HealLidarBaselineExportPolicy,
+    opset_version: int = 17,
+) -> HealLidarBaselineOnnxExport:
+    """Export a plugin-free family graph beginning at dense BEV features."""
+
+    family_id = _family_id(audit)
+    expected_fusion = (
+        "MaxFusion" if family_id == "heal_lidar_fcooper" else "DiscoFusion"
+    )
+    if type(model.fusion_net).__name__ != expected_fusion:
+        raise RuntimeError(
+            f"heal_lidar_baseline_export_fusion_mismatch:{type(model.fusion_net).__name__}"
+        )
+    wrapper = build_heal_lidar_baseline_post_scatter_export_module(
+        model, policy=policy
+    ).eval()
+    prepared = prepare_post_scatter_inputs(
+        model,
+        ego_batch,
+        modality=policy.modality,
+        max_agents=int(policy.max_agents),
+        include_agent_mask=True,
+    )
+    if tuple(prepared) != POST_SCATTER_INPUTS_WITH_MASK:
+        raise RuntimeError(
+            f"heal_lidar_post_scatter_input_order:{tuple(prepared)}"
+        )
+    tensors = tuple(prepared[name] for name in POST_SCATTER_INPUTS_WITH_MASK)
+    destination = Path(output_path)
+    with _serialized_heal_lidar_onnx_export():
+        with torch.inference_mode():
+            reference = model(dict(ego_batch))
+            actual = wrapper(*tensors)
+        parity = _parity(reference, actual, HEAL_LIDAR_BASELINE_OUTPUT_NAMES)
+        if not parity["passed"]:
+            raise RuntimeError(
+                f"heal_lidar_post_scatter_wrapper_parity_failed:{parity}"
+            )
+        export = export_post_scatter_onnx(
+            wrapper,
+            prepared,
+            destination,
+            output_names=HEAL_LIDAR_BASELINE_OUTPUT_NAMES,
+            opset_version=int(opset_version),
+            report_path=destination.with_suffix(".export.json"),
+        )
+    if export.origin_map is None:
+        raise RuntimeError("heal_lidar_post_scatter_origin_map_missing")
+    family_mapping = build_heal_lidar_baseline_onnx_mapping(
+        destination, audit, export.origin_map
+    )
+    return HealLidarBaselineOnnxExport(
+        export=export,
+        family_mapping=family_mapping,
+        input_shapes={
+            name: tuple(int(value) for value in prepared[name].shape)
+            for name in POST_SCATTER_INPUTS_WITH_MASK
+        },
+        plugin_nodes=(),
         wrapper_parity=parity,
     )
 
@@ -912,6 +1007,7 @@ __all__ = [
     "build_heal_lidar_baseline_quantization_groups",
     "canonicalize_heal_lidar_baseline_onnx",
     "export_heal_lidar_baseline_fixed_k_onnx",
+    "export_heal_lidar_baseline_post_scatter_onnx",
     "insert_heal_lidar_baseline_explicit_qdq",
     "validate_heal_lidar_fusion_island_realization",
     "validate_heal_lidar_precision_realization",

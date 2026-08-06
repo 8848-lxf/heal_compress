@@ -25,6 +25,9 @@ def test_search_metrics_support_budget_array(tmp_path: Path):
                     "AP@0.7": 0.4,
                     "forward_p50_ms": 3.0,
                     "num_evaluated_frames": 10,
+                    "fixed_k": None,
+                    "runtime_max_k_dependency": False,
+                    "input_contract": "heal_post_scatter_dynamic_frontend_v1",
                 }
             ]
         ),

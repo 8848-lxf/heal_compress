@@ -12,6 +12,12 @@ from typing import Any, Mapping
 
 import torch.nn as nn
 
+from deploy.post_scatter import (
+    POST_SCATTER_CONTRACT,
+    audit_post_scatter_onnx,
+    post_scatter_shape_profiles,
+)
+
 from quantization.config import TensorRTBuildConfig
 from quantization.types import stable_json_hash
 from search.model_family.deployment import build_physical_structure_snapshot_v2
@@ -20,12 +26,20 @@ from search.model_family.export.heal_lidar_baselines import HealLidarBaselineExp
 from search.model_family.heal_lidar_deployment import (
     HEAL_LIDAR_BASELINE_INPUT_NAMES,
     build_heal_lidar_baseline_precision_mapping,
-    export_heal_lidar_baseline_fixed_k_onnx,
+    export_heal_lidar_baseline_post_scatter_onnx,
     insert_heal_lidar_baseline_explicit_qdq,
     validate_heal_lidar_precision_realization,
 )
 from search.stage2.objective import Stage2ObjectiveConfig, compute_stage2_score
 from search.stage2.trt_modelopt import build_engine_modelopt
+
+
+def _sha256_file(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        while chunk := handle.read(8 * 1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -36,10 +50,8 @@ class HealLidarBaselineEvaluationConfig:
     checkpoint_path: Path
     heal_root: Path
     tensorrt_root: Path
-    plugin_path: Path
     eval_manifest_path: Path
     physical_gpu_id: int
-    fixed_k: int = 29696
     max_agents: int = 2
     num_frames: int = 500
     warmup_frames: int = 200
@@ -62,8 +74,8 @@ class HealLidarBaselineEvaluationConfig:
                 f"baseline_evaluator_family_model_mismatch:{self.family_id}:{self.model_name}:"
                 f"expected={expected_model}"
             )
-        if int(self.fixed_k) <= 0 or int(self.max_agents) != 2:
-            raise ValueError("invalid_baseline_fixed_k_or_agent_contract")
+        if int(self.max_agents) != 2:
+            raise ValueError("invalid_baseline_agent_contract")
         if min(int(self.num_frames), int(self.warmup_frames), int(self.latency_rounds)) <= 0:
             raise ValueError("invalid_baseline_evaluation_protocol")
 
@@ -80,7 +92,6 @@ class HealLidarBaselineRealEvaluator:
             "checkpoint": config.checkpoint_path,
             "heal_root": config.heal_root,
             "tensorrt_root": config.tensorrt_root,
-            "plugin": config.plugin_path,
             "evaluation_manifest": config.eval_manifest_path,
         }
         missing = [f"{name}:{path}" for name, path in required.items() if not Path(path).exists()]
@@ -109,13 +120,14 @@ class HealLidarBaselineRealEvaluator:
             "model_config_sha256": self._sha256(self.config.model_config_path),
             "checkpoint_path": str(self.config.checkpoint_path.resolve()),
             "checkpoint_sha256": self._sha256(self.config.checkpoint_path),
-            "plugin_path": str(self.config.plugin_path.resolve()),
-            "plugin_sha256": self._sha256(self.config.plugin_path),
+            "plugin_path": "",
+            "plugin_sha256": "",
             "eval_manifest_path": str(self.config.eval_manifest_path.resolve()),
             "eval_manifest_sha256": self._sha256(self.config.eval_manifest_path),
-            "fixed_k": int(self.config.fixed_k),
+            "fixed_k": None,
             "max_agents": int(self.config.max_agents),
-            "input_contract": "heal_lidar_baseline_fixed_k",
+            "input_contract": POST_SCATTER_CONTRACT,
+            "runtime_max_k_dependency": False,
             "num_frames": int(self.config.num_frames),
             "warmup_frames": int(self.config.warmup_frames),
             "latency_rounds": int(self.config.latency_rounds),
@@ -134,13 +146,12 @@ class HealLidarBaselineRealEvaluator:
     ) -> Any:
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
-        artifact = export_heal_lidar_baseline_fixed_k_onnx(
+        artifact = export_heal_lidar_baseline_post_scatter_onnx(
             model,
             ego_batch,
             destination / "physical_fp32.onnx",
             audit=audit,
             policy=HealLidarBaselineExportPolicy(
-                fixed_k=int(self.config.fixed_k),
                 max_agents=int(self.config.max_agents),
             ),
         )
@@ -209,9 +220,11 @@ class HealLidarBaselineRealEvaluator:
             trtexec = self.config.tensorrt_root / "targets/x86_64-linux-gnu/bin/trtexec"
         build_config = TensorRTBuildConfig(
             trtexec_path=trtexec,
-            plugin_path=self.config.plugin_path,
+            plugin_path=None,
             workspace_mib=int(self.config.workspace_mib),
-            shape_profiles={},
+            shape_profiles=post_scatter_shape_profiles(
+                ("spatial_features", "pairwise_t_matrix", "agent_mask")
+            ),
             timeout_seconds=int(self.config.build_timeout_seconds),
             enable_fp16=True,
             enable_int8=True,
@@ -219,8 +232,14 @@ class HealLidarBaselineRealEvaluator:
             skip_inference=True,
             export_layer_info=True,
             strongly_typed=True,
-            policy_version="heal-lidar-baseline-explicit-qdq-strongly-typed-no-tf32-v1",
+            policy_version="heal-lidar-post-scatter-explicit-qdq-strongly-typed-no-tf32-v1",
         )
+        onnx_audit = audit_post_scatter_onnx(qdq_artifact["qdq_onnx_path"])
+        self._write_json(destination / "post_scatter_onnx_acceptance.json", onnx_audit)
+        if not onnx_audit["passed"]:
+            raise RuntimeError(
+                f"heal_lidar_post_scatter_onnx_rejected:{onnx_audit['issues']}"
+            )
         snapshot = build_physical_structure_snapshot_v2(
             model,
             model_family=self.config.family_id,
@@ -288,6 +307,7 @@ class HealLidarBaselineRealEvaluator:
         *,
         output_dir: str | Path,
         expected_engine_sha256: str = "",
+        frontend_checkpoint_path: str | Path | None = None,
     ) -> dict[str, Any]:
         engine = Path(engine_path).resolve()
         if not engine.is_file() or engine.stat().st_size <= 0:
@@ -301,16 +321,19 @@ class HealLidarBaselineRealEvaluator:
             heal_root=self.config.heal_root,
             output_dir=Path(output_dir),
             tensorrt_root=self.config.tensorrt_root,
-            plugin_path=self.config.plugin_path,
+            plugin_path=None,
             eval_manifest_path=self.config.eval_manifest_path,
             physical_gpu_id=int(self.config.physical_gpu_id),
-            fixed_k=int(self.config.fixed_k),
+            fixed_k=None,
             max_agents=int(self.config.max_agents),
             num_frames=int(self.config.num_frames),
             warmup_frames=int(self.config.warmup_frames),
             latency_rounds=int(self.config.latency_rounds),
             dataloader_num_workers=int(self.config.dataloader_num_workers),
-            input_contract="heal_lidar_baseline_fixed_k",
+            input_contract=POST_SCATTER_CONTRACT,
+            checkpoint_path=(
+                frontend_checkpoint_path or self.config.checkpoint_path
+            ),
         )
         if evaluation.get("status") != "ok":
             raise RuntimeError(
@@ -380,7 +403,7 @@ class HealLidarBaselineCandidateEvaluator:
         *,
         context: Any,
         run_dir: str | Path,
-        baseline_engine_path: str | Path,
+        baseline_engine_path: str | Path | None,
         num_frames: int,
         warmup_frames: int,
         latency_rounds: int,
@@ -391,11 +414,11 @@ class HealLidarBaselineCandidateEvaluator:
         self.context = context
         self.run_dir = Path(run_dir)
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        self.baseline_engine_path = Path(baseline_engine_path).expanduser().resolve()
-        if not self.baseline_engine_path.is_file():
-            raise RuntimeError(
-                f"heal_lidar_baseline_reference_engine_missing:{self.baseline_engine_path}"
-            )
+        self.baseline_engine_path = (
+            Path(baseline_engine_path).expanduser().resolve()
+            if baseline_engine_path
+            else None
+        )
         self.num_frames = int(num_frames)
         self.warmup_frames = int(warmup_frames)
         self.latency_rounds = int(latency_rounds)
@@ -415,10 +438,8 @@ class HealLidarBaselineCandidateEvaluator:
             checkpoint_path=self.context.checkpoint_path,
             heal_root=Path(self.context.model_bundle.adapter.heal_repo),
             tensorrt_root=self.context.tensorrt.tensorrt_root,
-            plugin_path=self.context.plugin_paths[0],
             eval_manifest_path=self.context.eval_manifest_path,
             physical_gpu_id=int(self.context.physical_gpu_id),
-            fixed_k=int(self.context.fixed_k),
             max_agents=int(self.context.max_agents),
             num_frames=int(self.num_frames),
             warmup_frames=int(self.warmup_frames),
@@ -432,10 +453,51 @@ class HealLidarBaselineCandidateEvaluator:
         if self._reference_baseline_override:
             return dict(self._reference_baseline_override)
         evaluator = self._real_evaluator(output_dir=self.run_dir / "reference")
-        result = evaluator.evaluate_existing_engine(
-            self.baseline_engine_path,
-            output_dir=self.run_dir / "reference",
-        )
+        if self.baseline_engine_path is not None:
+            try:
+                from quantization.tensorrt.runtime import load_trt_engine
+
+                handle = load_trt_engine(
+                    self.baseline_engine_path,
+                    plugin_path=None,
+                )
+                names = {
+                    str(handle.engine.get_tensor_name(index))
+                    for index in range(handle.engine.num_io_tensors)
+                    if str(handle.engine.get_tensor_mode(
+                        handle.engine.get_tensor_name(index)
+                    )).endswith("INPUT")
+                }
+            except Exception:
+                names = set()
+            if names not in (
+                {"spatial_features", "pairwise_t_matrix"},
+                {"spatial_features", "pairwise_t_matrix", "agent_mask"},
+            ):
+                self.baseline_engine_path = None
+        if self.baseline_engine_path is not None:
+            result = evaluator.evaluate_existing_engine(
+                self.baseline_engine_path,
+                output_dir=self.run_dir / "reference",
+            )
+        else:
+            profile = {
+                module_path: "fp32"
+                for group in self.context.search_space.quantization_groups
+                for module_path in group.module_paths
+            }
+            deployed = evaluator.deploy_and_evaluate(
+                self.context.model,
+                self.context.trace_example_inputs,
+                self.context.model_bundle.audit,
+                profile,
+                {},
+                output_dir=self.run_dir / "reference_post_scatter_fp32",
+                profile_id="original_post_scatter_strict_fp32",
+            )
+            result = dict(deployed["evaluation"])
+            result["reference_engine_rebuilt_post_scatter"] = True
+            result["engine_sha256"] = deployed["engine_sha256"]
         self._reference_baseline_override = dict(result)
         return dict(result)
 
@@ -494,52 +556,12 @@ class HealLidarBaselineCandidateEvaluator:
         if not int8_modules:
             return {}, {"reason": "candidate_has_no_int8_layers", "frame_count": 0}
         backend = str(self.context.quant_activation_calibration_backend)
-        if backend == "tensorrt_entropy_calibration2":
-            from search.integration.calibration_provider import (
-                BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
-                build_tensorrt_entropy_calibration_cache_modelopt,
-                qdq_scales_from_tensorrt_entropy_cache,
-            )
-
-            if self.context.quant_calibration_npz_manifest is None:
-                raise RuntimeError("baseline_candidate_entropy_manifest_missing")
-            cache_dir = output_dir / "entropy_calibration"
-            existing = cache_dir / "calibration_result.json"
-            entropy = build_tensorrt_entropy_calibration_cache_modelopt(
-                onnx_path=export_artifact.export.onnx_path,
-                calibration_npz_manifest=self.context.quant_calibration_npz_manifest,
-                output_dir=cache_dir,
-                tensorrt_root=self.context.tensorrt.tensorrt_root,
-                plugin_path=self.context.plugin_paths[0],
-                physical_gpu_id=int(self.context.physical_gpu_id),
-                num_batches=int(self.context.quant_calibration_batches),
-                fixed_k=int(self.context.fixed_k),
-                input_names=BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
-                conda_env=self.context.tensorrt.conda_env,
-                force_rebuild=not existing.is_file(),
-            )
-            scales, metadata = qdq_scales_from_tensorrt_entropy_cache(
-                onnx_path=export_artifact.export.onnx_path,
-                origin_map=export_artifact.export.origin_map,
-                module_paths=int8_modules,
-                cache_path=entropy["calibration_cache_path"],
-                weight_granularity="per_channel",
-            )
-            return scales, {**metadata, "entropy_build": entropy}
-        if backend == "external_tensorrt_entropy_cache_exact_match":
-            from search.integration.calibration_provider import qdq_scales_from_tensorrt_entropy_cache
-
-            if self.context.quant_activation_calibration_cache_path is None:
-                raise RuntimeError("baseline_candidate_external_entropy_cache_missing")
-            return qdq_scales_from_tensorrt_entropy_cache(
-                onnx_path=export_artifact.export.onnx_path,
-                origin_map=export_artifact.export.origin_map,
-                module_paths=int8_modules,
-                cache_path=self.context.quant_activation_calibration_cache_path,
-                weight_granularity="per_channel",
+        if backend != "modelopt_histogram_entropy":
+            raise RuntimeError(
+                "post_scatter_calibration_requires_modelopt_histogram_entropy:"
+                f"requested={backend}"
             )
         from search.integration.calibration_provider import (
-            BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
             collect_or_load_qdq_calibration_scales,
         )
 
@@ -555,13 +577,17 @@ class HealLidarBaselineCandidateEvaluator:
             origin_map=export_artifact.export.origin_map,
             weight_granularity="per_channel",
             activation_calibration_method="entropy",
-            fixed_k=int(self.context.fixed_k),
-            calibration_npz_manifest=self.context.quant_calibration_npz_manifest,
-            calibration_input_names=BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
+            calibration_npz_manifest=None,
+            calibration_forward_fn=lambda inner_model, batch: self.context.model_bundle.adapter.forward_for_task(
+                inner_model, batch
+            ),
+            calibration_input_contract=POST_SCATTER_CONTRACT,
         )
         return scales, {
             "activation_calibration_method": "modelopt_histogram_entropy",
             "frame_count": int(self.context.quant_calibration_batches),
+            "input_contract": POST_SCATTER_CONTRACT,
+            "runtime_max_k_dependency": False,
         }
 
     def evaluate_candidate(
@@ -585,6 +611,9 @@ class HealLidarBaselineCandidateEvaluator:
                 deployment["engine_path"],
                 output_dir=destination / "evaluation",
                 expected_engine_sha256=deployment["engine_sha256"],
+                frontend_checkpoint_path=(
+                    destination / "physical/pruned_checkpoint.pth"
+                ),
             )
             baseline = self._stage2_reference_baseline()
             score = compute_stage2_score(
@@ -780,6 +809,12 @@ class HealLidarBaselineCandidateEvaluator:
                 "artifact_dir": str(destination.resolve()),
                 "engine_path": str(Path(engine["engine_path"]).resolve()),
                 "engine_sha256": engine["engine_sha256"],
+                "frontend_checkpoint_path": str(
+                    (destination / "physical/pruned_checkpoint.pth").resolve()
+                ),
+                "frontend_checkpoint_sha256": _sha256_file(
+                    destination / "physical/pruned_checkpoint.pth"
+                ),
                 "engine_built_this_call": True,
                 "evaluation_invoked": False,
                 "physical_parameter_count_before": before,

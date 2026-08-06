@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and freeze the real HEAL V2X-ViT train200 fixed-K manifest."""
+"""Build and freeze the real HEAL V2X-ViT dynamic-frontend train200 manifest."""
 
 from __future__ import annotations
 
@@ -21,23 +21,22 @@ if str(REPO_ROOT) not in sys.path:
 
 from adapters.heal_lidar_adapter import HEALLiDARAdapter
 from search.model_family.calibration_manifest import (
-    V2XVIT_FIXED_K_ALIGNMENT,
+    V2XVIT_DYNAMIC_TRAIN200_SCHEMA,
     V2XVIT_TRAIN200_BASE_SEED,
-    V2XVIT_TRAIN200_SCHEMA,
     V2XVIT_TRAIN200_SELECTION_POLICY,
     evenly_spaced_indices,
-    finalize_v2xvit_train_manifest,
+    finalize_v2xvit_dynamic_train_manifest,
     sample_seed,
 )
 from search.model_family.model_provider import sha256_file
 
 
 DEFAULT_CONFIG = Path(
-    "../../Auto_Search/original_models/dairv2s/"
+    "../Auto_Search/original_models/dairv2s/"
     "LiDAROnly/lidar_v2xvit/config.yaml"
 )
 DEFAULT_CHECKPOINT = DEFAULT_CONFIG.parent / "net_epoch_bestval_at27.pth"
-DEFAULT_HEAL_ROOT = Path("../../HEAL")
+DEFAULT_HEAL_ROOT = Path("../HEAL")
 
 
 def _git_value(*args: str) -> str | None:
@@ -134,11 +133,10 @@ def _freeze_manifest(path: Path, payload: dict[str, Any]) -> str:
 
 def _summary_markdown(manifest: dict[str, Any]) -> str:
     distribution = manifest["voxel_count_distribution"]
-    fixed = manifest["fixed_k_contract"]
     provenance = manifest["provenance"]
     return "\n".join(
         [
-            "# HEAL LiDAR V2X-ViT train200 fixed-K manifest",
+            "# HEAL LiDAR V2X-ViT train200 dynamic-frontend manifest",
             "",
             f"- Manifest hash: `{manifest['manifest_hash']}`",
             f"- Train split SHA256: `{provenance['train_split']['sha256']}`",
@@ -147,13 +145,11 @@ def _summary_markdown(manifest: dict[str, Any]) -> str:
             f"- K min / p50 / p90 / p95 / p99 / max: {distribution['min']} / "
             f"{distribution['p50']:.2f} / {distribution['p90']:.2f} / "
             f"{distribution['p95']:.2f} / {distribution['p99']:.2f} / {distribution['max']}",
-            f"- Frozen fixed-K: **{fixed['value']}** (alignment {fixed['alignment']})",
-            f"- Maximum-sample alignment margin: {fixed['alignment_margin_voxels']} voxels",
-            f"- Truncated frozen samples: {fixed['truncated_sample_count']}",
-            f"- Coverage scope: `{fixed['coverage_scope']}`",
+            "- TensorRT boundary: dense post-scatter BEV features.",
+            "- Voxelization, PFN and scatter: dynamic GPU frontend outside TensorRT.",
+            "- Fixed voxel capacity / zero padding / overflow truncation: none.",
             "",
-            "This value is not a claimed upper bound for the other 4,611 train samples, the "
-            "validation split, or a different preprocessing/augmentation contract.",
+            "Voxel counts are replay evidence only and never define an engine capacity.",
             "",
         ]
     )
@@ -218,12 +214,12 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     train_split = Path(str(hypes["root_dir"])).resolve()
     cooperative_info = Path(str(hypes["data_dir"])) / "cooperative" / "data_info.json"
     raw_split = json.loads(train_split.read_text(encoding="utf-8"))
-    manifest = finalize_v2xvit_train_manifest(
+    manifest = finalize_v2xvit_dynamic_train_manifest(
         {
-            "schema_version": V2XVIT_TRAIN200_SCHEMA,
+            "schema_version": V2XVIT_DYNAMIC_TRAIN200_SCHEMA,
             "family_id": "heal_lidar_v2xvit",
             "model_name": str(hypes.get("name", "")),
-            "purpose": "entropy_activation_calibration_and_fixed_k_export_contract",
+            "purpose": "task_loss_and_modelopt_calibration_dynamic_frontend",
             "split": "train",
             "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
             "source_control": {
@@ -279,11 +275,6 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "project_first": bool(hypes["fusion"]["args"].get("proj_first", False)),
                 "ego_selection": "HEAL train-time seeded DAIR heterogeneous ego assignment",
             },
-            "fixed_k_contract": {
-                "alignment": int(args.alignment),
-                "padding_policy": "append_zero_voxels_and_explicit_valid_voxel_mask",
-                "overflow_policy": "fail_closed_no_truncation",
-            },
             "input_contract": {
                 "max_points_per_voxel": int(
                     hypes["heter"]["modality_setting"]["m1"]["preprocess"]["args"]["max_points_per_voxel"]
@@ -306,7 +297,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--heal-root", default=str(DEFAULT_HEAL_ROOT))
     parser.add_argument("--sample-count", type=int, default=200)
     parser.add_argument("--base-seed", type=int, default=V2XVIT_TRAIN200_BASE_SEED)
-    parser.add_argument("--alignment", type=int, default=V2XVIT_FIXED_K_ALIGNMENT)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--frozen-manifest", default=None)
     return parser.parse_args()
@@ -315,8 +305,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     output_dir = Path(args.output_dir).expanduser().resolve()
-    manifest_path = output_dir / "v2xvit_train200_fixed_k_manifest.json"
-    summary_path = output_dir / "v2xvit_train200_fixed_k_summary.md"
+    manifest_path = output_dir / "v2xvit_train200_dynamic_frontend_manifest.json"
+    summary_path = output_dir / "v2xvit_train200_dynamic_frontend_summary.md"
     if manifest_path.exists() or summary_path.exists():
         raise RuntimeError(f"refusing_to_overwrite_existing_output_directory:{output_dir}")
     manifest = build_manifest(args)
@@ -331,8 +321,8 @@ def main() -> int:
                 "success": True,
                 "manifest": str(manifest_path),
                 "manifest_hash": manifest["manifest_hash"],
-                "fixed_k": manifest["fixed_k_contract"]["value"],
-                "observed_max": manifest["fixed_k_contract"]["observed_max_voxel_count"],
+                "runtime_max_k_dependency": False,
+                "observed_max": manifest["voxel_count_distribution"]["max"],
                 "sample_count": manifest["sample_count"],
                 "frozen_manifest": args.frozen_manifest,
                 "frozen_status": frozen_status,

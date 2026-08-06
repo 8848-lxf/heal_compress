@@ -242,7 +242,6 @@ def run(args: argparse.Namespace) -> int:
         family_id=MODEL_FAMILIES[str(args.model)],
         checkpoint=args.checkpoint.expanduser().resolve(),
         config=args.model_config.expanduser().resolve(),
-        calibration_manifest=args.calibration_manifest.expanduser().resolve(),
         heal_root=args.heal_root.expanduser().resolve(),
         strict_fp32_engine=(
             args.baseline_engine.expanduser().resolve()
@@ -334,7 +333,7 @@ def run(args: argparse.Namespace) -> int:
         spec,
         output_root=root,
         physical_gpu=args.physical_gpu,
-        plugin=args.plugin.resolve(),
+        plugin=None,
         tensorrt_root=args.tensorrt_root.resolve(),
         taylor_samples=args.taylor_samples,
     )
@@ -650,7 +649,6 @@ def main() -> int:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--model-config", type=Path, required=True)
-    parser.add_argument("--calibration-manifest", type=Path, required=True)
     parser.add_argument("--heal-root", type=Path, required=True)
     parser.add_argument("--baseline-engine", type=Path)
     parser.add_argument("--physical-gpu", type=int, required=True)
@@ -689,7 +687,6 @@ def main() -> int:
             "before formal GA"
         ),
     )
-    parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument("--tensorrt-root", type=Path, required=True)
     return run(parser.parse_args())
 

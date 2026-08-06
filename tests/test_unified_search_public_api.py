@@ -18,7 +18,7 @@ from search.stage2.greedy_anchor_gate import (
     load_greedy_anchor,
 )
 from search.unified.artifacts import BestEnginePublisher
-from search.unified.cli import parse_args
+from search.unified.cli import _config_overrides, parse_args
 from search.unified.config import PROJECT_ROOT, load_search_config
 from search.unified.families import registered_families
 from search.unified.formal import build_strict_stage1
@@ -91,6 +91,29 @@ def test_cli_exposes_single_budget_one_generation_smoke_contract() -> None:
         generation_contract="formal_smoke_gen1",
     )
     assert policy.generations == 1
+
+
+def test_cli_calibration_manifest_overrides_dynamic_v2xvit_contract() -> None:
+    args = parse_args(
+        [
+            "--config",
+            "search/configs/unified/lidar_v2xvit_ga.yaml",
+            "--calibration-manifest",
+            "../calibration/v2xvit_train200.json",
+        ]
+    )
+    overrides = _config_overrides(args)
+    assert overrides["proxy.dynamic_calibration_manifest"] == (
+        "../calibration/v2xvit_train200.json"
+    )
+    config = load_search_config(
+        PROJECT_ROOT / "search/configs/unified/lidar_v2xvit_ga.yaml",
+        overrides=overrides,
+        allow_unresolved=True,
+    )
+    assert config.payload["proxy"]["dynamic_calibration_manifest"] == (
+        "../calibration/v2xvit_train200.json"
+    )
 
 
 def test_cli_exposes_three_generation_calibrated_comparison_contract() -> None:

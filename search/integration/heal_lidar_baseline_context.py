@@ -9,28 +9,28 @@ from typing import Any
 
 import torch
 
+from deploy.post_scatter import (
+    POST_SCATTER_CONTRACT,
+    filter_post_scatter_module_paths,
+    filter_post_scatter_pruning_units,
+    filter_post_scatter_quantization_groups,
+    post_scatter_shape_profiles,
+    prepare_post_scatter_inputs,
+)
+
 from tracer.api import trace_model
 from tracer.config import TraceConfig
 from tracer.precision_coupling_tracer import build_runtime_precision_coupling
 
 from ..canonicalization import SearchSpaceSpec
 from ..hashing import canonical_json_hash
-from ..model_family.export.heal_lidar_baselines import (
-    HealLidarBaselineExportPolicy,
-    prepare_heal_lidar_baseline_inputs,
-)
 from ..model_family.heal_lidar_deployment import (
-    HEAL_LIDAR_BASELINE_INPUT_NAMES,
     build_heal_lidar_baseline_quantization_groups,
 )
 from ..model_family.heal_lidar_pruning import build_heal_lidar_baseline_atomic_units
 from ..model_family.model_provider import HealModelFamilyBundle, load_heal_model_family
 from ..pruning_space.local_domains import build_local_pruning_domains
 from ..quantization_space.group_builder import build_quantization_search_groups
-from .calibration_provider import (
-    BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
-    fixed_k_calibration_npz_manifest_identity,
-)
 from .data_provider import load_split_frame_ids, write_eval_manifest
 from .runtime_environment import (
     GPUSelection,
@@ -81,7 +81,6 @@ class HealLidarBaselineSearchContext:
     search_space: SearchSpaceSpec
     eval_manifest_hash: str
     checkpoint_hash: str
-    fixed_k: int
     max_agents: int
     search_space_policy: str
 
@@ -131,32 +130,29 @@ def build_heal_lidar_baseline_context(
     output_dir: str | Path,
     heal_root: str | Path,
     tensorrt_root: str | Path,
-    plugin_path: str | Path,
+    plugin_path: str | Path | None = None,
     gpu_id: str = "auto",
     exclude_gpu_ids: list[int] | None = None,
     tensorrt_env: str = "modelopt",
     fisher_calibration_batches: int = 8,
     quant_calibration_batches: int = 200,
     quant_calibration_npz_manifest: str | Path | None = None,
-    quant_activation_calibration_backend: str = "tensorrt_entropy_calibration2",
+    quant_activation_calibration_backend: str = "modelopt_histogram_entropy",
     quant_activation_calibration_cache_path: str | Path | None = None,
     quant_calibration_force_rebuild: bool = False,
     num_frames: int = 500,
     warmup_frames: int = 200,
     reset_after_warmup: bool = True,
     default_precision: str = "FP16",
-    fixed_k: int = 29696,
     max_agents: int = 2,
     minimum_retained_ratio: float = 0.10,
     dense_alignment: int = 4,
-    require_quant_calibration_manifest: bool = True,
+    require_quant_calibration_manifest: bool = False,
     search_space_policy: str = LEGACY_FAMILY_STATIC_POLICY,
 ) -> HealLidarBaselineSearchContext:
     model_name = _model_name(family_id)
-    if int(fixed_k) <= 0 or int(max_agents) != 2:
-        raise RuntimeError(
-            f"heal_lidar_baseline_context_contract_mismatch:{fixed_k}:{max_agents}"
-        )
+    if int(max_agents) != 2:
+        raise RuntimeError(f"heal_lidar_baseline_context_max_agents:{max_agents}")
     gpu = select_gpu(gpu_id, exclude_gpu_ids)
     device = torch.device(gpu.runtime_device)
     if device.type != "cuda":
@@ -205,11 +201,16 @@ def build_heal_lidar_baseline_context(
                 f"{coverage.to_dict()}"
             )
         all_atomic_units = list(trace_result.atomic_prune_units)
-        atomic_units = _select_runtime_traced_atomic_units(trace_result)
-        coupled_units = list(trace_result.coupled_channel_units)
+        atomic_units = filter_post_scatter_pruning_units(
+            _select_runtime_traced_atomic_units(trace_result)
+        )
+        coupled_units = filter_post_scatter_pruning_units(
+            list(trace_result.coupled_channel_units), require_nonempty=False
+        )
     else:
         atomic_units = build_heal_lidar_baseline_atomic_units(bundle.model, bundle.audit)
         all_atomic_units = list(atomic_units)
+        atomic_units = filter_post_scatter_pruning_units(atomic_units)
         coupled_units = []
         trace_result = None
     preliminary_domains = build_local_pruning_domains(
@@ -229,22 +230,34 @@ def build_heal_lidar_baseline_context(
             bundle.model,
             bundle.audit,
         )
-        precision_layer_ids = [group.module_paths[0] for group in quantization_groups]
+        quantization_groups = filter_post_scatter_quantization_groups(
+            quantization_groups
+        )
+        precision_layer_ids = filter_post_scatter_module_paths(
+            [group.module_paths[0] for group in quantization_groups]
+        )
     else:
         precision_coupling_result = build_runtime_precision_coupling(
             bundle.model,
             trace_result,
         )
-        precision_layer_ids = list(precision_coupling_result.weighted_modules)
-        quantization_groups = build_quantization_search_groups(
-            bundle.model,
-            precision_groups=precision_coupling_result.groups,
+        precision_layer_ids = filter_post_scatter_module_paths(
+            list(precision_coupling_result.weighted_modules)
+        )
+        quantization_groups = filter_post_scatter_quantization_groups(
+            build_quantization_search_groups(
+                bundle.model,
+                precision_groups=precision_coupling_result.groups,
+            )
         )
     production_int8 = [
         group for group in quantization_groups
         if "INT8" in group.allowed_precisions and not group.protected
     ]
-    expected_int8 = 24 if policy_name == LEGACY_FAMILY_STATIC_POLICY else len(quantization_groups)
+    expected_int8 = sum(
+        "INT8" in group.allowed_precisions and not group.protected
+        for group in quantization_groups
+    )
     if len(production_int8) != expected_int8:
         raise RuntimeError(
             "heal_lidar_baseline_int8_group_count_mismatch:"
@@ -255,21 +268,25 @@ def build_heal_lidar_baseline_context(
     ):
         raise RuntimeError("runtime_graph_quantization_contains_protected_group")
 
-    policy = HealLidarBaselineExportPolicy(
-        fixed_k=int(fixed_k),
-        max_agents=int(max_agents),
-    )
     example_ego = bundle.example_batch
     if not isinstance(example_ego, dict):
         raise RuntimeError("heal_lidar_baseline_synthetic_example_missing")
-    export_inputs = prepare_heal_lidar_baseline_inputs(example_ego, policy=policy)
-    if tuple(export_inputs) != HEAL_LIDAR_BASELINE_INPUT_NAMES:
+    export_inputs = prepare_post_scatter_inputs(
+        bundle.model,
+        example_ego,
+        max_agents=int(max_agents),
+        include_agent_mask=True,
+    )
+    if tuple(export_inputs) != (
+        "spatial_features",
+        "pairwise_t_matrix",
+        "agent_mask",
+    ):
         raise RuntimeError("heal_lidar_baseline_export_input_contract_mismatch")
 
-    plugin = Path(plugin_path).expanduser().resolve()
     tensorrt = discover_trt_environment(
         tensorrt_root,
-        plugin_path=plugin,
+        plugin_path=None,
         conda_env=tensorrt_env,
     )
     config_path = Path(model_config_path).expanduser().resolve()
@@ -280,44 +297,22 @@ def build_heal_lidar_baseline_context(
         available_frame_ids=load_split_frame_ids(bundle.adapter, config_path, split="val"),
         reset_after_warmup=bool(reset_after_warmup),
     )
-    calibration_manifest = (
-        Path(quant_calibration_npz_manifest).expanduser().resolve()
-        if quant_calibration_npz_manifest
-        else None
-    )
-    calibration_identity: dict[str, Any] = {}
+    calibration_manifest = None
+    calibration_identity: dict[str, Any] = {
+        "input_contract": POST_SCATTER_CONTRACT,
+        "source": "frozen_train_dataset_batches",
+    }
     backend = str(quant_activation_calibration_backend).strip().lower()
-    if backend not in {
-        "tensorrt_entropy_calibration2",
-        "external_tensorrt_entropy_cache_exact_match",
-        "modelopt_histogram_entropy",
-    }:
-        raise RuntimeError(f"unsupported_baseline_quant_calibration_backend:{backend}")
-    if calibration_manifest is not None:
-        if not calibration_manifest.is_file() and not require_quant_calibration_manifest:
-            calibration_manifest = None
-        else:
-            calibration_identity = fixed_k_calibration_npz_manifest_identity(
-                calibration_manifest,
-                num_batches=int(quant_calibration_batches),
-                fixed_k=int(fixed_k),
-                input_names=BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES,
-            )
-    if (
-        backend == "tensorrt_entropy_calibration2"
-        and calibration_manifest is None
-        and require_quant_calibration_manifest
-    ):
-        raise RuntimeError("baseline_tensorrt_entropy_calibration_requires_six_input_npz_manifest")
-    calibration_cache = (
-        Path(quant_activation_calibration_cache_path).expanduser().resolve()
-        if quant_activation_calibration_cache_path
-        else None
-    )
-    if backend == "external_tensorrt_entropy_cache_exact_match" and (
-        calibration_cache is None or not calibration_cache.is_file()
-    ):
-        raise RuntimeError(f"baseline_external_entropy_cache_missing:{calibration_cache}")
+    if backend != "modelopt_histogram_entropy":
+        raise RuntimeError(
+            "post_scatter_calibration_requires_modelopt_histogram_entropy:"
+            f"requested={backend}"
+        )
+    if quant_calibration_npz_manifest is not None or require_quant_calibration_manifest:
+        raise RuntimeError("post_scatter_calibration_rejects_fixed_k_npz_manifest")
+    if quant_activation_calibration_cache_path is not None:
+        raise RuntimeError("post_scatter_calibration_rejects_legacy_entropy_cache")
+    calibration_cache = None
 
     if trace_result is None:
         trace_hash = canonical_json_hash({
@@ -349,10 +344,12 @@ def build_heal_lidar_baseline_context(
     builder_flags = {
         "strongly_typed": True,
         "no_tf32": True,
-        "shape_profiles": {},
-        "fixed_k": int(fixed_k),
+        "shape_profiles": post_scatter_shape_profiles(
+            ("spatial_features", "pairwise_t_matrix", "agent_mask")
+        ),
         "max_agents": int(max_agents),
-        "input_contract": "heal_lidar_baseline_fixed_k",
+        "input_contract": POST_SCATTER_CONTRACT,
+        "runtime_max_k_dependency": False,
     }
     search_space = SearchSpaceSpec(
         pruning_unit_ids=[str(unit.stable_id) for unit in atomic_units],
@@ -380,14 +377,15 @@ def build_heal_lidar_baseline_context(
             "backend": backend,
         }),
         onnx_export_config_hash=canonical_json_hash({
-            "fixed_k": int(fixed_k),
+            "engine_contract": POST_SCATTER_CONTRACT,
             "max_agents": int(max_agents),
-            "input_names": list(HEAL_LIDAR_BASELINE_INPUT_NAMES),
+            "input_names": list(export_inputs),
+            "runtime_max_k_dependency": False,
         }),
         tensorrt_version="10.9",
         gpu_compute_capability=f"{capability_major}.{capability_minor}",
         builder_flags=builder_flags,
-        plugin_hashes=plugin_hashes([plugin]),
+        plugin_hashes=plugin_hashes([]),
     )
     context = HealLidarBaselineSearchContext(
         family_id=family_id,
@@ -415,7 +413,7 @@ def build_heal_lidar_baseline_context(
         metric_adapter=None,
         trt_config=None,
         builder_flags=builder_flags,
-        plugin_paths=[plugin],
+        plugin_paths=[],
         physical_gpu_id=gpu.physical_gpu_id,
         runtime_device=gpu.runtime_device,
         gpu_selection=gpu,
@@ -423,7 +421,6 @@ def build_heal_lidar_baseline_context(
         search_space=search_space,
         eval_manifest_hash=manifest.manifest_hash,
         checkpoint_hash=bundle.checkpoint_hash,
-        fixed_k=int(fixed_k),
         max_agents=int(max_agents),
         search_space_policy=policy_name,
     )
@@ -468,7 +465,9 @@ def build_heal_lidar_baseline_context(
         "pruning_protection_reasons": dict(
             getattr(trace_result, "protection_reasons", {}) or {}
         ),
-        "fixed_k": int(fixed_k),
+        "fixed_k": None,
+        "runtime_max_k_dependency": False,
+        "engine_contract": POST_SCATTER_CONTRACT,
         "max_agents": int(max_agents),
         "input_names": list(export_inputs),
         "calibration_backend": backend,

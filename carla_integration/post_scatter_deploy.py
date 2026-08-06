@@ -10,6 +10,11 @@ import subprocess
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from deploy.post_scatter import (
+    audit_post_scatter_onnx as audit_formal_post_scatter_onnx,
+    post_scatter_shape_profiles as formal_post_scatter_shape_profiles,
+)
+
 from .external_scatter_onnx import externalize_scatter
 
 
@@ -35,31 +40,7 @@ def _trtexec(tensorrt_root: Path) -> Path:
 def post_scatter_shape_profiles(
     input_names: Sequence[str] = ("spatial_features", "pairwise_t_matrix"),
 ) -> Mapping[str, Mapping[str, tuple[int, ...]]]:
-    names = set(input_names)
-    uses_agent_mask = "agent_mask" in names
-    min_agents = 2 if uses_agent_mask else 1
-    profiles: dict[str, Mapping[str, tuple[int, ...]]] = {
-        "spatial_features": {
-            "min": (min_agents, 64, 256, 512),
-            "opt": (2, 64, 256, 512),
-            "max": (2, 64, 256, 512),
-        },
-        "pairwise_t_matrix": {
-            "min": (1, min_agents, min_agents, 4, 4),
-            "opt": (1, 2, 2, 4, 4),
-            "max": (1, 2, 2, 4, 4),
-        },
-    }
-    if uses_agent_mask:
-        profiles["agent_mask"] = {
-            "min": (1, 2),
-            "opt": (1, 2),
-            "max": (1, 2),
-        }
-    missing = names - set(profiles)
-    if missing:
-        raise ValueError(f"unsupported post-scatter inputs: {sorted(missing)}")
-    return profiles
+    return formal_post_scatter_shape_profiles(input_names)
 
 
 def build_command(
@@ -82,12 +63,13 @@ def build_command(
         "--memPoolSize=workspace:4096",
         f"--exportLayerInfo={layer_info_path}",
     ]
-    for kind in ("min", "opt", "max"):
-        values = ",".join(
-            f"{name}:{'x'.join(str(value) for value in profiles[name][kind])}"
-            for name in sorted(profiles)
-        )
-        command.append(f"--{kind}Shapes={values}")
+    if profiles:
+        for kind in ("min", "opt", "max"):
+            values = ",".join(
+                f"{name}:{'x'.join(str(value) for value in profiles[name][kind])}"
+                for name in sorted(profiles)
+            )
+            command.append(f"--{kind}Shapes={values}")
     return command
 
 
@@ -95,38 +77,13 @@ def _onnx_audit(path: Path) -> dict[str, Any]:
     import onnx
 
     model = onnx.load(str(path), load_external_data=True)
-    input_names = [str(value.name) for value in model.graph.input]
-    scatter_count = sum(
-        node.op_type == "PointPillarScatterTRT" for node in model.graph.node
-    )
+    report = dict(audit_formal_post_scatter_onnx(path))
     qdq_count = sum(
         node.op_type in {"QuantizeLinear", "DequantizeLinear"}
         for node in model.graph.node
     )
-    issues = []
-    allowed_inputs = {"spatial_features", "pairwise_t_matrix", "agent_mask"}
-    if not {"spatial_features", "pairwise_t_matrix"}.issubset(input_names):
-        issues.append(f"required_inputs_missing:{sorted(input_names)}")
-    if not set(input_names).issubset(allowed_inputs):
-        issues.append(f"unexpected_inputs:{sorted(input_names)}")
-    if scatter_count:
-        issues.append(f"scatter_nodes_present:{scatter_count}")
-    fixed_k_inputs = sorted(
-        set(input_names)
-        & {"voxel_features", "voxel_coords", "voxel_num_points", "valid_voxel_mask"}
-    )
-    if fixed_k_inputs:
-        issues.append(f"fixed_k_inputs_present:{fixed_k_inputs}")
-    return {
-        "passed": not issues,
-        "issues": issues,
-        "input_names": input_names,
-        "scatter_node_count": scatter_count,
-        "qdq_node_count": qdq_count,
-        "fixed_k_inputs": fixed_k_inputs,
-        "runtime_max_k_dependency": False,
-        "point_frontend": "dynamic_voxel_pfn_scatter_outside_tensorrt",
-    }
+    report["qdq_node_count"] = qdq_count
+    return report
 
 
 def build_post_scatter_engine(

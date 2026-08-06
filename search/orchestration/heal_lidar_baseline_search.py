@@ -8,16 +8,14 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from deploy.post_scatter import prepare_post_scatter_inputs
+
 from ..cache.proxy_cache import ProxyCache
 from ..candidate import CandidateGenotype, CandidatePhenotype
 from ..canonicalization import canonicalize_candidate
 from ..integration.calibration_provider import collect_or_load_fisher_statistics
 from ..integration.heal_lidar_baseline_context import build_heal_lidar_baseline_context
 from ..integration.runtime_environment import GPUSelection, query_gpus
-from ..model_family.export.heal_lidar_baselines import (
-    HealLidarBaselineExportPolicy,
-    prepare_heal_lidar_baseline_inputs,
-)
 from ..model_family.model_provider import load_heal_model_family
 from ..proxy.gpu_batch_proxy import MultiDeviceTorchBatchedProxyScorer, TorchBatchedProxyScorer
 from ..proxy.parameter_slice_resolver import build_unit_parameter_slices
@@ -235,12 +233,10 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
             max_map_drop=stage2_cfg.get("max_map_drop"),
         )
 
-    def _baseline_engine(self) -> Path:
+    def _baseline_engine(self) -> Path | None:
         baseline_cfg = dict(self.config.get("baselines", {}) or {})
         path = Path(str(baseline_cfg.get("strict_fp32_engine", ""))).expanduser().resolve()
-        if not path.is_file():
-            raise RuntimeError(f"baseline_strict_fp32_engine_missing:{path}")
-        return path
+        return path if path.is_file() else None
 
     def _candidate_evaluator(
         self,
@@ -322,12 +318,11 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
                 )
                 if bundle.checkpoint_hash != context.checkpoint_hash:
                     raise RuntimeError("checkpoint_hash_mismatch")
-                export_inputs = prepare_heal_lidar_baseline_inputs(
+                export_inputs = prepare_post_scatter_inputs(
+                    bundle.model,
                     bundle.example_batch,
-                    policy=HealLidarBaselineExportPolicy(
-                        fixed_k=context.fixed_k,
-                        max_agents=context.max_agents,
-                    ),
+                    max_agents=context.max_agents,
+                    include_agent_mask=True,
                 )
                 worker_context = replace(
                     context,
@@ -406,7 +401,7 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
             output_dir=run_dir,
             heal_root=runtime["heal_root"],
             tensorrt_root=runtime["tensorrt_root"],
-            plugin_path=runtime["plugin_path"],
+            plugin_path=None,
             gpu_id=str(runtime.get("gpu_id", "auto")),
             exclude_gpu_ids=[int(value) for value in runtime.get("exclude_gpu_ids", [])],
             tensorrt_env=str(runtime.get("tensorrt_env", "modelopt")),
@@ -414,7 +409,7 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
             quant_calibration_batches=int(proxy_cfg.get("quant_calibration_batches", 200)),
             quant_calibration_npz_manifest=proxy_cfg.get("quant_calibration_npz_manifest"),
             quant_activation_calibration_backend=str(
-                proxy_cfg.get("quant_activation_calibration_backend", "tensorrt_entropy_calibration2")
+                proxy_cfg.get("quant_activation_calibration_backend", "modelopt_histogram_entropy")
             ),
             quant_activation_calibration_cache_path=proxy_cfg.get(
                 "quant_activation_calibration_cache_path"
@@ -426,7 +421,6 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
             warmup_frames=manifest_warmup,
             reset_after_warmup=manifest_reset,
             default_precision=str(self.config.get("precision", {}).get("default", "FP16")),
-            fixed_k=int(model_cfg.get("fixed_k", 29696)),
             max_agents=int(model_cfg.get("max_agents", 2)),
             minimum_retained_ratio=float(
                 dict(self.config.get("pruning", {}) or {}).get("minimum_retained_ratio", 0.10)
@@ -434,7 +428,7 @@ class HealLidarBaselineTwoStageSearch(LidarPyramidTwoStageSearch):
             dense_alignment=int(
                 dict(self.config.get("pruning", {}) or {}).get("dense_channel_alignment", 4)
             ),
-            require_quant_calibration_manifest=not (stage1_only or baseline_only),
+            require_quant_calibration_manifest=False,
             search_space_policy=str(
                 model_cfg.get(
                     "search_space_policy",

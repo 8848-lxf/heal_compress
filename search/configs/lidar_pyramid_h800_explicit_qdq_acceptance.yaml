@@ -8,7 +8,6 @@ runtime:
   model_env: univ2x-opt
   tensorrt_env: modelopt
   tensorrt_root: ${TENSORRT_ROOT}
-  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
 
 output:
   experiment_name: h800_explicit_qdq_production_acceptance
@@ -32,8 +31,7 @@ precision:
 proxy:
   fisher_calibration_batches: 0
   quant_calibration_batches: 200
-  quant_calibration_npz_manifest: ./tests/quant_deploy/outputs/lidar_pyramid_agent_export_strategy_compare/artifacts/calibration/train_calib_single_engine_maxK29696_200/manifest.json
-  quant_activation_calibration_backend: tensorrt_entropy_calibration2
+  quant_activation_calibration_backend: modelopt_histogram_entropy
   quant_calibration_force_rebuild: true
 
 search:

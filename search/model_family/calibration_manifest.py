@@ -1,8 +1,8 @@
 """Deterministic calibration-manifest contracts for HEAL model families.
 
-The V2X-ViT fixed-K value is intentionally derived from an explicit list of
-real train samples.  It is not inherited from the lidar_pyramid deployment
-path or from the dataset's per-agent ``max_voxel_train`` limit.
+The formal V2X-ViT path uses the dynamic-frontend v2 contract. The fixed-K v1
+helpers remain only to verify and project historical frozen sample selections;
+they are not consumed by the formal TensorRT exporter or runtime.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import numpy as np
 
 
 V2XVIT_TRAIN200_SCHEMA = "heal_lidar_v2xvit_train200_fixed_k_v1"
+V2XVIT_DYNAMIC_TRAIN200_SCHEMA = "heal_lidar_v2xvit_train200_dynamic_frontend_v2"
 V2XVIT_TRAIN200_SELECTION_POLICY = "evenly_spaced_valid_train_indices_v1"
 V2XVIT_TRAIN200_BASE_SEED = 20260717
 V2XVIT_FIXED_K_ALIGNMENT = 256
@@ -110,7 +111,7 @@ def finalize_v2xvit_train_manifest(
     *,
     expected_sample_count: int = 200,
 ) -> dict[str, Any]:
-    """Validate sample evidence, derive fixed-K, and freeze manifest identity."""
+    """Legacy: validate sample evidence and reproduce a historical fixed-K manifest."""
 
     result = dict(manifest)
     samples = [dict(row) for row in result.get("samples", [])]
@@ -209,6 +210,8 @@ def validate_v2xvit_train_manifest(
 
 
 def load_v2xvit_train_manifest(path: str | Path) -> dict[str, Any]:
+    """Legacy loader for pre-scatter artifacts; formal search uses the dynamic loader."""
+
     manifest_path = Path(path).expanduser().resolve()
     if not manifest_path.is_file():
         raise RuntimeError(f"v2xvit_frozen_train_manifest_missing:{manifest_path}")
@@ -219,8 +222,134 @@ def load_v2xvit_train_manifest(path: str | Path) -> dict[str, Any]:
     return payload
 
 
+def finalize_v2xvit_dynamic_train_manifest(
+    manifest: Mapping[str, Any],
+    *,
+    expected_sample_count: int = 200,
+) -> dict[str, Any]:
+    """Freeze sample selection without deriving a padded voxel capacity."""
+
+    result = dict(manifest)
+    result["schema_version"] = V2XVIT_DYNAMIC_TRAIN200_SCHEMA
+    samples = []
+    for source in result.get("samples", []):
+        row = {
+            key: value
+            for key, value in dict(source).items()
+            if key not in {"fixed_k", "padding_voxels", "padding_ratio"}
+        }
+        samples.append(row)
+    if len(samples) != int(expected_sample_count):
+        raise ValueError(
+            "v2xvit_dynamic_train_manifest_sample_count_mismatch:"
+            f"{len(samples)}!={expected_sample_count}"
+        )
+    dataset_indices = [int(row["dataset_index"]) for row in samples]
+    frame_ids = [str(row["vehicle_frame_id"]) for row in samples]
+    voxel_counts = [int(row["voxel_count"]) for row in samples]
+    if len(dataset_indices) != len(set(dataset_indices)):
+        raise ValueError("v2xvit_dynamic_train_manifest_duplicate_dataset_index")
+    if len(frame_ids) != len(set(frame_ids)):
+        raise ValueError("v2xvit_dynamic_train_manifest_duplicate_frame_id")
+    if any(value <= 0 for value in voxel_counts):
+        raise ValueError("v2xvit_dynamic_train_manifest_nonpositive_voxel_count")
+    if any("sample_seed" not in row for row in samples):
+        raise ValueError("v2xvit_dynamic_train_manifest_sample_seed_missing")
+
+    result.pop("fixed_k_contract", None)
+    result.pop("padding_ratio_distribution", None)
+    input_contract = dict(result.get("input_contract", {}) or {})
+    for key in tuple(input_contract):
+        if key == "fixed_k" or key.startswith("voxel_") or key == "valid_voxel_mask_shape":
+            input_contract.pop(key, None)
+    result["input_contract"] = {
+        **input_contract,
+        "engine_contract": "heal_post_scatter_dynamic_frontend_v1",
+        "point_frontend": "dynamic_gpu_voxelization_pfn_scatter_outside_tensorrt",
+        "voxel_capacity": None,
+        "padding_policy": "none",
+        "overflow_policy": "not_applicable_dynamic_frontend",
+    }
+    result["purpose"] = "task_loss_and_modelopt_calibration_dynamic_frontend"
+    result["samples"] = samples
+    result["selected_dataset_indices"] = dataset_indices
+    result["selected_vehicle_frame_ids"] = frame_ids
+    result["sample_count"] = len(samples)
+    result["voxel_count_distribution"] = numeric_distribution(voxel_counts)
+    result["record_len_distribution"] = dict(
+        sorted(Counter(str(int(row["record_len"])) for row in samples).items())
+    )
+    result["runtime_max_k_dependency"] = False
+    result["manifest_hash_excluded_fields"] = [
+        "generated_at",
+        "manifest_hash",
+        "source_control",
+    ]
+    result["manifest_hash"] = canonical_payload_hash(manifest_identity_payload(result))
+    validate_v2xvit_dynamic_train_manifest(
+        result, expected_sample_count=expected_sample_count
+    )
+    return result
+
+
+def validate_v2xvit_dynamic_train_manifest(
+    manifest: Mapping[str, Any],
+    *,
+    expected_sample_count: int = 200,
+) -> None:
+    if str(manifest.get("schema_version")) != V2XVIT_DYNAMIC_TRAIN200_SCHEMA:
+        raise ValueError("v2xvit_dynamic_train_manifest_schema_mismatch")
+    if str(manifest.get("family_id")) != "heal_lidar_v2xvit":
+        raise ValueError("v2xvit_dynamic_train_manifest_family_mismatch")
+    if str(manifest.get("split")) != "train":
+        raise ValueError("v2xvit_dynamic_calibration_manifest_must_use_train_split")
+    samples = list(manifest.get("samples", []))
+    if len(samples) != int(expected_sample_count):
+        raise ValueError("v2xvit_dynamic_train_manifest_incomplete")
+    if "fixed_k_contract" in manifest:
+        raise ValueError("v2xvit_dynamic_train_manifest_contains_fixed_k")
+    if any("fixed_k" in row for row in samples):
+        raise ValueError("v2xvit_dynamic_train_sample_contains_fixed_k")
+    contract = dict(manifest.get("input_contract", {}) or {})
+    if contract.get("voxel_capacity", "missing") is not None:
+        raise ValueError("v2xvit_dynamic_train_manifest_voxel_capacity_not_dynamic")
+    if bool(manifest.get("runtime_max_k_dependency", True)):
+        raise ValueError("v2xvit_dynamic_train_manifest_runtime_max_k_dependency")
+    expected_hash = canonical_payload_hash(manifest_identity_payload(manifest))
+    if str(manifest.get("manifest_hash")) != expected_hash:
+        raise ValueError("v2xvit_dynamic_train_manifest_hash_mismatch")
+
+
+def load_v2xvit_dynamic_train_manifest(path: str | Path) -> dict[str, Any]:
+    """Load the formal dynamic manifest, projecting a verified legacy list if needed."""
+
+    manifest_path = Path(path).expanduser().resolve()
+    if not manifest_path.is_file():
+        raise RuntimeError(f"v2xvit_frozen_train_manifest_missing:{manifest_path}")
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("v2xvit_train_manifest_root_must_be_object")
+    schema = str(payload.get("schema_version", ""))
+    if schema == V2XVIT_DYNAMIC_TRAIN200_SCHEMA:
+        validate_v2xvit_dynamic_train_manifest(payload)
+        return payload
+    if schema != V2XVIT_TRAIN200_SCHEMA:
+        raise ValueError("v2xvit_dynamic_train_manifest_schema_mismatch")
+    validate_v2xvit_train_manifest(payload)
+    projected = {
+        **payload,
+        "source_legacy_manifest": {
+            "schema_version": schema,
+            "manifest_hash": str(payload["manifest_hash"]),
+            "use": "sample_selection_only",
+        },
+    }
+    return finalize_v2xvit_dynamic_train_manifest(projected)
+
+
 __all__ = [
     "V2XVIT_FIXED_K_ALIGNMENT",
+    "V2XVIT_DYNAMIC_TRAIN200_SCHEMA",
     "V2XVIT_TRAIN200_BASE_SEED",
     "V2XVIT_TRAIN200_SCHEMA",
     "V2XVIT_TRAIN200_SELECTION_POLICY",
@@ -228,9 +357,12 @@ __all__ = [
     "ceil_to_alignment",
     "evenly_spaced_indices",
     "finalize_v2xvit_train_manifest",
+    "finalize_v2xvit_dynamic_train_manifest",
+    "load_v2xvit_dynamic_train_manifest",
     "load_v2xvit_train_manifest",
     "manifest_identity_payload",
     "numeric_distribution",
     "sample_seed",
     "validate_v2xvit_train_manifest",
+    "validate_v2xvit_dynamic_train_manifest",
 ]

@@ -39,12 +39,6 @@ from search.integration.heal_lidar_family_fair_evaluation import (  # noqa: E402
 
 DEFAULT_HEAL_ROOT = Path("../../HEAL")
 DEFAULT_TRT_ROOT = Path("${TENSORRT_ROOT}")
-DEFAULT_PLUGIN = (
-    REPO_ROOT
-    / "quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so"
-)
-
-
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Fair five-repeat evaluation of existing HEAL family ablation engines."
@@ -56,11 +50,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--build-root", required=True, type=Path)
     parser.add_argument("--baseline-engine", required=True, type=Path)
+    parser.add_argument("--baseline-checkpoint", required=True, type=Path)
     parser.add_argument("--model-config", required=True, type=Path)
     parser.add_argument("--eval-manifest", required=True, type=Path)
     parser.add_argument("--heal-root", type=Path, default=DEFAULT_HEAL_ROOT)
     parser.add_argument("--tensorrt-root", type=Path, default=DEFAULT_TRT_ROOT)
-    parser.add_argument("--plugin", type=Path, default=DEFAULT_PLUGIN)
     parser.add_argument("--output-root", type=Path, default=REPO_ROOT / "outputs")
     parser.add_argument(
         "--run-dir",
@@ -88,7 +82,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-frames", type=int, default=1789)
     parser.add_argument("--warmup-frames", type=int, default=200)
     parser.add_argument("--latency-rounds", type=int, default=3)
-    parser.add_argument("--fixed-k", type=int, default=29696)
     parser.add_argument("--max-agents", type=int, default=2)
     parser.add_argument("--idle-max-used-mib", type=int, default=256)
     parser.add_argument("--idle-max-utilization", type=int, default=5)
@@ -196,11 +189,11 @@ def _preflight(
     required = (
         args.build_root,
         args.baseline_engine,
+        args.baseline_checkpoint,
         args.model_config,
         args.eval_manifest,
         args.heal_root,
         args.tensorrt_root,
-        args.plugin,
     )
     missing = [str(path) for path in required if not path.exists()]
     if missing:
@@ -234,6 +227,7 @@ def _preflight(
     inventories = build_family_evaluation_inventories(
         build_root=args.build_root,
         baseline_engine_path=args.baseline_engine,
+        baseline_checkpoint_path=args.baseline_checkpoint,
         family_id=args.family_id,
     )
     if any(len(inventory) != 19 for inventory in inventories.values()):
@@ -250,6 +244,10 @@ def _preflight(
         "build_root": str(args.build_root.resolve()),
         "baseline_engine_path": str(args.baseline_engine.resolve()),
         "baseline_engine_sha256": inventories["ga"][0]["engine_sha256"],
+        "baseline_checkpoint_path": str(args.baseline_checkpoint.resolve()),
+        "baseline_checkpoint_sha256": inventories["ga"][0][
+            "frontend_checkpoint_sha256"
+        ],
         "gpu_assignment": gpu_assignment,
         "gpu_pools": gpu_pools,
         "protocol": {
@@ -258,7 +256,8 @@ def _preflight(
             "latency_rounds": int(args.latency_rounds),
             "dataloader_num_workers": 8,
             "cuda_postprocess": True,
-            "fixed_k": int(args.fixed_k),
+            "fixed_k": None,
+            "input_contract": "heal_post_scatter_dynamic_frontend_v1",
             "max_agents": int(args.max_agents),
             "eval_manifest_path": str(args.eval_manifest.resolve()),
             "eval_manifest_hash": manifest.get("manifest_hash"),
@@ -271,6 +270,10 @@ def _preflight(
                     "item_id": row["item_id"],
                     "engine_path": row["engine_path"],
                     "engine_sha256": row["engine_sha256"],
+                    "frontend_checkpoint_path": row["frontend_checkpoint_path"],
+                    "frontend_checkpoint_sha256": row[
+                        "frontend_checkpoint_sha256"
+                    ],
                     "variant": row["variant"],
                     "budget": row.get("budget"),
                 }
@@ -294,6 +297,7 @@ def _preflight(
         "family_id": args.family_id,
         "build_root": str(args.build_root.resolve()),
         "baseline_engine": str(args.baseline_engine.resolve()),
+        "baseline_checkpoint": str(args.baseline_checkpoint.resolve()),
         "gpu_assignment": gpu_assignment,
         "gpu_pools": gpu_pools,
         "gpu_preflight": snapshots,
@@ -316,7 +320,8 @@ def _preflight(
             "latency_rounds": int(args.latency_rounds),
             "dataloader_num_workers": 8,
             "cuda_postprocess": True,
-            "fixed_k": int(args.fixed_k),
+            "fixed_k": None,
+            "input_contract": "heal_post_scatter_dynamic_frontend_v1",
             "max_agents": int(args.max_agents),
             "eval_manifest": str(args.eval_manifest.resolve()),
             "eval_manifest_hash": manifest.get("manifest_hash"),
@@ -388,7 +393,8 @@ def _seed_method_results(
             "latency_rounds": int(args.latency_rounds),
             "dataloader_num_workers": 8,
             "cuda_postprocess": True,
-            "fixed_k": int(args.fixed_k),
+            "fixed_k": None,
+            "input_contract": "heal_post_scatter_dynamic_frontend_v1",
             "max_agents": int(args.max_agents),
             "eval_manifest_hash": read_json(args.eval_manifest).get("manifest_hash"),
             "eval_manifest_file_sha256": sha256_file(args.eval_manifest),
@@ -456,7 +462,6 @@ def _seed_method_results(
                     num_frames=args.num_frames,
                     warmup_frames=args.warmup_frames,
                     latency_rounds=args.latency_rounds,
-                    fixed_k=args.fixed_k,
                 )
             except RuntimeError as exc:
                 if seed_mode == "complete":
@@ -493,7 +498,6 @@ def _seed_method_results(
                 num_frames=args.num_frames,
                 warmup_frames=args.warmup_frames,
                 latency_rounds=args.latency_rounds,
-                fixed_k=args.fixed_k,
             )
             copied.append(
                 {
@@ -520,7 +524,6 @@ def _seed_method_results(
                         num_frames=args.num_frames,
                         warmup_frames=args.warmup_frames,
                         latency_rounds=args.latency_rounds,
-                        fixed_k=args.fixed_k,
                     )
                 except RuntimeError:
                     continue
@@ -594,7 +597,6 @@ def _run_method(
                     num_frames=args.num_frames,
                     warmup_frames=args.warmup_frames,
                     latency_rounds=args.latency_rounds,
-                    fixed_k=args.fixed_k,
                 )
                 print(
                     json.dumps(
@@ -618,12 +620,11 @@ def _run_method(
                     model_config=args.model_config,
                     heal_root=args.heal_root,
                     tensorrt_root=args.tensorrt_root,
-                    plugin_path=args.plugin,
+                    plugin_path=None,
                     eval_manifest_path=args.eval_manifest,
                     num_frames=args.num_frames,
                     warmup_frames=args.warmup_frames,
                     latency_rounds=args.latency_rounds,
-                    fixed_k=args.fixed_k,
                     max_agents=args.max_agents,
                 )
             results.append(compact_result(result))

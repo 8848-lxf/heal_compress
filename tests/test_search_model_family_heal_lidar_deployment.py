@@ -446,13 +446,12 @@ def test_baseline_evaluator_rejects_inconsistent_family_model_pair(tmp_path: Pat
             checkpoint_path=tmp_path / "checkpoint.pth",
             heal_root=tmp_path / "HEAL",
             tensorrt_root=tmp_path / "TensorRT",
-            plugin_path=tmp_path / "plugin.so",
             eval_manifest_path=tmp_path / "manifest.json",
             physical_gpu_id=0,
         )
 
 
-def test_baseline_real_evaluator_reuses_engine_and_routes_six_input_contract(
+def test_baseline_real_evaluator_reuses_engine_and_routes_post_scatter_contract(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -493,10 +492,8 @@ def test_baseline_real_evaluator_reuses_engine_and_routes_six_input_contract(
         checkpoint_path=checkpoint,
         heal_root=heal_root,
         tensorrt_root=trt_root,
-        plugin_path=plugin,
         eval_manifest_path=manifest,
         physical_gpu_id=3,
-        fixed_k=29696,
         num_frames=2,
         warmup_frames=1,
         latency_rounds=1,
@@ -507,8 +504,9 @@ def test_baseline_real_evaluator_reuses_engine_and_routes_six_input_contract(
 
     assert result["status"] == "ok"
     assert result["engine_rebuilt"] is False
-    assert calls["input_contract"] == "heal_lidar_baseline_fixed_k"
-    assert calls["fixed_k"] == 29696
+    assert calls["input_contract"] == "heal_post_scatter_dynamic_frontend_v1"
+    assert calls["fixed_k"] is None
+    assert calls["checkpoint_path"] == checkpoint
     assert calls["max_agents"] == 2
     assert calls["physical_gpu_id"] == 3
     assert (tmp_path / "evaluation/evaluation_acceptance.json").is_file()
@@ -566,6 +564,19 @@ def test_runtime_graph_engine_acceptance_does_not_use_family_node_audit(
     )
     monkeypatch.setattr(
         evaluator_module,
+        "audit_post_scatter_onnx",
+        lambda _path: {
+            "passed": True,
+            "issues": [],
+            "input_names": [
+                "spatial_features",
+                "pairwise_t_matrix",
+                "agent_mask",
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        evaluator_module,
         "validate_heal_lidar_precision_realization",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("family-specific node audit must not run")
@@ -579,7 +590,6 @@ def test_runtime_graph_engine_acceptance_does_not_use_family_node_audit(
             checkpoint_path=checkpoint,
             heal_root=heal_root,
             tensorrt_root=trt_root,
-            plugin_path=plugin,
             eval_manifest_path=manifest,
             physical_gpu_id=5,
             num_frames=1,
@@ -646,6 +656,7 @@ def test_baseline_candidate_build_only_api_does_not_evaluate(
 
     def fake_materialize(_phenotype, output_dir):
         output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "pruned_checkpoint.pth").write_bytes(b"checkpoint")
         return {"model": model}
 
     evaluator._materialize = fake_materialize

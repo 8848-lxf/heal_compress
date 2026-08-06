@@ -152,8 +152,54 @@ class SearchTensorRTCompatibleLidarPyramid(nn.Module):
         return tuple(outputs[name] for name in self.output_names)
 
 
+class SearchPostScatterLidarPyramid(SearchTensorRTCompatibleLidarPyramid):
+    """Pyramid TensorRT graph beginning at the dense BEV boundary."""
+
+    def __init__(self, model: nn.Module, modality_name: str, output_names: list[str]) -> None:
+        super().__init__(model, modality_name, output_names, fixed_k=0)
+
+    def forward(
+        self,
+        spatial_features: torch.Tensor,
+        pairwise_t_matrix: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
+        feature = _bev_backbone_static(self._backbone(), spatial_features)
+        feature = self._aligner()(feature)
+        if bool(getattr(self.model, "compress", False)):
+            feature = self.model.compressor(feature)
+        affine_matrix = _normalize_pairwise_exportable(
+            pairwise_t_matrix,
+            float(self.model.H),
+            float(self.model.W),
+            float(self.model.fake_voxel_size),
+        )
+        fused_feature, occ_outputs = self._pyramid_forward_static(
+            feature, affine_matrix
+        )
+        if bool(getattr(self.model, "shrink_flag", False)):
+            fused_feature = self.model.shrink_conv(fused_feature)
+        outputs = {
+            "cls_preds": self.model.cls_head(fused_feature),
+            "reg_preds": self.model.reg_head(fused_feature),
+            "dir_preds": self.model.dir_head(fused_feature),
+            "occ0": occ_outputs[0],
+            "occ1": occ_outputs[1],
+            "occ2": occ_outputs[2],
+        }
+        return tuple(outputs[name] for name in self.output_names)
+
+
 def build_search_trt_compatible_export_module(model: nn.Module, *, output_names: tuple[str, ...], fixed_k: int, modality: str = "m1") -> SearchTensorRTCompatibleLidarPyramid:
     return SearchTensorRTCompatibleLidarPyramid(model, modality, list(output_names), fixed_k=fixed_k)
+
+
+def build_search_post_scatter_export_module(
+    model: nn.Module,
+    *,
+    output_names: tuple[str, ...],
+    modality: str = "m1",
+) -> SearchPostScatterLidarPyramid:
+    return SearchPostScatterLidarPyramid(model, modality, list(output_names))
 
 
 def make_pointpillar_domain_compatible(input_onnx: str | Path, output_onnx: str | Path) -> dict[str, Any]:

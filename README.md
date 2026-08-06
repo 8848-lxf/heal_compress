@@ -182,13 +182,12 @@ python -m search.unified \
   --heal-root ../HEAL \
   --tensorrt-root ../TensorRT-10.9_x86_cu118 \
   --calibration-manifest ../calibration/pyramid_train.json \
-  --plugin quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so \
   --output-root ../search_runs/pyramid_ga
 ```
 
 ### DiscoNet 与 F-Cooper
 
-两者使用相同入口，并额外显式传入同模型族的严格 FP32 基线 engine。将 `<family>` 分别替换为 `disco`、`fcooper`：
+两者使用相同入口。严格 FP32 post-scatter 基线由当前代码和 checkpoint 在运行目录中重建，避免复用旧 fixed-K engine。将 `<family>` 分别替换为 `disco`、`fcooper`：
 
 ```bash
 python -m search.unified \
@@ -198,8 +197,6 @@ python -m search.unified \
   --heal-root ../HEAL \
   --tensorrt-root ../TensorRT-10.9_x86_cu118 \
   --calibration-manifest ../calibration/<family>_train.json \
-  --baseline-engine ../model_zoo/baselines/<family>_strict_fp32.plan \
-  --plugin quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so \
   --output-root ../search_runs/<family>_ga
 ```
 
@@ -218,12 +215,11 @@ python -m search.unified \
   --tensorrt-root ../TensorRT-10.9_x86_cu118 \
   --calibration-manifest ../calibration/v2xvit_train200.json \
   --evaluation-manifest ../calibration/v2xvit_fixed1789.json \
-  --plugin quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so \
   --physical-gpu 0 \
   --output-root ../search_runs/v2xvit_ga
 ```
 
-V2X-ViT 使用训练清单冻结的 `fixed_K=29696` 容量，动态维度是协作体数量 `N`。PointPillar scatter 插件仍属于正式 engine；每帧原始点数变化不等价于动态 MaxK。预处理后的总 voxel 数超过 `fixed_K` 时必须明确失败，不允许静默截断或跳帧。
+四个模型使用同一 post-scatter engine 合约：动态 GPU 体素化、FP32 PFN 和 scatter 位于 TensorRT 外部，TensorRT 输入仅为 `spatial_features`、`pairwise_t_matrix`，需要固定双车掩码的模型另有 `agent_mask`。engine 不含点数或 voxel 数维度，不依赖 `fixed_K/MaxK`，也不加载 PointPillar scatter 插件。训练清单中的历史 voxel 统计只用于数据溯源，不能重新成为运行时容量约束。
 
 评估清单至少应包含 200 个 warmup frame 和 1789 个冻结 evaluation frame。V2X-ViT 每代 Top-5 新候选使用固定 500 帧评估，每个预算的最终胜者复用同一 engine 完成 1789 帧验证。
 
@@ -304,10 +300,10 @@ Q/DQ、TensorRT 和固定清单评估，仅缩短进化代数；它用于同配�
 ## DAIR-V2X GPU 评估
 
 DAIR-V2X 的候选 TensorRT、严格 FP32 TensorRT 和 FP32 PyTorch 参考评估均默认
-启用 GPU 体素化。每帧先按实际点数生成动态 voxel 张量，再将 voxel 输入
-fail-closed 地适配到训练清单冻结的 `fixed_K=29696`。固定 K 是现有 pre-scatter
-TensorRT engine 的输入合约，不是 CUDA 体素化容量，也不允许用于静默截断；
-体素数超过固定容量时该帧和整次冻结清单评估必须失败。
+启用 GPU 体素化。每帧按真实点数生成动态 voxel 张量，随后在 CUDA 上执行候选
+checkpoint 的 PFN 和 scatter，得到稠密 BEV 后才进入 TensorRT。该链路没有
+`fixed_K` padding、截断或越界分支；审计记录真实 voxel 数、GPU 体素化时延、
+PFN/scatter 时延、engine forward 和后处理时延。
 
 FP32 PyTorch 和 FP32 TensorRT 基线可显式选择同一后端：
 
@@ -320,23 +316,22 @@ python scripts/evaluate_dair_lidar_pytorch_baselines.py \
   --physical-gpu 0 \
   --voxelization-backend gpu
 
-python scripts/evaluate_dair_lidar_trt_fp32_baselines.py \
-  --models-root ../model_zoo/dairv2x \
-  --fixed-k-audit ../calibration/fixed_k_audit.json \
-  --eval-manifest ../calibration/validation_manifest.json \
+python -m search.unified \
+  --config search/configs/unified/lidar_pyramid_ga.yaml \
+  --checkpoint ../model_zoo/lidar_pyramid/model.pth \
+  --model-config ../model_zoo/lidar_pyramid/config.yaml \
+  --calibration-manifest ../calibration/pyramid_train.json \
   --heal-root ../HEAL \
   --tensorrt-root ../TensorRT-10.9_x86_cu118 \
-  --output-dir ../search_runs/dair_fp32_tensorrt \
-  --physical-gpu 0 \
-  --voxelization-backend gpu
+  --output-root ../search_runs/pyramid_post_scatter
 ```
 
-结果同时记录 H2D、GPU 体素化、fixed-K 输入准备、engine/model forward、GPU
-后处理及组合端到端时延，并写入逐帧 voxel 数与饱和 voxel 数用于审计。
+结果同时记录 H2D、GPU 体素化、PFN/scatter、engine/model forward、GPU 后处理及
+组合端到端时延，并写入逐帧 voxel 数与饱和 voxel 数用于审计。
 
 ## CARLA 接入
 
-CARLA 链路将动态体素化、PFN 和 scatter 保留在 TensorRT 外部，候选 engine 从
+CARLA 与 DAIR 正式链路均将动态体素化、PFN 和 scatter 保留在 TensorRT 外部，候选 engine 从
 稠密 `spatial_features` 与动态协作体 `pairwise_t_matrix` 边界开始。每帧原始
 点数和 voxel 数可以变化，不使用 DAIR 验证集最大值构造固定 `MaxK`，也不静默
 截断。采集器使用相对路面高度做端侧局部高度归一化，并严格执行 CARLA 左手系
@@ -352,20 +347,14 @@ python -m carla_integration.collect_scenes \
   --output ../search_runs/carla_blind_test
 ```
 
-强度分位数映射必须只由 DAIR 训练集和独立 CARLA 校准地图冻结。将搜索输出的
-显式 Q/DQ ONNX 改写为外置 scatter 边界后，构建 TensorRT engine，并在同一
+强度分位数映射必须只由 DAIR 训练集和独立 CARLA 校准地图冻结。搜索输出已是
+post-scatter 显式 Q/DQ ONNX，可直接构建 TensorRT engine，并在同一
 冻结清单上对候选、严格 FP32 TensorRT 和未剪枝 FP32 PyTorch 做配对评估：
 
 ```bash
-python -m carla_integration.post_scatter_deploy \
-  ../search_runs/candidate/explicit_qdq.onnx \
-  --output-dir ../search_runs/candidate/carla_deployment \
-  --tensorrt-root ../TensorRT-10.9_x86_cu118 \
-  --physical-gpu 4
-
 python -m carla_integration.offline_evaluate \
   --data ../search_runs/carla_blind_test \
-  --candidate-engine ../search_runs/candidate/carla_deployment/post_scatter.plan \
+  --candidate-engine ../search_runs/candidate/deployment/engine.plan \
   --baseline-engine ../model_zoo/pyramid/post_scatter_fp32.plan \
   --checkpoint ../search_runs/candidate/pruned_checkpoint.pth \
   --fp32-checkpoint ../model_zoo/lidar_pyramid/net_epoch_bestval_at17.pth \

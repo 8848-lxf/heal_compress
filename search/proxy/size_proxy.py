@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence
 
 from ..candidate import CandidatePhenotype
 from .parameter_slice_resolver import ParameterSlice
@@ -22,10 +22,24 @@ class SizeProxy:
         unit_to_parameter_slices: dict[str, list[ParameterSlice]] | None = None,
         default_precision: str = "FP16",
         include_constant_parameters_in_size: bool = False,
+        include_module_paths: Sequence[str] | None = None,
+        exclude_module_paths: Sequence[str] = (),
         virtual_shape_cache: dict[tuple[str, ...], dict[str, Any]] | None = None,
     ) -> None:
         self.model = model
         self.unit_to_parameter_slices = unit_to_parameter_slices or {}
+        included = (
+            None
+            if include_module_paths is None
+            else {str(value) for value in include_module_paths}
+        )
+        excluded = {str(value) for value in exclude_module_paths}
+
+        def selected(name: str) -> bool:
+            return (included is None or name in included) and name not in excluded
+
+        self._selected_module_paths = included
+        self._excluded_module_paths = excluded
         self.default_precision = str(default_precision).upper()
         self.include_constant_parameters_in_size = bool(
             include_constant_parameters_in_size
@@ -36,11 +50,19 @@ class SizeProxy:
                 name: int(module.weight.numel())
                 for name, module in model.named_modules()
                 if getattr(module, "weight", None) is not None
+                and selected(str(name))
             }
             self.base_parameter_count = sum(
-                int(parameter.numel()) for parameter in model.parameters()
+                int(parameter.numel())
+                for name, module in model.named_modules()
+                if selected(str(name))
+                for parameter in module.parameters(recurse=False)
             )
-        self.layer_parameter_counts = dict(layer_parameter_counts or {})
+        self.layer_parameter_counts = {
+            str(name): int(value)
+            for name, value in dict(layer_parameter_counts or {}).items()
+            if selected(str(name))
+        }
         if self.base_parameter_count <= 0:
             self.base_parameter_count = sum(self.layer_parameter_counts.values()) or 1
         self.base_bits = sum(count * 32 for count in self.layer_parameter_counts.values()) or 1
@@ -72,6 +94,11 @@ class SizeProxy:
             parameter_count_after = 0
             parameter_count_before = 0
             for layer, shape in shapes.items():
+                if (
+                    self._selected_module_paths is not None
+                    and layer not in self._selected_module_paths
+                ) or layer in self._excluded_module_paths:
+                    continue
                 precision = phenotype.realized_precision_profile.get(
                     layer, self.default_precision
                 )

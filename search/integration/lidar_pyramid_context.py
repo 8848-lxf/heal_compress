@@ -10,6 +10,14 @@ from typing import Any, Callable
 import torch
 import torch.nn as nn
 
+from deploy.post_scatter import (
+    POST_SCATTER_CONTRACT,
+    filter_post_scatter_module_paths,
+    filter_post_scatter_pruning_units,
+    filter_post_scatter_quantization_groups,
+    post_scatter_shape_profiles,
+)
+
 from ..canonicalization import SearchSpaceSpec
 from ..hashing import canonical_json_hash
 from ..pruning_space.action_catalog import PruningActionCatalog, build_pruning_action_catalog
@@ -161,7 +169,7 @@ def _precision_layer_ids(model: nn.Module) -> list[str]:
     rows = [name for name, module in model.named_modules() if name and _module_is_weighted(module)]
     if any(name.startswith("dryrun_model") for name in rows):
         raise RuntimeError("real_precision_space_contains_dryrun_layer")
-    return sorted(rows)
+    return filter_post_scatter_module_paths(rows)
 
 
 _FUNCTIONAL_FP16_OUTPUT_BOUNDARIES: dict[str, dict[str, Any]] = {
@@ -318,16 +326,6 @@ def _build_precision_groups(model: nn.Module, trace_result: Any) -> list[Any]:
     return filtered
 
 
-def _shape_profiles(fixed_k: int = 29696) -> dict[str, dict[str, tuple[int, ...]]]:
-    return {
-        "pairwise_t_matrix": {"min": (1, 1, 1, 4, 4), "opt": (1, 2, 2, 4, 4), "max": (1, 2, 2, 4, 4)},
-        "valid_voxel_mask": {"min": (fixed_k,), "opt": (fixed_k,), "max": (fixed_k,)},
-        "voxel_coords": {"min": (fixed_k, 4), "opt": (fixed_k, 4), "max": (fixed_k, 4)},
-        "voxel_features": {"min": (fixed_k, 32, 4), "opt": (fixed_k, 32, 4), "max": (fixed_k, 32, 4)},
-        "voxel_num_points": {"min": (fixed_k,), "opt": (fixed_k,), "max": (fixed_k,)},
-    }
-
-
 def build_lidar_pyramid_context(
     *,
     checkpoint_path: str | Path,
@@ -370,8 +368,13 @@ def build_lidar_pyramid_context(
     if bundle.trace_result is None:
         raise RuntimeError("real_trace_missing")
     trace_hash = str(getattr(bundle.trace_result, "trace_hash", ""))
-    atomic_units = list(getattr(bundle.trace_result, "atomic_prune_units", []) or [])
-    coupled_units = list(getattr(bundle.trace_result, "coupled_channel_units", []) or [])
+    atomic_units = filter_post_scatter_pruning_units(
+        list(getattr(bundle.trace_result, "atomic_prune_units", []) or [])
+    )
+    coupled_units = filter_post_scatter_pruning_units(
+        list(getattr(bundle.trace_result, "coupled_channel_units", []) or []),
+        require_nonempty=False,
+    )
     domain_width_mode = str(pruning_gene_type) in {
         "legal_domain_width",
         "domain_width",
@@ -418,9 +421,14 @@ def build_lidar_pyramid_context(
     }
     precision_layers = _precision_layer_ids(bundle.model)
     precision_groups = _build_precision_groups(bundle.model, bundle.trace_result)
-    search_quant_groups = build_quantization_search_groups(bundle.model, precision_groups=precision_groups)
-    plugin = Path(plugin_path).expanduser().resolve() if plugin_path else (Path.cwd() / DEFAULT_PLUGIN).resolve()
-    tensorrt = discover_trt_environment(tensorrt_root, plugin_path=plugin, conda_env=tensorrt_env)
+    search_quant_groups = filter_post_scatter_quantization_groups(
+        build_quantization_search_groups(
+            bundle.model, precision_groups=precision_groups
+        )
+    )
+    tensorrt = discover_trt_environment(
+        tensorrt_root, plugin_path=None, conda_env=tensorrt_env
+    )
     manifest = write_eval_manifest(
         Path(output_dir) / "baseline" / "eval_manifest.json",
         num_frames=num_frames,
@@ -431,39 +439,24 @@ def build_lidar_pyramid_context(
     builder_flags = {
         "strongly_typed": True,
         "no_tf32": True,
-        "shape_profiles": _shape_profiles(),
+        "shape_profiles": post_scatter_shape_profiles(),
+        "engine_contract": POST_SCATTER_CONTRACT,
+        "point_frontend": "dynamic_voxelization_pfn_scatter_outside_tensorrt",
+        "runtime_max_k_dependency": False,
     }
-    calibration_npz_manifest = (
-        Path(quant_calibration_npz_manifest).expanduser().resolve()
-        if quant_calibration_npz_manifest
-        else None
-    )
+    calibration_npz_manifest = None
     calibration_npz_manifest_hash = ""
-    if calibration_npz_manifest is not None:
-        if not calibration_npz_manifest.is_file():
-            raise RuntimeError(f"quant_calibration_npz_manifest_missing:{calibration_npz_manifest}")
-        calibration_npz_manifest_hash = canonical_json_hash(
-            json.loads(calibration_npz_manifest.read_text(encoding="utf-8"))
-        )
+    if quant_calibration_npz_manifest is not None:
+        raise RuntimeError("post_scatter_calibration_rejects_fixed_k_npz_manifest")
     calibration_backend = str(quant_activation_calibration_backend).strip().lower()
-    if calibration_backend not in {
-        "external_tensorrt_entropy_cache_exact_match",
-        "modelopt_histogram_entropy",
-        "tensorrt_entropy_calibration2",
-    }:
-        raise RuntimeError(f"unsupported_quant_activation_calibration_backend:{calibration_backend}")
-    activation_calibration_cache = (
-        Path(quant_activation_calibration_cache_path).expanduser().resolve()
-        if quant_activation_calibration_cache_path
-        else None
-    )
-    if calibration_backend == "tensorrt_entropy_calibration2" and calibration_npz_manifest is None:
-        raise RuntimeError("tensorrt_entropy_calibration2_requires_exact_npz_manifest")
-    if calibration_backend == "external_tensorrt_entropy_cache_exact_match":
-        if activation_calibration_cache is None or not activation_calibration_cache.is_file():
-            raise RuntimeError(
-                f"external_tensorrt_entropy_cache_missing:{activation_calibration_cache}"
-            )
+    if calibration_backend != "modelopt_histogram_entropy":
+        raise RuntimeError(
+            "post_scatter_calibration_requires_modelopt_histogram_entropy:"
+            f"requested={calibration_backend}"
+        )
+    if quant_activation_calibration_cache_path is not None:
+        raise RuntimeError("post_scatter_calibration_rejects_legacy_entropy_cache")
+    activation_calibration_cache = None
     search_space = SearchSpaceSpec(
         pruning_unit_ids=search_pruning_ids,
         precision_layer_ids=precision_layers,
@@ -487,11 +480,18 @@ def build_lidar_pyramid_context(
                 "config": str(config_path),
             }
         ),
-        onnx_export_config_hash=canonical_json_hash({"fixed_k": 29696, "min_agents": 1, "opt_agents": 2, "max_agents": 2}),
+        onnx_export_config_hash=canonical_json_hash({
+            "engine_contract": POST_SCATTER_CONTRACT,
+            "inputs": ["spatial_features", "pairwise_t_matrix"],
+            "min_agents": 1,
+            "opt_agents": 2,
+            "max_agents": 2,
+            "runtime_max_k_dependency": False,
+        }),
         tensorrt_version="10.9",
         gpu_compute_capability=f"{capability_major}.{capability_minor}",
         builder_flags=builder_flags,
-        plugin_hashes=plugin_hashes([plugin]),
+        plugin_hashes=plugin_hashes([]),
         pruning_policy_version=(
             "legal-domain-width-fixed-ranking-v1"
             if domain_width_mode
@@ -521,7 +521,7 @@ def build_lidar_pyramid_context(
         metric_adapter=None,
         trt_config=None,
         builder_flags=builder_flags,
-        plugin_paths=[plugin],
+        plugin_paths=[],
         physical_gpu_id=gpu.physical_gpu_id,
         runtime_device=gpu.runtime_device,
         gpu_selection=gpu,

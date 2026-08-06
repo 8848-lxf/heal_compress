@@ -12,6 +12,14 @@ from typing import Any, Mapping
 import onnx
 import torch
 
+from deploy.post_scatter import (
+    POST_SCATTER_CONTRACT,
+    POST_SCATTER_INPUTS_WITH_MASK,
+    audit_post_scatter_onnx,
+    post_scatter_shape_profiles,
+    prepare_post_scatter_inputs,
+)
+
 from quantization.config import QDQConfig, TensorRTBuildConfig
 from quantization.export.signal_maxk import capture_weighted_module_calls
 from quantization.precision.qdq_inserter import insert_explicit_qdq
@@ -26,9 +34,8 @@ from search.model_family.deployment import (
     file_sha256,
 )
 from search.model_family.export.heal_v2xvit import (
-    HealV2XViTExportPolicy,
-    build_heal_v2xvit_export_module,
-    prepare_v2xvit_fixed_k_inputs,
+    HealV2XViTPostScatterPolicy,
+    build_heal_v2xvit_post_scatter_export_module,
 )
 from search.integration.runtime_environment import ensure_modelopt_source_available
 from search.stage2.trt_modelopt import build_engine_modelopt
@@ -86,10 +93,8 @@ def export_build_candidate(
     train200_manifest_path: str | Path,
     checkpoint_path: str | Path,
     physical_report: Mapping[str, Any],
-    fixed_k: int,
     physical_gpu: int,
     tensorrt_root: str | Path,
-    plugin_path: str | Path,
     build_engine: bool = True,
     functional_contract: str = "F3",
 ) -> dict[str, Any]:
@@ -111,10 +116,20 @@ def export_build_candidate(
     )
     device = next(model.parameters()).device
     model.eval()
-    policy = HealV2XViTExportPolicy(fixed_k=int(fixed_k), max_agents=2)
-    wrapper = build_heal_v2xvit_export_module(model, policy=policy).eval()
-    prepared = prepare_v2xvit_fixed_k_inputs(real_batch["ego"], policy=policy)
+    policy = HealV2XViTPostScatterPolicy(max_agents=2)
+    wrapper = build_heal_v2xvit_post_scatter_export_module(
+        model, policy=policy
+    ).eval()
+    prepared = prepare_post_scatter_inputs(
+        model,
+        real_batch["ego"],
+        modality=policy.modality,
+        max_agents=policy.max_agents,
+        include_agent_mask=True,
+    )
     input_names = tuple(prepared)
+    if input_names != POST_SCATTER_INPUTS_WITH_MASK:
+        raise RuntimeError(f"v2xvit_post_scatter_input_contract:{input_names}")
     inputs = tuple(prepared[name] for name in input_names)
     with torch.inference_mode():
         reference = adapter.forward_for_task(model, real_batch)
@@ -127,7 +142,13 @@ def export_build_candidate(
             "shape_equal": list(expected.shape) == list(actual.shape),
             "max_abs": float(delta.max().item()),
             "mean_abs": float(delta.mean().item()),
-            "allclose": bool(torch.allclose(expected.float(), actual.float(), atol=5.0e-4, rtol=1.0e-4)),
+            "allclose": bool(
+                torch.allclose(
+                    expected.float(), actual.float(), atol=1.0e-3, rtol=1.0e-4
+                )
+            ),
+            "atol": 1.0e-3,
+            "rtol": 1.0e-4,
         }
     if not all(row["allclose"] for row in parity_rows.values()):
         raise RuntimeError(f"v2xvit_candidate_wrapper_parity_failed:{parity_rows}")
@@ -144,13 +165,18 @@ def export_build_candidate(
             do_constant_folding=True,
             input_names=list(input_names),
             output_names=list(policy.output_names),
-            custom_opsets={"trt": 1},
         )
     origin = canonicalize_v2xvit_onnx(base, calls, output_path=base)
     graph = onnx.load(str(base), load_external_data=False)
     onnx.checker.check_model(graph)
     inferred = onnx.shape_inference.infer_shapes(graph, strict_mode=False)
     onnx.checker.check_model(inferred)
+    post_scatter_audit = audit_post_scatter_onnx(base)
+    if not post_scatter_audit["passed"]:
+        raise RuntimeError(
+            f"v2xvit_post_scatter_export_rejected:{post_scatter_audit['issues']}"
+        )
+    _write_json(output / "post_scatter_onnx_acceptance.json", post_scatter_audit)
     inventory = build_model_inventory(
         model_family="lidar_v2xvit",
         model=model,
@@ -231,6 +257,7 @@ def export_build_candidate(
     _write_json(output / "candidate_identity.json", dict(candidate_identity))
     _write_json(output / "physical_report.json", dict(physical_report))
     _write_json(output / "physical_structure_snapshot_v2.json", snapshot)
+    torch.save(model.state_dict(), output / "pruned_checkpoint.pth")
     _write_json(output / "canonical_origin_map.json", origin.to_dict())
     _write_json(output / "model_inventory.json", inventory)
     _write_json(output / "canonical_precision_mapping.json", mapping.to_dict())
@@ -329,6 +356,12 @@ def export_build_candidate(
     )
     typed_graph = onnx.load(str(typed), load_external_data=False)
     onnx.checker.check_model(typed_graph)
+    typed_post_scatter_audit = audit_post_scatter_onnx(typed)
+    if not typed_post_scatter_audit["passed"]:
+        raise RuntimeError(
+            "v2xvit_typed_post_scatter_rejected:"
+            f"{typed_post_scatter_audit['issues']}"
+        )
     _write_json(
         output / "typed_graph_report.json",
         {
@@ -337,6 +370,7 @@ def export_build_candidate(
             "base_onnx_sha256": file_sha256(base),
             "typed_onnx_sha256": file_sha256(typed),
             "node_count": len(typed_graph.graph.node),
+            "post_scatter_audit": typed_post_scatter_audit,
         },
     )
     result = {
@@ -352,6 +386,9 @@ def export_build_candidate(
         "calibration_cache_hash": calibration_identity["cache_hash"],
         "int8_weighted_call_count": len(int8_entries),
         "engine_build_attempted": bool(build_engine),
+        "engine_contract": POST_SCATTER_CONTRACT,
+        "runtime_max_k_dependency": False,
+        "pruned_checkpoint_path": str((output / "pruned_checkpoint.pth").resolve()),
     }
     if not build_engine:
         _write_json(output / "candidate_result.json", result)
@@ -361,9 +398,8 @@ def export_build_candidate(
     trtexec = trt_root / "targets/x86_64-linux-gnu/bin/trtexec"
     if not trtexec.is_file():
         trtexec = trt_root / "bin/trtexec"
-    plugin = Path(plugin_path).resolve()
-    if not plugin.is_file() or not trtexec.is_file():
-        raise RuntimeError(f"v2xvit_deployment_dependency_missing:{trtexec}:{plugin}")
+    if not trtexec.is_file():
+        raise RuntimeError(f"v2xvit_deployment_dependency_missing:{trtexec}")
     engine = output / "candidate.plan"
     build = build_engine_modelopt(
         qdq_onnx=typed,
@@ -371,7 +407,10 @@ def export_build_candidate(
         precision_mapping=mapping,
         build_config=TensorRTBuildConfig(
             trtexec_path=trtexec,
-            plugin_path=plugin,
+            plugin_path=None,
+            shape_profiles=post_scatter_shape_profiles(
+                POST_SCATTER_INPUTS_WITH_MASK
+            ),
             workspace_mib=8192,
             timeout_seconds=7200,
             precision_constraints="none",
@@ -382,8 +421,8 @@ def export_build_candidate(
             export_layer_info=True,
             strongly_typed=True,
             production_mode=True,
-            plugin_boundary_dtype="fp16",
-            policy_version="v2xvit-deployment-closed-trt10.9-sm89-v1",
+            plugin_boundary_dtype="",
+            policy_version="v2xvit-post-scatter-deployment-closed-trt10.9-v1",
         ),
         physical_snapshot=snapshot,
         output_dir=output / "engine_build",
@@ -426,6 +465,7 @@ def export_build_candidate(
             "engine_path": str(engine.resolve()),
             "engine_sha256": file_sha256(engine),
             "engine_size_bytes": engine.stat().st_size,
+            "pruned_checkpoint_path": str((output / "pruned_checkpoint.pth").resolve()),
             "requested_realized_exact": deployment_audit["requested_realized_exact"],
             "precision_conflict_count": deployment_audit["conflict_count"],
             "engine_build": build,

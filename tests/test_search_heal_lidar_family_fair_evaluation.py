@@ -36,15 +36,19 @@ def _engine(path: Path, value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def _build_inventory_fixture(root: Path) -> tuple[Path, Path]:
+def _build_inventory_fixture(root: Path) -> tuple[Path, Path, Path]:
     baseline = root / "baseline.plan"
     _engine(baseline, b"fp32")
+    baseline_checkpoint = root / "baseline.pth"
+    _engine(baseline_checkpoint, b"fp32-checkpoint")
     rows = []
     for method in ("ga", "greedy"):
         for variant in ("prune_quant", "prune_only", "quant_only"):
             artifact = root / "artifacts" / method / variant
             engine = artifact / "deployment/candidate.plan"
             digest = _engine(engine, f"{method}-{variant}".encode())
+            checkpoint = artifact / "physical/pruned_checkpoint.pth"
+            _engine(checkpoint, f"{method}-{variant}-checkpoint".encode())
             phenotype = artifact / "phenotype.json"
             _json(
                 phenotype,
@@ -87,16 +91,17 @@ def _build_inventory_fixture(root: Path) -> tuple[Path, Path]:
                 }
             )
     _json(root / "engine_inventory.json", {"family_id": "heal_lidar_fcooper", "rows": rows})
-    return root, baseline
+    return root, baseline, baseline_checkpoint
 
 
 def test_family_inventory_uses_engine_inventory_and_artifact_metadata(
     tmp_path: Path,
 ) -> None:
-    root, baseline = _build_inventory_fixture(tmp_path / "build")
+    root, baseline, baseline_checkpoint = _build_inventory_fixture(tmp_path / "build")
     inventories = build_family_evaluation_inventories(
         build_root=root,
         baseline_engine_path=baseline,
+        baseline_checkpoint_path=baseline_checkpoint,
         family_id="heal_lidar_fcooper",
         budgets=(0.30,),
     )
@@ -116,7 +121,7 @@ def test_family_inventory_uses_engine_inventory_and_artifact_metadata(
 
 
 def test_family_inventory_rejects_engine_hash_mismatch(tmp_path: Path) -> None:
-    root, baseline = _build_inventory_fixture(tmp_path / "build")
+    root, baseline, baseline_checkpoint = _build_inventory_fixture(tmp_path / "build")
     payload = json.loads((root / "engine_inventory.json").read_text(encoding="utf-8"))
     payload["rows"][0]["engine_sha256"] = "bad"
     _json(root / "engine_inventory.json", payload)
@@ -124,6 +129,7 @@ def test_family_inventory_rejects_engine_hash_mismatch(tmp_path: Path) -> None:
         build_family_evaluation_inventories(
             build_root=root,
             baseline_engine_path=baseline,
+            baseline_checkpoint_path=baseline_checkpoint,
             family_id="heal_lidar_fcooper",
             budgets=(0.30,),
         )
@@ -154,8 +160,9 @@ def _evaluation_result() -> dict[str, Any]:
         "warmup_frame_ids": ["a"],
         "evaluated_frame_ids": ["a", "b"],
         "skipped_frame_ids": [],
-        "fixed_k": 29696,
-        "input_contract": "heal_lidar_baseline_fixed_k",
+        "fixed_k": None,
+        "input_contract": "heal_post_scatter_dynamic_frontend_v1",
+        "runtime_max_k_dependency": False,
         "eval_manifest_hash": "manifest",
         "reset_after_warmup": True,
         "dataloader_num_workers": 8,
@@ -190,7 +197,6 @@ def test_family_protocol_accepts_phase_schema_and_csv_excludes_warmup() -> None:
         num_frames=2,
         warmup_frames=1,
         manifest_hash="manifest",
-        fixed_k=29696,
     )
     rows = evaluation_frame_latency_rows(result, metadata={"test": True})
     assert [row["frame_id"] for row in rows] == ["a", "b"]
@@ -202,6 +208,8 @@ def test_existing_family_engine_evaluation_locks_and_cleans(
 ) -> None:
     engine = tmp_path / "candidate.plan"
     digest = _engine(engine, b"immutable")
+    checkpoint = tmp_path / "candidate.pth"
+    checkpoint_digest = _engine(checkpoint, b"frontend")
     manifest = tmp_path / "manifest.json"
     _json(
         manifest,
@@ -229,6 +237,8 @@ def test_existing_family_engine_evaluation_locks_and_cleans(
             "actual_bops": 0.301,
             "engine_path": str(engine),
             "engine_sha256": digest,
+            "frontend_checkpoint_path": str(checkpoint),
+            "frontend_checkpoint_sha256": checkpoint_digest,
         },
         gpu_id=4,
         repeat_index=0,
@@ -249,7 +259,9 @@ def test_existing_family_engine_evaluation_locks_and_cleans(
     )
     assert calls[0]["physical_gpu_id"] == 4
     assert calls[0]["dataloader_num_workers"] == 8
-    assert calls[0]["input_contract"] == "heal_lidar_baseline_fixed_k"
+    assert calls[0]["input_contract"] == "heal_post_scatter_dynamic_frontend_v1"
+    assert calls[0]["fixed_k"] is None
+    assert calls[0]["checkpoint_path"] == checkpoint.resolve()
     assert result["source_engine_unchanged"]
     csv_rows = (tmp_path / "evaluation/per_frame_latency.csv").read_text(
         encoding="utf-8"
@@ -269,6 +281,8 @@ def test_existing_family_engine_evaluation_locks_and_cleans(
             "actual_bops": 0.301,
             "engine_path": str(engine),
             "engine_sha256": digest,
+            "frontend_checkpoint_path": str(checkpoint),
+            "frontend_checkpoint_sha256": checkpoint_digest,
         },
         gpu_id=4,
         repeat_index=0,
@@ -284,6 +298,8 @@ def test_existing_family_engine_evaluation_locks_and_cleans(
 def test_resume_fails_closed_on_partial_directory(tmp_path: Path) -> None:
     engine = tmp_path / "candidate.plan"
     digest = _engine(engine, b"immutable")
+    checkpoint = tmp_path / "candidate.pth"
+    checkpoint_digest = _engine(checkpoint, b"frontend")
     manifest = tmp_path / "manifest.json"
     _json(manifest, {"manifest_hash": "manifest", "reset_after_warmup": True})
     partial = tmp_path / "partial"
@@ -299,6 +315,8 @@ def test_resume_fails_closed_on_partial_directory(tmp_path: Path) -> None:
                 "variant": "fp32",
                 "engine_path": str(engine),
                 "engine_sha256": digest,
+                "frontend_checkpoint_path": str(checkpoint),
+                "frontend_checkpoint_sha256": checkpoint_digest,
             },
             gpu_id=3,
             repeat_index=0,
@@ -314,6 +332,8 @@ def test_seed_method_results_validates_and_hardlinks_complete_stream(
 ) -> None:
     engine = tmp_path / "candidate.plan"
     digest = _engine(engine, b"immutable")
+    checkpoint = tmp_path / "candidate.pth"
+    checkpoint_digest = _engine(checkpoint, b"frontend")
     manifest = tmp_path / "eval_manifest.json"
     _json(
         manifest,
@@ -334,6 +354,8 @@ def test_seed_method_results_validates_and_hardlinks_complete_stream(
         "actual_bops": 1.0,
         "engine_path": str(engine),
         "engine_sha256": digest,
+        "frontend_checkpoint_path": str(checkpoint),
+        "frontend_checkpoint_sha256": checkpoint_digest,
     }
     source_root = tmp_path / "source_run"
     source_dir = (
@@ -368,7 +390,8 @@ def test_seed_method_results_validates_and_hardlinks_complete_stream(
                 "latency_rounds": 3,
                 "dataloader_num_workers": 8,
                 "cuda_postprocess": True,
-                "fixed_k": 29696,
+                "fixed_k": None,
+                "input_contract": "heal_post_scatter_dynamic_frontend_v1",
                 "max_agents": 2,
                 "eval_manifest_hash": "manifest",
                 "eval_manifest_file_sha256": hashlib.sha256(
@@ -385,7 +408,6 @@ def test_seed_method_results_validates_and_hardlinks_complete_stream(
         num_frames=2,
         warmup_frames=1,
         latency_rounds=3,
-        fixed_k=29696,
         max_agents=2,
         repeat_count=1,
     )
@@ -461,7 +483,8 @@ def test_seed_method_prefix_stops_before_first_rejected_item(
                 "latency_rounds": 3,
                 "dataloader_num_workers": 8,
                 "cuda_postprocess": True,
-                "fixed_k": 29696,
+                "fixed_k": None,
+                "input_contract": "heal_post_scatter_dynamic_frontend_v1",
                 "max_agents": 2,
                 "eval_manifest_hash": "manifest",
                 "eval_manifest_file_sha256": manifest_sha,
@@ -491,7 +514,6 @@ def test_seed_method_prefix_stops_before_first_rejected_item(
         num_frames=2,
         warmup_frames=1,
         latency_rounds=3,
-        fixed_k=29696,
         max_agents=2,
         repeat_count=1,
     )

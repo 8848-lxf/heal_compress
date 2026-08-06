@@ -2,7 +2,6 @@ model:
   family_id: heal_lidar_disco
   checkpoint: ${MODEL_ROOT}/lidar_disco/net_epoch_bestval_at35.pth
   config: ${MODEL_ROOT}/lidar_disco/config.yaml
-  fixed_k: 29696
   max_agents: 2
   search_space_policy: heal_runtime_graph_v1
 
@@ -22,14 +21,12 @@ runtime:
   tensorrt_env: modelopt
   heal_root: ../../HEAL
   tensorrt_root: ${TENSORRT_ROOT}
-  plugin_path: quantization/plugins/pointpillar_scatter_trt/build/libpointpillar_scatter_trt.so
 
 output:
   experiment_name: h800_heal_lidar_disco_runtime_graph_joint_greedy
 
 baselines:
   build_before_search: false
-  strict_fp32_engine: ./outputs/h800_heal_lidar_fixedk29696_fp32_baselines_20260719/lidar_disco/strict_fp32.plan
 
 pruning:
   gene_type: legal_domain_width
@@ -42,7 +39,7 @@ precision:
   candidates: [FP32, FP16, INT8]
   default: FP32
   weight_granularity: production_layout_aware_per_channel
-  activation_calibration: tensorrt_entropy_calibration2
+  activation_calibration: modelopt_histogram_entropy
   merge_policy: adaptive_equal_or_upcast_INT8_FP16_FP32
 
 resources:
@@ -55,8 +52,7 @@ proxy:
   batch_size: 128
   fisher_calibration_batches: 8
   quant_calibration_batches: 200
-  quant_calibration_npz_manifest: ./outputs/heal_lidar_baseline_train200_fixedk29696_20260719_1215_v2/calibration_manifest.json
-  quant_activation_calibration_backend: tensorrt_entropy_calibration2
+  quant_activation_calibration_backend: modelopt_histogram_entropy
   quant_calibration_force_rebuild: false
   activation_taylor_included: false
   parameter_retention_role: report_only

@@ -157,17 +157,17 @@ def _build_context(
         output_dir=args.run_dir / "build_contexts" / row_id,
         heal_root=runtime["heal_root"],
         tensorrt_root=runtime["tensorrt_root"],
-        plugin_path=_resolve_repo_path(runtime["plugin_path"]),
+        plugin_path=None,
         gpu_id=str(int(args.gpu_id)),
         exclude_gpu_ids=[],
         tensorrt_env=str(runtime.get("tensorrt_env", "modelopt")),
         fisher_calibration_batches=int(proxy.get("fisher_calibration_batches", 8)),
         quant_calibration_batches=int(proxy.get("quant_calibration_batches", 200)),
-        quant_calibration_npz_manifest=proxy.get("quant_calibration_npz_manifest"),
+        quant_calibration_npz_manifest=None,
         quant_activation_calibration_backend=str(
             proxy.get(
                 "quant_activation_calibration_backend",
-                "tensorrt_entropy_calibration2",
+                "modelopt_histogram_entropy",
             )
         ),
         quant_calibration_force_rebuild=True,
@@ -175,7 +175,6 @@ def _build_context(
         warmup_frames=int(full.get("warmup_frames", 200)),
         reset_after_warmup=True,
         default_precision=str(dict(config.get("precision") or {}).get("default", "FP32")),
-        fixed_k=int(model.get("fixed_k", 29696)),
         max_agents=int(model.get("max_agents", 2)),
         minimum_retained_ratio=float(pruning.get("minimum_retained_ratio", 0.10)),
         dense_alignment=int(pruning.get("dense_channel_alignment", 4)),

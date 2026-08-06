@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+from deploy.post_scatter import POST_SCATTER_CONTRACT
+
 from search.integration.runtime_environment import modelopt_python_command, modelopt_subprocess_env
 
 
@@ -17,16 +19,17 @@ def evaluate_v2xvit_engine_modelopt(
     heal_root: str | Path,
     output_dir: str | Path,
     tensorrt_root: str | Path,
-    plugin_path: str | Path,
+    plugin_path: str | Path | None,
     eval_manifest_path: str | Path,
     physical_gpu_id: int,
-    fixed_k: int,
+    fixed_k: int | None = None,
     max_agents: int = 2,
     num_frames: int = 20,
     warmup_frames: int = 5,
     latency_rounds: int = 1,
     dataloader_num_workers: int = 8,
-    input_contract: str = "heal_v2xvit_fixed_k",
+    input_contract: str = POST_SCATTER_CONTRACT,
+    checkpoint_path: str | Path | None = None,
     voxelization_backend: str = "gpu",
     evaluation_seed: int = 0,
 ) -> dict[str, Any]:
@@ -52,6 +55,8 @@ def evaluate_v2xvit_engine_modelopt(
         package_alias.symlink_to(repo_root, target_is_directory=True)
     request_path = destination / "evaluation_request.json"
     output_path = destination / "evaluation.json"
+    if str(input_contract) == POST_SCATTER_CONTRACT and checkpoint_path is None:
+        raise RuntimeError("post_scatter_evaluation_requires_frontend_checkpoint")
     request = {
         "repo_root": str(repo_root),
         "python_package_root": str(python_package_root),
@@ -61,11 +66,18 @@ def evaluate_v2xvit_engine_modelopt(
         "device": "cuda:0",
         "physical_gpu_id": int(physical_gpu_id),
         "output_path": str(output_path.resolve()),
-        "plugin_path": str(Path(plugin_path).resolve()),
+        "plugin_path": (
+            str(Path(plugin_path).resolve()) if plugin_path is not None else ""
+        ),
+        "checkpoint_path": (
+            str(Path(checkpoint_path).resolve())
+            if checkpoint_path is not None
+            else ""
+        ),
         "num_frames": int(num_frames),
         "warmup_frames": int(warmup_frames),
         "latency_rounds": int(latency_rounds),
-        "fixed_k": int(fixed_k),
+        "fixed_k": int(fixed_k) if fixed_k is not None else None,
         "max_agents": int(max_agents),
         "input_contract": str(input_contract),
         "voxelization_backend": str(voxelization_backend),
@@ -73,7 +85,11 @@ def evaluate_v2xvit_engine_modelopt(
         "eval_manifest_path": str(Path(eval_manifest_path).resolve()),
         "dataloader_num_workers": int(dataloader_num_workers),
         "torch_num_threads": 4,
-        "evaluation_protocol_version": "heal-v2xvit-fixed-manifest-deterministic-gpu-voxel-postprocess-workers8-v3",
+        "evaluation_protocol_version": (
+            "heal-post-scatter-dynamic-gpu-voxel-pfn-scatter-external-v1"
+            if str(input_contract) == POST_SCATTER_CONTRACT
+            else "heal-v2xvit-fixed-manifest-deterministic-gpu-voxel-postprocess-workers8-v3"
+        ),
     }
     request_path.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
     env = modelopt_subprocess_env(

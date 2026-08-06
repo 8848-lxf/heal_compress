@@ -25,7 +25,12 @@ def _configs() -> list[dict]:
 def test_formal_baseline_configs_preserve_six_budget_and_h800_protocol() -> None:
     for config in _configs():
         assert config["model"]["family_id"] in {"heal_lidar_fcooper", "heal_lidar_disco"}
-        assert config["model"]["fixed_k"] == 29696
+        assert "fixed_k" not in config["model"]
+        assert "plugin_path" not in config["runtime"]
+        assert (
+            config["proxy"]["quant_activation_calibration_backend"]
+            == "modelopt_histogram_entropy"
+        )
         assert config["model"]["max_agents"] == 2
         # Both families run serially on the dedicated pool selected for this rerun.
         expected_gpu_ids = [5, 6, 7]
