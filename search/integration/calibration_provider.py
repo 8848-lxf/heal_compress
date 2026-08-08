@@ -15,7 +15,7 @@ from ..proxy.fisher_proxy import FisherStatistics
 from .data_provider import build_dataset_and_loader, iter_limited, move_batch_to_device
 
 
-QDQ_CALIBRATION_SEMANTICS_VERSION = "onnx-bn-fold-fixedk-entropy-v6-exact-tensor-manifest"
+QDQ_CALIBRATION_SEMANTICS_VERSION = "onnx-bn-fold-postscatter-entropy-v7"
 TENSORRT_ENTROPY_CALIBRATION_SEMANTICS_VERSION = (
     "onnx-trt-entropycalibration2-fixedk-v1-exact-tensor-manifest"
 )
@@ -562,29 +562,25 @@ def collect_or_load_qdq_calibration_scales(
     weight_granularity: str = "per_channel",
     activation_calibration_method: str = "entropy",
     histogram_bins: int = 2048,
-    fixed_k: int = 29696,
     calibration_frame_ids: Sequence[str] | None = None,
     calibration_seed: int = 20260713,
-    calibration_npz_manifest: str | Path | None = None,
-    calibration_input_names: Sequence[str] | None = None,
-    calibration_forward_fn: Any | None = None,
-    calibration_input_contract: str | None = None,
+    calibration_forward_fn: Any,
+    calibration_input_contract: str,
 ) -> dict[str, dict[str, Any]]:
-    expected_calibration_inputs = tuple(
-        str(value) for value in (calibration_input_names or FIXED_K_CALIBRATION_INPUT_NAMES)
-    )
-    effective_calibration_inputs = (
-        ("spatial_features", "pairwise_t_matrix")
-        if calibration_forward_fn is not None
-        else expected_calibration_inputs
-    )
+    if calibration_forward_fn is None:
+        raise RuntimeError("post_scatter_calibration_forward_fn_required")
+    if str(calibration_input_contract) != "heal_post_scatter_dynamic_frontend_v1":
+        raise RuntimeError(
+            f"post_scatter_calibration_contract_required:{calibration_input_contract}"
+        )
+    effective_calibration_inputs = ("spatial_features", "pairwise_t_matrix")
     path = Path(cache_path)
     if path.is_file():
         payload = json.loads(path.read_text(encoding="utf-8"))
         cached_inputs = tuple(
             str(value)
             for value in payload.get("metadata", {}).get(
-                "input_names", FIXED_K_CALIBRATION_INPUT_NAMES
+                "input_names", effective_calibration_inputs
             )
         )
         if cached_inputs != effective_calibration_inputs:
@@ -614,25 +610,27 @@ def collect_or_load_qdq_calibration_scales(
         torch.manual_seed(int(calibration_seed))
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(int(calibration_seed))
-        if calibration_npz_manifest is not None and calibration_forward_fn is None:
-            batches, calibration_input_provenance = load_fixed_k_calibration_npz_batches(
-                calibration_npz_manifest,
-                num_batches=int(num_batches),
-                fixed_k=int(fixed_k),
-                device=device,
-                input_names=expected_calibration_inputs,
+        _dataset, loader = build_dataset_and_loader(
+            adapter,
+            model_config_path,
+            split="train",
+            num_workers=0,
+            visualize=False,
+        )
+        if len(_dataset) < int(num_batches):
+            raise RuntimeError(
+                f"calibration_dataset_too_short:{len(_dataset)}<{int(num_batches)}"
             )
-        else:
-            _dataset, loader = build_dataset_and_loader(adapter, model_config_path, split="train", num_workers=0, visualize=False)
-            if len(_dataset) < int(num_batches):
-                raise RuntimeError(f"calibration_dataset_too_short:{len(_dataset)}<{int(num_batches)}")
-            batches = [move_batch_to_device(batch, device) for batch in iter_limited(loader, int(num_batches))]
-            calibration_input_provenance = {
-                "source": "dataset_manifest_with_seeded_train_augmentation",
-                "sample_count": len(batches),
-                "fixed_k": None if calibration_forward_fn is not None else int(fixed_k),
-                "input_contract": calibration_input_contract or "pytorch_dynamic_frontend",
-            }
+        batches = [
+            move_batch_to_device(batch, device)
+            for batch in iter_limited(loader, int(num_batches))
+        ]
+        calibration_input_provenance = {
+            "source": "dataset_manifest_with_seeded_train_augmentation",
+            "sample_count": len(batches),
+            "fixed_k": None,
+            "input_contract": str(calibration_input_contract),
+        }
     finally:
         random.setstate(python_rng_state)
         np.random.set_state(numpy_rng_state)
@@ -646,49 +644,14 @@ def collect_or_load_qdq_calibration_scales(
         return adapter.forward_for_task(inner_model, batch)
 
     if onnx_path is not None and origin_map is not None:
-        if calibration_forward_fn is not None:
-            def fixed_k_forward(inner_model: torch.nn.Module, batch: Any) -> Any:
-                return calibration_forward_fn(inner_model, batch)
-        elif expected_calibration_inputs == BASELINE_FIXED_K_CALIBRATION_INPUT_NAMES:
-            from search.model_family.export.heal_lidar_baselines import (
-                HealLidarBaselineExportPolicy,
-                build_heal_lidar_baseline_export_module,
-                prepare_heal_lidar_baseline_inputs,
-            )
-
-            baseline_policy = HealLidarBaselineExportPolicy(fixed_k=int(fixed_k), max_agents=2)
-            wrapper = build_heal_lidar_baseline_export_module(
-                model,
-                policy=baseline_policy,
-            ).to(device).eval()
-
-            def prepare_fixed_k(ego: Any) -> Mapping[str, torch.Tensor]:
-                return prepare_heal_lidar_baseline_inputs(ego, policy=baseline_policy)
-        elif expected_calibration_inputs == FIXED_K_CALIBRATION_INPUT_NAMES:
-            raise RuntimeError(
-                "legacy_fixed_k_pyramid_calibration_is_not_available_in_the_"
-                "formal_release; provide the post-scatter calibration_forward_fn"
-            )
-        else:
-            raise RuntimeError(
-                f"unsupported_qdq_calibration_input_contract:{expected_calibration_inputs}"
-            )
-
-        if calibration_forward_fn is None:
-            def fixed_k_forward(_inner_model: torch.nn.Module, batch: Any) -> Any:
-                if isinstance(batch, Mapping) and all(name in batch for name in expected_calibration_inputs):
-                    prepared = {name: batch[name] for name in expected_calibration_inputs}
-                else:
-                    ego = batch["ego"] if isinstance(batch, Mapping) and "ego" in batch else batch
-                    prepared = prepare_fixed_k(ego)
-                tensors = tuple(prepared[name].to(device) for name in expected_calibration_inputs)
-                return wrapper(*tensors)
+        def post_scatter_forward(inner_model: torch.nn.Module, batch: Any) -> Any:
+            return calibration_forward_fn(inner_model, batch)
 
         scales, calibration_details = collect_onnx_bn_fold_aware_qdq_scales(
             model=model,
             batches=batches,
             module_paths=module_paths,
-            forward_fn=fixed_k_forward,
+            forward_fn=post_scatter_forward,
             onnx_path=onnx_path,
             origin_map=origin_map,
             weight_granularity=weight_granularity,
@@ -724,25 +687,21 @@ def collect_or_load_qdq_calibration_scales(
                     "modules": sorted(module_paths),
                     "activation_calibration_method": activation_calibration_method,
                     "histogram_bins": int(histogram_bins),
-                    "fixed_k": None if calibration_forward_fn is not None else int(fixed_k),
+                    "fixed_k": None,
                     "input_names": list(effective_calibration_inputs),
-                    "input_contract": calibration_input_contract or "fixed_k",
+                    "input_contract": str(calibration_input_contract),
                 }
             ),
             "source": "search.collect_onnx_bn_fold_aware_qdq_scales" if onnx_path is not None and origin_map is not None else "quantization.collect_calibration_scales",
-            "fixed_k": None if calibration_forward_fn is not None else int(fixed_k),
+            "fixed_k": None,
             "input_names": list(effective_calibration_inputs),
-            "input_contract": calibration_input_contract or "fixed_k",
+            "input_contract": str(calibration_input_contract),
             "calibration_seed": int(calibration_seed),
             "calibration_frame_ids": expected_frame_ids,
             "calibration_frame_manifest_hash": canonical_json_hash(
                 {"split": "train", "frame_ids": expected_frame_ids, "order": "dataset_manifest_order"}
             ),
-            "calibration_order": (
-                "npz_manifest_file_order"
-                if calibration_npz_manifest is not None
-                else "dataset_manifest_order_shuffle_false"
-            ),
+            "calibration_order": "dataset_manifest_order_shuffle_false",
             "calibration_input_provenance": calibration_input_provenance,
             **calibration_details,
         },

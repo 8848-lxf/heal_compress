@@ -20,8 +20,6 @@ from deploy.post_scatter import (
 )
 
 from quantization.config import QDQConfig
-from quantization.export.origin_mapping import apply_canonical_node_names, build_onnx_origin_map
-from quantization.export.signal_maxk import capture_weighted_module_calls
 from quantization.precision.qdq_inserter import insert_explicit_qdq
 from quantization.precision.merge_contract import apply_adaptive_merge_output_contract
 from quantization.tensorrt.layer_info import (
@@ -41,21 +39,12 @@ from ..quantization_space.types import QuantizationSearchGroup
 from .contracts import ModelFamilyAudit
 from .export.heal_lidar_baselines import (
     HealLidarBaselineExportPolicy,
-    build_heal_lidar_baseline_export_module,
     build_heal_lidar_baseline_post_scatter_export_module,
-    prepare_heal_lidar_baseline_inputs,
 )
 from .onnx_mapping import ModelFamilyOnnxMapping, ModelFamilyOnnxWeightedEntry
 
 
-HEAL_LIDAR_BASELINE_INPUT_NAMES = (
-    "voxel_features",
-    "voxel_coords",
-    "voxel_num_points",
-    "pairwise_t_matrix",
-    "valid_voxel_mask",
-    "agent_mask",
-)
+HEAL_LIDAR_BASELINE_INPUT_NAMES = POST_SCATTER_INPUTS_WITH_MASK
 HEAL_LIDAR_BASELINE_OUTPUT_NAMES = ("cls_preds", "reg_preds", "dir_preds")
 SUPPORTED_DEPLOYMENT_FAMILIES = ("heal_lidar_fcooper", "heal_lidar_disco")
 WRAPPER_PARITY_MAX_ABS_TOL = 5.0e-3
@@ -148,30 +137,6 @@ def _parity(
     return {"passed": all(bool(row["allclose"]) for row in rows.values()), "outputs": rows}
 
 
-def _check_onnx_with_scatter_plugin(model: Any) -> None:
-    """Validate all standard ONNX structure after replacing the known plugin."""
-
-    import onnx
-
-    checkable = onnx.ModelProto()
-    checkable.ParseFromString(model.SerializeToString())
-    replaced = 0
-    for node in checkable.graph.node:
-        if str(node.domain) == "trt" and str(node.op_type) == "PointPillarScatterTRT":
-            if not node.input or len(node.output) != 1:
-                raise RuntimeError("heal_lidar_scatter_plugin_boundary_invalid")
-            first_input = str(node.input[0])
-            node.domain = ""
-            node.op_type = "Identity"
-            del node.input[:]
-            node.input.extend([first_input])
-            del node.attribute[:]
-            replaced += 1
-    if replaced != 1:
-        raise RuntimeError(f"heal_lidar_scatter_plugin_checker_replacement_count:{replaced}")
-    onnx.checker.check_model(checkable)
-
-
 def build_heal_lidar_baseline_onnx_mapping(
     onnx_path: str | Path,
     audit: ModelFamilyAudit,
@@ -260,123 +225,12 @@ def build_heal_lidar_baseline_onnx_mapping(
             "active_weighted_compute_node_count": sum(row.call_count for row in entries if row.active),
             "realized_graph_mapping_complete": not unresolved,
             "parameter_free_grid_matmul_node_count": len(origin_map.functional_matmul_nodes),
-            "input_contract": (
-                POST_SCATTER_CONTRACT
-                if any(
-                    row.mapping_status == "externalized_point_frontend"
-                    for row in entries
-                )
-                else "heal_lidar_baseline_fixed_k"
-            ),
+            "input_contract": POST_SCATTER_CONTRACT,
         },
     )
     if unresolved:
         raise RuntimeError(f"heal_lidar_baseline_onnx_mapping_incomplete:{unresolved}")
     return mapping
-
-
-def canonicalize_heal_lidar_baseline_onnx(
-    onnx_path: str | Path,
-    module_calls: Sequence[Mapping[str, Any] | Any],
-    audit: ModelFamilyAudit,
-    *,
-    output_path: str | Path | None = None,
-) -> tuple[Any, ModelFamilyOnnxMapping]:
-    origin = build_onnx_origin_map(onnx_path, module_calls)
-    destination = output_path or onnx_path
-    apply_canonical_node_names(
-        onnx_path,
-        origin,
-        output_path=destination,
-        allow_custom_ops=True,
-    )
-    return origin, build_heal_lidar_baseline_onnx_mapping(destination, audit, origin)
-
-
-def export_heal_lidar_baseline_fixed_k_onnx(
-    model: nn.Module,
-    ego_batch: Mapping[str, Any],
-    output_path: str | Path,
-    *,
-    audit: ModelFamilyAudit,
-    policy: HealLidarBaselineExportPolicy,
-    opset_version: int = 17,
-) -> HealLidarBaselineOnnxExport:
-    """Export the six-input wrapper, prove parity, and canonicalize all weights."""
-
-    family_id = _family_id(audit)
-    expected_fusion = "MaxFusion" if family_id == "heal_lidar_fcooper" else "DiscoFusion"
-    if type(model.fusion_net).__name__ != expected_fusion:
-        raise RuntimeError(f"heal_lidar_baseline_export_fusion_mismatch:{type(model.fusion_net).__name__}")
-    wrapper = build_heal_lidar_baseline_export_module(model, policy=policy).eval()
-    prepared = prepare_heal_lidar_baseline_inputs(ego_batch, policy=policy)
-    if tuple(prepared) != HEAL_LIDAR_BASELINE_INPUT_NAMES:
-        raise RuntimeError(f"heal_lidar_baseline_export_input_order:{tuple(prepared)}")
-    tensors = tuple(prepared[name] for name in HEAL_LIDAR_BASELINE_INPUT_NAMES)
-    destination = Path(output_path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with _serialized_heal_lidar_onnx_export():
-        with torch.inference_mode():
-            reference = model(dict(ego_batch))
-            actual = wrapper(*tensors)
-        parity = _parity(reference, actual, HEAL_LIDAR_BASELINE_OUTPUT_NAMES)
-        if not parity["passed"]:
-            raise RuntimeError(f"heal_lidar_baseline_wrapper_parity_failed:{parity}")
-        with capture_weighted_module_calls(wrapper) as calls:
-            torch.onnx.export(
-                wrapper,
-                tensors,
-                str(destination),
-                export_params=True,
-                opset_version=int(opset_version),
-                do_constant_folding=True,
-                input_names=list(HEAL_LIDAR_BASELINE_INPUT_NAMES),
-                output_names=list(HEAL_LIDAR_BASELINE_OUTPUT_NAMES),
-                custom_opsets={"trt": 1},
-            )
-    origin, family_mapping = canonicalize_heal_lidar_baseline_onnx(
-        destination,
-        calls,
-        audit,
-        output_path=destination,
-    )
-
-    import onnx
-
-    graph = onnx.load(str(destination), load_external_data=False)
-    inputs = tuple(str(row.name) for row in graph.graph.input)
-    outputs = tuple(str(row.name) for row in graph.graph.output)
-    plugin_nodes = tuple(
-        str(node.name)
-        for node in graph.graph.node
-        if str(node.domain) == "trt" and str(node.op_type) == "PointPillarScatterTRT"
-    )
-    if inputs != HEAL_LIDAR_BASELINE_INPUT_NAMES or outputs != HEAL_LIDAR_BASELINE_OUTPUT_NAMES:
-        raise RuntimeError(f"heal_lidar_baseline_onnx_contract:{inputs}:{outputs}")
-    if len(plugin_nodes) != 1:
-        raise RuntimeError(f"heal_lidar_baseline_scatter_plugin_count:{len(plugin_nodes)}")
-    try:
-        _check_onnx_with_scatter_plugin(graph)
-    except Exception as exc:
-        raise RuntimeError(
-            f"heal_lidar_baseline_onnx_checker_failed:{type(exc).__name__}:{exc}"
-        ) from exc
-    export = OnnxExportResult(
-        onnx_path=str(destination),
-        input_names=list(inputs),
-        output_names=list(outputs),
-        fixed_k=int(policy.fixed_k),
-        dynamic_agent_dimension=False,
-        checker_passed=True,
-        origin_map=origin,
-    )
-    return HealLidarBaselineOnnxExport(
-        export=export,
-        family_mapping=family_mapping,
-        input_shapes={name: tuple(int(value) for value in prepared[name].shape) for name in inputs},
-        plugin_nodes=plugin_nodes,
-        wrapper_parity=parity,
-    )
 
 
 def export_heal_lidar_baseline_post_scatter_onnx(
@@ -1005,8 +859,6 @@ __all__ = [
     "build_heal_lidar_baseline_onnx_mapping",
     "build_heal_lidar_baseline_precision_mapping",
     "build_heal_lidar_baseline_quantization_groups",
-    "canonicalize_heal_lidar_baseline_onnx",
-    "export_heal_lidar_baseline_fixed_k_onnx",
     "export_heal_lidar_baseline_post_scatter_onnx",
     "insert_heal_lidar_baseline_explicit_qdq",
     "validate_heal_lidar_fusion_island_realization",

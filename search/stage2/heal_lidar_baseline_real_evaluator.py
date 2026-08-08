@@ -24,7 +24,6 @@ from search.model_family.deployment import build_physical_structure_snapshot_v2
 from search.model_family.evaluation import evaluate_v2xvit_engine_modelopt
 from search.model_family.export.heal_lidar_baselines import HealLidarBaselineExportPolicy
 from search.model_family.heal_lidar_deployment import (
-    HEAL_LIDAR_BASELINE_INPUT_NAMES,
     build_heal_lidar_baseline_precision_mapping,
     export_heal_lidar_baseline_post_scatter_onnx,
     insert_heal_lidar_baseline_explicit_qdq,
@@ -575,7 +574,6 @@ class HealLidarBaselineCandidateEvaluator:
             origin_map=export_artifact.export.origin_map,
             weight_granularity="per_channel",
             activation_calibration_method="entropy",
-            calibration_npz_manifest=None,
             calibration_forward_fn=lambda inner_model, batch: self.context.model_bundle.adapter.forward_for_task(
                 inner_model, batch
             ),

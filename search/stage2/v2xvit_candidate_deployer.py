@@ -21,7 +21,7 @@ from deploy.post_scatter import (
 )
 
 from quantization.config import QDQConfig, TensorRTBuildConfig
-from quantization.export.signal_maxk import capture_weighted_module_calls
+from quantization.export.weighted_call_capture import capture_weighted_module_calls
 from quantization.precision.qdq_inserter import insert_explicit_qdq
 from quantization.precision.typed_graph import apply_strongly_typed_precision_contract
 from quantization.types import stable_json_hash

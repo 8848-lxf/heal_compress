@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from ..artifacts.io import atomic_write_json
 from ..config import CanonicalNamingConfig, OnnxExportConfig
 from ..exceptions import OnnxExportError
 from ..types import OnnxExportResult
 from .origin_mapping import apply_canonical_node_names, build_onnx_origin_map
+from .weighted_call_capture import capture_weighted_module_calls
 
 
 REQUIRED_SIGNAL_MAXK_INPUTS = (
@@ -48,45 +48,6 @@ def _validate_example_inputs(inputs: Sequence[Any], config: OnnxExportConfig) ->
         raise OnnxExportError(f"pairwise_t_matrix must be [1,N,N,4,4], got {pairwise}")
     if not (config.min_agents <= pairwise[1] <= config.max_agents):
         raise OnnxExportError(f"example agent count {pairwise[1]} is outside configured profile")
-
-
-@contextmanager
-def capture_weighted_module_calls(model: Any) -> Iterator[list[dict[str, Any]]]:
-    """Capture weighted calls without patching process-global exporter state."""
-
-    import torch
-
-    records: list[dict[str, Any]] = []
-    handles = []
-    counter = 0
-
-    def register(module_path: str, module: Any) -> None:
-        def hook(_module: Any, _inputs: tuple[Any, ...], _output: Any) -> None:
-            nonlocal counter
-            mapped = "ConvTranspose" if isinstance(module, torch.nn.ConvTranspose2d) else "Conv" if isinstance(module, torch.nn.Conv2d) else "MatMul"
-            weight = getattr(module, "weight", None)
-            records.append(
-                {
-                    "module_path": module_path.removeprefix("model."),
-                    "module_type": type(module).__name__,
-                    "call_index": counter,
-                    "mapped_onnx_op_type": mapped,
-                    "weight_shape": list(weight.shape) if weight is not None else [],
-                    "groups": int(getattr(module, "groups", 1) or 1),
-                }
-            )
-            counter += 1
-
-        handles.append(module.register_forward_hook(hook))
-
-    for name, module in model.named_modules():
-        if name and isinstance(module, (torch.nn.Conv2d, torch.nn.ConvTranspose2d, torch.nn.Linear)):
-            register(str(name), module)
-    try:
-        yield records
-    finally:
-        for handle in handles:
-            handle.remove()
 
 
 def inspect_signal_maxk_onnx(path: str | Path, *, validate: bool = True, allow_custom_ops: bool = True) -> dict[str, Any]:

@@ -1707,7 +1707,6 @@ class LidarPyramidRealEvaluator:
                 histogram_bins=2048,
                 calibration_frame_ids=train_frame_ids,
                 calibration_seed=calibration_seed,
-                calibration_npz_manifest=None,
                 calibration_forward_fn=lambda inner_model, batch: self.context.model_bundle.adapter.forward_for_task(
                     inner_model, batch
                 ),

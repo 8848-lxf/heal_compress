@@ -15,7 +15,7 @@ from quantization.export.origin_mapping import (
     apply_canonical_node_names,
     build_onnx_origin_map,
 )
-from quantization.export.signal_maxk import capture_weighted_module_calls
+from quantization.export.weighted_call_capture import capture_weighted_module_calls
 from quantization.types import OnnxExportResult
 
 
